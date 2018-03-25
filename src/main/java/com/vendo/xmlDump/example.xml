@@ -1,0 +1,14 @@
+<!--
+	Copyright (C) 2005 Cognos Incorporated. All Rights Reserved.
+	Cognos (R) is a trademark of Cognos Incorporated.
+-->
+<stringTable>
+	<component name="RST">
+		<section name="RSA" type="Menus">
+			<string id="IDS_MBI_FILE" type="Menu">Fichier</string>
+			<string id="IDS_MBI_EDIT" type="Menu">Édition</string>
+			<string id="IDS_MBI_VIEW" type="Menu">Affichage</string>
+			<string id="IDS_MBI_ORGANIZE" type="Menu">Organisation</string>
+		</section>
+	</component>
+</stringTable>

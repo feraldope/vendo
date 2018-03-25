@@ -1,0 +1,38 @@
+Inflation = 3.5
+BirthDate = 12/1962
+RetirementAge = 65
+
+[No. 1]
+Name = Roth IRAs
+Balance = execute "mutfun /total /filter=*ROTH"
+AnnualContribution = 0
+GrowthRateOfInvestment = 7
+GrowthRateOfContribution = 3
+
+[No. 2]
+Name = Trad IRAs
+Balance = execute "mutfun /total /filter=*IRA"
+AnnualContribution = 0
+GrowthRateOfInvestment = 7
+GrowthRateOfContribution = 3
+
+[No. 3]
+Name = SIMPLE IRAs
+Balance = execute "mutfun /total /filter=*SIMPLE"
+AnnualContribution = 0
+GrowthRateOfInvestment = 7
+GrowthRateOfContribution = 3
+
+[No. 4]
+Name = 401(k)
+Balance = execute "mutfun /total /filter=*401k"
+AnnualContribution = 19500 #actual as of 11/14: employee (10%) + employer match (2.5%)
+GrowthRateOfInvestment = 7
+GrowthRateOfContribution = 2
+
+[No. 5]
+Name = Taxable
+Balance = execute "mutfun /total /non"
+AnnualContribution = 0
+GrowthRateOfInvestment = 6
+GrowthRateOfContribution = 0

@@ -1,0 +1,32 @@
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" >
+<!--
+	xsi:noNamespaceSchemaLocation="../config/ehcache.xsd">
+-->
+
+	<diskStore path="C:/Users/java/CacheTest/myData3" />
+
+	<defaultCache
+		maxElementsInMemory="10000" 
+		eternal="true"
+		timeToIdleSeconds="120" 
+		timeToLiveSeconds="120" 
+		overflowToDisk="true"
+		maxElementsOnDisk="10000000" 
+		diskPersistent="true"
+		diskExpiryThreadIntervalSeconds="120" 
+		memoryStoreEvictionPolicy="LRU"
+	/>
+
+	<cache 
+		name="cache3test" 
+		maxElementsInMemory="500" 
+		eternal="true"
+		overflowToDisk="true" 
+		timeToIdleSeconds="300" 
+		timeToLiveSeconds="600"
+		diskPersistent="true" 
+		diskExpiryThreadIntervalSeconds="1"
+		memoryStoreEvictionPolicy="LFU"
+	/>
+
+</ehcache>

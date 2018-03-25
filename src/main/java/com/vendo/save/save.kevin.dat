@@ -1,0 +1,24 @@
+Inflation = 0
+BirthDate = 4/1998
+RetirementAge = 65
+
+[No. 1]
+Name = ROTH IRA
+Balance = 6000
+AnnualContribution = 2000
+GrowthRateOfInvestment = 8
+GrowthRateOfContribution = 0
+
+[No. 2]
+Name = 401(k)
+Balance = 0
+AnnualContribution = 0
+GrowthRateOfInvestment = 8
+GrowthRateOfContribution = 0
+
+[No. 3]
+Name = Taxable
+Balance = 0
+AnnualContribution = 0
+GrowthRateOfInvestment = 6
+GrowthRateOfContribution = 0

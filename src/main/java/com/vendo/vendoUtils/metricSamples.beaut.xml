@@ -1,0 +1,531 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<collection>
+	<metric
+		altName=""
+		ciDescr="CPU Usage"
+		ciId="CE601CAE03B0AC4A53028ED410B9DCDE2"
+		ciName="Total"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D1B73F0D20DD6AE10042C7F45D19D69FE"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="0.66"
+		mean="0.66"
+		median="0.66"
+		metId="M8A874B0FE8A35A968C987EC8DD78F40E"
+		metricType="1.5:1"
+		min="0.66"
+		origin="ricda13ump3_hub"
+		probe="cdm"
+		qosName="QOS_CPU_USAGE"
+		source="ricda13ump3"
+		target="ricda13ump3"
+		tripValue="0.0"
+		unit="%">
+		<sample>
+			<time>2016-01-29T14:58:16.000Z</time>
+			<epoch>1454079496</epoch>
+			<value>.66</value>
+			<rate>300</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="Processor Queue Length"
+		ciId="CE601CAE03B0AC4A53028ED410B9DCDE2"
+		ciName="Total"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D1B73F0D20DD6AE10042C7F45D19D69FE"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="0.0"
+		mean="0.0"
+		median="0.0"
+		metId="ME130351CD4279C77489F1A9702F7C697"
+		metricType="1.5:9"
+		min="0.0"
+		origin="ricda13ump3_hub"
+		probe="cdm"
+		qosName="QOS_PROC_QUEUE_LEN"
+		source="ricda13ump3"
+		target="ricda13ump3"
+		tripValue="0.0"
+		unit="procs">
+		<sample>
+			<time>2016-01-29T14:58:16.000Z</time>
+			<epoch>1454079496</epoch>
+			<value>0</value>
+			<rate>300</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="vmware Variable"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="0.0"
+		mean="0.0"
+		median="0.0"
+		metId="M0aa3104d66d04c4611ce3fe2983f6b13"
+		metricType="1.17.1:18"
+		min="0.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VARIABLE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="CpuReservation"
+		tripValue="0.0"
+		unit="abbr">
+		<sample>
+			<time>2016-01-25T21:13:59.000Z</time>
+			<epoch>1453756439</epoch>
+			<value>0</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="vmware Variable"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="-1.0"
+		mean="-1.0"
+		median="-1.0"
+		metId="Ma4808b5025955e146a792d45921938a1"
+		metricType="1.17.1:22"
+		min="-1.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VARIABLE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="limit"
+		tripValue="0.0"
+		unit="abbr">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>-1</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="vmware Variable"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="8.0"
+		mean="8.0"
+		median="8.0"
+		metId="M1a48e2ca6dc6a3047e405f9cbf5126b5"
+		metricType="1.17.1:5"
+		min="8.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VARIABLE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="NumCPU"
+		tripValue="0.0"
+		unit="abbr">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>8</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="The utilization of a VM will not exceed this limit, even if there are available resources."
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="-1.0"
+		mean="-1.0"
+		median="-1.0"
+		metId="M6f7e491ab7e4bbf2645725484358e3cd"
+		metricType="1.17.2:2"
+		min="-1.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VM_MEMORY_LIMIT"
+		source="ricda13UMP3 (DaveR .59)"
+		target="Memory Limit"
+		tripValue="0.0"
+		unit="MB">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>-1</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="vmware Variable"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="0.0"
+		mean="0.0"
+		median="0.0"
+		metId="M4e74ce99304686ce068c0587ac69abef"
+		metricType="1.17.2:3"
+		min="0.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VARIABLE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="MemoryReservation"
+		tripValue="0.0"
+		unit="abbr">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>0</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="Memory Usage in percent"
+		ciId="C4cbafe7308862b6c5025b486df1974c2"
+		ciName="ricda13UMP3 (DaveR .59).Memory"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="96.07"
+		mean="96.07"
+		median="96.07"
+		metId="M3ce27234ffd807685f00bf3e4d84d304"
+		metricType="1.17.2:5"
+		min="96.07"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_MEMORY_PERC_USAGE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="Memory Consumed (% of Memory)"
+		tripValue="0.0"
+		unit="%">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>96.07</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="vmware Variable"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="1.0"
+		mean="1.0"
+		median="1.0"
+		metId="M81540db6febaa404df42da49e686f70a"
+		metricType="1.17:1"
+		min="1.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VARIABLE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="PowerState"
+		tripValue="0.0"
+		unit="abbr">
+		<sample>
+			<time>2016-01-25T21:13:59.000Z</time>
+			<epoch>1453756439</epoch>
+			<value>1</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="KBytes Written/Read To/From Disk per Second"
+		ciId="C0da0918449d704afb4252a2177b16f05"
+		ciName="ricda13UMP3 (DaveR .59).Disk"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="2834.2"
+		mean="2834.2"
+		median="2834.2"
+		metId="M057d6813463d950a4780552ecd8f755c"
+		metricType="1.1:31"
+		min="2834.2"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_DISK_READWRITE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="Disk Usage"
+		tripValue="0.0"
+		unit="KB / s">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>2834.2</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="CPU Usage in MHz"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="6833.0"
+		mean="6833.0"
+		median="6833.0"
+		metId="Mab739c584975aef0d0a6489a816c51a6"
+		metricType="1.5:35"
+		min="6833.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_CPU_USAGE_MHZ"
+		source="ricda13UMP3 (DaveR .59)"
+		target="OverallCpuUsage"
+		tripValue="0.0"
+		unit="MHz">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>6833</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="CPU Usage"
+		ciId="Cb76c0609086fe32f79bdf4e68f491041"
+		ciName="ricda13UMP3 (DaveR .59).CPU"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="34.98"
+		mean="34.98"
+		median="34.98"
+		metId="Mf6cd4f566532ed2a45d9a08f8d4f7e86"
+		metricType="1.5:36"
+		min="34.98"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_CPU_USAGE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="CPU Used (% of available)"
+		tripValue="0.0"
+		unit="%">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>34.98</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="Memory Usage"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="3440.0"
+		mean="3440.0"
+		median="3440.0"
+		metId="M3031a077170938a0e85853c419bf3dc7"
+		metricType="1.6:1"
+		min="3440.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_MEMORY_USAGE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="GuestMemoryUsage"
+		tripValue="0.0"
+		unit="MB">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>3440</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="Memory Usage in percent"
+		ciId="C4cbafe7308862b6c5025b486df1974c2"
+		ciName="ricda13UMP3 (DaveR .59).Memory"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="27.36"
+		mean="27.36"
+		median="27.36"
+		metId="Mc09795cec525eb93a392eaacdbe48d4e"
+		metricType="1.6:2"
+		min="27.36"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_MEMORY_PERC_USAGE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="Memory Usage"
+		tripValue="0.0"
+		unit="%">
+		<sample>
+			<time>2016-01-25T21:13:59.000Z</time>
+			<epoch>1453756439</epoch>
+			<value>27.36</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="Total amount of memory"
+		ciId="Cd05543bb785afa0b8cd50fd87204d953"
+		ciName="ricda13UMP3 (DaveR .59)"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="12288.0"
+		mean="12288.0"
+		median="12288.0"
+		metId="M87d63d99631345f31a70c22c28fec77a"
+		metricType="1.6:29"
+		min="12288.0"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_MEMORY_CAPACITY"
+		source="ricda13UMP3 (DaveR .59)"
+		target="Memory"
+		tripValue="0.0"
+		unit="MB">
+		<sample>
+			<time>2016-01-25T21:13:59.000Z</time>
+			<epoch>1453756439</epoch>
+			<value>12288</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+	<metric
+		altName=""
+		ciDescr="vmware Variable"
+		ciId="C0e3615c66bd75b7e328f6e5d52d8a41f"
+		ciName="ricda13UMP3 (DaveR .59).Network"
+		csId="1"
+		csIp="138.42.111.59"
+		csKey="558873d5-5fb7-46b8-b214-7ca952cccc53"
+		csName="ricda13ump3"
+		dataSource="NMS"
+		devId="D57939ddf132ce5b766c64a5a96f0996e"
+		displayAlias_s="ricda13ump3"
+		displayName_s="ricda13ump3"
+		max="86.87"
+		mean="86.87"
+		median="86.87"
+		metId="M78b1a95df2061c3ee1b0c23bf8872e86"
+		metricType="2.1.1:39"
+		min="86.87"
+		origin="ricda13ump3_hub"
+		probe="vmware"
+		qosName="QOS_VMWARE_VARIABLE"
+		source="ricda13UMP3 (DaveR .59)"
+		target="Network usage"
+		tripValue="0.0"
+		unit="abbr">
+		<sample>
+			<time>2016-01-25T21:23:40.000Z</time>
+			<epoch>1453757020</epoch>
+			<value>86.87</value>
+			<rate>600</rate>
+		</sample>
+	</metric>
+</collection>

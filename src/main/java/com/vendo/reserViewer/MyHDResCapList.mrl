@@ -1,0 +1,148 @@
+;MyHD Reservation Capture List File
+;Macro Image Technology
+
+;****************************
+[ReservationCapture]
+ count = 6
+
+ [No. 1]
+  Title = Law & Order
+  FileType = 2
+  Input = 0
+  PhyCh = 42
+  VirCh = 7
+  SubCh = 1
+  DateMode = 0
+  Year = 2010
+  Month = 5
+  Day = 10
+  Week = 1
+  StartTime_Min = 0
+  StartTime_Hour = 22
+  EndTime_Min = 0
+  EndTime_Hour = 23
+  UseDefaultFileName = 1
+  FileName = D:\DTV\D07-1(42)-0510-Law & Order.tp
+  FileNameStyle = 7
+  DirStyle = 0
+  ChNum = D07(D42)-1WHDH-HD
+  ChName = WHDH-HD
+
+ [No. 2]
+  Title = The New Adventures of Old Christine
+  FileType = 2
+  Input = 1
+  PhyCh = 114
+  VirCh = 114
+  SubCh = 2
+  DateMode = 0
+  Year = 2010
+  Month = 5
+  Day = 12
+  Week = 3
+  StartTime_Min = 0
+  StartTime_Hour = 20
+  EndTime_Min = 30
+  EndTime_Hour = 20
+  UseDefaultFileName = 1
+  FileName = D:\DTV\D114-2(114)-0512-The New Adventures of Old Christine.tp
+  FileNameStyle = 7
+  DirStyle = 0
+  ChNum = 
+  ChName = 
+
+ [No. 3]
+  Title = The Middle & Modern Family
+  FileType = 2
+  Input = 1
+  PhyCh = 113
+  VirCh = 113
+  SubCh = 1
+  DateMode = 0
+  Year = 2010
+  Month = 5
+  Day = 12
+  Week = 3
+  StartTime_Min = 30
+  StartTime_Hour = 20
+  EndTime_Min = 31
+  EndTime_Hour = 21
+  UseDefaultFileName = 1
+  FileName = D:\DTV\D113-1(113)-0512-The Middle & Modern Family.tp
+  FileNameStyle = 7
+  DirStyle = 0
+  ChNum = 
+  ChName = 
+
+ [No. 4]
+  Title = Community & Parks and Rec
+  FileType = 2
+  Input = 0
+  PhyCh = 42
+  VirCh = 7
+  SubCh = 1
+  DateMode = 0
+  Year = 2010
+  Month = 5
+  Day = 13
+  Week = 4
+  StartTime_Min = 0
+  StartTime_Hour = 20
+  EndTime_Min = 0
+  EndTime_Hour = 21
+  UseDefaultFileName = 1
+  FileName = D:\DTV\D07-1(42)-0513-Community & Parks and Rec.tp
+  FileNameStyle = 7
+  DirStyle = 0
+  ChNum = D07(D42)-1WHDH-HD
+  ChName = WHDH-HD
+
+ [No. 5]
+  Title = The Office & 30 Rock
+  FileType = 2
+  Input = 0
+  PhyCh = 42
+  VirCh = 7
+  SubCh = 1
+  DateMode = 0
+  Year = 2010
+  Month = 5
+  Day = 13
+  Week = 4
+  StartTime_Min = 0
+  StartTime_Hour = 21
+  EndTime_Min = 0
+  EndTime_Hour = 22
+  UseDefaultFileName = 1
+  FileName = D:\DTV\D07-1(42)-0513-The Office & 30 Rock.tp
+  FileNameStyle = 7
+  DirStyle = 0
+  ChNum = D07(D42)-1WHDH-HD
+  ChName = WHDH-HD
+
+ [No. 6]
+  Title = The Mentalist
+  FileType = 2
+  Input = 1
+  PhyCh = 114
+  VirCh = 114
+  SubCh = 2
+  DateMode = 0
+  Year = 2010
+  Month = 5
+  Day = 13
+  Week = 4
+  StartTime_Min = 0
+  StartTime_Hour = 22
+  EndTime_Min = 0
+  EndTime_Hour = 23
+  UseDefaultFileName = 1
+  FileName = D:\DTV\D114-2(114)-0513-The Mentalist.tp
+  FileNameStyle = 7
+  DirStyle = 0
+  ChNum = 
+  ChName = 
+
+
+;****************************
+

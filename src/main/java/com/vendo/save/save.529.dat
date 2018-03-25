@@ -1,0 +1,17 @@
+Inflation = 3.5
+BirthDate = 4/1998
+RetirementAge = 20
+
+[No. 1]
+Name = 529 Contrib
+Balance = execute "mutfun /total /529"
+AnnualContribution = 0
+GrowthRateOfInvestment = 8
+GrowthRateOfContribution = 0
+
+[No. 2]
+Name = 529 Rewards # Fidelity 529 College Rewards Card
+Balance = 0
+AnnualContribution = 1000
+GrowthRateOfInvestment = 8
+GrowthRateOfContribution = 0

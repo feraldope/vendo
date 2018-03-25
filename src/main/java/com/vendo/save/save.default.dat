@@ -1,0 +1,23 @@
+BirthDate = 1/1970
+RetirementAge = 65
+
+[No. 1]
+Name = IRA
+Balance = 0
+AnnualContribution = 4000
+GrowthRateOfInvestment = 9
+GrowthRateOfContribution = 3
+
+[No. 2]
+Name = 401(k)
+Balance = 0
+AnnualContribution = 15500
+GrowthRateOfInvestment = 9
+GrowthRateOfContribution = 3
+
+[No. 3]
+Name = Taxable
+Balance = 0
+AnnualContribution = 0
+GrowthRateOfInvestment = 6
+GrowthRateOfContribution = 0

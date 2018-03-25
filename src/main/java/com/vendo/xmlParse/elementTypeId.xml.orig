@@ -1,0 +1,52 @@
+<root>
+<fileInfo version="1" />
+ 
+<elementType elementTypeId="104052"
+      symbol="lanWan"
+      name="LAN/WAN"
+      subTypes="104053,104054"
+/>
+ 
+<objects>
+  <object objectId="1"
+   objectType="class"
+   symbol=""
+   name="Measurements"
+   parentName=""
+   select=""
+   where=""
+   dataType=""
+   columnNames=""
+   aggregate=""
+   qualification=""
+   show="yes"
+  />
+  <object objectId="2"
+   objectType="object"
+   symbol="bytes"
+   name="Bytes"
+   parentName=""
+   select="select sum(BYTES) from NH_TABLE"
+   where=""
+   dataType="number"
+   columnNames=""
+   aggregate="sum"
+   qualification="detail"
+   show="yes"
+  />
+  <object objectId="3"
+   objectType="object"
+   symbol="bits"
+   name="Bits"
+   parentName=""
+   select="select sum(BITS) from NH_TABLE"
+   where=""
+   dataType="number"
+   columnNames=""
+   aggregate="sum"
+   qualification="detail"
+   show="yes"
+  />
+</objects>
+
+</root>

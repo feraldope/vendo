@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <fileInfo version="1" />
+  <elementType elementTypeId="104052" symbol="lanWan" name="LAN/WAN" subTypes="104053,104054" />
+  <objects>
+    <object objectId="1" objectType="class" symbol="" name="Measurements" parentName="" select="" where="" dataType="" columnNames="" aggregate="" qualification="" show="yes" />
+    <object objectId="2" objectType="object" symbol="bytes" name="Bytes" parentName="" select="select sum(BYTES) from NH_TABLE" where="" dataType="number" columnNames="" aggregate="sum" qualification="detail" show="yes" />
+    <object objectId="3" objectType="object" symbol="bits" name="Bits" parentName="" select="select sum(BITS) from NH_TABLE" where="" dataType="number" columnNames="" aggregate="sum" qualification="detail" show="yes" />
+    <object objectId="4" objectType="object" symbol="frames" name="Frames" parentName="" select="select sum(FRAMES) from NH_TABLE" where="" dataType="number" columnNames="" aggregate="sum" qualification="detail" show="yes" />
+    <object objectId="5" objectType="class" symbol="discards" name="Discards" select="select sum(DISCARDS) from NH_TABLE" />
+    <object objectId="6" objectType="class" symbol="discards" name="Discards" select="select sum(DISCARDS) from NH_TABLE" />
+    <object objectId="7" objectType="class" symbol="discards" name="Discards" select="select sum(DISCARDS) from NH_TABLE" />
+  </objects>
+</root>
+

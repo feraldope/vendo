@@ -1,0 +1,18 @@
+//ReserRecordComparator.java
+
+package com.vendo.reserViewer;
+
+import java.util.*;
+
+// ------------ this class is obsolete ------------
+
+public class ReserRecordComparator implements Comparator<ReserRecord>
+{
+	///////////////////////////////////////////////////////////////////////////
+	public int compare (ReserRecord record1, ReserRecord record2)
+	{
+System.out.println ("called ReserRecordComparator.compare");
+//		return record1.getSortValue () - record2.getSortValue ();
+		return 0;
+	}
+}

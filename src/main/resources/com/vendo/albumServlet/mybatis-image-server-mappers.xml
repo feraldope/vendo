@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+mysql -u root -proot -e "show databases"
+mysql -u root -proot albumimages -e "show tables"
+mysql -u root -proot albumimages -e "describe images"
+
++======================================================================================================+
+| Field          | Type                 | Null | Key | Default           | Extra                       |
++======================================================================================================+
+| name_id        | int(10) unsigned     | NO   | PRI | NULL              | auto_increment              |
+| insert_date    | timestamp            | NO   | PRI | CURRENT_TIMESTAMP | on update CURRENT_TIMESTAMP |
+| sub_folder_int | tinyint(3) unsigned  | NO   | PRI | NULL              |                             |
+| name_no_ext    | varchar(40)          | NO   | PRI | NULL              |                             |
+| bytes          | int(10) unsigned     | NO   |     | NULL              |                             |
+| width          | smallint(5) unsigned | NO   |     | NULL              |                             |
+| height         | smallint(5) unsigned | NO   |     | NULL              |                             |
+| modified       | bigint(20) unsigned  | NO   |     | NULL              |                             |
+| rgb_data       | char(40)             | NO   |     | NULL              |                             |
+| exifDate0      | bigint(20) unsigned  | YES  |     | NULL              |                             |
+| exifDate1      | bigint(20) unsigned  | YES  |     | NULL              |                             |
+| exifDate2      | bigint(20) unsigned  | YES  |     | NULL              |                             |
+| exifDate3      | bigint(20) unsigned  | YES  |     | NULL              |                             |
++======================================================================================================+
+-->
+
+<mapper namespace="com.vendo.albumServlet.AlbumImageMapper">
+
+	<resultMap id="AlbumImageFileDetailsResultMap" type="com.vendo.albumServlet.AlbumImageFileDetails">
+		<constructor>
+			<!--
+			<idArg column="emp_no" javaType="_integer" />
+			-->
+			<arg column="name_no_ext" javaType="String" />
+			<arg column="bytes" javaType="_long" />
+			<arg column="modified" javaType="_long" />
+		</constructor>
+	</resultMap>
+
+	<resultMap id="AlbumImageResultMap" type="com.vendo.albumServlet.AlbumImage">
+		<constructor>
+			<!--
+			<idArg column="emp_no" javaType="_integer" />
+			-->
+			<arg column="name_no_ext" javaType="String" />
+			<arg column="sub_folder_int" javaType="_integer" />
+			<arg column="bytes" javaType="_long" />
+			<arg column="width" javaType="_integer" />
+			<arg column="height" javaType="_integer" />
+			<arg column="modified" javaType="_long" />
+			<arg column="rgb_data" javaType="String" />
+			<arg column="exifDate0" javaType="_long" />
+			<arg column="exifDate1" javaType="_long" />
+			<arg column="exifDate2" javaType="_long" />
+			<arg column="exifDate3" javaType="_long" />
+		</constructor>
+	</resultMap>
+
+	<resultMap id="AlbumImageCountResultMap" type="com.vendo.albumServlet.AlbumImageCount">
+		<constructor>
+			<!--
+			<idArg column="emp_no" javaType="_integer" />
+			-->
+			<arg column="base_name" javaType="String" />
+			<arg column="image_count" javaType="integer" />
+		</constructor>
+	</resultMap>
+
+	<!-- each argument must be a column name from the database table definition -->
+	<sql id="imagesColumns">name_no_ext, sub_folder_int, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
+	<!-- each argument must represent a "getter" value from the corresponding class -->
+	<sql id="imagesValues">#{name}, #{subFolderInt}, #{numBytes}, #{width}, #{height}, #{modified}, #{rgbData}, #{exifDate0}, #{exifDate1}, #{exifDate2}, #{exifDate3}</sql>
+
+	<!-- each argument must be a column name from the database table definition -->
+	<sql id="imageCountsColumns">sub_folder_int, base_name, collapse_groups, image_count</sql>
+	<sql id="imageCountsValues">#{sub_folder_int}, #{base_name}, #{collapse_groups}, #{image_count}</sql>
+
+	<select id="selectLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
+		select last_update
+		from image_folder
+		where sub_folder_int = #{sub_folder_int}
+	</select>
+
+	<select id="selectMaxLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
+		select max(last_update)
+		from image_folder
+	</select>
+
+	<select id="selectMaxInsertDateFromImages" resultType="java.sql.Timestamp">
+		select max(insert_date)
+		from images
+		where sub_folder_int = #{sub_folder_int}
+	</select>
+
+	<select id="selectImageFileDetailsFromImages" resultMap="AlbumImageFileDetailsResultMap">
+		select name_no_ext, bytes, modified
+		from images
+		where sub_folder_int = #{sub_folder_int}
+	</select>
+
+	<select id="selectImagesFromImages" resultMap="AlbumImageResultMap">
+		select
+		<include refid="imagesColumns"/>
+		from images
+		where sub_folder_int = #{sub_folder_int}
+	</select>
+
+	<select id="selectImageCountFromImageCounts" resultType="int">
+		select image_count
+		from image_counts
+		where sub_folder_int = #{sub_folder_int}
+		and base_name = #{base_name}
+	</select>
+
+	<select id="selectImageCountsFromImageCounts" resultMap="AlbumImageCountResultMap">
+		select base_name, image_count
+		from image_counts
+		where sub_folder_int = #{sub_folder_int}
+	</select>
+
+	<select id="selectMismatchedEntriesFromImageCounts" resultMap="AlbumImageCountResultMap">
+		select t.base_name, t.image_count
+		from (
+			select base_name, image_count, sub_folder_int
+			from image_counts
+			having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8)
+		) as t
+	</select>
+
+	<insert id="insertLastUpdateIntoImageFolder">
+		insert into image_folder (sub_folder_int, last_update)
+		values (#{sub_folder_int}, #{last_update})
+		on duplicate key update
+		last_update = values (last_update)
+	</insert>
+
+	<insert id="insertImageIntoImages">
+		insert into images (
+			<include refid="imagesColumns"/>
+		)
+		values (
+			<include refid="imagesValues"/>
+		)
+	</insert>
+
+	<insert id="insertImageCountsIntoImageCountsPlus">
+		insert into image_counts (
+			<include refid="imageCountsColumns"/>
+		)
+		values (
+			<include refid="imageCountsValues"/>
+		)
+		on duplicate key update
+		image_count = image_count + values (image_count),
+		sub_folder_int = values (sub_folder_int)
+	</insert>
+	<insert id="insertImageCountsIntoImageCountsMinus">
+		insert into image_counts (
+			<include refid="imageCountsColumns"/>
+		)
+		values (
+			<include refid="imageCountsValues"/>
+		)
+		on duplicate key update
+		image_count = image_count - values (image_count),
+		sub_folder_int = values (sub_folder_int)
+	</insert>
+	<insert id="insertImageCountsIntoImageCountsEquals">
+		insert into image_counts (
+			<include refid="imageCountsColumns"/>
+		)
+		values (
+			<include refid="imageCountsValues"/>
+		)
+		on duplicate key update
+		image_count = values (image_count),
+		sub_folder_int = values (sub_folder_int)
+	</insert>
+
+	<delete id="deleteImageFromImages">
+		delete from images
+		where sub_folder_int = #{sub_folder_int}
+		and name_no_ext = #{name_no_ext}
+	</delete>
+
+	<delete id="deleteZeroCountsFromImageCounts">
+		delete from image_counts
+		where image_count = 0
+	</delete>
+
+	<delete id="deleteMismatchedEntriesFromImageCounts">
+		delete image_counts.*
+		from image_counts
+		inner join (
+			select name_id, base_name, sub_folder_int
+			from image_counts
+			having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8)
+		) as todelete on todelete.name_id = image_counts.name_id
+	</delete>
+
+</mapper>

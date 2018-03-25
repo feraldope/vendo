@@ -1,0 +1,773 @@
+//AlbumXml.java
+
+//JDOM Java doc - http://www.jdom.org/docs/apidocs/
+
+package com.vendo.albumServlet;
+
+import java.io.*;
+import java.nio.*;
+import java.nio.file.*;
+import java.nio.file.attribute.*;
+import java.util.*;
+
+import org.jdom2.*;
+import org.jdom2.filter.*;
+import org.jdom2.input.*;
+import org.jdom2.output.*;
+
+import org.apache.commons.lang3.time.FastDateFormat;
+
+import org.apache.logging.log4j.*;
+
+
+public class AlbumXml
+{
+	///////////////////////////////////////////////////////////////////////////
+//	public AlbumXml (String imagePath, String xmlFilename)
+//PREVENT THIS CLASS FROM BEING USED
+	private AlbumXml (String imagePath, String xmlFilename)
+	{
+		_imagePath = imagePath;
+		_xmlFilename = xmlFilename;
+
+		_xmlFileTime = getXmlFileTime (); //millisecs
+		_xmlLastReadTime = 0; //millisecs
+
+		String parts[] = _imagePath.split ("/");
+		_subFolder = parts[parts.length - 1];
+
+		if (AlbumFormInfo._logLevel >= 9) {
+			_log.debug ("AlbumXml ctor: _imagePath = " + _imagePath);
+			_log.debug ("AlbumXml ctor: _subFolder = " + _subFolder);
+		}
+
+		_document = new Document (new Element ("files"));
+		_modifiedDoc = true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public long getXmlFileTime ()
+	{
+		long xmlFileTime = 0;
+
+		Path xmlFile = FileSystems.getDefault ().getPath (_xmlFilename);
+//		if (Files.exists (xmlFile)) {
+			try {
+				FileTime fileTime = Files.getLastModifiedTime (xmlFile);
+				xmlFileTime = fileTime.toMillis ();
+
+			} catch (Exception ee) {
+				_log.error ("AlbumXml.getXmlFileTime: getLastModifiedTime failed for file \"" + _xmlFilename + "\"");
+				_log.error (ee);
+			}
+//		}
+
+		if (AlbumFormInfo._logLevel >= 8) {
+			FastDateFormat dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
+			String xmlFileTimeStr = dateFormat.format (new Date (xmlFileTime));
+			_log.debug ("AlbumXml.getXmlFileTime: xmlFileTime = " + xmlFileTimeStr);
+		}
+
+		return xmlFileTime;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns true if XML file has changed since it was last read
+	public boolean xmlFileHasChanged ()
+	{
+		long xmlFileTime = getXmlFileTime (); //millisecs
+
+//		if (xmlFileTime == _xmlFileTime) {
+		if (xmlFileTime <= _xmlLastReadTime) {
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumXml.xmlFileHasChanged: " + _xmlFilename + " return false");
+
+			return false;
+
+		} else {
+			if (AlbumFormInfo._logLevel >= 6)
+				_log.debug ("AlbumXml.xmlFileHasChanged: " + _xmlFilename);// + " return true");
+
+			return true;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns true if timestamp on folder is newer than timestamp on XML file
+	//to be used by CLI to determine whether sync is needed
+	public boolean xmlIsStale ()
+	{
+		File file = new File (_imagePath);
+		long folderTime = file.lastModified (); //millisecs
+
+		if (folderTime <= _xmlFileTime) {
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumXml.xmlIsStale." + _subFolder + ": return false");
+			return false;
+
+		} else {
+			if (AlbumFormInfo._logLevel >= 6)
+				_log.debug ("AlbumXml.xmlIsStale." + _subFolder + ": return true");
+//			_log.debug ("AlbumXml.xmlIsStale." + _subFolder + ": " + folderTime + ", " + _xmlFileTime);
+			return true;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String getImageSubFolder ()
+	{
+		return _subFolder;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean readXml ()
+	{
+		return readXml (/*forceRead*/ false);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean readXml (boolean forceRead)
+	{
+//		_log.debug ("AlbumXml.readXml." + _subFolder + ": xmlFileHasChanged() = " + new Boolean (xmlFileHasChanged ()));
+
+//		if (xmlFileHasChanged ()) {
+		if (xmlIsStale () || forceRead) {
+			AlbumProfiling.getInstance ().enterAndTrace (7, _subFolder);
+
+			Path xmlFile = FileSystems.getDefault ().getPath (_xmlFilename);
+			if (Files.exists (xmlFile)) {
+				//open file read-only, with read-sharing
+				try (InputStream inputStream = Files.newInputStream (xmlFile, StandardOpenOption.READ)) {
+					SAXBuilder builder = new SAXBuilder ();
+					_document = builder.build (inputStream);
+
+				} catch (Exception ee) {
+					_log.error ("AlbumXml.readXml: error parsing XML file \"" + _xmlFilename + "\"");
+					_log.error (ee);
+					AlbumProfiling.getInstance ().exit (7, _subFolder);
+					return false;
+				}
+			}
+
+			AlbumProfiling.getInstance ().exit (7, _subFolder);
+
+			_xmlFileTime = getXmlFileTime (); //millisecs
+			_xmlLastReadTime = new Date ().getTime ();
+
+			_filePatternCountMap = new HashMap<String, Integer> (AlbumFormInfo._maxFilePatterns);
+			_sinceInMillisStrSet = new HashSet<String> ();
+		}
+
+		_modifiedDoc = false;
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean writeXml ()
+	{
+		if (AlbumFormInfo._logLevel >= 6)
+			_log.debug ("AlbumXml.writeXml: _modifiedDoc = " + _modifiedDoc);
+
+		//this will write the XML file if it is stale (older than the folder), even though the file itself is not out-of-date
+		if (!_modifiedDoc && !xmlIsStale ())
+//		if (!_modifiedDoc)
+			return true;
+
+		AlbumProfiling.getInstance ().enter (7, _subFolder);
+
+		Element root = _document.getRootElement ();
+		sortElements (root, new ElementComparator ());
+
+/* this is obsolete after changes in addImageToDocument()
+		//remove any exifDates that do not have non-zero values
+		List<Element> list = new ArrayList<Element> (root.getContent (new ElementFilter ()));
+		for (Element element : list) {
+			if (element.getAttributeValue ("exifDate0") != null && element.getAttributeValue ("exifDate0").equals ("0")) {
+//				String name = AlbumFormInfo.stripImageExtension (element.getAttributeValue ("name"));
+//				System.out.println ("removing exifDate0 from " + name);
+				element.removeAttribute ("exifDate0");
+			}
+		}
+*/
+
+		Path xmlFile       = FileSystems.getDefault ().getPath (_xmlFilename);
+		Path xmlBackupFile = FileSystems.getDefault ().getPath (_xmlFilename + ".bak");
+
+		if (Files.exists (xmlFile)) {
+			try {
+				Files.move (xmlFile, xmlBackupFile, StandardCopyOption.REPLACE_EXISTING);
+
+			} catch (Exception ee) {
+				_log.error ("AlbumXml.writeXml: error moving file (" + xmlFile.toString () + " to " + xmlBackupFile.toString () + ")");
+				_log.error (ee);
+//				return false;
+			}
+		}
+
+		try (FileOutputStream outputStream = new FileOutputStream (_xmlFilename)) {
+			new XMLOutputter (Format.getPrettyFormat ()).output (_document, outputStream);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumXml.writeXml: error writing XML file \"" + _xmlFilename + "\"");
+			AlbumProfiling.getInstance ().exit (7);
+			return false;
+		}
+
+		if (AlbumFormInfo._logLevel >= 5)
+			_log.debug ("AlbumXml.writeXml: wrote XML file \"" + _xmlFilename + "\"");
+
+		_modifiedDoc = false;
+
+		AlbumProfiling.getInstance ().exit (7, _subFolder);
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static void sortElements (Element parent, Comparator<Element> comparator)
+	{
+//		AlbumProfiling.getInstance ().enter (1, _subFolder);
+
+		List<Element> children = new ArrayList<Element> (parent.getChildren ());
+		Collections.sort (children, comparator);
+		ListIterator<Element> childrenIter = children.listIterator ();
+
+		List<Content> content = new ArrayList<Content> (parent.getContent ());
+		ListIterator<Content> contentIter = content.listIterator ();
+
+		while (contentIter.hasNext ()) {
+			Object obj = contentIter.next ();
+			if (obj instanceof Element)
+				contentIter.set (childrenIter.next ());
+		}
+
+		parent.setContent ((List<Content>) null);
+		parent.setContent (content);
+
+//		AlbumProfiling.getInstance ().exit (1, _subFolder);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static class ElementComparator implements Comparator<Element>
+	{
+		public int compare (Element element1, Element element2)
+		{
+			return element1.getAttributeValue ("name").compareToIgnoreCase (element2.getAttributeValue ("name"));
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public Collection<AlbumImage> getImageList ()
+	{
+		if (_imageList == null || xmlFileHasChanged ()) {
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumXml.getImageList: creating new _imageList for " + _imagePath);
+
+			AlbumProfiling.getInstance ().enter (8, _subFolder);
+
+			readXml ();
+
+			AlbumProfiling.getInstance ().enter (8, _subFolder, "getContent");
+
+			Element root = _document.getRootElement ();
+			List<Element> list = new ArrayList<Element> (root.getContent (new ElementFilter ()));
+
+			AlbumProfiling.getInstance ().exit (8, _subFolder, "getContent");
+
+			int size = list.size ();
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumXml.getImageList: subFolder = " + _subFolder + ", size = " + size);
+
+			_imageList = new TreeSet<AlbumImage> (new AlbumImageComparator (AlbumSortType.ByName));
+			_imageNameMap = new HashMap<String, AlbumImage> (size);
+
+			AlbumProfiling.getInstance ().enter (8, _subFolder, "loop");
+			for (Element element : list) {
+				String name = AlbumFormInfo.stripImageExtension (element.getAttributeValue ("name"));
+				long numBytes = extractLong (element.getAttributeValue ("bytes"), 0);
+				long modified = extractLong (element.getAttributeValue ("modified"), 0);
+				int width = extractInteger (element.getAttributeValue ("width"), 0);
+				int height = extractInteger (element.getAttributeValue ("height"), 0);
+				String rgbData = element.getAttributeValue ("rgbData");
+				long exifDate0 = extractLong (element.getAttributeValue ("exifDate0"), 0);
+				long exifDate1 = extractLong (element.getAttributeValue ("exifDate1"), 0);
+				long exifDate2 = extractLong (element.getAttributeValue ("exifDate2"), 0);
+				long exifDate3 = extractLong (element.getAttributeValue ("exifDate3"), 0);
+				long exifDates[] = new long[] {exifDate0, exifDate1, exifDate2, exifDate3, -1, -1};
+
+				if (true) { //check for malformed names in XML file
+					final String whiteList = "[0-9A-Za-z\\-_]"; //all valid characters for names in XML file
+					if (name.replaceAll (whiteList, "").length () > 0) {
+						throw new RuntimeException ("AlbumXml.getImageList: malformed XML name \"" + name + "\" in folder \"" + _subFolder + "\"");
+					}
+				}
+
+				AlbumImage image = new AlbumImage (name, _imagePath, _subFolder, numBytes, width, height, modified, rgbData, exifDates);
+				_imageList.add (image);
+				_imageNameMap.put (name, image);
+			}
+			AlbumProfiling.getInstance ().exit (8, _subFolder, "loop");
+
+			AlbumProfiling.getInstance ().exit (8, _subFolder);
+
+		} else {
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumXml.getImageList: using cached _imageList");
+		}
+
+		return _imageList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public Collection<AlbumImage> doDir (final AlbumFileFilter filter)
+	{
+		AlbumFormInfo form = AlbumFormInfo.getInstance ();
+		AlbumOrientation orientation = form.getOrientation ();
+		boolean sortByExifDate = (form.getSortType () == AlbumSortType.ByExif);
+		int exifDateIndex = form.getExifDateIndex ();
+
+		readXml ();
+
+		Collection<AlbumImage> imageDisplayList = new LinkedList<AlbumImage> ();
+
+		if (filter.folderNeedsChecking (_subFolder)) {
+			AlbumProfiling.getInstance ().enter (7, _subFolder, "accept loop");
+
+			Iterator<AlbumImage> iter = _imageList.iterator ();
+			while (iter.hasNext ()) {
+				AlbumImage image = iter.next ();
+				String name = image.getName ();
+
+				if (filter.accept (null, name)) {
+					//if sorting by exifDate, only include images that have a valid exifDate at exifDateIndex
+					if (!sortByExifDate || (sortByExifDate && image.isExifDateValid (exifDateIndex))) {
+						if (orientation == AlbumOrientation.ShowAny || orientation == image.getOrientation ()) {
+							imageDisplayList.add (image);
+						}
+					}
+				}
+			}
+
+			AlbumProfiling.getInstance ().exit (7, _subFolder, "accept loop");
+		}
+
+		return imageDisplayList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void updateImageCounts (String sinceInMillisStr)
+	{
+//		_log.debug ("AlbumXml.updateImageCounts." + _subFolder +
+//					": _filePatternCountMap = " + (_filePatternCountMap == null ? "null" : "not-null") +
+//					", xmlFileHasChanged() = " + new Boolean (xmlFileHasChanged ()));
+
+		boolean needToAddSinceInMillisStr = _sinceInMillisStrSet.add (sinceInMillisStr); //returns true if the set did not already contain the specified element
+
+		if (needToAddSinceInMillisStr) {
+			AlbumProfiling.getInstance ().enterAndTrace (8, _subFolder);
+
+			String prevBase = new String ();
+			Iterator<AlbumImage> iter = _imageList.iterator ();
+			while (iter.hasNext ()) {
+				AlbumImage image = iter.next ();
+				String name = image.getName ();
+				String base1 = image.getBaseName (/*collapseGroups*/ true);
+				String key = base1 + "*." + sinceInMillisStr;
+				Integer count = _filePatternCountMap.get (key);
+				if (count == null)
+					_filePatternCountMap.put (key, new Integer (1));
+				else
+					_filePatternCountMap.put (key, new Integer (count + 1));
+
+				String base2 = image.getBaseName (/*collapseGroups*/ false);
+
+				if (base1.compareToIgnoreCase (base2) != 0) {
+					key = base2 + "*." + sinceInMillisStr;
+					count = _filePatternCountMap.get (key);
+					if (count == null)
+						_filePatternCountMap.put (key, new Integer (1));
+					else
+						_filePatternCountMap.put (key, new Integer (count + 1));
+
+//TODO - this should be turned on for CLI, but off for servlet (move this to code that is called by CLI)
+				} else {//if (_updateXmlOnly) {
+					if (base1.compareToIgnoreCase (prevBase) != 0) {
+						_log.warn ("AlbumXml.updateImageCounts: " + base1 + ": name not properly uniquified");
+						prevBase = base1;
+					}
+				}
+			}
+
+			AlbumProfiling.getInstance ().exit (8, _subFolder);
+
+			if (false) { //debug - dump all keys from hash map
+				List<String> keys = new ArrayList<String> (_filePatternCountMap.keySet());
+				Collections.sort (keys, AlbumFormInfo.caseInsensitiveStringComparator);
+				for (String key : keys)
+					_log.debug ("AlbumXml.updateImageCounts: key = " + key);
+			}
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public int getNumMatchingFiles (String wildName, long sinceInMillis)
+	{
+		AlbumProfiling.getInstance ().enter (9, _subFolder);
+
+//		if (AlbumFormInfo._logLevel >= 9)
+//			_log.debug ("AlbumSubdirList.getNumMatchingFiles: wildName = " + wildName);
+
+		String key = wildName + "." + new Long (sinceInMillis).toString ();
+
+		Integer count = _filePatternCountMap.get (key);
+
+		int num = 0;
+
+		try {
+			num = count.intValue ();
+
+		} catch (Exception ee) {
+			//this should also catch the case where wildName is requested against the wrong subfolder
+			_log.error ("AlbumXml.getNumMatchingFiles: key \"" + key + "\" not found in map");
+			throw new RuntimeException ("AlbumXml.getNumMatchingFiles: key \"" + key + "\" not found in map");
+		}
+
+		AlbumProfiling.getInstance ().exit (9, _subFolder);
+
+		return num;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public AlbumImage getImage (String name)
+	{
+		return _imageNameMap.get (name);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private void addImageToDocument (AlbumImage image)
+	{
+		if (AlbumFormInfo._logLevel >= 3)
+			_log.debug ("AlbumXml.addImageToDocument: " + image.getSubFolder () + "/" + image.toString ());
+
+		AlbumProfiling.getInstance ().enter (7, _subFolder);
+
+		Element element = new Element ("file");
+		element.setAttribute ("name", image.getNameWithExt ());
+		element.setAttribute ("bytes", Long.toString (image.getNumBytes ()));
+		element.setAttribute ("width", Integer.toString (image.getWidth ()));
+		element.setAttribute ("height", Integer.toString (image.getHeight ()));
+		element.setAttribute ("modified", Long.toString (image.getModified ()));
+		element.setAttribute ("rgbData", image.getRgbData ());
+
+		//only add exifDates that have non-zero values
+		for (int ii = 0; ii < AlbumImage.NumFileExifDates; ii++) {
+			if (image.getExifDateRaw (ii) > 0) {
+				element.setAttribute ("exifDate" + ii, Long.toString (image.getExifDateRaw (ii)));
+			}
+		}
+
+		Element root = _document.getRootElement ();
+		root.addContent (element);
+
+		_modifiedDoc = true;
+
+		AlbumProfiling.getInstance ().exit (7, _subFolder);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private void removeImageFromDocument (Element element)
+	{
+		if (AlbumFormInfo._logLevel >= 3)
+			_log.debug ("AlbumXml.removeImageFromDocument1: name = " + element.getAttributeValue ("name"));
+
+		Element root = _document.getRootElement ();
+		boolean status = root.removeContent (element);
+		if (!status)
+			_log.debug ("*** AlbumXml.removeImageFromDocument1: removeContent failed ***");
+
+		_modifiedDoc = true;
+
+		removeRgbDataFileFromFileSystem (element.getAttributeValue ("name"));
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void removeImageFromDocument (AlbumImage image)
+	{
+		if (image == null)
+			return;
+
+		String name1 = image.getName ();
+
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumXml.removeImageFromDocument2: name = " + name1);
+
+//TODO - using linear search: review for performance (or maybe not, as profiling shows this is very quick)
+		Element root = _document.getRootElement ();
+
+		AlbumProfiling.getInstance ().enter (10, "list loop");
+
+		List<Element> list = new ArrayList<Element> (root.getContent (new ElementFilter ()));
+		for (Element element : list) {
+			String name2 = AlbumFormInfo.stripImageExtension (element.getAttributeValue ("name"));
+			if (name1.equals (name2)) {
+				boolean status = root.removeContent (element);
+				if (!status)
+					_log.debug ("*** AlbumXml.removeImageFromDocument2: removeContent failed ***");
+
+				_modifiedDoc = true;
+
+				removeRgbDataFileFromFileSystem (element.getAttributeValue ("name"));
+
+				break;
+			}
+		}
+
+		AlbumProfiling.getInstance ().exit (10, "list loop");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void removeRgbDataFileFromFileSystem (String imageName)
+	{
+		String rgbDataFileName = _imagePath + imageName.replace (AlbumFormInfo._ImageExtension, AlbumFormInfo._RgbDataExtension);
+
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumXml.removeRgbDataFileFromFileSystem: rgbDataFileName = " + rgbDataFileName);
+
+		Path file = FileSystems.getDefault ().getPath (rgbDataFileName);
+		if (Files.exists (file)) {
+			try {
+				Files.delete (file);
+
+			} catch (Exception ee) {
+				_log.error ("AlbumXml.removeRgbDataFileFromFileSystem: file delete failed: " + rgbDataFileName);
+			}
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static Integer extractInteger (String string, int defaultValue)
+	{
+		int value = defaultValue;
+
+		try {
+			value = Integer.parseInt (string);
+
+		} catch (NumberFormatException exception) {
+			if (AlbumFormInfo._logLevel >= 7) {
+			_log.error ("AlbumXml.extractInteger: error parsing integer \"" + string + "\", using value 0");
+			}
+		}
+
+		return value;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static Long extractLong (String string, long defaultValue)
+	{
+		long value = defaultValue;
+
+		try {
+			value = Long.parseLong (string);
+
+		} catch (NumberFormatException exception) {
+			if (AlbumFormInfo._logLevel >= 7) {
+				_log.error ("AlbumXml.extractLong: error parsing long \"" + string + "\", using value 0");
+			}
+		}
+
+		return value;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//clean: removes deleted image files from XML
+	public boolean syncXmlToFileSystem (String imagePath, String subFolder)
+	{
+/*
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumXml.syncXmlToFileSystem: imagePath = " + imagePath);
+
+		if (!xmlIsStale ())
+			return true;
+
+		AlbumProfiling.getInstance ().enter (7, subFolder, "part1");
+
+		Element root = _document.getRootElement ();
+
+		List<Element> list = new ArrayList<Element> (root.getContent (new ElementFilter ()));
+
+		int size = list.size ();
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumXml.syncXmlToFileSystem: size = " + size);
+
+		List<Element> toBeDeleted = new ArrayList<Element> (2048);
+
+		String[] files = AlbumDirList.getInstance ().getCliImageFileList (subFolder);
+
+		HashSet<String> mixedSet = new HashSet<String> (files.length);
+		HashSet<String> lowerSet = new HashSet<String> (files.length);
+		for (String file : files) {
+			mixedSet.add (file);
+			lowerSet.add (file.toLowerCase ());
+		}
+
+		AlbumProfiling.getInstance ().exit (7, subFolder, "part1");
+
+		AlbumProfiling.getInstance ().enter (7, subFolder, "part2");
+
+		boolean performFileSystemTests = true;
+
+		for (Element element : list) {
+			String name = element.getAttributeValue ("name");
+
+			boolean matchLower = lowerSet.contains (name.toLowerCase ());
+			boolean matchMixed = mixedSet.contains (name);
+
+			if (matchLower && !matchMixed) {
+				_log.debug ("AlbumXml.syncXmlToFileSystem: case mismatch for:");
+				_log.debug ("  " + imagePath + name);
+
+				toBeDeleted.add (element);
+
+			} else if (!matchMixed) {
+				toBeDeleted.add (element);
+
+			} else if (performFileSystemTests) {
+				long numBytes = extractLong (element.getAttributeValue ("bytes"), 0);
+				long modified = extractLong (element.getAttributeValue ("modified"), 0);
+
+				try {
+					AlbumProfiling.getInstance ().enter (9, subFolder, "fileTesting");
+
+				    Path file = FileSystems.getDefault ().getPath (imagePath, name);
+					BasicFileAttributes attrs = Files.readAttributes (file, BasicFileAttributes.class);
+
+					if (numBytes != attrs.size ()) {
+						_log.debug ("AlbumXml.syncXmlToFileSystem: file size mismatch for:");
+						_log.debug ("  " + imagePath + name);
+						toBeDeleted.add (element);
+
+					} else if (modified != attrs.lastModifiedTime ().toMillis ()) { //millisecs
+						_log.debug ("AlbumXml.syncXmlToFileSystem: file modified time mismatch for:");
+						_log.debug ("  " + imagePath + name);
+						toBeDeleted.add (element);
+					}
+//TODO - compare rgbData???
+
+					AlbumProfiling.getInstance ().exit (9, subFolder, "fileTesting");
+
+				} catch (Exception ee) {
+					_log.error ("AlbumXml.syncXmlToFileSystem: file access failed: " + name);
+				}
+			}
+		}
+
+		AlbumProfiling.getInstance ().exit (7, subFolder, "part2");
+
+		AlbumProfiling.getInstance ().enter (7, subFolder, "part3");
+
+		size = toBeDeleted.size ();
+		if (size > 0 && AlbumFormInfo._logLevel >= 3) {
+			_log.debug ("AlbumXml.syncXmlToFileSystem: toBeDeleted.size = " + size);
+		}
+
+		for (Element element : toBeDeleted) {
+			removeImageFromDocument (element);
+		}
+
+		AlbumProfiling.getInstance ().exit (7, subFolder, "part3");
+
+		writeXml ();
+*/
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//add: adds new image files to XML
+	public boolean syncFileSystemToXml (String imagePath, String subFolder)
+	{
+/*
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumXml.syncFileSystemToXml: imagePath = " + imagePath);
+
+		if (!xmlIsStale ())
+			return true;
+
+		AlbumProfiling.getInstance ().enter (7, subFolder, "part1");
+
+//		AlbumProfiling.getInstance ().enter (9, subFolder, "part1a");
+		String[] files = AlbumDirList.getInstance ().getCliImageFileList (subFolder);
+//		AlbumProfiling.getInstance ().exit (9, subFolder, "part1a");
+		if (files == null || files.length == 0) {
+			_log.error ("AlbumXml.syncFileSystemToXml: no files found in imagePath " + imagePath);
+			return false;
+		}
+
+		int size = files.length;
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumXml.syncFileSystemToXml: size = " + size);
+
+//TODO - check bytes and modified?
+
+		getImageList (); //update _imageList and _imageNameMap
+
+		List<String> toBeAdded = new ArrayList<String> (2048);
+
+		for (String file : files) {
+			String name = AlbumFormInfo.stripImageExtension (file);
+			AlbumImage image = _imageNameMap.get (name);
+			if (image == null) {
+				if (AlbumFormInfo._logLevel >= 3)
+					_log.debug ("AlbumXml.syncFileSystemToXml: toBeAdded: " + name);
+				toBeAdded.add (name);
+//			} else {
+//				_log.debug ("AlbumXml.syncFileSystemToXml: exists: " + name);
+			}
+		}
+
+		AlbumProfiling.getInstance ().exit (7, subFolder, "part1");
+
+		size = toBeAdded.size ();
+		if (size > 0 && AlbumFormInfo._logLevel >= 3)
+			_log.debug ("AlbumXml.syncFileSystemToXml: toBeAdded.size = " + size);
+
+		AlbumProfiling.getInstance ().enter (7, subFolder, "part2");
+
+		int ii = 0;
+		for (String name : toBeAdded) {
+			AlbumImage image = new AlbumImage (name, subFolder, imagePath);
+			addImageToDocument (image);
+			image.createRgbDataFile ();
+
+			ii++;
+			if (ii > 0 && (ii % 100) == 0) {
+				_log.debug ("AlbumXml.syncFileSystemToXml: calling writeXml (" + subFolder + ", " + ii + "/" + size + " images)");
+				writeXml ();
+			}
+		}
+
+		AlbumProfiling.getInstance ().exit (7, subFolder, "part2");
+
+		writeXml ();
+*/
+
+		return true;
+	}
+
+
+	//private members
+	private String _imagePath = null;
+	private String _subFolder = null;
+	private String _xmlFilename = null;
+	private long _xmlFileTime = 0; //millisecs
+	private long _xmlLastReadTime = 0; //millisecs
+	private boolean _modifiedDoc = false;
+	private Document _document = null;
+//TODO? - reduce these two objects to one? (use a TreeMap instead of a TreeSet)
+	private Collection<AlbumImage> _imageList = null;
+	private HashMap<String, AlbumImage> _imageNameMap = null;
+	private HashMap<String, Integer> _filePatternCountMap = null;
+	private HashSet<String> _sinceInMillisStrSet = null;
+
+	private static Logger _log = LogManager.getLogger ();
+}

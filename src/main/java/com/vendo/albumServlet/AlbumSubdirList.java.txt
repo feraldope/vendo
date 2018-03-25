@@ -1,0 +1,167 @@
+//AlbumSubdirList.java
+
+package com.vendo.albumServlet;
+
+import com.vendo.vendoUtils.*;
+
+import java.io.*;
+import java.lang.*;
+import java.nio.*;
+import java.nio.file.*;
+import java.util.*;
+
+import org.apache.logging.log4j.*;
+
+
+public class AlbumSubdirList
+{
+	///////////////////////////////////////////////////////////////////////////
+//	public AlbumSubdirList (String subFolder)
+//PREVENT THIS CLASS FROM BEING USED
+	private AlbumSubdirList (String subFolder)
+	{
+		if (AlbumFormInfo._logLevel >= 6)
+			_log.debug ("AlbumSubdirList ctor: subFolder = " + subFolder);
+
+		_subFolder = subFolder;
+
+		String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+
+		_imagePath = rootPath + _subFolder + "/";
+		_imageDir = new File (_imagePath);
+
+		_folderMap = new HashMap<String, String[]> (20);
+		_filePatternCountMap = new HashMap<String, Integer> (AlbumFormInfo._maxFilePatterns);
+
+		folderHasChanged (); //call once to init values
+	}
+
+//	///////////////////////////////////////////////////////////////////////////
+//	public void setSessionId (String sessionId)
+//	{
+//		_sessionId = sessionId;
+//	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by CLI; returns list of images (in this subFolder)
+	public String[] getCliImageFileList ()
+	{
+		FilenameFilter imageFilter = new FilenameFilter () {
+			public boolean accept (File file, String name) {
+				if (name.toLowerCase ().startsWith (_subFolder) && name.endsWith (AlbumFormInfo._ImageExtension)) {
+					return true;
+
+				} else {
+					if (name.contains ("album.xml") || name.endsWith (AlbumFormInfo._RgbDataExtension) || name.endsWith (AlbumFormInfo._DeleteSuffix)) {
+						return false;
+					} else {
+						String filepath = VendoUtils.appendSlash (file.toString ()) + name;
+						throw new RuntimeException ("AlbumSubdirList.getCliImageFileList: unexpected file \"" + filepath + "\"");
+					}
+				}
+			}
+		};
+
+		if (_cliImageFiles == null || folderHasChanged ()) {
+			AlbumProfiling.getInstance ().enter (7, _subFolder);
+
+			//for simple dir listings, it looks like java.io package is faster than java.nio
+			_cliImageFiles = _imageDir.list (imageFilter);
+//			_cliImageFiles = getCliImageFileList2 ();
+
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumSubdirList.getCliImageFileList: _imagePath = " + _imagePath + " " + _cliImageFiles.length + " files");
+
+			AlbumProfiling.getInstance ().exit (7, _subFolder);
+		}
+
+		return _cliImageFiles;
+	}
+
+/* for testing
+	///////////////////////////////////////////////////////////////////////////
+	//for testing performance of java.nio
+	//used by CLI; returns list of images (in this subFolder)
+	public String[] getCliImageFileList2 ()
+	{
+		ArrayList<String> files = new ArrayList<String> (AlbumFormInfo._maxFilesSubdir);
+
+		Path subFolderPath = FileSystems.getDefault ().getPath (_imagePath);
+		try (DirectoryStream <Path> ds = Files.newDirectoryStream (subFolderPath)) {
+			for (Path file : ds) {
+				String filename = file.getFileName ().toString ();
+//TODO - test should be same as used in imageFilter above
+				if (filename.endsWith (AlbumFormInfo._ImageExtension))
+					files.add (filename);
+			}
+
+		} catch (IOException ee) {
+			ee.printStackTrace ();
+		}
+
+		return files.toArray (new String[] {});
+	}
+*/
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean folderHasChanged ()
+	{
+//		_log.debug ("AlbumSubdirList.folderHasChanged: folder = " + folder);
+
+// the assumption made here about sessionId is not correct
+//		//if the sessionId hasn't changed, then the folder probably hasn't either
+//		if (_sessionId.equals (_prevSessionId)) {
+//			_log.debug ("AlbumSubdirList.folderHasChanged: session ID has not changed: return false");
+//			return false;
+//		} else {
+//			_log.debug ("AlbumSubdirList.folderHasChanged: sessionId has changed: need to perform further tests");
+//			_prevSessionId = _sessionId;
+//		}
+
+		long folderTime = _imageDir.lastModified (); //millisecs
+
+		if (_prevFolderTime != folderTime) {
+			_prevFolderTime = folderTime;
+
+			if (AlbumFormInfo._logLevel >= 7)
+				_log.debug ("AlbumSubdirList.folderHasChanged: " + _imagePath);// + " return true");
+
+			return true;
+
+		} else {
+			if (AlbumFormInfo._logLevel >= 9)
+				_log.debug ("AlbumSubdirList.folderHasChanged: " + _imagePath + " return false");
+
+			return false;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String getSubFolder ()
+	{
+		return _subFolder;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void setUpdateXmlOnly (boolean updateXmlOnly)
+	{
+		_updateXmlOnly = updateXmlOnly;
+	}
+
+	//members
+	private String _subFolder = null;
+	private String _imagePath = null;
+	private File _imageDir = null;
+
+	private long _prevFolderTime = -1;
+	private boolean _updateXmlOnly = false; //false means running as servlet; true means CLI
+
+//	private String _sessionId = new String ();
+
+	private String[] _cliImageFiles = null;
+
+	private HashMap<String, String[]> _folderMap = null;
+	private HashMap<String, Integer> _filePatternCountMap = null;
+
+	private static Logger _log = LogManager.getLogger ();
+}

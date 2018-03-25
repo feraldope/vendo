@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Original from http://www.mkyong.com/ehcache/ehcache-hello-world-example/
+
+Official ehcache.xml example:
+http://ehcache.org/ehcache.xml
+
+http://www.ehcache.org/ehcache.xsd
+-->
+
+<!--
+         xsi:noNamespaceSchemaLocation="ehcache.xsd"
+         xsi:schemaLocation="ehcache http://www.ehcache.org/ehcache.xsd"
+         xsi:schemaLocation="http://www.ehcache.org/schema/ehcache http://www.ehcache.org/ehcache.xsd"
+         xsi:schemaLocation="C:/Users/java/CacheTest/ehcache.xsd"
+         xsi:noNamespaceSchemaLocation="C:/Users/java/CacheTest/ehcache.xsd"
+         xsi:noNamespaceSchemaLocation="classpath:C:/Users/java/CacheTest/ehcache.xsd"
+		 xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd"
+         xsi:noNamespaceSchemaLocation="ehcache.xsd"
+		 xsi:noNamespaceSchemaLocation="http://ehcache.org/ehcache.xsd"
+
+<ehcache>
+
+-->
+
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="ehcache http://www.ehcache.org/ehcache.xsd"
+         updateCheck="true" monitoring="autodetect"
+         dynamicConfig="true" maxBytesLocalHeap="400M" maxBytesLocalOffHeap="2G">
+
+<!--
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		 xsi:schemaLocation="http://ehcache.org ehcache.xsd">
+
+         xsi:noNamespaceSchemaLocation="C:/Users/java/CacheTest/ehcache.xsd"
+		 updateCheck="true" monitoring="autodetect"
+         dynamicConfig="true" maxBytesLocalHeap="400M" maxBytesLocalOffHeap="2G">
+-->
+
+<!--
+<ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="ehcache.xsd" updateCheck="true"
+	monitoring="autodetect" dynamicConfig="true">
+
+<ehcache xsi:noNamespaceSchemaLocation="ehcache.xsd" updateCheck="true" monitoring="autodetect" dynamicConfig="true">
+-->
+
+	<!-- By default, Ehcache stored the cached files in temp folder. -->
+	<!-- <diskStore path="java.io.tmpdir" /> -->
+
+	<!-- Ask Ehcache to store cache in this path -->
+<!--
+	<diskStore path="c:\\cache" />
+-->
+
+	<!-- Sample cache named cache1
+    This cache contains a maximum in memory of 10000 elements, and will expire
+    an element if it is idle for more than 5 minutes and lives for more than
+    10 minutes.
+
+    If there are more than 10000 elements it will overflow to the
+    disk cache, which in this configuration will go to wherever java.io.tmp is
+    defined on your system. On a standard Linux system this will be /tmp" -->
+<!--
+	<cache name="cache1"
+			maxEntriesLocalHeap="10000"
+			maxEntriesLocalDisk="1000"
+			eternal="false"
+			diskSpoolBufferSizeMB="20"
+			timeToIdleSeconds="300" timeToLiveSeconds="600"
+			memoryStoreEvictionPolicy="LFU"
+			transactionalMode="off">
+		<persistence strategy="localTempSwap" />
+	</cache>
+-->
+</ehcache>

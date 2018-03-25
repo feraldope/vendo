@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+mysql -u root -proot -e "show databases"
+mysql -u root -proot employees -e "show tables"
+mysql -u root -proot employees -e "describe employees"
+
+| Field      | Type          | Null | Key | Default | Extra |
+=============================================================
+| emp_no     | int(11)       | NO   | PRI | NULL    |       |
+| birth_date | date          | NO   |     | NULL    |       |
+| first_name | varchar(14)   | NO   |     | NULL    |       |
+| last_name  | varchar(16)   | NO   |     | NULL    |       |
+| gender     | enum('M','F') | NO   |     | NULL    |       |
+| hire_date  | date          | NO   |     | NULL    |       |
+-->
+
+<mapper namespace="com.vendo.myBatisTest.MyBatisEmployeeMapper">
+
+	<!--
+	-->
+
+	<resultMap id="EmployeeResultMap" type="com.vendo.myBatisTest.MyBatisEmployee">
+		<constructor>
+			<idArg column="emp_no" javaType="_integer" />
+			<arg column="first_name" javaType="String" />
+			<arg column="last_name" javaType="String" />
+			<arg column="gender" javaType="String" />
+			<arg column="birth_date" javaType="Date" />
+			<arg column="hire_date" javaType="Date" />
+		</constructor>
+	</resultMap>
+
+	<resultMap id="EmployeeDistributionResultMap" type="com.vendo.myBatisTest.MyBatisEmployeeDistribution">
+		<constructor>
+			<!--
+			<idArg column="emp_no" javaType="_integer" />
+			-->
+			<arg column="last_name" javaType="String" />
+			<arg column="count" javaType="_integer" />
+		</constructor>
+	</resultMap>
+
+	<!-- each argument must be a column name from the database table definition -->
+	<sql id="employeeColumns">emp_no, first_name, last_name, gender, birth_date, hire_date</sql>
+
+	<!-- each argument must represent a "getter" value from the MyBatisEmployee class -->
+	<sql id="employeeValues">#{employeeNumber}, #{firstName}, #{lastName}, #{gender}, #{birthDate}, #{hireDate}</sql>
+
+	<select id="selectAllEmployees" resultMap="EmployeeResultMap">
+		select
+		<include refid="employeeColumns"/>
+		from employees
+	</select>
+
+	<select id="selectEmployeesByFirstLastName" resultMap="EmployeeResultMap">
+		select
+		<include refid="employeeColumns"/>
+		from employees
+		where first_name = #{first_name} and last_name = #{last_name}
+	</select>
+
+	<select id="selectEmployeeById" resultMap="EmployeeResultMap">
+		select
+		<include refid="employeeColumns"/>
+		from employees
+		where emp_no = #{emp_no}
+	</select>
+
+	<select id="selectEmployeesByIds" resultMap="EmployeeResultMap">
+		select
+		<include refid="employeeColumns"/>
+		from employees
+		where emp_no in
+		<foreach item="item" index="index" collection="emp_nos" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<select id="selectEmployeeMinBirthDate" resultMap="EmployeeResultMap">
+		select
+		<include refid="employeeColumns"/>
+		from employees
+		where hire_date = (select min(hire_date) from employees)
+	</select>
+
+	<select id="selectEmployeeDistributionByLastName" resultMap="EmployeeDistributionResultMap">
+		select
+		last_name, count(*) as count
+		from employees
+		where gender = #{gender}
+		group by last_name
+		order by count desc
+	</select>
+
+	<select id="getNextEmployeeNumber" resultType="int">
+		select (max(emp_no) + 1)
+		from employees
+	</select>
+
+	<insert id="insertEmployee">
+		insert into employees (
+		<include refid="employeeColumns"/>
+		)
+		values (
+		<include refid="employeeValues"/>
+		)
+	</insert>
+
+	<insert id="insertUpdateEmployee">
+		insert into employees (
+		<include refid="employeeColumns"/>
+		)
+		values (
+		<include refid="employeeValues"/>
+		)
+		on duplicate key update
+		emp_no = values (emp_no),
+		first_name = values (first_name),
+		last_name = values (last_name),
+		gender = values (gender),
+		birth_date = values (birth_date),
+		hire_date = values (hire_date)
+	</insert>
+
+	<delete id="deleteEmployeeById">
+		delete
+		from employees
+		where emp_no = #{emp_no}
+	</delete>
+
+</mapper>

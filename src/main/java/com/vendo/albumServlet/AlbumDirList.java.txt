@@ -1,0 +1,180 @@
+//AlbumDirList.java
+
+package com.vendo.albumServlet;
+
+import com.vendo.vendoUtils.*;
+
+import java.io.*;
+import java.util.*;
+
+import org.apache.logging.log4j.*;
+
+
+public class AlbumDirList
+{
+	///////////////////////////////////////////////////////////////////////////
+	//create singleton instance
+//	public synchronized static AlbumDirList getInstance ()
+//PREVENT THIS CLASS FROM BEING USED
+	private synchronized static AlbumDirList getInstance ()
+	{
+		String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+
+//		if (AlbumFormInfo._logLevel >= 9) {
+//			_log.debug ("AlbumDirList.getInstance: rootPath = " + rootPath);
+//			_log.debug ("AlbumDirList.getInstance: _prevRootPath = " + _prevRootPath);
+//		}
+
+		if (!rootPath.equals (_prevRootPath)) {
+			_instance = null;
+			_prevRootPath = rootPath;
+		}
+
+		if (_instance == null)
+			_instance = new AlbumDirList ();
+
+		return _instance;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private AlbumDirList ()
+	{
+/*obsolete
+//		if (AlbumFormInfo._logLevel >= 6)
+//			_log.debug ("AlbumDirList ctor: _updateXmlOnly = " + _updateXmlOnly);
+
+		String[] subFolders = getAlbumSubFolders ();
+
+		if (subFolders == null) {
+			String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+			//Note this error handling exists in both the AlbumDirList ctor and AlbumImages ctor
+			_log.error ("AlbumDirList ctor: invalid folder \"" + rootPath + "\"");
+			throw new RuntimeException ("AlbumImages ctor: invalid folder \"" + rootPath + "\"");
+		}
+
+		_subdirList = new ArrayList<AlbumSubdirList> (subFolders.length);
+
+		//no need to thread this as it is not slow
+		AlbumProfiling.getInstance ().enter (5);
+		for (String subFolder : subFolders) {
+			if (AlbumFormInfo._logLevel >= 6)
+				_log.debug ("AlbumDirList ctor: found album.xml: " + subFolder);
+			AlbumSubdirList subdirList = new AlbumSubdirList (subFolder);
+			_subdirList.add (subdirList);
+		}
+		AlbumProfiling.getInstance ().exit (5);
+*/
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns list of subFolders that contain album.xml or image files
+	public String[] getAlbumSubFolders ()
+	{
+//not currently working
+//		//check properties file for subfolders
+//		_log.debug ("AlbumDirList.getAlbumSubFolders: " + AlbumFormInfo.getInstance ().getSubFolders ());
+//		_log.debug ("AlbumDirList.getAlbumSubFolders: " + AlbumFormInfo.getInstance ().getSubFolders ().split (","));
+//		String[] subFolders = VendoUtils.trimArrayItems (AlbumFormInfo.getInstance ().getSubFolders ().split (","));
+//		if (subFolders.length > 0) {
+//			return subFolders;
+//		}
+
+//		if (true) { //testing
+//			return new String[] {"a", "b"}; //testing
+//			return new String[] {"l", "t"}; //testing
+//			return new String[] {"b", "s"}; //testing
+//		}
+
+		//for simple dir listings, it looks like java.io package is faster than java.nio
+		FilenameFilter albumFilter = new FilenameFilter () {
+			public boolean accept (File dir, String name) {
+				try {
+					//check for existence of album.xml
+					String albumFile = dir.getCanonicalPath () + "/" + name + "/album.xml";
+					if (AlbumFormInfo._logLevel >= 8)
+						_log.debug ("AlbumDirList.getAlbumSubFolders.albumFilter: " + albumFile);
+					File file = new File (albumFile);
+					if (file.exists ()) {
+						if (AlbumFormInfo._logLevel >= 7)
+							_log.debug ("AlbumDirList.getAlbumSubFolders.albumFilter: found " + file.getCanonicalPath ());
+						return true;
+					}
+
+//unnecessary code
+//					//check for existence of image files
+//					String imagePath = dir.getCanonicalPath () + "/" + name;
+//					String[] fileList = getImageFileList (imagePath, name);
+//					if (fileList != null && fileList.length > 0)
+//						return true;
+
+				} catch (IOException ee) {
+					_log.error ("AlbumDirList.getAlbumSubFolders error", ee);
+				}
+
+				return false;
+			}
+		};
+
+		AlbumProfiling.getInstance ().enter (5);
+
+		String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+		if (AlbumFormInfo._logLevel >= 7)
+			_log.debug ("AlbumDirList.getAlbumSubFolders: rootPath = " + rootPath);
+
+		File dir = new File (rootPath);
+		String[] subFolders = dir.list (albumFilter);
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		if (subFolders == null)
+			_log.error ("AlbumDirList.getAlbumSubFolders: no album.xml files found under \"" + rootPath + "\"");
+
+		return subFolders;
+	}
+
+//	///////////////////////////////////////////////////////////////////////////
+//	public void setSessionId (String sessionId)
+//	{
+//		_sessionId = sessionId;
+//	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void setUpdateXmlOnly (boolean updateXmlOnly)
+	{
+		_updateXmlOnly = updateXmlOnly;
+
+		for (AlbumSubdirList subdir : _subdirList) {
+			subdir.setUpdateXmlOnly (updateXmlOnly);
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by CLI; returns list of images
+	public String[] getCliImageFileList (String subFolder)
+	{
+		String[] imageFiles = new String[] {};
+
+		//no need to thread because CLI caller is threaded
+		for (AlbumSubdirList subdir : _subdirList) {
+			if (subdir.getSubFolder ().equals (subFolder)) {
+				imageFiles = subdir.getCliImageFileList ();
+				break;
+			}
+		}
+
+		return imageFiles;
+	}
+
+
+	//members
+	private boolean _updateXmlOnly = false; //false means running as servlet
+
+//	private String _sessionId = new String ();
+
+	private Collection<AlbumSubdirList> _subdirList = null;
+
+	private static String _prevRootPath = "";
+	private static AlbumDirList _instance = null;
+
+	private static Logger _log = LogManager.getLogger ();
+}

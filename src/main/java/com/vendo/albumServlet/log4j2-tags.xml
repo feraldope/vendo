@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+C:\Users\java\AlbumServlet\log4j2-tags.xml
+
+Eclipse: add this to Debug Configurations->Arguments->VM Arguments:
+-Dlog4j.configurationFile=file:C:/Users/java/AlbumServlet/log4j2-tags.xml
+
+-> note never got this to work.  it creates this file, but never writes to it:
+"C:\Users\feral\workspaceEclipse\Vendo Apps and Utilities\logs\AlbumTags.log"
+-> also, if I introduce errors into this file, I see those errors in the eclipse console, but no logging
+
+old:
+	copy file here:
+	C:\Users\java\build\log4j2.xml
+	output written here:
+	C:\Users\drich\workspace.eclipse\Vendo Apps and Utilities\logs\AlbumTags.log
+-->
+
+<Configuration status="warn">
+	<Properties>
+		<Property name="myClass">AlbumTags</Property>
+	</Properties>
+
+	<Appenders>
+		<!-- note that the log file is created if this appender is defined, even if it is never used in this file -->
+		<File name="${myClass}File" fileName="logs/${myClass}.log" append="false">
+			<PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss} %5p] %m%n"/>
+		</File>
+			<Console name="Console" target="SYSTEM_OUT">
+			<PatternLayout pattern="[%5p] %m%n"/>
+		</Console>
+	</Appenders>
+
+	<Loggers>
+		<Logger name="${myClass}" level="trace" additivity="false">
+			<AppenderRef ref="Console"/>
+		</Logger>
+		<Logger name="${myClass}" level="trace" additivity="false">
+			<AppenderRef ref="${myClass}File"/>
+		</Logger>
+		<Root level="error">
+			<AppenderRef ref="Console"/>
+		</Root>
+	</Loggers>
+</Configuration>

@@ -1,0 +1,1 @@
+"C:\Program Files\Java\jdk1.5.0_06\jre\bin\javaw.exe" -cp "C:\users\java\dist\lib\vendo.jar" ReserViewer.ReserViewer "C:\Program Files\MyHD\dopeDbBackups\MyHDResCapList.mrl"

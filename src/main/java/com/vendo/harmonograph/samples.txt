@@ -1,0 +1,14 @@
+saddle that rotates in 3d:
+cos,cos,1,3,70,125,0,ZZ,5,25,10,0
+
+nice swirl
+cos,-tan,4,3,100,100,0,10,0,6,25,6
+
+shell
+sin,cos,3,3,85,120,0,15,0,5,40,5
+
+basket?
+sin,cos,5,10,100,100,42,0,0,0,25,3
+
+eye?
+tan,-tan,2,3,70,100,0,0,0,0,25,5
