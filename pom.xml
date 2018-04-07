@@ -24,6 +24,24 @@
 	<!-- -->
 
 	<build>
+		<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-compiler-plugin</artifactId>
+					<version>3.7.0</version>
+					<configuration>
+						<fork>true</fork>
+						<!-- following line allows me to use classes from com.sun.xxx -->
+						<compilerArgument>-XDignore.symbol.file</compilerArgument>
+					</configuration>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+	</build>
+
+<!-- 
+	<build>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
@@ -31,15 +49,18 @@
 				<version>3.7.0</version>
 				<configuration>
 					<compilerArgs>
-						<!-- following line allows me to use classes from com.sun.xxx -->
+						following line allows me to use classes from com.sun.xxx
 						<arg>-XDignore.symbol.file</arg>
 						<arg>-Xlint:all,-options,-path</arg>
-						<!-- <arg>-verbose</arg> <arg>-Xlint:unchecked</arg> <arg>-Xlint:deprecation</arg> -->
+						<arg>-verbose</arg>
+						<arg>-Xlint:unchecked</arg>
+						<arg>-Xlint:deprecation</arg>
 					</compilerArgs>
 				</configuration>
 			</plugin>
 		</plugins>
-	</build>
+	</build> 
+-->
 
 	<dependencies>
 
@@ -192,10 +213,14 @@
 			<version>1.1.3</version>
 		</dependency>
 
-		<!-- <dependency> <groupId>com.sun.media</groupId> <artifactId>jai_imageio</artifactId> 
-			<version>1.1</version> </dependency> <dependency> <groupId>com.sun.media</groupId> 
-			<artifactId>jai_imageio</artifactId> <version>1.1</version> </dependency> -->
-
+<!--
+		<dependency>
+			<groupId>com.sun.media</groupId>
+			<artifactId>jai_imageio</artifactId>
+			<version>1.1</version>
+		</dependency>
+-->
+ 
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>

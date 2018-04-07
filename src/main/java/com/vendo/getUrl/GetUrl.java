@@ -36,7 +36,6 @@ import java.util.TreeSet;
 import java.util.Vector;
 import java.util.regex.Pattern;
 
-import javax.imageio.ImageIO;
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -48,6 +47,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.win32.Win32;
@@ -655,7 +655,7 @@ public class GetUrl
 		try {
 //			file = new File (filename);
 //			image = ImageIO.read (file);
-			image = readImage (filename);
+			image = JpgUtils.readImage (new File (filename));
 			int width = image.getWidth ();
 			int height = image.getHeight ();
 //			if (_Debug)
@@ -685,80 +685,6 @@ public class GetUrl
 //			_log.debug ("valid image: " + filename);
 
 		return true;
-	}
-
-/* old way
-	///////////////////////////////////////////////////////////////////////////
-	//tries to read image with ImageIO, falls back to deprecated Sun class JPEGCodec on failure
-	//note similar methods exist in: AlbumImage.java, GetUrl.java, JpgUtils.java, etc.
-	public static BufferedImage readImage (String filename) throws IOException
-	{
-		try {
-			File file = new File (filename);
-
-			//this returns null if no registered ImageReader claims to be able to read the resulting image
-			//but throws IOException if an error occurs during reading
-			return ImageIO.read (file);
-
-		} catch (CMMException ee) {
-			_log.warn ("ImageIO.read failed: (falling back to JPEGCodec)");
-			_log.warn (ee);
-		} catch (Exception ee) {
-			//ignore exception here and fall back to next method
-		}
-
-		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec
-		//note this requires changes to build.xml: <compilerarg value="-XDignore.symbol.file"/>
-		FileInputStream inputStream = new FileInputStream (new File (filename));
-		BufferedImage image = JPEGCodec.createJPEGDecoder (inputStream).decodeAsBufferedImage ();
-		return image;
-	}
-*/
-
-	///////////////////////////////////////////////////////////////////////////
-	//tries to read image with ImageIO, falls back to deprecated Sun class JPEGCodec on failure
-	//note similar methods exist in: AlbumImage.java, GetUrl.java, JpgUtils.java, etc.
-	public static BufferedImage readImage (String filename) throws IOException
-//	public static BufferedImage readImage (File file)
-	{
-		BufferedImage image = null;
-		File file = new File (filename);
-
-/*
-		//first try faster, deprecated Sun class: sun.awt.image.codec.JPEGImageDecoderImpl
-		try (FileInputStream inputStream = new FileInputStream (file)) {
-			image = new JPEGImageDecoderImpl (inputStream).decodeAsBufferedImage ();
-			return image;
-
-		} catch (Exception ee) {
-//			_log.warn ("AlbumImage.readImage: JPEGImageDecoderImpl failed on " + file.getName () + ": (falling back to next method)");
-//			_log.warn (ee);
-		}
-
-		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec
-		//note this requires changes to build.xml: <compilerarg value="-XDignore.symbol.file"/>
-		try (FileInputStream inputStream = new FileInputStream (file)) {
-			image = JPEGCodec.createJPEGDecoder (inputStream).decodeAsBufferedImage ();
-			return image;
-
-		} catch (Exception ee) {
-//			_log.warn ("AlbumImage.readImage: JPEGCodec.createJPEGDecoder failed on " + file.getName () + ": (falling back to next method)");
-//			_log.warn (ee);
-		}
-*/
-
-		//this returns null if no registered ImageReader claims to be able to read the resulting image
-		//but throws IOException if an error occurs during reading
-		try (FileInputStream inputStream = new FileInputStream (file)) {
-			image = ImageIO.read (inputStream);
-//			return image;
-
-//		} catch (Exception ee) {
-//			_log.warn ("AlbumImage.readImage: ImageIO.read failed on " + file.getName () + ": (no more tries)");
-//			_log.warn (ee);
-		}
-
-		return image;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

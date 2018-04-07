@@ -1,11 +1,9 @@
 //VendoUtils.java
 
 package com.vendo.vendoUtils;
-//package com.vendo.VendoUtils;
 
 import java.io.File;
 import java.io.IOException;
-//import java.lang.*;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -31,7 +29,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-//import javax.servlet.*;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 

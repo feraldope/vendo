@@ -8,13 +8,11 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Date;
 import java.util.Formatter;
@@ -22,8 +20,6 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.Random;
 import java.util.regex.Pattern;
-
-import javax.imageio.ImageIO;
 
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.logging.log4j.LogManager;
@@ -35,8 +31,8 @@ import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.iptc.IptcDirectory;
 import com.drew.metadata.xmp.XmpDirectory;
+import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.VendoUtils;
-
 
 public class AlbumImage
 {
@@ -136,7 +132,7 @@ public class AlbumImage
 		final int h = 1;
 		int rgbIntArray[] = new int [w * h];
 
-		BufferedImage image = readImage (_file);
+		BufferedImage image = JpgUtils.readImage (_file);
 		_width = image.getWidth ();
 		_height = image.getHeight ();
 		image.getRGB (_width / 2, _height / 2, w, h, rgbIntArray, 0, w);
@@ -152,53 +148,6 @@ public class AlbumImage
 		setExifDates (readExifDates (_file));
 
 		AlbumProfiling.getInstance ().exit (7, subFolder, "ctor");
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//tries to read image with ImageIO, falls back to deprecated Sun class JPEGCodec on failure
-	//note similar methods exist in: AlbumImage.java, GetUrl.java, JpgUtils.java, etc.
-	public static BufferedImage readImage (File file)
-	{
-		BufferedImage image = null;
-
-/*
-		//first try faster, deprecated Sun class: sun.awt.image.codec.JPEGImageDecoderImpl
-		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
-			image = new JPEGImageDecoderImpl (inputStream).decodeAsBufferedImage ();
-			return image;
-
-		} catch (Exception ee) {
-			_log.warn ("AlbumImage.readImage: JPEGImageDecoderImpl failed on " + file.getName () + ": (falling back to next method)");
-			_log.warn (ee);
-		}
-*/
-
-/*
-		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec
-		//note this requires changes to build.xml: <compilerarg value="-XDignore.symbol.file"/>
-		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
-//			image = JPEGCodec.createJPEGDecoder (inputStream).decodeAsBufferedImage ();
-			image = com.sun.media.jai.codecimpl.JPEGCodec.createJPEGDecoder (inputStream).decodeAsBufferedImage ();
-			return image;
-
-		} catch (Exception ee) {
-			_log.warn ("AlbumImage.readImage: JPEGCodec.createJPEGDecoder failed on " + file.getName () + ": (falling back to next method)");
-			_log.warn (ee);
-		}
-*/
-
-		//this returns null if no registered ImageReader claims to be able to read the resulting image
-		//but throws IOException if an error occurs during reading
-		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
-			image = ImageIO.read (inputStream);
-			return image;
-
-		} catch (Exception ee) {
-			_log.warn ("AlbumImage.readImage: ImageIO.read failed on " + file.getName () + ": (no more tries)");
-			_log.warn (ee);
-		}
-
-		return image;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -634,7 +583,7 @@ public class AlbumImage
 			_log.debug ("AlbumImage.createRgbDataFile: " + nameWithExt);
 		}
 
-		BufferedImage image = readImage (_file);
+		BufferedImage image = JpgUtils.readImage (_file);
 
 		int imageWidth = image.getWidth ();
 		int imageHeight = image.getHeight ();

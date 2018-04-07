@@ -4,29 +4,45 @@
 
 package com.vendo.jpgRgbData;
 
-import com.vendo.albumServlet.*;
-import com.vendo.jpgInfo.*;
-import com.vendo.vendoUtils.*;
-
-import java.io.*;
-import java.nio.*;
-import java.nio.channels.*;
-import java.nio.file.*;
-import java.text.*;
-import java.time.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.*;
-
-import java.awt.image.*;
+import java.util.stream.Collectors;
 
 import javax.imageio.ImageIO;
 
-import org.apache.commons.io.*;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import org.apache.logging.log4j.*;
+import com.vendo.albumServlet.AlbumImage;
+import com.vendo.jpgInfo.FilenamePatternFilter;
+import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.VUncaughtExceptionHandler;
+import com.vendo.vendoUtils.VendoUtils;
 
 
 public class JpgRgbData
@@ -254,7 +270,7 @@ public class JpgRgbData
 		Instant startInstant = Instant.now ();
 		Instant endInstant = null;
 
-		BufferedImage image = AlbumImage.readImage (imageFile.toFile ());
+		BufferedImage image = JpgUtils.readImage (imageFile.toFile ());
 
 		int imageWidth = image.getWidth ();
 		int imageHeight = image.getHeight ();

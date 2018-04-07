@@ -7,15 +7,14 @@ import java.awt.GraphicsEnvironment;
 import java.awt.HeadlessException;
 import java.awt.Image;
 import java.awt.Transparency;
-//import java.awt.image.renderable.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FilenameFilter;
-import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,7 +22,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-//import javax.media.jai.*;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 
@@ -32,6 +30,9 @@ import org.apache.logging.log4j.Logger;
 
 import com.vendo.vendoUtils.VUncaughtExceptionHandler;
 import com.vendo.vendoUtils.VendoUtils;
+
+import com.sun.image.codec.jpeg.JPEGCodec; //deprecated
+import sun.awt.image.codec.JPEGImageDecoderImpl; //deprecated
 
 
 public class JpgUtils
@@ -372,113 +373,47 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//tries to read image with ImageIO, falls back to deprecated Sun class JPEGCodec on failure
-	//note similar methods exist in: AlbumImage.java, GetUrl.java, JpgUtils.java, etc.
-	public static BufferedImage readImage (String filename) throws IOException
-//	public static BufferedImage readImage (File file)
+	//tries to read image from file, using fastest (hopefully) to slowest method
+	@SuppressWarnings("restriction")
+	public static BufferedImage readImage (File file)
 	{
 		BufferedImage image = null;
-		File file = new File (filename);
 
-/*
 		//first try faster, deprecated Sun class: sun.awt.image.codec.JPEGImageDecoderImpl
-		try (FileInputStream inputStream = new FileInputStream (file)) {
+		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
 			image = new JPEGImageDecoderImpl (inputStream).decodeAsBufferedImage ();
 			return image;
 
 		} catch (Exception ee) {
-//			_log.warn ("AlbumImage.readImage: JPEGImageDecoderImpl failed on " + file.getName () + ": (falling back to next method)");
-//			_log.warn (ee);
+			_log.warn ("JpgUtils.readImage: JPEGImageDecoderImpl failed on " + file.getName () + ": (falling back to next method)");
+			_log.warn (ee);
 		}
 
 		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec
-		//note this requires changes to build.xml: <compilerarg value="-XDignore.symbol.file"/>
-		try (FileInputStream inputStream = new FileInputStream (file)) {
+		//note use of this method requires changes to pom.xml: <arg>-XDignore.symbol.file</arg>
+		//                                       or build.xml: <compilerarg value="-XDignore.symbol.file"/>
+		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
 			image = JPEGCodec.createJPEGDecoder (inputStream).decodeAsBufferedImage ();
 			return image;
 
 		} catch (Exception ee) {
-//			_log.warn ("AlbumImage.readImage: JPEGCodec.createJPEGDecoder failed on " + file.getName () + ": (falling back to next method)");
-//			_log.warn (ee);
+			_log.warn ("JpgUtils.readImage: JPEGCodec.createJPEGDecoder failed on " + file.getName () + ": (falling back to next method)");
+			_log.warn (ee);
 		}
-*/
 
 		//this returns null if no registered ImageReader claims to be able to read the resulting image
 		//but throws IOException if an error occurs during reading
-		try (FileInputStream inputStream = new FileInputStream (file)) {
+		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
 			image = ImageIO.read (inputStream);
-//			return image;
+			return image;
 
-//		} catch (Exception ee) {
-//			_log.warn ("AlbumImage.readImage: ImageIO.read failed on " + file.getName () + ": (no more tries)");
-//			_log.warn (ee);
-		}
-
-		return image;
-	}
-
-/*
-	///////////////////////////////////////////////////////////////////////////
-	//tries to read image with ImageIO, falls back to deprecated Sun class JPEGCodec on failure
-	//note similar methods exist in: AlbumImage.java, GetUrl.java, JpgUtils.java, etc.
-	public static BufferedImage readImage (String filename) throws IOException
-	{
-		try {
-			File file = new File (filename);
-
-			//this returns null if no registered ImageReader claims to be able to read the resulting image
-			//but throws IOException if an error occurs during reading
-			return ImageIO.read (file);
-
-		} catch (CMMException ee) {
-			_log.warn ("ImageIO.read failed: (falling back to JPEGCodec)");
+		} catch (Exception ee) {
+			_log.warn ("JpgUtils.readImage: ImageIO.read failed on " + file.getName () + ": (no more tries)");
 			_log.warn (ee);
-		} catch (Exception ee) {
-			//ignore exception here and fall back to next method
 		}
 
-		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec
-		//note this requires changes to build.xml: <compilerarg value="-XDignore.symbol.file"/>
-		FileInputStream inputStream = new FileInputStream (new File (filename));
-		BufferedImage image = JPEGCodec.createJPEGDecoder (inputStream).decodeAsBufferedImage ();
 		return image;
 	}
-*/
-
-/* old way: using JAI that is no longer supported on Windows 64-bit Java?
-	///////////////////////////////////////////////////////////////////////////
-	//tries to read image with ImageIO, falls back to JAI on failure
-	//(note similar method exists in AlbumImage.java)
-	public BufferedImage readImage (String filename) throws IOException
-	{
-//		_log.debug ("readImage: filename = '" + filename + "'");
-
-		try {
-			File file = new File (filename);
-			return ImageIO.read (file);
-
-//		} catch (CMMException ee) {
-		} catch (Exception ee) {
-//silently fall back to JAI
-//			_log.error ("ImageIO.read failed: (falling back to JAI)");
-//			_log.error (ee);
-		}
-
-		try {
-			ParameterBlock parameterBlock = new ParameterBlock ();
-			parameterBlock.add (filename);
-			RenderedOp renderedOp = new RenderedOp ("fileload", parameterBlock, null);
-			return renderedOp.getAsBufferedImage ();
-
-//		} catch (CMMException ee) {
-		} catch (Exception ee) {
-			_log.error ("JAI RenderedOp failed:");
-			_log.error (ee);
-		}
-
-		return null;
-	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	private static boolean generateScaledImage (String inFilename, String outFilename, int desiredWidth, int desiredHeight)
@@ -489,7 +424,7 @@ public class JpgUtils
 //		final int hints = Image.SCALE_AREA_AVERAGING; //same as SCALE_SMOOTH ??
 
 		try {
-			image = readImage (inFilename);
+			image = readImage (new File (inFilename));
 
 		} catch (Exception ee) {
 			_log.error ("generateScaledImage: failed to read '" + inFilename + "'");
@@ -663,7 +598,7 @@ public class JpgUtils
 		long bytes = -1;
 
 		try {
-			image = readImage (filename);
+			image = readImage (new File (filename));
 			width = image.getWidth ();
 			height = image.getHeight ();
 
