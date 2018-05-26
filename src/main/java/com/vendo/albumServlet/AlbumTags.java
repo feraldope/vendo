@@ -221,7 +221,8 @@ public class AlbumTags
 						_log.debug ("AlbumTags.WatchDir.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
 					}
 
-					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY)) {
+					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
+						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
 						run1 ();
 					}
 				}

@@ -464,12 +464,11 @@ public class AlbumFormInfo
 			filter = filter.replaceAll (",\\+", ","); //regex
 		}
 
-		//convert parentheses to commas
-		if (filter.contains ("(") || filter.contains (")")) {
-			filter = filter.replaceAll ("\\)", ","); //regex
-			filter = filter.replaceAll ("\\(", ","); //regex
+		//convert strings enclosed in parentheses to commas
+		if (filter.contains ("(") && filter.contains (")")) {
+			filter = filter.replaceAll ("\\s*\\([^\\)]*\\)\\s*", ","); //regex
 		}
-
+		
 		//remove partial filters like [145] and [3-5]
 		String numberRangeRegex = "\\[[0-9-]*\\]";
 		if (filter.contains (",[")) {
@@ -492,16 +491,6 @@ public class AlbumFormInfo
 			filter = filter.substring (0, filter.length () - 1);
 		}
 
-/* old way
-//TODO - this only works if the "[nnnn]" filter is alone on the line
-		//remove partial filters like [12]
-		if (filter.startsWith ("[") && filter.endsWith ("]")) {
-			_log.debug ("AlbumFormInfo.cleanFilter: filter: \"" + filter + "\"");
-			String string = filter.substring (1, filter.length () - 1);
-			if (VendoUtils.isDigits (string))
-				filter = new String ();
-		}
-*/
 		_log.debug ("AlbumFormInfo.cleanFilter: filter: \"" + filter + "\"");
 
 		return filter;
