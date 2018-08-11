@@ -260,6 +260,7 @@ public class AlbumServlet extends HttpServlet
 
 		   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth)).append (_spacing).append (NL)
 //		   .append (inputElement ("Since Days", "sinceDays", form.getSinceDays (), numberFieldWidth)).append (_spacing).append (NL)
+		   .append (inputElement ("Max Filters", "maxFilters", form.getMaxFilters (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("Highlight Days", "highlightDays", form.getHighlightDays (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("Max RGB Diffs", "maxRgbDiffs", form.getMaxRgbDiffs (), numberFieldWidth)).append (_spacing).append (NL)

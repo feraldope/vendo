@@ -228,6 +228,7 @@ public class AlbumImages
 	///////////////////////////////////////////////////////////////////////////
 	public int processRequest ()
 	{
+		int maxFilters = _form.getMaxFilters ();
 		String[] filters = _form.getFilters ();
 		String[] tagsIn = _form.getTags (AlbumTagMode.TagIn);
 		String[] tagsOut = _form.getTags (AlbumTagMode.TagOut);
@@ -262,11 +263,12 @@ public class AlbumImages
 
 		AlbumMode mode = _form.getMode ();
 
-		if (filters.length > 1200) {
-			_form.addServletError ("Warning: too many filters (" + _decimalFormat.format (filters.length) + "), ignoring");
-			filters = new String[] {""};
+		if (filters.length > maxFilters) {
+			_form.addServletError ("Warning: too many filters (" + _decimalFormat.format (filters.length) + "), reducing to " + maxFilters);
+			filters = Arrays.copyOf (filters, maxFilters);
+			_log.debug ("AlbumImages.processRequest: filters.length = " + filters.length + " (after limiting to maxFilters)");
 		}
-
+		
 		if (filters.length == 0 && tagsIn.length == 0) { //handle some defaults
 			switch (mode) {
 			case DoDup:
@@ -905,6 +907,7 @@ public class AlbumImages
 		  .append ("&sortType=").append (_form.getSortType ().getSymbol ())
 		  .append ("&panels=").append (_form.getPanels ())
 		  .append ("&sinceDays=").append (_form.getSinceDays ())
+		  .append ("&maxFilters=").append (_form.getMaxFilters ())
 		  .append ("&highlightDays=").append (_form.getHighlightDays ())
 		  .append ("&exifDateIndex=").append (_form.getExifDateIndex ())
 		  .append ("&maxRgbDiffs=").append (_form.getMaxRgbDiffs ())
@@ -956,6 +959,7 @@ public class AlbumImages
 		}
 		sb.append ("&panels=").append (panels)
 		  .append ("&sinceDays=").append (sinceDays)
+		  .append ("&maxFilters=").append (_form.getMaxFilters ())
 		  .append ("&highlightDays=").append (_form.getHighlightDays ())
 		  .append ("&exifDateIndex=").append (_form.getExifDateIndex ())
 		  .append ("&maxRgbDiffs=").append (_form.getMaxRgbDiffs ())
@@ -1119,7 +1123,8 @@ public class AlbumImages
 		if (sinceInMillis > 0)
 			sinceStr = " (since " + _dateFormat.format (new Date (sinceInMillis)) + ")";
 
-		int highlightPixels = _form.getHighlightPixels ();
+		int highlightMinPixels = _form.getHighlightMinPixels ();
+		int highlightMaxKilobytes = _form.getHighlightMaxKilobytes ();
 		long highlightInMillis = _form.getHighlightInMillis ();
 		String highlightStr = new String ();
 		if (highlightInMillis > 0)
@@ -1356,8 +1361,12 @@ public class AlbumImages
 				}
 */
 				String fontColor = "black";
-				if (image.getWidth () < highlightPixels || image.getHeight () < highlightPixels)
+				if (image.getWidth () < highlightMinPixels || image.getHeight () < highlightMinPixels) {
 					fontColor = "red";
+				}
+				if (image.getNumBytes() > highlightMaxKilobytes * 1024) {
+					fontColor = "yellow";
+				}
 
 				String fontWeight = "normal";
 				if (highlightInMillis > 0 && image.getModified () >= highlightInMillis) //0 means disabled

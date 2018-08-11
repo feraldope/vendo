@@ -83,6 +83,7 @@ public class AlbumFormInfo
 		_panels = _defaultPanels;
 		_slice = 1;
 		_sinceDays = 0; //0 means show all
+		_maxFilters = _defaultMaxFilters; 
 		_highlightDays = _defaultHighlightDays;
 		_maxRgbDiffs = _defaultMaxRgbDiffs;
 		_exifDateIndex = _defaultExifDateIndex;
@@ -98,7 +99,8 @@ public class AlbumFormInfo
 		_reverseSort = false;
 		_sortType = AlbumSortType.ByName;
 
-		_highlightPixels = _defaultHighlightPixels;
+		_highlightMinPixels = _defaultHighlightMinPixels;
+		_highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 		_logLevel = _defaultLogLevel;
 		_maxImageScalePercent = _defaultMaxImageScalePercent;
 		_profileLevel = _defaultProfileLevel;
@@ -278,13 +280,21 @@ public class AlbumFormInfo
 		if (_debugProperties)
 			_log.debug ("AlbumFormInfo.processRequest: property: got defaultColumns = " + _defaultColumns);
 
+		_maxFilters = _defaultMaxFilters = getPropertyInt (properties, "defaultMaxFilters", _defaultMaxFilters);
+		if (_debugProperties)
+			_log.debug ("AlbumFormInfo.processRequest: property: got defaultMaxFilters = " + _defaultMaxFilters);
+		
 		_highlightDays = _defaultHighlightDays = getPropertyInt (properties, "defaultHighlightDays", _defaultHighlightDays);
 		if (_debugProperties)
 			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightDays = " + _defaultHighlightDays);
 
-		_highlightPixels = _defaultHighlightPixels = getPropertyInt (properties, "defaultHighlightPixels", _defaultHighlightPixels);
+		_highlightMinPixels = _defaultHighlightMinPixels = getPropertyInt (properties, "defaultHighlightMinPixels", _defaultHighlightMinPixels);
 		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightPixels = " + _defaultHighlightPixels);
+			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightMinPixels = " + _defaultHighlightMinPixels);
+
+		_highlightMaxKilobytes = _defaultHighlightMaxKilobytes = getPropertyInt (properties, "defaultHighlightMaxKilobytes", _defaultHighlightMaxKilobytes);
+		if (_debugProperties)
+			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightMaxKilobytes = " + _defaultHighlightMaxKilobytes);
 
 		_maxImageScalePercent = _defaultMaxImageScalePercent = getPropertyInt (properties, "defaultMaxImageScalePercent", _defaultMaxImageScalePercent);
 		if (_debugProperties)
@@ -1024,6 +1034,17 @@ public class AlbumFormInfo
 //	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public void setMaxFilters (int maxFilters)
+	{
+		_maxFilters = Math.max (maxFilters, 0);
+	}
+
+	public int getMaxFilters ()
+	{
+		return _maxFilters;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public void setHighlightDays (double highlightDays)
 	{
 		_highlightDays = Math.max (highlightDays, 0);
@@ -1063,9 +1084,15 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getHighlightPixels ()
+	public int getHighlightMinPixels ()
 	{
-		return _highlightPixels;
+		return _highlightMinPixels;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public int getHighlightMaxKilobytes ()
+	{
+		return _highlightMaxKilobytes;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1186,8 +1213,10 @@ public class AlbumFormInfo
 	//parameters from properties file at "%CATALINA_HOME%"\webapps\AlbumServlet\WEB-INF\classes\album.properties
 	private static final String _propertiesFile = "/WEB-INF/classes/album.properties";
 	private int _defaultColumns = 3;
+	private int _defaultMaxFilters = 500; 
 	private int _defaultHighlightDays = 4;
-	private int _defaultHighlightPixels = 640;
+	private int _defaultHighlightMinPixels = 640;
+	private int _defaultHighlightMaxKilobytes = 1536;
 	private int _defaultLogLevel = 5;
 	private int _defaultMaxImageScalePercent = 150;
 	private int _defaultMaxRgbDiffs = 5;
@@ -1199,7 +1228,8 @@ public class AlbumFormInfo
 	//private members
 	private String _defaultRootFolder = "jroot";
 	private String _subFolders = "";
-	private int _highlightPixels = _defaultHighlightPixels;
+	private int _highlightMinPixels = _defaultHighlightMinPixels;
+	private int _highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 	private int _maxColumns = 32;
 	private List<String> _servletErrors = null;
 
@@ -1219,7 +1249,8 @@ public class AlbumFormInfo
 	private int _slice = 1;
 	private double _sinceDays = 0; //0 means show all
 	private long _sinceInMillis = -1;
-	private double _highlightDays = _defaultHighlightDays;
+	private int _maxFilters = _defaultMaxFilters; 
+ 	private double _highlightDays = _defaultHighlightDays;
 	private long _highlightInMillis = -1;
 	private int _maxRgbDiffs = _defaultMaxRgbDiffs;
 	private int _exifDateIndex = _defaultExifDateIndex; //when sorting/comparing EXIF dates, specifies which date to use

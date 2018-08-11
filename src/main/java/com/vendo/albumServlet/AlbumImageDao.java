@@ -405,7 +405,7 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private Thread createWatcherThreadsForFolder (String subFolder) //throws IOException
+	private Thread createWatcherThreadsForFolder (String subFolder)
 	{
 		final BlockingQueue<AlbumImageEvent> queue = new LinkedBlockingQueue<AlbumImageEvent> ();
 
@@ -450,6 +450,10 @@ public class AlbumImageDao
 
 						} else {
 							_log.warn ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder + "\"/" + queue.size () + "): unhandled event: " + pathEvent.kind ().name () + " on file: " + path.normalize ().toString ());
+						}
+
+						if (queue.size () == 0) {
+							_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder + "\") empty -------------------------------------------------------------------");
 						}
 
 					} catch (Exception ee) {
