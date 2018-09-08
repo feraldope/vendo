@@ -83,7 +83,7 @@ public class AlbumFormInfo
 		_panels = _defaultPanels;
 		_slice = 1;
 		_sinceDays = 0; //0 means show all
-		_maxFilters = _defaultMaxFilters; 
+		_maxFilters = _defaultMaxFilters;
 		_highlightDays = _defaultHighlightDays;
 		_maxRgbDiffs = _defaultMaxRgbDiffs;
 		_exifDateIndex = _defaultExifDateIndex;
@@ -283,7 +283,7 @@ public class AlbumFormInfo
 		_maxFilters = _defaultMaxFilters = getPropertyInt (properties, "defaultMaxFilters", _defaultMaxFilters);
 		if (_debugProperties)
 			_log.debug ("AlbumFormInfo.processRequest: property: got defaultMaxFilters = " + _defaultMaxFilters);
-		
+
 		_highlightDays = _defaultHighlightDays = getPropertyInt (properties, "defaultHighlightDays", _defaultHighlightDays);
 		if (_debugProperties)
 			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightDays = " + _defaultHighlightDays);
@@ -421,8 +421,8 @@ public class AlbumFormInfo
 
 		//accept URL as input and try to create potentially useful filter from it
 		try {
-			//first try to parse as URL, which will throw exception if not valid, and continue below
-			URL url = new URL (filter);
+			//first try to parse as URL, which will throw exception if not valid, then continue below
+			/*URL url =*/ new URL (filter);
 
 			//then parse as URI, which allows us to extract components
 			URI uri = new URI (filter);
@@ -478,7 +478,7 @@ public class AlbumFormInfo
 		if (filter.contains ("(") && filter.contains (")")) {
 			filter = filter.replaceAll ("\\s*\\([^\\)]*\\)\\s*", ","); //regex
 		}
-		
+
 		//remove partial filters like [145] and [3-5]
 		String numberRangeRegex = "\\[[0-9-]*\\]";
 		if (filter.contains (",[")) {
@@ -1213,7 +1213,7 @@ public class AlbumFormInfo
 	//parameters from properties file at "%CATALINA_HOME%"\webapps\AlbumServlet\WEB-INF\classes\album.properties
 	private static final String _propertiesFile = "/WEB-INF/classes/album.properties";
 	private int _defaultColumns = 3;
-	private int _defaultMaxFilters = 500; 
+	private int _defaultMaxFilters = 500;
 	private int _defaultHighlightDays = 4;
 	private int _defaultHighlightMinPixels = 640;
 	private int _defaultHighlightMaxKilobytes = 1536;
@@ -1249,7 +1249,7 @@ public class AlbumFormInfo
 	private int _slice = 1;
 	private double _sinceDays = 0; //0 means show all
 	private long _sinceInMillis = -1;
-	private int _maxFilters = _defaultMaxFilters; 
+	private int _maxFilters = _defaultMaxFilters;
  	private double _highlightDays = _defaultHighlightDays;
 	private long _highlightInMillis = -1;
 	private int _maxRgbDiffs = _defaultMaxRgbDiffs;

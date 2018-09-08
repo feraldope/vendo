@@ -2,19 +2,48 @@
 
 package com.vendo.albumServlet;
 
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import javax.imageio.ImageIO;
-
+import org.apache.commons.dbcp2.BasicDataSource;
+import org.apache.ibatis.io.Resources;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
+import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 
 public class AlbumImageDiffer
 {
+	private enum Mode {NotSet, Names, Tags};
+
 	///////////////////////////////////////////////////////////////////////////
 	static
 	{
@@ -24,8 +53,6 @@ public class AlbumImageDiffer
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String args[])
 	{
-//TODO - change CLI to read properties file, too
-
 		AlbumFormInfo.getInstance (); //call ctor to load class defaults
 
 		//CLI overrides
@@ -46,14 +73,18 @@ public class AlbumImageDiffer
 			ee.printStackTrace (System.err);
 		}
 
+		shutdownExecutor ();
+
 		AlbumProfiling.getInstance ().exit (1);
 
-//		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
+		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private Boolean processArgs (String args[])
 	{
+		String filterAStr = null;
+		String filterBStr = null;
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
@@ -64,11 +95,24 @@ public class AlbumImageDiffer
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_Debug = true;
 
-/*
-				} else if (arg.equalsIgnoreCase ("batchInsertSize") || arg.equalsIgnoreCase ("batch")) {
+				} else if (arg.equalsIgnoreCase ("filtersA")) {
 					try {
-						_batchInsertSize = Integer.parseInt (args[++ii]);
-						if (_batchInsertSize < 0)
+						filterAStr = args[++ii];
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("filtersB")) {
+					try {
+						filterBStr = args[++ii];
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("maxRgbDiffs")) {
+					try {
+						_maxRgbDiffs = Integer.parseInt (args[++ii]);
+						if (_maxRgbDiffs < 0)
 							throw (new NumberFormatException ());
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
@@ -76,29 +120,65 @@ public class AlbumImageDiffer
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("dumpTagData") || arg.equalsIgnoreCase ("dump")) {
-					_dumpTagData = true;
-
-				} else if (arg.equalsIgnoreCase ("checkForOrphans") || arg.equalsIgnoreCase ("co")) {
-					_checkForOrphanFilters = true;
-
-				} else if (arg.equalsIgnoreCase ("resetTables") || arg.equalsIgnoreCase ("reset")) {
-					_resetTables = true;
-
-				} else if (arg.equalsIgnoreCase ("tagFilename") || arg.equalsIgnoreCase ("tagFile")) {
+				} else if (arg.equalsIgnoreCase ("maxRows")) {
 					try {
-						_tagFilename = args[++ii];
+						_maxRows = Integer.parseInt (args[++ii]);
+						if (_maxRows < 0)
+							throw (new NumberFormatException ());
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("modeA")) {
+					String modeStr = args[++ii];
+					if (modeStr.compareTo("names") == 0) {
+						_modeA = Mode.Names;
+					} else if (modeStr.compareTo("tags") == 0) {
+						_modeA = Mode.Tags;
+					}
+					if (_modeA == Mode.NotSet) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("modeB")) {
+					String modeStr = args[++ii];
+					if (modeStr.compareTo("names") == 0) {
+						_modeB = Mode.Names;
+					} else if (modeStr.compareTo("tags") == 0) {
+						_modeB = Mode.Tags;
+					}
+					if (_modeB == Mode.NotSet) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("numThreads") || arg.equalsIgnoreCase ("threads")) {
+					try {
+						_numThreads = Integer.parseInt (args[++ii]);
+						if (_numThreads < 0)
+							throw (new NumberFormatException ());
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("whereClauseA") || arg.equalsIgnoreCase ("whereA")) {
+					try {
+						_whereClauseA = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("tagPatternString") || arg.equalsIgnoreCase ("p")) {
+
+				} else if (arg.equalsIgnoreCase ("whereClauseB") || arg.equalsIgnoreCase ("whereB")) {
 					try {
-						_tagPatternString = args[++ii];
+						_whereClauseB = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
-*/
+
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -106,25 +186,44 @@ public class AlbumImageDiffer
 
 			} else {
 				//check for other args
+/*
 				if (_imageFilename1 == null) {
 					_imageFilename1 = arg;
 
-				} else if (_imageFilename2 == null) {
-					_imageFilename2 = arg;
-
-				} else if (_imageFilename3 == null) {
-					_imageFilename3 = arg;
-
 				} else {
-					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
-				}
+*/
+				displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
+//				}
 			}
 		}
 
+		if (filterAStr != null) {
+			_filtersA = Arrays.asList(filterAStr.split("\\s*,\\s*"));
+		}
+		if (filterBStr != null) {
+			_filtersB = Arrays.asList(filterBStr.split("\\s*,\\s*"));
+		}
+
 		//check for required args and handle defaults
-		if (_imageFilename1 == null || _imageFilename2 == null || _imageFilename3 == null) {
+		if (_whereClauseA == null || _whereClauseB == null) {
 			displayUsage ("Incorrect usage", true);
 		}
+
+		if (_modeA == Mode.NotSet || _modeB == Mode.NotSet) {
+			displayUsage ("Incorrect usage", true);
+		}
+
+		if (_Debug) {
+			_log.debug ("AlbumImageDiffer.processArgs: filtersA = " + _filtersA);
+			_log.debug ("AlbumImageDiffer.processArgs: filtersB = " + _filtersB);
+			_log.debug ("AlbumImageDiffer.processArgs: maxRgbDiffs = " + _maxRgbDiffs);
+			_log.debug ("AlbumImageDiffer.processArgs: maxRows = " + _decimalFormat.format (_maxRows));
+			_log.debug ("AlbumImageDiffer.processArgs: modeA = " + _modeA);
+			_log.debug ("AlbumImageDiffer.processArgs: modeB = " + _modeB);
+			_log.debug ("AlbumImageDiffer.processArgs: numThreads = " + _numThreads);
+			_log.debug ("AlbumImageDiffer.processArgs: whereClauseA = " + _whereClauseA);
+			_log.debug ("AlbumImageDiffer.processArgs: whereClauseB = " + _whereClauseB);
+			}
 
 		return true;
 	}
@@ -136,7 +235,7 @@ public class AlbumImageDiffer
 		if (message != null)
 			msg = message + NL;
 
-		msg += "Usage: " + _AppName + " [/debug] <input image filename 1>  <input image filename 2>  <output image filename>";
+		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxRows=<n>] /modeA={names|tags} /modeB={names|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit)
@@ -158,298 +257,717 @@ public class AlbumImageDiffer
 	{
 		_log.debug ("AlbumImageDiffer ctor");
 
-//		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
-//
-//		_subFolders = AlbumDirList.getInstance ().getAlbumSubFolders ();
-//		if (_subFolders.length == 0) {
-//			_log.error ("AlbumImageDiffer ctor: no album.xml files found under " + _rootPath);
-//			return;
-//		}
+		String resource = "com/vendo/albumServlet/mybatis-image-server-config.xml";
+
+		try (InputStream inputStream = Resources.getResourceAsStream (resource)) {
+			_sqlSessionFactory = new SqlSessionFactoryBuilder ().build (inputStream);
+			_log.debug ("AlbumImageDiffer ctor: loaded mybatis config from " + resource);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer ctor: SqlSessionFactoryBuilder.build failed on " + resource, ee);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private void run () throws Exception
 	{
-		BufferedImage image1Orig = null;
-		BufferedImage image2Orig = null;
-		try {
-			image1Orig = ImageIO.read (new File (_imageFilename1));
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.run: failed to read image \"" + _imageFilename1 + "\"");
-		}
-		try {
-			image2Orig = ImageIO.read (new File (_imageFilename2));
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.run: failed to read image \"" + _imageFilename2 + "\"");
-		}
-
-		int image1Width = image1Orig.getWidth ();
-		int image1Height = image1Orig.getHeight ();
-
-		int image2Width = image2Orig.getWidth ();
-		int image2Height = image2Orig.getHeight ();
-
-		_log.debug ("AlbumImageDiffer.run: image1Orig: " + image1Width + " x " + image1Height);
-		_log.debug ("AlbumImageDiffer.run: image2Orig: " + image2Width + " x " + image2Height);
-
-		int hints = BufferedImage.SCALE_FAST;
-		BufferedImage image1Scaled = image1Orig;
-		BufferedImage image2Scaled = image2Orig;
-		if (image1Width < image2Width && image1Height < image2Height) {
-			image2Scaled = toBufferedImage (image2Orig.getScaledInstance (image1Width, image1Height, hints));
-		} else if (image2Width < image1Width && image2Height < image1Height) {
-			image1Scaled = toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
-		}
-
-//		_log.debug ("AlbumImageDiffer.run: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
-//		_log.debug ("AlbumImageDiffer.run: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
-
-		createImageDiff (image1Scaled, image2Scaled, new File (_imageFilename3));
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	public static int createImageDiff (String filename1, String filename2)
-	{
-		AlbumProfiling.getInstance ().enter (5, "1");
-
-		BufferedImage image1Orig = null;
-		BufferedImage image2Orig = null;
-
-		AlbumProfiling.getInstance ().enter (5, "reading");
-		try {
-			image1Orig = ImageIO.read (new File (filename1));
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.createImageDiff: failed to read image \"" + filename1 + "\"");
-		}
-		try {
-			image2Orig = ImageIO.read (new File (filename2));
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.createImageDiff: failed to read image \"" + filename2 + "\"");
-		}
-		AlbumProfiling.getInstance ().exit (5, "reading");
-
-		int image1Width = image1Orig.getWidth ();
-		int image1Height = image1Orig.getHeight ();
-
-		int image2Width = image2Orig.getWidth ();
-		int image2Height = image2Orig.getHeight ();
-
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image1Orig: " + image1Width + " x " + image1Height);
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image2Orig: " + image2Width + " x " + image2Height);
-
-		int hints = BufferedImage.SCALE_FAST;
-		BufferedImage image1Scaled = image1Orig;
-		BufferedImage image2Scaled = image2Orig;
-
-		AlbumProfiling.getInstance ().enter (5, "scaling");
-		if (image1Width < image2Width && image1Height < image2Height) {
-			image2Scaled = toBufferedImage (image2Orig.getScaledInstance (image1Width, image1Height, hints));
-		} else if (image2Width < image1Width && image2Height < image1Height) {
-			image1Scaled = toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
-		}
-		AlbumProfiling.getInstance ().exit (5, "scaling");
-
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
-
-		int averageDiff = createImageDiff (image1Scaled, image2Scaled, null);//new File (_imageFilename3));
-
-		_log.debug ("AlbumImageDiffer.createImageDiff: " + averageDiff + " " + filename1 + " " + filename2);
-
-		AlbumProfiling.getInstance ().exit (5, "1");
-
-		return averageDiff;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	public static int createImageDiff (BufferedImage image1, BufferedImage image2, File imageDiff)
-	{
-		AlbumProfiling.getInstance ().enter (5, "2");
-
-		BufferedImage image3 = null;
-		if (imageDiff != null) {
-			image3 = new BufferedImage (image1.getWidth (), image1.getHeight (), image1.getType ());
-		}
-
-		int image1Width = image1.getWidth ();
-		if (image1.getWidth () != image2.getWidth ()) {
-			_log.error ("AlbumImageDiffer.createImageDiff: widths not equal (" + image1.getWidth () + " != " + image2.getWidth () + ")");
-			return 10000;
-		}
-		int image1Height = image1.getHeight ();
-		if (image1.getHeight () != image2.getHeight ()) {
-			_log.error ("AlbumImageDiffer.createImageDiff: heights not equal (" + image1.getHeight () + " != " + image2.getHeight () + ")");
-			return 10000;
-		}
-
-		AlbumProfiling.getInstance ().enter (5, "getRGB loop");
-		boolean a0a1NotEqual = false;
-		long totalDiff = 0;
-		for (int x = 0; x < image1.getWidth (); x++) {
-			for (int y = 0; y < image1.getHeight (); y++) {
-				int argb0 = image1.getRGB (x, y);
-				int argb1 = image2.getRGB (x, y);
-
-				int a0 = (argb0 >> 24) & 0xFF;
-				int r0 = (argb0 >> 16) & 0xFF;
-				int g0 = (argb0 >>  8) & 0xFF;
-				int b0 = (argb0      ) & 0xFF;
-
-				int a1 = (argb1 >> 24) & 0xFF;
-				int r1 = (argb1 >> 16) & 0xFF;
-				int g1 = (argb1 >>  8) & 0xFF;
-				int b1 = (argb1      ) & 0xFF;
-
-//				int aDiff = Math.abs (a1 - a0); //aDiff should always be 0
-				int rDiff = Math.abs (r1 - r0);
-				int gDiff = Math.abs (g1 - g0);
-				int bDiff = Math.abs (b1 - b0);
-
-				if (a0 != a1) {
-					a0a1NotEqual = true;
-				}
-
-//_log.debug ("AlbumImageDiffer.createImageDiff: a0: " + a0 + ", a1: " + a1 + ", aDiff: " + aDiff);
-//_log.debug ("AlbumImageDiffer.createImageDiff: r0: " + r0 + ", r1: " + r1 + ", rDiff: " + rDiff);
-
-				if (imageDiff != null) {
-					int pixel = (a0 << 24) | (rDiff << 16) | (gDiff << 8) | bDiff;
-					image3.setRGB (x, y, pixel);
-				}
-
-				totalDiff += rDiff + gDiff + bDiff;
-			}
-		}
-		AlbumProfiling.getInstance ().exit (5, "getRGB loop");
-
-//		if (a0a1NotEqual) {
-			_log.error ("AlbumImageDiffer.createImageDiff: a0a1NotEqual: " + a0a1NotEqual);
-//		}
-
-		double averageDiff = (double) totalDiff / (image1Width * image1Height);
-		_log.debug ("AlbumImageDiffer.createImageDiff: image3: totalDiff: " + totalDiff);
-		_log.debug ("AlbumImageDiffer.createImageDiff: image3: averageDiff: " + averageDiff);
-
-		if (imageDiff != null) {
-			int image3Width = image3.getWidth ();
-			int image3Height = image3.getHeight ();
-			_log.debug ("AlbumImageDiffer.createImageDiff: image3: " + image3Width + " x " + image3Height);
-
-			try {
-				ImageIO.write (image3, "jpg", imageDiff);
-
-			} catch (Exception ee) {
-				_log.error ("AlbumImageDiffer.createImageDiff: failed to write image \"" + imageDiff + "\"");
-			}
-		}
-
-		AlbumProfiling.getInstance ().exit (5, "2");
-
-		return (int) averageDiff;
-	}
-
-/*
-	///////////////////////////////////////////////////////////////////////////
-	//Creating a Buffered Image from an Image:
-	//original from: http://www.exampledepot.com/egs/java.awt.image/Image2Buf.html
-	//
-	// This method returns a BufferedImage with the contents of an image
-	public static BufferedImage toBufferedImage (Image image)
-	{
-		if (image instanceof BufferedImage) {
-			return (BufferedImage)image;
-		}
-
 		AlbumProfiling.getInstance ().enter (5);
 
-		// This code ensures that all the pixels in the image are loaded
-		image = new ImageIcon (image).getImage ();
+		getImageIds ();
 
-		// Determine if the image has transparent pixels; for this method's
-		// implementation, see e661 Determining If an Image Has Transparent Pixels
-		boolean hasAlpha = false; //hasAlpha (image);
+		_log.debug ("AlbumImageDiffer.run: _idListA.size: " + _decimalFormat.format (_idListA.size ()));
+		_log.debug ("AlbumImageDiffer.run: _idListB.size: " + _decimalFormat.format (_idListB.size ()));
 
-		// Create a buffered image with a format that's compatible with the screen
-		BufferedImage bimage = null;
-		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment ();
+		if (_idListA.size () == 0 || _idListB.size () == 0) {
+			return;
+		}
+
+		AlbumProfiling.getInstance ().enterAndTrace(5, "diff");
+
+		final AtomicInteger rowsInserted = new AtomicInteger (0);
+		final AtomicInteger numDiffs = new AtomicInteger (0);
+		final Set<String> toBeSkipped = new HashSet<String>();
+
+		final CountDownLatch endGate = new CountDownLatch (_idListA.size ());
+		final Iterator<AlbumImageData> iterA = _idListA.iterator();
+		while (iterA.hasNext ()) {
+			final AlbumImageData albumImageDataA = iterA.next ();
+			synchronized (toBeSkipped) {
+				if (toBeSkipped.contains (albumImageDataA.getNameNoExt ())) {
+					continue;
+				}
+			}
+			final AlbumImage imageA = new AlbumImage (albumImageDataA.getNameNoExt (), albumImageDataA.getSubFolder (), false);
+
+			final ByteBuffer scaledImageDataA = imageA.readScaledImageData ();
+			if (scaledImageDataA == null) {
+				synchronized (toBeSkipped) {
+					toBeSkipped.add(albumImageDataA.getNameNoExt ());
+				}
+			}
+
+			Runnable task = () -> {
+				Collection<AlbumImageDiffDetails> imageDiffDetails = new ArrayList<AlbumImageDiffDetails> ();
+
+				Iterator<AlbumImageData> iterB = _idListB.iterator();
+				while (iterB.hasNext ()) {
+					AlbumImageData albumImageDataB = iterB.next ();
+					synchronized (toBeSkipped) {
+						if (toBeSkipped.contains (albumImageDataB.getNameNoExt ())) {
+							continue;
+						}
+					}
+
+					AlbumImage imageB = new AlbumImage (albumImageDataB.getNameNoExt (), albumImageDataB.getSubFolder (), false);
+					if (imageA.equalBase (imageB, false)) {
+						continue;
+					}
+
+					ByteBuffer scaledImageDataB = imageB.readScaledImageData ();
+					if (scaledImageDataB == null) {
+						synchronized (toBeSkipped) {
+							toBeSkipped.add(albumImageDataB.getNameNoExt ());
+						}
+					}
+
+//					_log.debug ("AlbumImageDiffer.run: comparison: " + albumImageDataA.getNameNoExt () + ", " + albumImageDataB.getNameNoExt ());
+					numDiffs.incrementAndGet ();
+
+					int averageDiff = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB, _maxRgbDiffs);
+					if (averageDiff <= _maxRgbDiffs) {
+						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), averageDiff, _maxRgbDiffs));
+						_log.debug ("AlbumImageDiffer.run: " + String.format("%-2s", averageDiff) + " " + imageA.getName () + "," + imageB.getName () + ",");
+					}
+				}
+
+				if (imageDiffDetails.size () > 0) {
+					rowsInserted.addAndGet (insertImageIntoImageDiffs (imageDiffDetails));
+				}
+//				_log.debug ("AlbumImageDiffer.run: thread/task complete for: " + albumImageDataA.getNameNoExt ());
+
+				endGate.countDown ();
+			};
+//			_log.debug ("AlbumImageDiffer.run: creating new thread/task for: " + albumImageDataA.getNameNoExt ());
+			getExecutor ().execute (task);
+		}
+		_log.debug ("AlbumImageDiffer.run: started " + endGate.getCount () + " threads");
+
 		try {
-			// Determine the type of transparency of the new buffered image
-			int transparency = Transparency.OPAQUE;
-			if (hasAlpha) {
-				transparency = Transparency.BITMASK;
-			}
-
-			// Create the buffered image
-			GraphicsDevice gs = ge.getDefaultScreenDevice ();
-			GraphicsConfiguration gc = gs.getDefaultConfiguration ();
-			bimage = gc.createCompatibleImage (
-				image.getWidth (null), image.getHeight (null), transparency);
-		} catch (HeadlessException ee) {
-			// The system does not have a screen
+			endGate.await ();
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.run: endGate:", ee);
 		}
 
-		if (bimage == null) {
-			// Create a buffered image using the default color model
-			int type = BufferedImage.TYPE_INT_RGB;
-			if (hasAlpha) {
-				type = BufferedImage.TYPE_INT_ARGB;
+		AlbumProfiling.getInstance ().exit (5, "diff");
+
+		_log.debug ("AlbumImageDiffer.run: numDiffs     = " + _decimalFormat.format (numDiffs.get ()));
+		_log.debug ("AlbumImageDiffer.run: rowsInserted = " + _decimalFormat.format (rowsInserted.get ()));
+
+		AlbumProfiling.getInstance ().exit (5);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private void getImageIds ()
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		final CountDownLatch endGate = new CountDownLatch (2);
+
+		Runnable taskA = () -> {
+			if (_modeA == Mode.Names) {
+				_idListA = queryImageIdsNames(_whereClauseA);
+			} else {
+				_idListA = queryImageIdsTags(_whereClauseA, _filtersA);
 			}
-			bimage = new BufferedImage (image.getWidth (null), image.getHeight (null), type);
+			endGate.countDown ();
+		};
+		getExecutor ().execute (taskA);
+
+		Runnable taskB = () -> {
+			if (_modeB == Mode.Names) {
+				_idListB = queryImageIdsNames(_whereClauseB);
+			} else {
+				_idListB = queryImageIdsTags(_whereClauseB, _filtersB);
+			}
+			endGate.countDown ();
+		};
+		getExecutor ().execute (taskB);
+
+		try {
+			endGate.await ();
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.getImageIds: endGate:", ee);
 		}
 
-		// Copy image to buffered image
-		Graphics g = bimage.createGraphics ();
-
-		// Paint the image onto the buffered image
-		g.drawImage (image, 0, 0, null);
-		g.dispose ();
+		Collections.sort(_idListA, _idListA.get (0));
+		Collections.sort(_idListB, _idListB.get (0));
 
 		AlbumProfiling.getInstance ().exit (5);
 
-		return bimage;
+//		for (AlbumImageData item : _idListA) {
+//			_log.debug ("AlbumImageDiffer.getImageIds: _idListA: " + item);
+//		}
+//		for (AlbumImageData item : _idListB) {
+//			_log.debug ("AlbumImageDiffer.getImageIds: _idListB: " + item);
+//		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<AlbumImageData> queryImageIdsNames (String whereClause)
+	{
+		String profileTag = extractQuotedStrings (whereClause).toString ();
+		AlbumProfiling.getInstance ().enterAndTrace (5, profileTag);
+
+		//example where clause: "where name_no_ext like 's%' or name_no_ext like 'b%'"
+		String sql = "select name_id, name_no_ext from images where name_id in " + NL +
+			    	 "(select name_id from (select name_id from images " + NL +
+			    	 whereClause + NL +
+			    	 "order by rand() limit " + _maxRows + ") t)";
+//		_log.debug ("AlbumImageDiffer.queryImageIdsNames: sql: " + NL + sql);
+
+		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+
+		Connection connection = getConnection ();
+		Statement statement = null;
+		try {
+			statement = connection.createStatement ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.queryImageIdsNames: error from Connection.createStatement", ee);
+
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			return items;
+		}
+
+		ResultSet rs = null;
+		try {
+			rs = statement.executeQuery (sql);
+			while (rs.next ()) {
+				int nameId = rs.getInt ("name_id");
+				String nameNoExt = rs.getString ("name_no_ext");
+				items.add(new AlbumImageData (nameId, nameNoExt));
+			}
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.queryImageIdsNames: error from Statement.executeQuery");
+			_log.error ("AlbumImageDiffer.queryImageIdsNames: sql:" + NL + sql);
+			_log.error (ee);
+			return items;
+
+		} finally {
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+		}
+
+		if (items.size () == 0) {
+			_log.error ("AlbumImageDiffer.queryImageIdsNames: no rows found for query:" + NL + sql);
+		}
+
+		AlbumProfiling.getInstance ().exit (5, profileTag);
+
+		return items;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<AlbumImageData> queryImageIdsTags (String whereClause, List<String> filters)
+	{
+		String profileTag = extractQuotedStrings (whereClause) + ", " + filters;
+		AlbumProfiling.getInstance ().enterAndTrace (5, profileTag);
+
+		boolean useFilters = (filters != null && filters.size () > 0);
+
+		List<String> baseNames = new ArrayList<String> ();
+
+		{ //---------------------------------------------------------------------
+		AlbumProfiling.getInstance ().enterAndTrace (5, "part1");
+
+		int maxRowsForQuery = _maxRows;
+		if (useFilters) {
+			maxRowsForQuery *= 10; //since filters will eliminate many results
+		} else {
+			maxRowsForQuery /= 4; //since each basename will have multiple images
+		}
+
+		//example where clause: "where tag = 'blue'"
+		String sql1 = "select distinct name from albumtags.base1_names where name_id in (" + NL +
+					  "select name_id from (" + NL +
+					  "(select name_id from albumtags.base1_names_tags" + NL +
+					  "inner join albumtags.tags on base1_names_tags.tag_id = tags.tag_id" + NL +
+					  "where tags.tag_id = (" + NL +
+					  "select tag_id from albumtags.tags " + NL +
+					  whereClause + NL +
+					  ")) order by rand() limit " + maxRowsForQuery + ") t)";
+//		_log.debug ("AlbumImageDiffer.queryImageIdsTags: sql: " + NL + sql1);
+
+		Connection connection = getConnection ();
+		Statement statement = null;
+		try {
+			statement = connection.createStatement ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: error from Connection.createStatement", ee);
+
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			return null;
+		}
+
+		ResultSet rs = null;
+		try {
+			rs = statement.executeQuery (sql1);
+			while (rs.next ()) {
+				String name = rs.getString ("name");
+				if (!useFilters || (useFilters && accept (name, filters))) {
+					baseNames.add(name);
+				}
+			}
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: error from Statement.executeQuery");
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: sql1:" + NL + sql1);
+			_log.error (ee);
+			return null;
+
+		} finally {
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+		}
+		_log.debug ("AlbumImageDiffer.queryImageIdsTags: baseNames.size(): " + baseNames.size ());
+
+		if (baseNames.size () == 0) {
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: sql:" + NL + sql1);
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: filters:" + NL + filters);
+		}
+
+		AlbumProfiling.getInstance ().exit (5, "part1");
+		}
+
+		List<String> names = new ArrayList<String> ();
+		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+
+		boolean useFileSystem = true;
+		if (useFileSystem) {
+
+			AlbumProfiling.getInstance ().enterAndTrace (5, "part2");
+
+			int maxRows = (_maxRows * 11) / 10;
+			names = getRandomNamesForBaseNames (baseNames, maxRows);
+
+			if (names.size () == 0) {
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no names returned from getRandomNamesForBaseNames");
+			}
+
+			AlbumProfiling.getInstance ().exit (5, "part2");
+
+			AlbumProfiling.getInstance ().enterAndTrace (5, "part3");
+
+			items = selectNamesFromImages1 (names);
+
+			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
+
+			if (items.size () == 0) {
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImages");
+			}
+
+			AlbumProfiling.getInstance ().exit (5, "part3");
+
+		} else { //use database
+
+			AlbumProfiling.getInstance ().enterAndTrace (5, "part2");
+
+			items = selectNamesFromImages2 (baseNames);
+
+			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
+
+			if (items.size () == 0) {
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImages");
+			}
+
+			AlbumProfiling.getInstance ().exit (5, "part2");
+		}
+
+		Collections.shuffle (items);
+		_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size () + " (original)");
+		items = items.subList (0, Math.min (items.size (), _maxRows));
+		_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size () + " (truncated)");
+
+		AlbumProfiling.getInstance ().exit (5, profileTag);
+
+		return items;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean accept (String base, List<String> filters) {
+		for (String filter : filters) {
+			if (base.startsWith (filter)) {
+//				_log.debug ("AlbumImageDiffer.accept(" + base + "," + filter + "): " + true);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+/* unused
+	///////////////////////////////////////////////////////////////////////////
+	//used by AlbumImageDiffer CLI
+	private Collection<AlbumImageDiffDetails> getImagesFromImageDiffs ()
+	{
+		AlbumProfiling.getInstance ().enter (7);
+
+		List<AlbumImageDiffDetails> list = new LinkedList<AlbumImageDiffDetails> ();
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.getImagesFromImageDiffs(): ", ee);
+		}
+
+		Collections.sort (list);
+
+		AlbumProfiling.getInstance ().exit (7);
+
+//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): list.size: " + list.size ());
+
+		return list;
 	}
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	//Creating a Buffered Image from an Image:
-	//original from: http://stackoverflow.com/questions/13605248/java-converting-image-to-bufferedimage
-	public static BufferedImage toBufferedImage (Image img)
+	//used by AlbumImageDiffer CLI
+	private List<AlbumImageData> selectNamesFromImages1 (List<String> names)
 	{
-		if (img instanceof BufferedImage)
-		{
-			return (BufferedImage) img;
-		}
-
 		AlbumProfiling.getInstance ().enter (5);
 
-		// Create a buffered image with transparency
-		BufferedImage bimage = new BufferedImage (img.getWidth (null), img.getHeight (null), BufferedImage.TYPE_INT_ARGB);
+		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
-		// Draw the image on to the buffered image
-		Graphics2D bGr = bimage.createGraphics ();
-		bGr.drawImage (img, 0, 0, null);
-		bGr.dispose ();
+		if (names.size () == 0) {
+			return items;
+		}
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			items = mapper.selectNamesFromImages (names);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImages1(\"" + names + "\"): ", ee);
+		}
 
 		AlbumProfiling.getInstance ().exit (5);
 
-		// Return the buffered image
-		return bimage;
+//		for (AlbumImageData item : items) {
+//			_log.debug ("AlbumImageDiffer.selectNamesFromImages1: " + item);
+//		}
+
+		return items;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by AlbumImageDiffer CLI
+	private List<AlbumImageData> selectNamesFromImages2 (List<String> names)
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+
+		if (names.size () == 0) {
+			return items;
+		}
+
+		String sqlBase = "select name_id, name_no_ext from images where name_no_ext rlike ";
+
+		Connection connection = getConnection ();
+		Statement statement = null;
+		try {
+			statement = connection.createStatement ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImages2: error from Connection.createStatement", ee);
+
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			return items;
+		}
+
+		String sql = null;
+		ResultSet rs = null;
+		try {
+			for (String name : names) {
+				sql = sqlBase + "'" + name + ".*'";
+				rs = statement.executeQuery (sql);
+				while (rs.next ()) {
+					int nameId = rs.getInt ("name_id");
+					String nameNoExt = rs.getString ("name_no_ext");
+					items.add(new AlbumImageData (nameId, nameNoExt));
+				}
+			}
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImages2: error from Statement.executeQuery");
+			_log.error ("AlbumImageDiffer.selectNamesFromImages2: sql:" + NL + sql);
+			_log.error (ee);
+			return items;
+
+		} finally {
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+		}
+
+		if (items.size () == 0) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImages2: no rows found for query:" + NL + sql);
+		}
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return items;
 	}
 
 
+/* obsolete
+	///////////////////////////////////////////////////////////////////////////
+	//used by AlbumImageDiffer CLI
+	private boolean insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails)
+	{
+//		AlbumProfiling.getInstance ().enter (7);
+
+		boolean status = true;
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			int rowsAffected = mapper.insertImageIntoImageDiffs (imageDiffDetails);
+			session.commit ();
+
+			status = rowsAffected > 0;
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs(\"" + imageDiffDetails + "\"): ", ee);
+
+			status = false;
+		}
+
+//		AlbumProfiling.getInstance ().exit (7);
+
+		return status;
+	}
+*/
+
+//TODO - convert this to mybatis
+	private int insertImageIntoImageDiffs (Collection<AlbumImageDiffDetails> items)
+	{
+//		AlbumProfiling.getInstance ().enter (5);
+
+		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff) values";
+		String sqlValues = " (?, ?, ?, ?)";
+		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff), max_diff = values (max_diff), last_update = now()";
+		String sql = sqlBase + sqlValues + sqlOnDup;
+
+		Connection connection = getConnection ();
+		PreparedStatement statement = null;
+
+		int rowsInserted = 0;
+		try {
+			connection.setAutoCommit (false);
+			int ii = 0;
+
+			statement = connection.prepareStatement (sql);
+	        for (AlbumImageDiffDetails item : items) {
+	        	statement.setInt (1, item.getNameId1 ());
+	        	statement.setInt (2, item.getNameId2 ());
+	        	statement.setInt (3, item.getAvgDiff ());
+	        	statement.setInt (4, item.getMaxDiff ());
+	        	statement.addBatch ();
+
+	        	ii++;
+	        	if (ii % 1000 == 0 || ii == items.size ()) {
+	        		int [] updateCounts = statement.executeBatch ();
+	        		rowsInserted += Arrays.stream (updateCounts).sum ();
+
+//	        		AlbumProfiling.getInstance ().enter (5, "commit");
+	        		connection.commit ();
+//	        		AlbumProfiling.getInstance ().exit (5, "commit");
+	        	}
+	        }
+
+//		} catch (MySQLIntegrityConstraintViolationException ee) {
+		} catch (com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException ee) {
+			//ignore as this will catch any duplicate insertions
+//			_log.debug ("Ignoring exception from database while adding ??");// + name);
+			_log.error (ee);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs: error from Connection.prepareStatement or PreparedStatement.executeUpdate");
+			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs: sql:" + NL + sql);
+			_log.error (ee);
+//			return rowsInserted;
+
+		} finally {
+			if (connection != null) try { connection.setAutoCommit (true); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+		}
+
+//		_log.debug ("AlbumImageDiffer.insertImageIntoImageDiffs: rowsInserted: " + rowsInserted);
+
+//		AlbumProfiling.getInstance ().exit (5);
+
+		return rowsInserted;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//actually only get one random name from each set
+	private List<String> getRandomNamesForBaseNames (List<String> baseNames, int maxRows) {
+//		_log.debug ("AlbumImageDiffer.getRandomNamesForBaseNames: baseNames: " + baseNames);
+
+		List<String> names = new ArrayList<String> ();
+		final int divisor = 4;
+
+		for (String baseName : baseNames) {
+	        List<String> files = getMatchingImageNamesFromFileSystem (baseName);
+	        int numRandom = files.size () / divisor;
+	        for (int ii = 0; ii < numRandom; ii++) {
+		        names.add (files.get(_random.nextInt (files.size ())));
+	        }
+	        if (names.size () >= maxRows) {
+	        	break;
+	        }
+		}
+
+		_log.debug ("AlbumImageDiffer.getRandomNamesForBaseNames: names.size(): " + names.size ());
+
+		return names;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns names only: no path or extension
+	private List<String> getMatchingImageNamesFromFileSystem (String baseName) {
+//		_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: baseName: " + baseName);
+
+		List<String> files = new ArrayList<String> ();
+
+		Path folder = FileSystems.getDefault ().getPath (_basePath, _defaultRootFolder, baseName.substring (0, 1).toLowerCase());
+		try (DirectoryStream <Path> ds = Files.newDirectoryStream (folder)) {
+			for (Path file : ds) {
+				String filename = file.getFileName ().toString ();
+//				_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: filename: " + filename);
+				if (filename.startsWith (baseName) && filename.endsWith (".jpg")) {
+					files.add (filename.substring (0, filename.lastIndexOf ('.')));
+				}
+			}
+
+		} catch (IOException ee) {
+			_log.error ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem(\"" + baseName + "\"): error reading file system", ee);
+		}
+
+//		_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: files.size(): " + files.size ());
+
+		return files;
+	}
+
+	private List<String> extractQuotedStrings (String string)
+	{
+		List<String> list = new ArrayList<String> ();
+
+		final Pattern pattern = Pattern.compile ("'([^']*)'");
+        Matcher matcher = pattern.matcher (string);
+        while (matcher.find ()) {
+            list.add(matcher.group (1));
+        }
+
+        return list;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Connection getConnection ()
+	{
+		Connection connection = null;
+
+		try {
+			connection = getDataSource ().getConnection ();
+
+		} catch (Exception ee) {
+			connection = null;
+			_log.error ("AlbumImageDiffer.getConnection: error connecting to database", ee);
+		}
+
+		return connection;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private synchronized static BasicDataSource getDataSource ()
+	{
+		//TODO - move connection info to properties file, with hard-coded defaults
+		final String jdbcDriver = "com.mysql.jdbc.Driver";
+		final String dbUrl = "jdbc:mysql://localhost/albumimages";
+		final String dbUser = "root";
+		final String dbPass = "root";
+
+		if (_dataSource == null) {
+//			_log.debug ("AlbumImageDiffer.getDataSource: url = " + dbUrl);
+
+			BasicDataSource ds = new BasicDataSource ();
+			ds.setDriverClassName (jdbcDriver);
+			ds.setUrl (dbUrl);
+			ds.setUsername (dbUser);
+			ds.setPassword (dbPass);
+
+//			ds.setMinIdle (5);
+//			ds.setMaxIdle (10);
+//			ds.setMaxOpenPreparedStatements (100);
+
+			_dataSource = ds;
+		}
+
+		return _dataSource;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public synchronized static ExecutorService getExecutor ()
+	{
+		if (_executor == null || _executor.isTerminated () || _executor.isShutdown ()) {
+			 _executor = Executors.newFixedThreadPool (_numThreads);
+		}
+
+		return _executor;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static void shutdownExecutor ()
+	{
+		_log.debug ("AlbumImages.shutdownExecutor: shutdown executor");
+		getExecutor ().shutdownNow ();
+	}
+
+	//members from command line
+	private static int _numThreads = 4;
+	private int _maxRows = 10;
+	private int _maxRgbDiffs = 25;
+	private Mode _modeA = Mode.NotSet;
+	private Mode _modeB = Mode.NotSet;
+	private String _whereClauseA = null;
+	private String _whereClauseB = null;
+	private List<String> _filtersA = null;
+	private List<String> _filtersB = null;
+
 	//members
-	private String _imageFilename1 = null;
-	private String _imageFilename2 = null;
-	private String _imageFilename3 = null;
+	private Random _random = new Random ();
+	private SqlSessionFactory _sqlSessionFactory = null;
+	private String _defaultRootFolder = "jroot";
 
-//	private String _rootPath = null;
-//	private String[] _subFolders = null;
+	private List<AlbumImageData> _idListB = null;
+	private List<AlbumImageData> _idListA = null;
 
+	private static BasicDataSource _dataSource = null;
 	private static AlbumImageDiffer _instance = null;
+	private static ExecutorService _executor = null;
 
 	private static final String NL = System.getProperty ("line.separator");
-//	private static final DecimalFormat _decimalFormat = new DecimalFormat ("+#;-#"); //print integer with +/- sign
-//	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
+	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //as int
+	private static final String _basePath = "E:/Netscape/Program/"; //need trailing slash
 
 	private static boolean _Debug = false;
 	private static Logger _log = LogManager.getLogger ();

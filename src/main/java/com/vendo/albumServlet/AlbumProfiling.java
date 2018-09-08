@@ -2,10 +2,15 @@
 
 package com.vendo.albumServlet;
 
-import java.text.*;
-import java.util.*;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
 
-import org.apache.logging.log4j.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 public class AlbumProfiling
@@ -28,7 +33,7 @@ public class AlbumProfiling
 		_fieldWidths = new Integer [6];
 		_fieldWidths[0] = 20;	//method, default value - actual width calculated in print()
 		_fieldWidths[1] = 6;	//count
-		_fieldWidths[2] = 8;	//total
+		_fieldWidths[2] = 9;	//total
 		_fieldWidths[3] = 8;	//average
 		_fieldWidths[4] = 7;	//min
 		_fieldWidths[5] = 7;	//max
@@ -259,7 +264,7 @@ public class AlbumProfiling
 			if (record._count > 0) {
 				//convert values from nanosecs to millisecs
 				double total = (double) record._elapsedNano / 1000000;
-				double average = total / (double) record._count;
+				double average = total / record._count;
 				double min = (double) record._minNano / 1000000;
 				double max = (double) record._maxNano / 1000000;
 
@@ -291,11 +296,11 @@ public class AlbumProfiling
 			totalMem /= unitSuffix;
 			maxMem   /= unitSuffix;
 
-			_log.debug ("AlbumProfiling.print: used="  + _decimalFormat.format (usedMem)  + unitSuffixStr +
-											 " free="  + _decimalFormat.format (freeMem)  + unitSuffixStr +
-											 " total=" + _decimalFormat.format (totalMem) + unitSuffixStr +
-											 " max="   + _decimalFormat.format (maxMem)   + unitSuffixStr +
-											 " util="  + _decimalFormat.format (util) + "%");
+			_log.debug ("AlbumProfiling.print: used="  + _decimalFormat1.format (usedMem)  + unitSuffixStr +
+											 " free="  + _decimalFormat1.format (freeMem)  + unitSuffixStr +
+											 " total=" + _decimalFormat1.format (totalMem) + unitSuffixStr +
+											 " max="   + _decimalFormat1.format (maxMem)   + unitSuffixStr +
+											 " util="  + _decimalFormat1.format (util) + "%");
 		}
 
 		//optionally delete this AlbumProfiling instance
@@ -307,12 +312,10 @@ public class AlbumProfiling
 	///////////////////////////////////////////////////////////////////////////
 	private void printRecord (String v0, Integer v1, Double v2, Double v3, Double v4, Double v5)
 	{
-		final String format = "%.1f";
-
-		String s2 = String.format (format, v2);
-		String s3 = (v1 == 1 ? "--" : String.format (format, v3));
-		String s4 = (v1 == 1 ? "--" : String.format (format, v4));
-		String s5 = (v1 == 1 ? "--" : String.format (format, v5));
+		String s2 = _decimalFormat0.format (v2);
+		String s3 = (v1 == 1 ? "--" : _decimalFormat0.format (v3));
+		String s4 = (v1 == 1 ? "--" : _decimalFormat0.format (v4));
+		String s5 = (v1 == 1 ? "--" : _decimalFormat0.format (v5));
 
 		printRecord (v0, v1.toString (), s2, s3, s4, s5);
 	}
@@ -377,7 +380,8 @@ public class AlbumProfiling
 	private static int _currentIndex = 0;
 	private static AlbumProfiling _instance = null;
 
-	private final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0.0");
+	private final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0");
+	private final DecimalFormat _decimalFormat1 = new DecimalFormat ("###,##0.0");
 
 	private static Logger _log = LogManager.getLogger ();
 }

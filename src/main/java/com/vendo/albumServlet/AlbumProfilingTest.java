@@ -26,18 +26,18 @@ public class AlbumProfilingTest
 	///////////////////////////////////////////////////////////////////////////
 	public boolean run ()
 	{
-		if (false) {
-			_log.debug ("_log.getName () = " + _log.getName ());
+//		if (true) {
+//			_log.debug ("_log.getName () = " + _log.getName ());
 //			_log.debug ("_log.getLevel () = " + _log.getLevel ());
 //			_log.debug ("_log.getParent () = " + _log.getParent ());
-		}
+//		}
 
-		if (false) {
-			//test for error conditions: recursive entry, exit with no entry, etc.
-			AlbumProfiling.getInstance ().enter (1, "foo1");
-			AlbumProfiling.getInstance ().enter (1, "foo1");
-			AlbumProfiling.getInstance ().exit (1, "foo2");
-		}
+//		if (true) {
+//			//test for error conditions: recursive entry, exit with no entry, etc.
+//			AlbumProfiling.getInstance ().enter (1, "foo1");
+//			AlbumProfiling.getInstance ().enter (1, "foo1");
+//			AlbumProfiling.getInstance ().exit (1, "foo2");
+//		}
 
 		System.out.println ("------------------------------------------------------------");
 		run1 (/*count*/ 10000);

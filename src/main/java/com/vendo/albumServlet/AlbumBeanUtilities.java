@@ -2,8 +2,10 @@
 
 package com.vendo.albumServlet;
 
-import java.util.*;
-import javax.servlet.http.*;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+
 import org.apache.commons.beanutils.BeanUtils;
 
 /** Some utilities to populate beans, usually based on
@@ -37,8 +39,7 @@ public class AlbumBeanUtilities {
    *  properties are assigned false: no exception is thrown.
    */
 
-  public static void populateBean(Object formBean,
-                                  HttpServletRequest request) {
+  public static void populateBean(Object formBean, HttpServletRequest request) {
     populateBean(formBean, request.getParameterMap());
   }
 
@@ -48,8 +49,7 @@ public class AlbumBeanUtilities {
    *  described above.
    */
 
-  public static void populateBean(Object bean,
-                                  Map propertyMap) {
+  public static void populateBean(Object bean, @SuppressWarnings("rawtypes") Map propertyMap) {
     try {
       BeanUtils.populate(bean, propertyMap);
     } catch(Exception e) {

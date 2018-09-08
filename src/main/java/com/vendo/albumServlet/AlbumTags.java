@@ -2,26 +2,54 @@
 
 package com.vendo.albumServlet;
 
-import com.vendo.vendoUtils.*;
-import com.vendo.win32.*;
-
-import java.io.*;
-import java.nio.file.*;
-import java.nio.file.attribute.*;
-import java.sql.*;
-import java.text.*;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.regex.*;
-import java.util.stream.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.attribute.FileTime;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 //import static com.mysql.jdbc.exceptions.MySQLIntegrityConstraintViolationException;
 //import com.mysql.jdbc.exceptions.MySQLIntegrityConstraintViolationException;
+import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.dbcp2.BasicDataSource;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import org.apache.commons.collections4.*;
-import org.apache.commons.dbcp2.*;
-
-import org.apache.logging.log4j.*;
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.vendoUtils.WatchDir;
+import com.vendo.win32.Win32;
 
 
 public class AlbumTags
@@ -188,7 +216,7 @@ public class AlbumTags
 		if (AlbumFormInfo._logLevel >= 9)
 			_log.debug ("AlbumTags ctor");
 
-		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+//		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -377,8 +405,7 @@ public class AlbumTags
 			tagFileTime = fileTime.toMillis ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getTagFileTime: getLastModifiedTime failed for file \"" + _tagFilename + "\"");
-			_log.error (ee);
+			_log.error ("AlbumTags.getTagFileTime: getLastModifiedTime failed for file \"" + _tagFilename + "\"", ee);
 		}
 
 //		_log.debug ("AlbumTags.getTagFileTime: tagFileTime = " + _dateFormat.format (new java.util.Date (tagFileTime)));
@@ -397,6 +424,7 @@ public class AlbumTags
 		for (final String subFolder : subFolders) {
 
 			Thread thread = new Thread () {
+				@Override
 				public void run () {
 					final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder);
 					Set<String> base1NameSet = new HashSet<String> (); //use Set to eliminate duplicates
@@ -436,8 +464,7 @@ public class AlbumTags
 			reader = new BufferedReader (new InputStreamReader (inputStream));
 
 		} catch (IOException ee) {
-			_log.error ("AlbumTags.readTagFile: error opening tag file: " + tagFilename);
-			_log.error (ee);
+			_log.error ("AlbumTags.readTagFile: error opening tag file: " + tagFilename, ee);
 			return null;
 		}
 //TODO: add finally block or use try-with-resources
@@ -458,20 +485,19 @@ public class AlbumTags
 				if (matcher.matches () && line.contains (_tagMarker)) {
 					matchingTagLines.add (line);
 
-					if (false) { //debugging
-						final int stubLength = 40;
-						String lineStub = line;
-						if (lineStub.length () > stubLength) {
-							lineStub = lineStub.substring (0, stubLength) + "*";
-						}
-						_log.debug ("AlbumTags.readTagFile: match found for tag \"" + tagPatternString + "\": \"" + lineStub + "\"");
-					}
+//					if (true) { //debugging
+//						final int stubLength = 40;
+//						String lineStub = line;
+//						if (lineStub.length () > stubLength) {
+//							lineStub = lineStub.substring (0, stubLength) + "*";
+//						}
+//						_log.debug ("AlbumTags.readTagFile: match found for tag \"" + tagPatternString + "\": \"" + lineStub + "\"");
+//					}
 				}
 			}
 
 		} catch (IOException ee) {
-			_log.error ("AlbumTags.readTagFile: error reading tag file: " + tagFilename);
-			_log.error (ee);
+			_log.error ("AlbumTags.readTagFile: error reading tag file: " + tagFilename, ee);
 			return null;
 		} finally {
 			try {
@@ -564,6 +590,7 @@ public class AlbumTags
 		for (final String subFolder : subFolders) {
 
 			Thread thread = new Thread () {
+				@Override
 				public void run () {
 					final List<String> outFilterList = new ArrayList<String> ();
 					for (String inFilter : inFilterSet) {
@@ -609,6 +636,7 @@ public class AlbumTags
 
 			if (filterStrings != null) {
 				Thread thread = new Thread () {
+					@Override
 					public void run () {
 						final String filters[] = filterStrings.toArray (new String[] {});
 						final AlbumFileFilter filter = new AlbumFileFilter (filters, null, /*useCase*/ false, /*sinceInMillis*/ 0);
@@ -645,6 +673,7 @@ public class AlbumTags
 
 			if (filter != null) {
 				Thread thread = new Thread () {
+					@Override
 					public void run () {
 						final Collection<String> folderBase1Names = _albumBase1NameMap.get (subFolder);
 						final Set<String> outBase1Names = new HashSet<String> ();
@@ -751,8 +780,7 @@ public class AlbumTags
 			out = new PrintStream (new File (dumpFile));
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.dumpTagData: error accessing file \"" + dumpFile + "\"");
-			_log.error (ee);
+			_log.error ("AlbumTags.dumpTagData: error accessing file \"" + dumpFile + "\"", ee);
 			return;
 		}
 
@@ -1035,6 +1063,7 @@ public class AlbumTags
 		final CountDownLatch endGate1 = new CountDownLatch (numStepsFirst);
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				writeTagDatabase (tagFileMap);
 				endGate1.countDown ();
@@ -1043,6 +1072,7 @@ public class AlbumTags
 		thread.start ();
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				insertTags (_tags);
 				endGate1.countDown ();
@@ -1051,6 +1081,7 @@ public class AlbumTags
 		thread.start ();
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				insertBase1Names (_base1Names);
 				endGate1.countDown ();
@@ -1059,6 +1090,7 @@ public class AlbumTags
 		thread.start ();
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				insertBase2Names (_base2Names);
 				endGate1.countDown ();
@@ -1067,6 +1099,7 @@ public class AlbumTags
 		thread.start ();
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				insertRawNames (_rawNames);
 				endGate1.countDown ();
@@ -1096,6 +1129,7 @@ public class AlbumTags
 		for (int ii = 0; ii < base1NameTagsList.size (); ii++) {
 			final int jj = ii;
 			thread = new Thread () {
+				@Override
 				public void run () {
 					List<NameTag> base1NameTags = base1NameTagsList.get (jj);
 					insertBase1NameTags (base1NameTags);
@@ -1106,6 +1140,7 @@ public class AlbumTags
 		}
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				insertBase2NameTags (_base2NameTags);
 				endGate2.countDown ();
@@ -1114,6 +1149,7 @@ public class AlbumTags
 		thread.start ();
 
 		thread = new Thread () {
+			@Override
 			public void run () {
 				insertRawNameTags (_rawNameTags);
 				endGate2.countDown ();
@@ -1185,6 +1221,7 @@ public class AlbumTags
 
 		Connection connection = getConnection ();
 		try {
+			connection.setAutoCommit (false);
 
 			//loop
 			for (String item : items) {
@@ -1239,6 +1276,7 @@ public class AlbumTags
 
 				//execute
 				rowsInserted += ps.executeUpdate ();
+                connection.commit ();
 
 				//cleanup
 				ps.close ();
@@ -1248,19 +1286,19 @@ public class AlbumTags
 //		} catch (MySQLIntegrityConstraintViolationException ee) {
 		} catch (com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
-//			_log.debug ("Ignoring exception from database while adding " + name);
-//			_log.error (ee);
+//			_log.debug ("Ignoring exception from database while adding " + name, ee);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumTags.insertStringsIntoTable: error from Connection.prepareStatement or PreparedStatement.executeUpdate");
 			_log.error ("AlbumTags.insertStringsIntoTable: sql:" + NL + sql);
 			_log.error (ee);
-			ee.printStackTrace (System.err);
+//			ex.printStackTrace (System.err); //note this goes to (tomcat) stderr, not log4j log file
 //			return rowsInserted;
 
 		} finally {
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (connection != null) try { connection.setAutoCommit (true); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 //		AlbumProfiling.getInstance ().exit (5);
@@ -1425,11 +1463,10 @@ public class AlbumTags
 			statement = connection.createStatement ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getStringsFromDatabase: error from Connection.createStatement");
-			_log.error (ee);
+			_log.error ("AlbumTags.getStringsFromDatabase: error from Connection.createStatement", ee);
 
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 
 			return items;
 		}
@@ -1448,9 +1485,9 @@ public class AlbumTags
 			return items;
 
 		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		AlbumProfiling.getInstance ().exit (5, id);
@@ -1476,11 +1513,10 @@ public class AlbumTags
 			statement = connection.createStatement ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getStringMapFromDatabase: error from Connection.createStatement");
-			_log.error (ee);
+			_log.error ("AlbumTags.getStringMapFromDatabase: error from Connection.createStatement",ee);
 
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 
 			return items;
 		}
@@ -1501,9 +1537,9 @@ public class AlbumTags
 			return items;
 
 		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		AlbumProfiling.getInstance ().exit (5, id);
@@ -1544,11 +1580,10 @@ public class AlbumTags
 			statement = connection.createStatement ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getIntsFromDatabase: error from Connection.createStatement");
-			_log.error (ee);
+			_log.error ("AlbumTags.getIntsFromDatabase: error from Connection.createStatement", ee);
 
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 
 			return items;
 		}
@@ -1567,9 +1602,9 @@ public class AlbumTags
 			return items;
 
 		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		AlbumProfiling.getInstance ().exit (5, id);
@@ -1626,8 +1661,8 @@ public class AlbumTags
 			_log.error ("AlbumTags.getTagsForBaseNames: sql:" + NL + sql);
 			_log.error (ee);
 
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 
 			return new String ();
 		}
@@ -1653,9 +1688,9 @@ public class AlbumTags
 			return new String ();
 
 		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		//truncate the list
@@ -1789,8 +1824,8 @@ public class AlbumTags
 			_log.error ("AlbumTags.getNamesForTags: sql:" + NL + sql);
 			_log.error (ee);
 
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 
 			return baseNames;
 		}
@@ -1815,9 +1850,9 @@ public class AlbumTags
 			return baseNames;
 
 		} finally {
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 //TODO - should call exit in catch blocks
@@ -1860,11 +1895,10 @@ public class AlbumTags
 			statement = connection.createStatement ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.resetTable: error from Connection.createStatement");
-			_log.error (ee);
+			_log.error ("AlbumTags.resetTable: error from Connection.createStatement", ee);
 
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 
 			return false;
 		}
@@ -1879,8 +1913,8 @@ public class AlbumTags
 			return false;
 
 		} finally {
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 //TODO - should call exit in catch blocks
@@ -1909,8 +1943,7 @@ public class AlbumTags
 
 		} catch (Exception ee) {
 			connection = null;
-			_log.error ("AlbumTags.connectDatabase: error connecting to \"" + dbUrl + "\"");
-			_log.error (ee);
+			_log.error ("AlbumTags.connectDatabase: error connecting to \"" + dbUrl + "\"", ee);
 		}
 
 		return connection;
@@ -1927,8 +1960,7 @@ public class AlbumTags
 
 		} catch (Exception ee) {
 			connection = null;
-			_log.error ("AlbumTags.getConnection: error connecting to database");
-			_log.error (ee);
+			_log.error ("AlbumTags.getConnection: error connecting to database", ee);
 		}
 
 		return connection;
@@ -2091,7 +2123,7 @@ public class AlbumTags
 
 	private int _batchInsertSize = 1000;
 
-	private String _rootPath = null;
+//	private String _rootPath = null;
 	private String _tagFilename = null;
 	private String _tagPatternString = null;
 

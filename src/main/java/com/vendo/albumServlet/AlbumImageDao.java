@@ -184,7 +184,7 @@ public class AlbumImageDao
 	///////////////////////////////////////////////////////////////////////////
 	public void cacheMaintenance ()
 	{
-		_albumImageDataCache.clear ();
+		_albumImagesDataCache.clear ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -207,6 +207,7 @@ public class AlbumImageDao
 		final CountDownLatch endGate = new CountDownLatch (getAlbumSubFolders ().size ());
 		for (final String subFolder : getAlbumSubFolders ()) {
 			Thread thread = new Thread () {
+				@Override
 				public void run () {
 					syncFolder (subFolder);
 					endGate.countDown ();
@@ -345,15 +346,17 @@ public class AlbumImageDao
 		insertLastUpdateIntoImageFolder (subFolder, nowInMillis);
 
 		//validate image names ------------------------------------------------
-/*
+
 		dbImageFileDetails = getImageFileDetailsFromImages (subFolder); //result is sorted
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
 			String nameNoExt = imageFileDetail.toString ();
 			if (!AlbumImage.isValidImageName (nameNoExt)) {
-				_log.error ("AlbumImageDao.syncFolder: invalid image name \"" + nameNoExt + "\"");
+				if (!nameNoExt.startsWith ("q-")) { //hack
+					_log.error ("AlbumImageDao.syncFolder: invalid image name \"" + nameNoExt + "\"");
+				}
 			}
 		}
-*/
+
 		//validate image names have consistent numbering ----------------------
 
 		final int numPatterns = 5;
@@ -363,8 +366,8 @@ public class AlbumImageDao
 			String numberValue = (ii < numPatterns - 1 ? String.valueOf (ii + 1) : String.valueOf (ii + 1) + ",99");
 			Pattern pattern = Pattern.compile ("(?!\\s).*-\\d{" + numberValue + "}"); //regex [non-whitespace][dash][specific number of digits]
 			patterns.add (ii, pattern);
-		}			
-		
+		}
+
 		String prevBaseName = new String ();
 		List<Boolean> hasMatches = null;
 		dbImageFileDetails.add (new AlbumImageFileDetails ("dummy", 0, 0)); //hack add dummy value for loop processing
@@ -411,6 +414,7 @@ public class AlbumImageDao
 
 		//start thread to watch queue and handle events
 		Thread thread = new Thread () {
+			@Override
 			public void run () {
 				while (true) {
 					try {
@@ -588,7 +592,7 @@ public class AlbumImageDao
 			_log.error ("AlbumImageDao.handleFileCreate: invalid image name \"" + nameNoExt + "\"");
 		}
 
-		AlbumImage image = new AlbumImage (nameNoExt, subFolder); //this AlbumImage ctor reads image from disk
+		AlbumImage image = new AlbumImage (nameNoExt, subFolder, true); //this AlbumImage ctor reads image from disk
 		image.createRgbDataFile ();
 
 		boolean status = insertImageIntoImages (image);
@@ -651,20 +655,20 @@ public class AlbumImageDao
 
 		Collection<AlbumImage> images = null;
 
-		AlbumImageData imageData = _albumImageDataCache.get (subFolder);
+		AlbumImagesData imagesData = _albumImagesDataCache.get (subFolder);
 
 		long databaseLastUpdateMillis = getLastUpdateFromImageFolder (subFolder);
 
-		if (imageData != null && imageData.getLastUpdateMillis () > databaseLastUpdateMillis) {
+		if (imagesData != null && imagesData.getLastUpdateMillis () > databaseLastUpdateMillis) {
 //			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache hit for subFolder: " + subFolder);
-			images = imageData.getImages ();
+			images = imagesData.getImages ();
 
 		} else {
 			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache miss for subFolder: " + subFolder);
 			images = getImagesFromImages (subFolder);
 			long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
-			imageData = new AlbumImageData (subFolder, images, nowInMillis);
-			_albumImageDataCache.put (subFolder, imageData);
+			imagesData = new AlbumImagesData (images, nowInMillis);
+			_albumImagesDataCache.put (subFolder, imagesData);
 		}
 
 		AlbumProfiling.getInstance ().exit (7, subFolder);
@@ -850,11 +854,11 @@ public class AlbumImageDao
 		items.put (prevBaseName1, imageCount1);
 		items.put (prevBaseName2, imageCount2);
 
-		if (false) {
-			for (String key : items.keySet ()) {
-				_log.debug ("AlbumImageDao.calculateImageCountsFromFileSystem: item: " + key + ": " + items.get (key));
-			}
-		}
+//		if (true) {
+//			for (String key : items.keySet ()) {
+//				_log.debug ("AlbumImageDao.calculateImageCountsFromFileSystem: item: " + key + ": " + items.get (key));
+//			}
+//		}
 
 		AlbumProfiling.getInstance ().exit (7, subFolder);
 
@@ -1242,12 +1246,11 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	private class AlbumImageData
+	private class AlbumImagesData
 	{
 		///////////////////////////////////////////////////////////////////////////
-		AlbumImageData (String subFolder, Collection<AlbumImage> images, long lastUpdateMillis)
+		AlbumImagesData (Collection<AlbumImage> images, long lastUpdateMillis)
 		{
-			_subFolder = subFolder;
 			_images = images;
 			_lastUpdateMillis = lastUpdateMillis;
 		}
@@ -1265,7 +1268,6 @@ public class AlbumImageDao
 		}
 
 		//members
-		private final String _subFolder;
 		private final Collection<AlbumImage> _images;
 		private final long _lastUpdateMillis;
 	}
@@ -1352,7 +1354,7 @@ public class AlbumImageDao
 
 	private static final Map<Thread, String> _watcherThreadMap = new HashMap<Thread, String> ();
 
-	private static final Map<String, AlbumImageData> _albumImageDataCache = new HashMap<String, AlbumImageData> ();
+	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<String, AlbumImagesData> ();
 
 	private final String _extension = AlbumFormInfo._ImageExtension;
 	private final int _extensionLength = _extension.length ();

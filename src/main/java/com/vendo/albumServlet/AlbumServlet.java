@@ -62,7 +62,7 @@ public class AlbumServlet extends HttpServlet
 	{
 		super.destroy ();
 
-		_album.shutdownExecutor ();
+		AlbumImages.shutdownExecutor ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ public class AlbumServlet extends HttpServlet
 
 		//debugging
 //		_log.debug ("Request Headers:" + NL + VendoUtils.getRequestHeaders (request));
-		
+
 		//check the value of this property
 		String property = "java.util.Arrays.useLegacyMergeSort";
 		_log.debug (property + " = " + System.getProperty (property));

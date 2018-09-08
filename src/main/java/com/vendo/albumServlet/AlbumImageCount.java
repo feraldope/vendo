@@ -37,8 +37,8 @@ public class AlbumImageCount
 	@Override
 	public String toString ()
 	{
-		StringBuffer sb = new StringBuffer (getClass ().getName ());
-		sb.append (", ").append (getBaseName ());
+		StringBuffer sb = new StringBuffer (getClass ().getSimpleName ());
+		sb.append (": ").append (getBaseName ());
 		sb.append (", ").append (getCount ());
 
 		return sb.toString ();

@@ -2,10 +2,10 @@
 
 package com.vendo.albumServlet;
 
-import org.apache.ibatis.annotations.*;
+import java.sql.Timestamp;
+import java.util.List;
 
-import java.sql.*;
-import java.util.*;
+import org.apache.ibatis.annotations.Param;
 
 
 public interface AlbumImageMapper {
@@ -28,6 +28,10 @@ public interface AlbumImageMapper {
 
 	public List<AlbumImageCount> selectMismatchedEntriesFromImageCounts ();
 
+	public List<AlbumImageDiffDetails> selectImagesFromImageDiffs ();
+
+	public List<AlbumImageData> selectNamesFromImages (@Param("names") List<String> names);
+
 	//inserts (updates)
 
 	public int insertLastUpdateIntoImageFolder (@Param("sub_folder_int") int subFolderInt, @Param("last_update") Timestamp lastUpdate);
@@ -37,6 +41,8 @@ public interface AlbumImageMapper {
 	public int insertImageCountsIntoImageCountsPlus (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
 	public int insertImageCountsIntoImageCountsMinus (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
 	public int insertImageCountsIntoImageCountsEquals (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
+
+	public int insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails);
 
 	//deletes
 

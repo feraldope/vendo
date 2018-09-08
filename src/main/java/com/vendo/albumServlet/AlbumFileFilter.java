@@ -2,11 +2,15 @@
 
 package com.vendo.albumServlet;
 
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.apache.logging.log4j.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 
 public class AlbumFileFilter implements FilenameFilter
@@ -95,8 +99,8 @@ public class AlbumFileFilter implements FilenameFilter
 			}
 		}
 
-		_sinceInMillis = sinceInMillis;
-		_albumImages = AlbumImages.getInstance ();
+//		_sinceInMillis = sinceInMillis;
+//		_albumImages = AlbumImages.getInstance ();
 
 		if (debugCtor && AlbumFormInfo._Debug) {
 			_log.debug ("AlbumFileFilter ctor: _includeAllFolders = " + new Boolean (_includeAllFolders) +
@@ -287,10 +291,10 @@ public class AlbumFileFilter implements FilenameFilter
 	//members
 	private boolean _includeAllFiles = false;
 	private boolean _includeAllFolders = false;
-	private long _sinceInMillis = 0;
+//	private long _sinceInMillis = 0;
 	private Collection<Pattern> _includePatterns = null;
 	private Collection<Pattern> _excludePatterns = null;
-	private AlbumImages _albumImages = null;
+//	private AlbumImages _albumImages = null;
 
 	private final String _extension = AlbumFormInfo._ImageExtension;
 	private final int _extensionLength = _extension.length ();

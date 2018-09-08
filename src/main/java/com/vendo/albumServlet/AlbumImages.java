@@ -228,11 +228,11 @@ public class AlbumImages
 	///////////////////////////////////////////////////////////////////////////
 	public int processRequest ()
 	{
-		int maxFilters = _form.getMaxFilters ();
 		String[] filters = _form.getFilters ();
 		String[] tagsIn = _form.getTags (AlbumTagMode.TagIn);
 		String[] tagsOut = _form.getTags (AlbumTagMode.TagOut);
 		String[] excludes = _form.getExcludes ();
+		int maxFilters = _form.getMaxFilters ();
 		long sinceInMillis = _form.getSinceInMillis ();
 		boolean tagFilterOperandOr = _form.getTagFilterOperandOr ();
 		boolean useCase = _form.getUseCase ();
@@ -268,7 +268,7 @@ public class AlbumImages
 			filters = Arrays.copyOf (filters, maxFilters);
 			_log.debug ("AlbumImages.processRequest: filters.length = " + filters.length + " (after limiting to maxFilters)");
 		}
-		
+
 		if (filters.length == 0 && tagsIn.length == 0) { //handle some defaults
 			switch (mode) {
 			case DoDup:
@@ -307,6 +307,7 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().enter (5, "dao.doDir");
 		for (final String subFolder : subFolders) {
 			Thread thread = new Thread () {
+				@Override
 				public void run () {
 					final Collection<AlbumImage> imageDisplayList = AlbumImageDao.getInstance ().doDir (subFolder, filter);
 					if (imageDisplayList.size () > 0) {
@@ -411,12 +412,12 @@ public class AlbumImages
 				chunkSize = 1 + allCombos.size () / maxThreads;
 			}
 
-			List<List<VPair<Integer, Integer>>> allComboChunks = ListUtils.partition ((List<VPair<Integer, Integer>>) allCombos, chunkSize);
+			List<List<VPair<Integer, Integer>>> allComboChunks = ListUtils.partition (allCombos, chunkSize);
 			int numChunks = allComboChunks.size ();
 			_log.debug ("AlbumImages.doDup: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat.format (chunkSize));
 
 			long maxElapsedSecs1 = 30;
-			long endNano1 = System.nanoTime () + (long) (maxElapsedSecs1 * 1000 * 1000 * 1000);
+			long endNano1 = System.nanoTime () + maxElapsedSecs1 * 1000 * 1000 * 1000;
 			AtomicInteger timeElapsedCount = new AtomicInteger (0);
 
 			final List<AlbumImagePair> pairsReady = Collections.synchronizedList (new ArrayList<AlbumImagePair> (1000));
@@ -430,6 +431,7 @@ public class AlbumImages
 			for (List<VPair<Integer, Integer>> comboChunk : allComboChunks) {
 //				_log.debug ("AlbumImages.doDup: comboChunk.size = " + _decimalFormat.format (comboChunk.size ()));
 				Thread thread = new Thread () {
+					@Override
 					public void run () {
 						for (VPair<Integer, Integer> vpair : comboChunk) {
 							AlbumImage image1 = null;
@@ -545,7 +547,7 @@ public class AlbumImages
 					AlbumImage image2 = pair.getImage2 ();
 					ByteBuffer scaledImage1Data = _nameScaledImageMap.get (image1.getNamePlus ());
 					ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
-					int averageDiff = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
+					int averageDiff = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data, maxRgbDiffs);
 					pair.setAverageDiff (averageDiff);
 					if (averageDiff < maxRgbDiffs) {
 						pairsReady.add (pair);
@@ -1187,9 +1189,9 @@ public class AlbumImages
 		int imageHeight = 0;
 
 		if (isNexus7Device) {
-			tableWidth = (_form.getWindowWidth () > _form.getWindowHeight () ? 1920 : 1200); //hack - hardcode 
+			tableWidth = (_form.getWindowWidth () > _form.getWindowHeight () ? 1920 : 1200); //hack - hardcode
 			imageWidth = tableWidth / tempCols - (2 * (imageBorderPixels + padding));
-			imageHeight = (_form.getWindowWidth () > _form.getWindowHeight () ? 1200 : 1920); //hack - hardcode 
+			imageHeight = (_form.getWindowWidth () > _form.getWindowHeight () ? 1200 : 1920); //hack - hardcode
 
 		} else {
 			//values for firefox
@@ -1289,9 +1291,9 @@ public class AlbumImages
 								int averageDiff = cachedDiff.intValue ();
 								imageBorderColor = (averageDiff < 1 ? "white" : averageDiff < 10 ? "green" : averageDiff < 20 ? "yellow" : "orange");
 								averageDiffString += cachedDiff;
-							} else {
-								imageBorderColor = "red"; //not found in looseCompareMap
-								averageDiffString += "unknown";
+//							} else {
+//								imageBorderColor = "red"; //not found in looseCompareMap
+//								averageDiffString += "unknown";
 							}
 						}
 					}
@@ -1531,6 +1533,7 @@ public class AlbumImages
 	}
 */
 
+/* for testing exifDate distribution
 	///////////////////////////////////////////////////////////////////////////
 	private void generateExifDateStatistics ()
 	{
@@ -1560,6 +1563,7 @@ public class AlbumImages
 
 		AlbumProfiling.getInstance ().exit (5);
 	}
+*/
 
 	///////////////////////////////////////////////////////////////////////////
 	public static <T> String collectionToString (Collection<T> collection)
@@ -1609,7 +1613,7 @@ public class AlbumImages
 
 			long totalMem = Runtime.getRuntime ().totalMemory ();
 			long maxMem   = Runtime.getRuntime ().maxMemory ();
-			double memoryUsedPercent = 100 * (double) totalMem / (double) maxMem;
+			double memoryUsedPercent = 100 * (double) totalMem / maxMem;
 			_log.debug ("AlbumImage.cacheMaintenance: memoryUsedPercent: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
 													", _nameScaledImageMap: " + _decimalFormat2.format (_nameScaledImageMap.size ()) +
 													", _looseCompareMap: " + _decimalFormat2.format (_looseCompareMap.size ()));
@@ -1636,7 +1640,7 @@ public class AlbumImages
 
 			long totalMem = Runtime.getRuntime ().totalMemory ();
 			long maxMem   = Runtime.getRuntime ().maxMemory ();
-			double memoryUsedPercent = 100 * (double) totalMem / (double) maxMem;
+			double memoryUsedPercent = 100 * (double) totalMem / maxMem;
 			_log.debug ("AlbumImage.cacheMaintenance: memoryUsedPercent: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
 													", _nameScaledImageMap: " + _decimalFormat2.format (_nameScaledImageMap.size ()) +
 													", _looseCompareMap: " + _decimalFormat2.format (_looseCompareMap.size ()));

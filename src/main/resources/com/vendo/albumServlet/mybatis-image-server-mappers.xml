@@ -29,9 +29,6 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<resultMap id="AlbumImageFileDetailsResultMap" type="com.vendo.albumServlet.AlbumImageFileDetails">
 		<constructor>
-			<!--
-			<idArg column="emp_no" javaType="_integer" />
-			-->
 			<arg column="name_no_ext" javaType="String" />
 			<arg column="bytes" javaType="_long" />
 			<arg column="modified" javaType="_long" />
@@ -40,9 +37,6 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<resultMap id="AlbumImageResultMap" type="com.vendo.albumServlet.AlbumImage">
 		<constructor>
-			<!--
-			<idArg column="emp_no" javaType="_integer" />
-			-->
 			<arg column="name_no_ext" javaType="String" />
 			<arg column="sub_folder_int" javaType="_integer" />
 			<arg column="bytes" javaType="_long" />
@@ -59,13 +53,27 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<resultMap id="AlbumImageCountResultMap" type="com.vendo.albumServlet.AlbumImageCount">
 		<constructor>
-			<!--
-			<idArg column="emp_no" javaType="_integer" />
-			-->
 			<arg column="base_name" javaType="String" />
 			<arg column="image_count" javaType="integer" />
 		</constructor>
 	</resultMap>
+
+	<resultMap id="AlbumImageDiffDetailsMap" type="com.vendo.albumServlet.AlbumImageDiffDetails">
+		<constructor>
+			<arg column="name_id_1" javaType="Integer" />
+			<arg column="name_id_2" javaType="Integer" />
+			<arg column="avg_diff" javaType="Integer" />
+			<arg column="max_diff" javaType="Integer" />
+		</constructor>
+	</resultMap>
+
+	<resultMap id="AlbumImageDataResultMap" type="com.vendo.albumServlet.AlbumImageData">
+		<constructor>
+			<arg column="name_id" javaType="_integer" />
+			<arg column="name_no_ext" javaType="String" />
+		</constructor>
+	</resultMap>
+
 
 	<!-- each argument must be a column name from the database table definition -->
 	<sql id="imagesColumns">name_no_ext, sub_folder_int, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
@@ -75,6 +83,11 @@ mysql -u root -proot albumimages -e "describe images"
 	<!-- each argument must be a column name from the database table definition -->
 	<sql id="imageCountsColumns">sub_folder_int, base_name, collapse_groups, image_count</sql>
 	<sql id="imageCountsValues">#{sub_folder_int}, #{base_name}, #{collapse_groups}, #{image_count}</sql>
+
+	<!-- each argument must be a column name from the database table definition -->
+	<sql id="imageDiffsColumns">name_id_1, name_id_2, avg_diff, max_diff</sql>
+	<!-- each argument must represent a "getter" value from the corresponding class -->
+	<sql id="imageDiffsValues">#{nameId1}, #{nameId2}, #{avgDiff}, #{maxDiff}</sql>
 
 	<select id="selectLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
 		select last_update
@@ -128,6 +141,32 @@ mysql -u root -proot albumimages -e "describe images"
 		) as t
 	</select>
 
+	<select id="selectImagesFromImageDiffs" resultMap="AlbumImageDiffDetailsMap">
+		select
+		<include refid="imageDiffsColumns"/>
+		from image_diffs
+	</select>
+
+	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
+		select name_id, name_no_ext
+		from images
+		where name_no_ext in
+		<foreach item="item" index="index" collection="names" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+<!-- could not get this to work
+	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
+		select name_id, name_no_ext
+		from images
+		where name_no_ext rlike
+		<foreach item="item" index="index" collection="names" open="'" separator="|" close="'">
+			#{item}
+		</foreach>
+	</select>
+ -->
+
 	<insert id="insertLastUpdateIntoImageFolder">
 		insert into image_folder (sub_folder_int, last_update)
 		values (#{sub_folder_int}, #{last_update})
@@ -176,6 +215,19 @@ mysql -u root -proot albumimages -e "describe images"
 		on duplicate key update
 		image_count = values (image_count),
 		sub_folder_int = values (sub_folder_int)
+	</insert>
+	
+	<insert id="insertImageIntoImageDiffs">
+		insert into image_diffs (
+			<include refid="imageDiffsColumns"/>
+		)
+		values (
+			<include refid="imageDiffsValues"/>
+		)
+		on duplicate key update
+		avg_diff = values (avg_diff),
+		max_diff = values (max_diff),
+		last_update = now()
 	</insert>
 
 	<delete id="deleteImageFromImages">

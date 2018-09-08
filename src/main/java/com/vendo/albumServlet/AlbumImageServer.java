@@ -2,9 +2,6 @@
 
 package com.vendo.albumServlet;
 
-import java.util.Enumeration;
-
-import javax.servlet.ServletContext;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 
@@ -35,20 +32,21 @@ public class AlbumImageServer implements ServletContextListener
 	{
 		_log.info ("AlbumImageServer.contextInitialized");
 
-		ServletContext context = servletContextEvent.getServletContext ();
-
-		if (false) {
-			_log.debug ("AlbumImageServer.contextInitialized: contextPath: " + context.getContextPath ());
-
-			Enumeration<String> attributeNames = context.getAttributeNames ();
-			while (attributeNames.hasMoreElements ()) {
-				String attributeName = attributeNames.nextElement ();
-				String attributeValue = context.getAttribute (attributeName).toString ();
-				_log.debug ("AlbumImageServer.contextInitialized: " + attributeName + " = " + attributeValue);
-			}
-		}
+//		ServletContext context = servletContextEvent.getServletContext ();
+//
+//		if (true) {
+//			_log.debug ("AlbumImageServer.contextInitialized: contextPath: " + context.getContextPath ());
+//
+//			Enumeration<String> attributeNames = context.getAttributeNames ();
+//			while (attributeNames.hasMoreElements ()) {
+//				String attributeName = attributeNames.nextElement ();
+//				String attributeValue = context.getAttribute (attributeName).toString ();
+//				_log.debug ("AlbumImageServer.contextInitialized: " + attributeName + " = " + attributeValue);
+//			}
+//		}
 
 		Thread thread = new Thread () {
+			@Override
 			public void run () {
 				AlbumImageDao.main (new String[] {
 									"/debug"

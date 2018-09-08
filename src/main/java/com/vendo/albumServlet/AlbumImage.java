@@ -34,6 +34,7 @@ import com.drew.metadata.xmp.XmpDirectory;
 import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.VendoUtils;
 
+
 public class AlbumImage
 {
 	///////////////////////////////////////////////////////////////////////////
@@ -101,8 +102,8 @@ public class AlbumImage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//this ctor reads the attributes from the image file on the disk
-	public AlbumImage (String name, String subFolder)
+	//this ctor optionally reads the attributes from the image file on the disk
+	public AlbumImage (String name, String subFolder, boolean readAttrs)
 	{
 		AlbumProfiling.getInstance ().enter (7, subFolder, "ctor");
 
@@ -114,38 +115,47 @@ public class AlbumImage
 		_imagePath = VendoUtils.appendSlash (imagePath);
 		_file = new File (imagePath, nameWithExt);
 
-		BasicFileAttributes attrs = null;
-		try {
-		    Path file = FileSystems.getDefault ().getPath (imagePath, nameWithExt);
-			attrs = Files.readAttributes (file, BasicFileAttributes.class);
+		if (readAttrs) {
+			BasicFileAttributes attrs = null;
+			try {
+			    Path file = FileSystems.getDefault ().getPath (imagePath, nameWithExt);
+				attrs = Files.readAttributes (file, BasicFileAttributes.class);
 
-		} catch (Exception ee) {
-			_log.error ("AlbumImage ctor: error reading file attributes \"" + nameWithExt + "\"");
+			} catch (Exception ee) {
+				_log.error ("AlbumImage ctor: error reading file attributes \"" + nameWithExt + "\"");
 
-		} finally {
-			_numBytes = attrs.size ();
-			_modified = attrs.lastModifiedTime ().toMillis (); //millisecs
+			} finally {
+				_numBytes = attrs.size ();
+				_modified = attrs.lastModifiedTime ().toMillis (); //millisecs
+			}
+
+			//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
+			final int w = 5;
+			final int h = 1;
+			int rgbIntArray[] = new int [w * h];
+
+			BufferedImage image = JpgUtils.readImage (_file);
+			_width = image.getWidth ();
+			_height = image.getHeight ();
+			image.getRGB (_width / 2, _height / 2, w, h, rgbIntArray, 0, w);
+
+			//convert exact RGB data to String
+			StringBuilder sb = new StringBuilder ();
+			Formatter formatter = new Formatter (sb, Locale.US);
+			for (int ii = 0; ii < rgbIntArray.length; ii++)
+				formatter.format ("%08x", rgbIntArray[ii]); //note: writing integers
+			_rgbData = sb.toString ();
+			formatter.close ();
+
+			setExifDates (readExifDates (_file));
+
+		} else {
+			_numBytes = -1;
+			_modified = -1;
+			_width = -1;
+			_height = -1;
+			_rgbData = null;
 		}
-
-		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
-		final int w = 5;
-		final int h = 1;
-		int rgbIntArray[] = new int [w * h];
-
-		BufferedImage image = JpgUtils.readImage (_file);
-		_width = image.getWidth ();
-		_height = image.getHeight ();
-		image.getRGB (_width / 2, _height / 2, w, h, rgbIntArray, 0, w);
-
-		//convert exact RGB data to String
-		StringBuilder sb = new StringBuilder ();
-		Formatter formatter = new Formatter (sb, Locale.US);
-		for (int ii = 0; ii < rgbIntArray.length; ii++)
-			formatter.format ("%08x", rgbIntArray[ii]); //note: writing integers
-		_rgbData = sb.toString ();
-		formatter.close ();
-
-		setExifDates (readExifDates (_file));
 
 		AlbumProfiling.getInstance ().exit (7, subFolder, "ctor");
 	}
@@ -431,21 +441,20 @@ public class AlbumImage
 //		boolean looseCompare = AlbumFormInfo.getInstance ().getLooseCompare ();
 
 		if (_hash < 0) {
-			if (false) { //"loose" hash
-				_hash = (getNumBytes () * 10000) ^ (getWidth () * 100) ^ getHeight ();
-
-			} else { // perfect hash?
+//			if (false) { //"loose" hash
+//				_hash = (getNumBytes () * 10000) ^ (getWidth () * 100) ^ getHeight ();
+//
+//			} else { // perfect hash?
 				_hash = Math.abs (getRgbData ().hashCode ());
-/*
-				final long maxWidth  = 1 << 12; // 4K
-				final long maxHeight = 1 << 12; // 4K
-				final long maxBytes  = 1 << 22; // 4M
 
-				_hash = getWidth ();
-				_hash = _hash * maxHeight + getHeight ();
-				_hash = _hash * maxBytes + getNumBytes ();
-*/
-			}
+//				final long maxWidth  = 1 << 12; // 4K
+//				final long maxHeight = 1 << 12; // 4K
+//				final long maxBytes  = 1 << 22; // 4M
+//
+//				_hash = getWidth ();
+//				_hash = _hash * maxHeight + getHeight ();
+//				_hash = _hash * maxBytes + getNumBytes ();
+//			}
 
 //TODO - include getOrientation ()
 
@@ -486,7 +495,7 @@ public class AlbumImage
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean isValidImageName (String name) //name without extension
 	{
-		final Pattern goodPattern = Pattern.compile ("^[A-Za-z]*\\d*\\-\\d*$"); //match: [alpha][digits][dash][digits]
+		final Pattern goodPattern = Pattern.compile ("^[A-Za-z]{2,}\\d{2,}\\-\\d{2,}$"); //match: [2 or more alpha][2 or more digits][dash][2 or more digits]
 
 		return goodPattern.matcher (name).matches ();
 	}
@@ -536,7 +545,7 @@ public class AlbumImage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int getScaledImageDiff (ByteBuffer buffer1, ByteBuffer buffer2)
+	public static int getScaledImageDiff (ByteBuffer buffer1, ByteBuffer buffer2, int maxRgbDiffs)
 	{
 //		AlbumProfiling.getInstance ().enter (5); //too expensive
 
@@ -548,7 +557,6 @@ public class AlbumImage
 		buffer2.rewind (); //always rewind before using
 		int numBytes = buffer1.remaining ();
 
-		int maxRgbDiffs = AlbumFormInfo.getInstance ().getMaxRgbDiffs ();
 		int maxAcceptableTotalDiff = maxRgbDiffs * numBytes;
 		int totalDiff = 0;
 		try {
@@ -694,8 +702,8 @@ public class AlbumImage
 //			scale = Math.min (scale, maxImageScaleFactor); //limit magnification to maxImageScaleFactor
 
 			_scale = -1;//(int) (scale * 100);
-			_scaledWidth = (int) ((double) width * scale);
-			_scaledHeight = (int) ((double) height * scale);
+			_scaledWidth = (int) (width * scale);
+			_scaledHeight = (int) (height * scale);
 
 		} else {
 			//scale images to available space
@@ -706,8 +714,8 @@ public class AlbumImage
 			scale = Math.min (scale, maxImageScaleFactor); //limit magnification to maxImageScaleFactor
 
 			_scale = (int) (scale * 100);
-			_scaledWidth = (int) ((double) _width * scale);
-			_scaledHeight = (int) ((double) _height * scale);
+			_scaledWidth = (int) (_width * scale);
+			_scaledHeight = (int) (_height * scale);
 		}
 
 /* works except images grow vertically beyond the window size
@@ -761,7 +769,7 @@ public class AlbumImage
 	{
 		if (!_hasExifDateChecked) {
 			_hasExifDateChecked = true;
-			
+
 			for (int ii = 0; ii < NumFileExifDates; ii++) {
 				if (_exifDates[ii] > 0) {
 					_hasExifDate = true;
@@ -782,19 +790,24 @@ public class AlbumImage
 	{
 		return _exifDates;
 	}
-	//following methods used by mybatis/AlbumImageResultMap
+
+	//following methods are used by mybatis/AlbumImageResultMap
+	@SuppressWarnings("unused")
 	private long getExifDate0 ()
 	{
 		return _exifDates[0];
 	}
+	@SuppressWarnings("unused")
 	private long getExifDate1 ()
 	{
 		return _exifDates[1];
 	}
+	@SuppressWarnings("unused")
 	private long getExifDate2 ()
 	{
 		return _exifDates[2];
 	}
+	@SuppressWarnings("unused")
 	private long getExifDate3 ()
 	{
 		return _exifDates[3];
@@ -943,7 +956,7 @@ public class AlbumImage
 	//members
 
 	//attributes read from database
-	private final String _name;
+	private final String _name; //name only, no file extension
 	private final long _numBytes;
 	private final int _width;
 	private final int _height;
