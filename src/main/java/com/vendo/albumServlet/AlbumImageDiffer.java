@@ -18,11 +18,11 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -38,6 +38,8 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumImageDiffer
@@ -335,7 +337,7 @@ public class AlbumImageDiffer
 
 					int averageDiff = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB, _maxRgbDiffs);
 					if (averageDiff <= _maxRgbDiffs) {
-						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), averageDiff, _maxRgbDiffs));
+						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), averageDiff, _maxRgbDiffs, getMode ()));
 						_log.debug ("AlbumImageDiffer.run: " + String.format("%-2s", averageDiff) + " " + imageA.getName () + "," + imageB.getName () + ",");
 					}
 				}
@@ -350,7 +352,7 @@ public class AlbumImageDiffer
 //			_log.debug ("AlbumImageDiffer.run: creating new thread/task for: " + albumImageDataA.getNameNoExt ());
 			getExecutor ().execute (task);
 		}
-		_log.debug ("AlbumImageDiffer.run: started " + endGate.getCount () + " threads");
+		_log.debug ("AlbumImageDiffer.run: queued " + endGate.getCount () + " threads");
 
 		try {
 			endGate.await ();
@@ -399,11 +401,12 @@ public class AlbumImageDiffer
 			_log.error ("AlbumImageDiffer.getImageIds: endGate:", ee);
 		}
 
-		Collections.sort(_idListA, _idListA.get (0));
-		Collections.sort(_idListB, _idListB.get (0));
+		_directoryCache = null; //we are done with cache
 
 		AlbumProfiling.getInstance ().exit (5);
 
+//		Collections.sort(_idListA, _idListA.get (0));
+//		Collections.sort(_idListB, _idListB.get (0));
 //		for (AlbumImageData item : _idListA) {
 //			_log.debug ("AlbumImageDiffer.getImageIds: _idListA: " + item);
 //		}
@@ -413,7 +416,7 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<AlbumImageData> queryImageIdsNames (String whereClause)
+	private Collection<AlbumImageData> queryImageIdsNames (String whereClause)
 	{
 		String profileTag = extractQuotedStrings (whereClause).toString ();
 		AlbumProfiling.getInstance ().enterAndTrace (5, profileTag);
@@ -425,7 +428,7 @@ public class AlbumImageDiffer
 			    	 "order by rand() limit " + _maxRows + ") t)";
 //		_log.debug ("AlbumImageDiffer.queryImageIdsNames: sql: " + NL + sql);
 
-		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
 		Connection connection = getConnection ();
 		Statement statement = null;
@@ -471,14 +474,14 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<AlbumImageData> queryImageIdsTags (String whereClause, List<String> filters)
+	private Collection<AlbumImageData> queryImageIdsTags (String whereClause, List<String> filters)
 	{
 		String profileTag = extractQuotedStrings (whereClause) + ", " + filters;
 		AlbumProfiling.getInstance ().enterAndTrace (5, profileTag);
 
 		boolean useFilters = (filters != null && filters.size () > 0);
 
-		List<String> baseNames = new ArrayList<String> ();
+		Collection<String> baseNames = new HashSet<String> (_maxRows); //use Set to eliminate dups
 
 		{ //---------------------------------------------------------------------
 		AlbumProfiling.getInstance ().enterAndTrace (5, "part1");
@@ -495,7 +498,7 @@ public class AlbumImageDiffer
 					  "select name_id from (" + NL +
 					  "(select name_id from albumtags.base1_names_tags" + NL +
 					  "inner join albumtags.tags on base1_names_tags.tag_id = tags.tag_id" + NL +
-					  "where tags.tag_id = (" + NL +
+					  "where tags.tag_id in (" + NL +
 					  "select tag_id from albumtags.tags " + NL +
 					  whereClause + NL +
 					  ")) order by rand() limit " + maxRowsForQuery + ") t)";
@@ -545,8 +548,8 @@ public class AlbumImageDiffer
 		AlbumProfiling.getInstance ().exit (5, "part1");
 		}
 
-		List<String> names = new ArrayList<String> ();
-		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<String> names = new ArrayList<String> ();
+		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
 		boolean useFileSystem = true;
 		if (useFileSystem) {
@@ -564,12 +567,12 @@ public class AlbumImageDiffer
 
 			AlbumProfiling.getInstance ().enterAndTrace (5, "part3");
 
-			items = selectNamesFromImages1 (names);
+			items = selectNamesFromImagesFS (names);
 
 			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
 
 			if (items.size () == 0) {
-				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImages");
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesFS");
 			}
 
 			AlbumProfiling.getInstance ().exit (5, "part3");
@@ -578,20 +581,19 @@ public class AlbumImageDiffer
 
 			AlbumProfiling.getInstance ().enterAndTrace (5, "part2");
 
-			items = selectNamesFromImages2 (baseNames);
+			items = selectNamesFromImagesDB (baseNames);
 
 			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
 
 			if (items.size () == 0) {
-				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImages");
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesDB");
 			}
 
 			AlbumProfiling.getInstance ().exit (5, "part2");
 		}
 
-		Collections.shuffle (items);
 		_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size () + " (original)");
-		items = items.subList (0, Math.min (items.size (), _maxRows));
+		items = VendoUtils.shuffleAndTruncate (items, _maxRows);
 		_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size () + " (truncated)");
 
 		AlbumProfiling.getInstance ().exit (5, profileTag);
@@ -611,7 +613,7 @@ public class AlbumImageDiffer
 		return false;
 	}
 
-/* unused
+/* obsolete
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	private Collection<AlbumImageDiffDetails> getImagesFromImageDiffs ()
@@ -639,11 +641,11 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	private List<AlbumImageData> selectNamesFromImages1 (List<String> names)
+	private Collection<AlbumImageData> selectNamesFromImagesFS (Collection<String> names)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
 		if (names.size () == 0) {
 			return items;
@@ -654,13 +656,13 @@ public class AlbumImageDiffer
 			items = mapper.selectNamesFromImages (names);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImages1(\"" + names + "\"): ", ee);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesFS(\"" + names + "\"): ", ee);
 		}
 
 		AlbumProfiling.getInstance ().exit (5);
 
 //		for (AlbumImageData item : items) {
-//			_log.debug ("AlbumImageDiffer.selectNamesFromImages1: " + item);
+//			_log.debug ("AlbumImageDiffer.selectNamesFromImagesFS: " + item);
 //		}
 
 		return items;
@@ -668,11 +670,11 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	private List<AlbumImageData> selectNamesFromImages2 (List<String> names)
+	private Collection<AlbumImageData> selectNamesFromImagesDB (Collection<String> names)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		List<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
 		if (names.size () == 0) {
 			return items;
@@ -686,7 +688,7 @@ public class AlbumImageDiffer
 			statement = connection.createStatement ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImages2: error from Connection.createStatement", ee);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: error from Connection.createStatement", ee);
 
 			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
@@ -707,8 +709,8 @@ public class AlbumImageDiffer
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImages2: error from Statement.executeQuery");
-			_log.error ("AlbumImageDiffer.selectNamesFromImages2: sql:" + NL + sql);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: error from Statement.executeQuery");
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: sql:" + NL + sql);
 			_log.error (ee);
 			return items;
 
@@ -719,14 +721,13 @@ public class AlbumImageDiffer
 		}
 
 		if (items.size () == 0) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImages2: no rows found for query:" + NL + sql);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: no rows found for query:" + NL + sql);
 		}
 
 		AlbumProfiling.getInstance ().exit (5);
 
 		return items;
 	}
-
 
 /* obsolete
 	///////////////////////////////////////////////////////////////////////////
@@ -761,9 +762,9 @@ public class AlbumImageDiffer
 	{
 //		AlbumProfiling.getInstance ().enter (5);
 
-		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff) values";
-		String sqlValues = " (?, ?, ?, ?)";
-		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff), max_diff = values (max_diff), last_update = now()";
+		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff, source) values";
+		String sqlValues = " (?, ?, ?, ?, ?)";
+		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff), max_diff = values (max_diff), source = values (source), last_update = now()";
 		String sql = sqlBase + sqlValues + sqlOnDup;
 
 		Connection connection = getConnection ();
@@ -780,6 +781,7 @@ public class AlbumImageDiffer
 	        	statement.setInt (2, item.getNameId2 ());
 	        	statement.setInt (3, item.getAvgDiff ());
 	        	statement.setInt (4, item.getMaxDiff ());
+	        	statement.setString (5, item.getSource ());
 	        	statement.addBatch ();
 
 	        	ii++;
@@ -819,20 +821,19 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//actually only get one random name from each set
-	private List<String> getRandomNamesForBaseNames (List<String> baseNames, int maxRows) {
+	//returns a random subset
+	private Collection<String> getRandomNamesForBaseNames (Collection<String> baseNames, int maxRows) {
 //		_log.debug ("AlbumImageDiffer.getRandomNamesForBaseNames: baseNames: " + baseNames);
 
-		List<String> names = new ArrayList<String> ();
+		Collection<String> names = new ArrayList<String> ();
 		final int divisor = 4;
 
 		for (String baseName : baseNames) {
-	        List<String> files = getMatchingImageNamesFromFileSystem (baseName);
-	        int numRandom = files.size () / divisor;
-	        for (int ii = 0; ii < numRandom; ii++) {
-		        names.add (files.get(_random.nextInt (files.size ())));
-	        }
-	        if (names.size () >= maxRows) {
+			Collection<String> files = getMatchingImageNamesFromFileSystem (baseName);
+			files = VendoUtils.shuffleAndTruncate (files, files.size () / divisor);
+			names.addAll (files);
+
+			if (names.size () >= maxRows) {
 	        	break;
 	        }
 		}
@@ -844,33 +845,56 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns names only: no path or extension
-	private List<String> getMatchingImageNamesFromFileSystem (String baseName) {
+	private Collection<String> getMatchingImageNamesFromFileSystem (String baseName) {
 //		_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: baseName: " + baseName);
 
-		List<String> files = new ArrayList<String> ();
+		Collection<String> files = new ArrayList<String> ();
 
-		Path folder = FileSystems.getDefault ().getPath (_basePath, _defaultRootFolder, baseName.substring (0, 1).toLowerCase());
-		try (DirectoryStream <Path> ds = Files.newDirectoryStream (folder)) {
-			for (Path file : ds) {
-				String filename = file.getFileName ().toString ();
-//				_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: filename: " + filename);
-				if (filename.startsWith (baseName) && filename.endsWith (".jpg")) {
-					files.add (filename.substring (0, filename.lastIndexOf ('.')));
-				}
+		String subFolder = baseName.substring (0, 1).toLowerCase();
+		Collection<String> filenames = getDirectoryCache (subFolder);
+		for (String filename : filenames) {
+			if (filename.startsWith (baseName)) {// && filename.endsWith (".jpg")) {
+				files.add (filename.substring (0, filename.lastIndexOf ('.')));
 			}
-
-		} catch (IOException ee) {
-			_log.error ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem(\"" + baseName + "\"): error reading file system", ee);
 		}
-
-//		_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: files.size(): " + files.size ());
 
 		return files;
 	}
 
-	private List<String> extractQuotedStrings (String string)
+	///////////////////////////////////////////////////////////////////////////
+	//returns a collection of image file names (without path, with extension)
+	private synchronized Collection<String> getDirectoryCache (String subFolder)
 	{
-		List<String> list = new ArrayList<String> ();
+		if (_directoryCache.containsKey(subFolder)) {
+			return _directoryCache.get(subFolder);
+		}
+
+//		AlbumProfiling.getInstance ().enterAndTrace(5, subFolder); //cache miss
+
+		Collection<String> filenames = new ArrayList <String> ();
+
+		Path folder = FileSystems.getDefault ().getPath (_basePath, _defaultRootFolder, subFolder);
+		try (DirectoryStream <Path> stream = Files.newDirectoryStream (folder, "*.jpg")) {
+			for (Path file : stream) {
+				filenames.add (file.getFileName ().toString ());
+			}
+	    	_directoryCache.put(subFolder, filenames);
+
+		} catch (IOException ee) {
+			_log.error ("AlbumImageDiffer.getDirectoryCache(\"" + subFolder + "\"): error reading file system", ee);
+		}
+
+//		_log.debug ("AlbumImageDiffer.getDirectoryCache(\"" + subFolder + "\"): filenames.size(): " + filenames.size ());
+
+//		AlbumProfiling.getInstance ().exit (5, subFolder);
+
+	    return filenames;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Collection<String> extractQuotedStrings (String string)
+	{
+		Collection<String> list = new ArrayList<String> ();
 
 		final Pattern pattern = Pattern.compile ("'([^']*)'");
         Matcher matcher = pattern.matcher (string);
@@ -881,6 +905,15 @@ public class AlbumImageDiffer
         return list;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	private String getMode ()
+	{
+		if (_modeA == _modeB) {
+			return _modeA.toString ();
+		} else {
+			return _modeA.toString () + "/" + _modeB.toString ();
+		}
+	}
 	///////////////////////////////////////////////////////////////////////////
 	private Connection getConnection ()
 	{
@@ -954,12 +987,13 @@ public class AlbumImageDiffer
 	private List<String> _filtersB = null;
 
 	//members
-	private Random _random = new Random ();
 	private SqlSessionFactory _sqlSessionFactory = null;
 	private String _defaultRootFolder = "jroot";
 
-	private List<AlbumImageData> _idListB = null;
-	private List<AlbumImageData> _idListA = null;
+	private Collection<AlbumImageData> _idListB = null;
+	private Collection<AlbumImageData> _idListA = null;
+
+	private Map<String, Collection<String>> _directoryCache = new HashMap<String, Collection<String>> ();
 
 	private static BasicDataSource _dataSource = null;
 	private static AlbumImageDiffer _instance = null;

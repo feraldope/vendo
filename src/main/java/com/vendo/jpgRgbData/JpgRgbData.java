@@ -460,14 +460,14 @@ public class JpgRgbData
 		FilenamePatternFilter datPattern = new FilenamePatternFilter ("*.dat");
 		FilenamePatternFilter jpgPattern = new FilenamePatternFilter ("*.jpg");
 		FilenamePatternFilter delPattern = new FilenamePatternFilter ("*.delete");
-		FilenamePatternFilter xmlPattern = new FilenamePatternFilter ("*.xml");
-		FilenamePatternFilter bakPattern = new FilenamePatternFilter ("*.xml.bak");
+//		FilenamePatternFilter xmlPattern = new FilenamePatternFilter ("*.xml");
+//		FilenamePatternFilter bakPattern = new FilenamePatternFilter ("*.xml.bak");
 
 		try (DirectoryStream <Path> ds = Files.newDirectoryStream (folder)) {
 			for (Path file : ds) {
 				String filename = file.getName (file.getNameCount () - 1).toString (); //filename is last leaf
 
-				if (delPattern.accept (file) || xmlPattern.accept (file) || bakPattern.accept (file)) {
+				if (delPattern.accept (file)) {// || xmlPattern.accept (file) || bakPattern.accept (file)) {
 					//ignore
 
 				} else if (datPattern.accept (file)) {
@@ -580,7 +580,7 @@ public class JpgRgbData
 
 	private AtomicInteger _imagesFound = new AtomicInteger (0);
 	private AtomicInteger _imagesWritten = new AtomicInteger (0);
-	
+
 	private static AtomicLong _readImageElapsedNanos = new AtomicLong (0);
 	private static AtomicLong _writeScaledImageDataElapsedNanos = new AtomicLong (0);
 	private static AtomicLong _readScaledImageDataElapsedNanos = new AtomicLong (0);

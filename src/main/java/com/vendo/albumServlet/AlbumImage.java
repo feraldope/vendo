@@ -515,8 +515,11 @@ public class AlbumImage
 			fileChannel.read (scaledImageData, 0);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"");
-			_log.error (ee);
+			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
+		}
+
+		if (scaledImageData != null && scaledImageData.position () < 10000) {
+			_log.error ("AlbumImage.readScaledImageData: error: unexpected size (" + scaledImageData.position () + " bytes) for " + nameWithExt);
 		}
 
 //		AlbumProfiling.getInstance ().exit (5);
@@ -538,8 +541,7 @@ public class AlbumImage
 				Files.delete (file);
 
 			} catch (Exception ee) {
-				_log.error ("AlbumImage.removeRgbDataFileFromFileSystem: file delete failed: " + rgbDataFilePath);
-				_log.error (ee);
+				_log.error ("AlbumImage.removeRgbDataFileFromFileSystem: file delete failed: " + rgbDataFilePath, ee);
 			}
 		}
 	}
@@ -626,8 +628,7 @@ public class AlbumImage
 			scaledImageData = shrinkRgbData (rawScaledImageData);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImage.createRgbDataFile: error reading/scaling image file \"" + nameWithExt + "\"");
-			_log.error (ee);
+			_log.error ("AlbumImage.createRgbDataFile: error reading/scaling image file \"" + nameWithExt + "\"", ee);
 		}
 
 		try (FileChannel fileChannel = new FileOutputStream (nameWithExt).getChannel ()) {
@@ -635,8 +636,7 @@ public class AlbumImage
 			fileChannel.write (scaledImageData);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImage.createRgbDataFile: error writing RGB data file \"" + nameWithExt + "\"");
-			_log.error (ee);
+			_log.error ("AlbumImage.createRgbDataFile: error writing RGB data file \"" + nameWithExt + "\"", ee);
 		}
 	}
 

@@ -216,7 +216,8 @@ mysql -u root -proot albumimages -e "describe images"
 		image_count = values (image_count),
 		sub_folder_int = values (sub_folder_int)
 	</insert>
-	
+
+<!-- not currently used	
 	<insert id="insertImageIntoImageDiffs">
 		insert into image_diffs (
 			<include refid="imageDiffsColumns"/>
@@ -229,6 +230,7 @@ mysql -u root -proot albumimages -e "describe images"
 		max_diff = values (max_diff),
 		last_update = now()
 	</insert>
+-->
 
 	<delete id="deleteImageFromImages">
 		delete from images

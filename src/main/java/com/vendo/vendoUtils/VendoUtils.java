@@ -4,6 +4,8 @@ package com.vendo.vendoUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -17,6 +19,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Enumeration;
@@ -324,11 +327,13 @@ public class VendoUtils
 	// Uses the internal Reflection class
 	private static class ReflectionMethod extends GetCallerClassNameMethod
 	{
+		@Override
 		@SuppressWarnings ("deprecation")
 		public String getCallerClassName (int callStackDepth)
 		{
 			return sun.reflect.Reflection.getCallerClass (callStackDepth).getName ();
 		}
+		@Override
 		public String getMethodName ()
 		{
 			return "Reflection";
@@ -337,10 +342,12 @@ public class VendoUtils
 	// Get a stack trace from the current thread
 	private static class ThreadStackTraceMethod extends GetCallerClassNameMethod
 	{
+		@Override
 		public String  getCallerClassName (int callStackDepth)
 		{
 			return Thread.currentThread ().getStackTrace ()[callStackDepth].getClassName ();
 		}
+		@Override
 		public String getMethodName ()
 		{
 			return "Current Thread StackTrace";
@@ -349,10 +356,12 @@ public class VendoUtils
 	// Get a stack trace from a new Throwable
 	private static class ThrowableStackTraceMethod extends GetCallerClassNameMethod
 	{
+		@Override
 		public String getCallerClassName (int callStackDepth)
 		{
 			return new Throwable ().getStackTrace ()[callStackDepth].getClassName ();
 		}
+		@Override
 		public String getMethodName ()
 		{
 			return "Throwable StackTrace";
@@ -361,10 +370,12 @@ public class VendoUtils
 	// Use the SecurityManager.getClassContext ()
 	private static class SecurityManagerMethod extends GetCallerClassNameMethod
 	{
+		@Override
 		public String  getCallerClassName (int callStackDepth)
 		{
 			return _mySecurityManager.getCallerClassName (callStackDepth);
 		}
+		@Override
 		public String getMethodName ()
 		{
 			return "SecurityManager";
@@ -735,11 +746,28 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//note this always returns a List
+	public static <T> Collection<T> shuffleAndTruncate (Collection<T> items, int newSize)
+	{
+		List<T> list;
+		if (items instanceof List) {
+			list = (List<T>) items;
+		} else {
+			//convert to list, so we can shuffle
+			list = new ArrayList<T> (items.size ());
+			list.addAll(items);
+		}
+		Collections.shuffle (list);
+		list = list.subList (0, Math.min (list.size (), newSize));
+		return list;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//use this version for primitive type (long)
 	public static String arrayToString (long[] items)
 	{
 		return arrayToString (ArrayUtils.toObject (items));
-	}		
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//Note this is very similar to Arrays.toString ()
@@ -810,6 +838,14 @@ public class VendoUtils
 		Set<T> set = new HashSet<T> ();
 		set.addAll (items);
 		return set;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String getStackTrace (Throwable ex)
+	{
+	    PrintWriter writer = new PrintWriter(new StringWriter ());
+	    ex.printStackTrace (writer);
+	    return writer.toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -907,7 +943,7 @@ public class VendoUtils
 		} catch (Exception ee) {
 			ee.printStackTrace ();
 		}
-		
+
 		return freeSpace;
 	}
 
@@ -923,7 +959,7 @@ public class VendoUtils
 //		} catch (Exception ee) {
 //			ee.printStackTrace ();
 //		}
-//		
+//
 //		return usableSpace;
 //	}
 
@@ -939,7 +975,7 @@ public class VendoUtils
 		} catch (Exception ee) {
 			ee.printStackTrace ();
 		}
-		
+
 		return totalSpace;
 	}
 
@@ -984,6 +1020,7 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static final Comparator<String> caseInsensitiveStringComparator = new Comparator<String> ()
 	{
+		@Override
 		public int compare (String s1, String s2)
 		{
 			return s1.compareToIgnoreCase (s2);
@@ -993,6 +1030,7 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static final Comparator<String> caseSensitiveStringComparator = new Comparator<String> ()
 	{
+		@Override
 		public int compare (String s1, String s2)
 		{
 			return s1.compareTo (s2);

@@ -10,6 +10,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.WatchEvent;
@@ -283,7 +284,8 @@ public class AlbumImageDao
 	private boolean syncFolder (String subFolder)
 	{
 		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImages (subFolder); //result is sorted
-		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem (subFolder); //result is sorted
+		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".jpg"); //result is sorted
+		Collection<AlbumImageFileDetails> fsDatFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".dat"); //result is sorted
 
 		Set<AlbumImageFileDetails> dbDiff = new HashSet<AlbumImageFileDetails> ();
 		Set<AlbumImageFileDetails> fsDiff = new HashSet<AlbumImageFileDetails> ();
@@ -352,14 +354,14 @@ public class AlbumImageDao
 			String nameNoExt = imageFileDetail.toString ();
 			if (!AlbumImage.isValidImageName (nameNoExt)) {
 				if (!nameNoExt.startsWith ("q-")) { //hack
-					_log.error ("AlbumImageDao.syncFolder: invalid image name \"" + nameNoExt + "\"");
+					_log.error ("AlbumImageDao.syncFolder: warning: invalid image name \"" + nameNoExt + "\"");
 				}
 			}
 		}
 
 		//validate image names have consistent numbering ----------------------
 
-		final int numPatterns = 5;
+		final int numPatterns = 6;
 		final List<Pattern> patterns = new ArrayList <Pattern> (numPatterns);
 		for (int ii = 0; ii < numPatterns; ii++) {
 			//note array index is 0-based, but pattern string is 1-based
@@ -384,7 +386,7 @@ public class AlbumImageDao
 				//complete processing for this baseName
 				List<Integer> matchList = getMatchList (hasMatches);
 				if (matchList.size () > 1) {
-					_log.debug ("AlbumImageDao.syncFolder: inconsistent numbering: " + matchList + " digits: " + prevBaseName);
+					_log.debug ("AlbumImageDao.syncFolder: warning: inconsistent numbering: " + matchList + " digits: " + prevBaseName);
 				}
 
 				//reset for next baseName
@@ -400,6 +402,49 @@ public class AlbumImageDao
 				if (patterns.get (ii).matcher (nameNoExt).matches ()) {
 					hasMatches.set (ii, true);
 				}
+			}
+		}
+
+		//validate every dat has jpg and vice versa ---------------------------
+
+		Set<AlbumImageFileDetails> fsJpgDiff = new HashSet<AlbumImageFileDetails> ();
+		Set<AlbumImageFileDetails> fsDatDiff = new HashSet<AlbumImageFileDetails> ();
+
+		VendoUtils.removeAll (fsImageFileDetails, fsDatFileDetails, fsJpgDiff, fsDatDiff);
+
+		if (fsJpgDiff.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsJpgDiff.size() = " + fsJpgDiff.size () + " (mismatched jpg/dat pairs)");
+
+			List<String> sorted = fsJpgDiff.stream ()
+										   .map (v -> v.toString ()) //nameNoExt
+										   .sorted (VendoUtils.caseInsensitiveStringComparator)
+										   .collect (Collectors.toList ());
+			for (String str : sorted) {
+				String filePath = Paths.get (_rootPath, subFolder, str + ".jpg").toString ();
+				_log.debug ("AlbumImageDao.syncFolder: warning: missing .dat for : " + filePath);
+			}
+		}
+
+		if (fsDatDiff.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsDatDiff.size() = " + fsDatDiff.size () + " (mismatched jpg/dat pairs)");
+
+			List<String> sorted = fsDatDiff.stream ()
+										   .map (v -> v.toString ()) //nameNoExt
+										   .sorted (VendoUtils.caseInsensitiveStringComparator)
+										   .collect (Collectors.toList ());
+			for (String str : sorted) {
+				String filePath = Paths.get (_rootPath, subFolder, str + ".dat").toString ();
+				_log.debug ("AlbumImageDao.syncFolder: warning: missing .jpg for : " + filePath);
+			}
+		}
+
+		//validate dat files have minimum size --------------------------------
+
+		final long minDatFileSize = 10000L;
+		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
+			if (fsDatFileDetail.getBytes() < minDatFileSize) {
+				String filePath = Paths.get (_rootPath, subFolder, fsDatFileDetail.getNameNoExt () + ".dat").toString ();
+				_log.debug ("AlbumImageDao.syncFolder: warning: too-small dat file (" + fsDatFileDetail.getBytes () + " < " + minDatFileSize + "): " + filePath);
 			}
 		}
 
@@ -1019,7 +1064,7 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem (String subFolder)
+	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem (String subFolder, String extension)
 	{
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
@@ -1033,13 +1078,12 @@ public class AlbumImageDao
 				public FileVisitResult visitFile (Path file, BasicFileAttributes attrs)
 				{
 					String nameWithExt = file.getFileName ().toString ();
-					if (nameWithExt.endsWith (_extension)) {
-						String nameNoExt = nameWithExt.substring (0, nameWithExt.length () - _extensionLength);
+					if (nameWithExt.endsWith (extension)) {
+						String nameNoExt = nameWithExt.substring (0, nameWithExt.length () - extension.length ());
 						long numBytes = attrs.size ();
 						long modified = attrs.lastModifiedTime ().toMillis ();
 
-						AlbumImageFileDetails imageFileDetails = new AlbumImageFileDetails (nameNoExt, numBytes, modified);
-						list.add (imageFileDetails);
+						list.add (new AlbumImageFileDetails (nameNoExt, numBytes, modified));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1048,6 +1092,10 @@ public class AlbumImageDao
 				@Override
 				public FileVisitResult visitFileFailed (Path file, IOException ex)
 				{
+					if (ex != null) {
+						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("visitFileFailed"), ex);
+					}
+
 					return FileVisitResult.CONTINUE;
 				}
 
@@ -1055,8 +1103,7 @@ public class AlbumImageDao
 				public FileVisitResult postVisitDirectory (Path dir, IOException ex)
 				{
 					if (ex != null) {
-						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("postVisitDirectory"));
-//						ex.printStackTrace ();
+						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("postVisitDirectory"), ex);
 					}
 
 					return FileVisitResult.CONTINUE;

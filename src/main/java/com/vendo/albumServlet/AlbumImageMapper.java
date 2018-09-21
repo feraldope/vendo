@@ -3,6 +3,7 @@
 package com.vendo.albumServlet;
 
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Param;
@@ -30,7 +31,7 @@ public interface AlbumImageMapper {
 
 	public List<AlbumImageDiffDetails> selectImagesFromImageDiffs ();
 
-	public List<AlbumImageData> selectNamesFromImages (@Param("names") List<String> names);
+	public Collection<AlbumImageData> selectNamesFromImages (@Param("names") Collection<String> names);
 
 	//inserts (updates)
 

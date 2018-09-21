@@ -8,7 +8,7 @@ package com.vendo.albumServlet;
 public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageDiffDetails (int nameId1, int nameId2, int avgDiff, int maxDiff)
+	AlbumImageDiffDetails (int nameId1, int nameId2, int avgDiff, int maxDiff, String source)
 	{
 		if (nameId1 < nameId2) {
 			_nameId1 = nameId1;
@@ -19,6 +19,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 		}
 		_avgDiff = avgDiff;
 		_maxDiff = maxDiff;
+		_source = source;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -43,6 +44,12 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	public Integer getMaxDiff ()
 	{
 		return _maxDiff;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String getSource ()
+	{
+		return _source;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -83,6 +90,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 		sb.append (", ").append (getNameId2 ());
 		sb.append (", ").append (getAvgDiff ());
 		sb.append (", ").append (getMaxDiff ());
+		sb.append (", ").append (getSource ());
 
 		return sb.toString ();
 	}
@@ -92,6 +100,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	private final Integer _nameId2;
 	private final Integer _avgDiff;
 	private final Integer _maxDiff;
+	private final String _source;
 
 //	private static Logger _log = LogManager.getLogger ();
 }
