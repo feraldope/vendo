@@ -989,9 +989,11 @@ public class AlbumTags
 				int minExpectedMatches = filter.getMinItemCount ();
 
 				int foundMatches = 0;
+				Set<String> remainingFiles = new HashSet<String> (); //use set to eliminate dups
 				for (String base1Name : allBase1Names) {
 					if (filter.accept (null, base1Name)) {
 						foundMatches++;
+						remainingFiles.add (base1Name);
 						if (foundMatches >= minExpectedMatches) {
 							break;
 						}
@@ -1006,7 +1008,10 @@ public class AlbumTags
 						} else {
 							value += ", " + tagFilter._tag;
 						}
+
 						orphanMap.put (tagFilter._filter.toString (), value);
+						System.out.println ("orphan filter: " + tagFilter._filter.toString () + ", tag: " + value +
+											", remaining files: " + Arrays.toString (remainingFiles.toArray ()));
 					}
 				}
 				endGate.countDown ();

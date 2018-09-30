@@ -752,13 +752,18 @@ public class VendoUtils
 		List<T> list;
 		if (items instanceof List) {
 			list = (List<T>) items;
+
 		} else {
 			//convert to list, so we can shuffle
 			list = new ArrayList<T> (items.size ());
 			list.addAll(items);
 		}
 		Collections.shuffle (list);
-		list = list.subList (0, Math.min (list.size (), newSize));
+
+		if (newSize > 0 && newSize < list.size ()) {
+			list = list.subList (0, newSize);
+		}
+
 		return list;
 	}
 

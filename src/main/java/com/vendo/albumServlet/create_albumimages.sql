@@ -64,14 +64,15 @@ CREATE TABLE IF NOT EXISTS image_diffs
 	name_id_2		INTEGER UNSIGNED NOT NULL,
 	avg_diff		TINYINT UNSIGNED NOT NULL, -- max 255
 	max_diff		TINYINT UNSIGNED NOT NULL, -- max 255
+	count			TINYINT UNSIGNED NOT NULL, -- max 255
 	source			VARCHAR(20) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
 	last_update	TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (name_id_1, name_id_2)
 );
 CREATE INDEX avg_diff_idx on image_diffs (avg_diff);
 CREATE INDEX max_diff_idx on image_diffs (max_diff);
-CREATE INDEX last_update_idx on image_diffs (last_update);
 CREATE INDEX source_idx on image_diffs (source);
+CREATE INDEX last_update_idx on image_diffs (last_update);
 SHOW COLUMNS FROM image_diffs;
 SHOW INDEX FROM image_diffs;
 
@@ -189,14 +190,14 @@ INSERT INTO images (name_id, insert_date, sub_folder_int, name_no_ext, bytes, wi
 -- ADDING COLUMN TO TABLE (2)
 -- step 1: create new table image_diffs_tmp
 -- step 2: copy data from image_diffs to image_diffs_tmp
-INSERT INTO image_diffs_tmp (name_id_1, name_id_2, avg_diff, max_diff, last_update)
-				              SELECT name_id_1, name_id_2, avg_diff, max_diff, last_update
+INSERT INTO image_diffs_tmp (name_id_1, name_id_2, avg_diff, max_diff, source, last_update)
+				              SELECT name_id_1, name_id_2, avg_diff, max_diff, source, last_update
 				              FROM image_diffs
 -- step 3: drop table image_diffs
 -- step 4: create new table image_diffs
 -- step 5: copy data from image_diffs_tmp to image_diffs
-INSERT INTO image_diffs (name_id_1, name_id_2, avg_diff, max_diff, source, last_update)
-                  SELECT name_id_1, name_id_2, avg_diff, max_diff, '-', last_update
+INSERT INTO image_diffs (name_id_1, name_id_2, avg_diff, max_diff, source, COUNT, last_update)
+                  SELECT name_id_1, name_id_2, avg_diff, max_diff, source, 1, last_update
                   FROM image_diffs_tmp
 -- step 6: drop table image_diffs_tmp
 
@@ -216,6 +217,10 @@ select name_id, name_no_ext from images where name_id in
 -- -----------------------------------------------------------------------------
 -- queries for image_diffs table
 select count(*) from image_diffs
+
+select d.* from image_diffs d where d.count > 1
+
+select d.count as count, count(d.count) as rows from image_diffs d group by d.count
 
 select * from image_diffs where name_id_2 < name_id_1
 select * from image_diffs where avg_diff < max_diff 

@@ -607,8 +607,7 @@ public class AlbumImage
 			scaledWidth = 96;
 			scaledHeight = 144;
 		} else { //imageWidth == imageHeight
-			scaledWidth = 116;
-			scaledHeight = 116;
+			scaledWidth = scaledHeight = 120;
 		}
 
 		ByteBuffer scaledImageData = null;

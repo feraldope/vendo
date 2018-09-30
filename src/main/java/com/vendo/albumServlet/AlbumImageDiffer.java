@@ -337,7 +337,7 @@ public class AlbumImageDiffer
 
 					int averageDiff = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB, _maxRgbDiffs);
 					if (averageDiff <= _maxRgbDiffs) {
-						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), averageDiff, _maxRgbDiffs, getMode ()));
+						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), averageDiff, _maxRgbDiffs, 1, getMode ()));
 						_log.debug ("AlbumImageDiffer.run: " + String.format("%-2s", averageDiff) + " " + imageA.getName () + "," + imageB.getName () + ",");
 					}
 				}
@@ -613,32 +613,6 @@ public class AlbumImageDiffer
 		return false;
 	}
 
-/* obsolete
-	///////////////////////////////////////////////////////////////////////////
-	//used by AlbumImageDiffer CLI
-	private Collection<AlbumImageDiffDetails> getImagesFromImageDiffs ()
-	{
-		AlbumProfiling.getInstance ().enter (7);
-
-		List<AlbumImageDiffDetails> list = new LinkedList<AlbumImageDiffDetails> ();
-
-		try (SqlSession session = _sqlSessionFactory.openSession ()) {
-			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.getImagesFromImageDiffs(): ", ee);
-		}
-
-		Collections.sort (list);
-
-		AlbumProfiling.getInstance ().exit (7);
-
-//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): list.size: " + list.size ());
-
-		return list;
-	}
-*/
-
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	private Collection<AlbumImageData> selectNamesFromImagesFS (Collection<String> names)
@@ -729,7 +703,33 @@ public class AlbumImageDiffer
 		return items;
 	}
 
-/* obsolete
+/* unused
+	///////////////////////////////////////////////////////////////////////////
+	//used by AlbumImageDiffer CLI
+	private Collection<AlbumImageDiffDetails> getImagesFromImageDiffs ()
+	{
+		AlbumProfiling.getInstance ().enter (7);
+
+		List<AlbumImageDiffDetails> list = new LinkedList<AlbumImageDiffDetails> ();
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.getImagesFromImageDiffs(): ", ee);
+		}
+
+		Collections.sort (list);
+
+		AlbumProfiling.getInstance ().exit (7);
+
+//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): list.size: " + list.size ());
+
+		return list;
+	}
+*/
+
+/* unused
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	private boolean insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails)
@@ -762,9 +762,13 @@ public class AlbumImageDiffer
 	{
 //		AlbumProfiling.getInstance ().enter (5);
 
-		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff, source) values";
-		String sqlValues = " (?, ?, ?, ?, ?)";
-		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff), max_diff = values (max_diff), source = values (source), last_update = now()";
+		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff, count, source) values";
+		String sqlValues = " (?, ?, ?, ?, ?, ?)";
+		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff), " +
+													"max_diff = values (max_diff), " +
+													"count = count + values(count), " +
+													"source = values (source), " +
+													"last_update = now()";
 		String sql = sqlBase + sqlValues + sqlOnDup;
 
 		Connection connection = getConnection ();
@@ -781,7 +785,8 @@ public class AlbumImageDiffer
 	        	statement.setInt (2, item.getNameId2 ());
 	        	statement.setInt (3, item.getAvgDiff ());
 	        	statement.setInt (4, item.getMaxDiff ());
-	        	statement.setString (5, item.getSource ());
+	        	statement.setInt (5, item.getCount ());
+	        	statement.setString (6, item.getSource ());
 	        	statement.addBatch ();
 
 	        	ii++;

@@ -15,9 +15,9 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -68,7 +68,7 @@ public class JpgRgbData
 	private Boolean processArgs (String args[])
 	{
 		//set defaults for command line arguments
-		String filePatternString = "*";
+		String filePatternString = "*.jpg";
 		String folderString = ".";
 
 		for (int ii = 0; ii < args.length; ii++) {
@@ -133,10 +133,8 @@ public class JpgRgbData
 
 		_filenamePatternFilter = new FilenamePatternFilter (filePatternString);
 
-		if (_Debug) {
-			System.out.println ("folderString = \"" + folderString + "\"");
-			System.out.println ("filePatternString = \"" + filePatternString + "\"");
-		}
+		System.out.println ("folderString = \"" + folderString + "\"");
+		System.out.println ("filePatternString = \"" + filePatternString + "\"");
 
 		return true;
 	}
@@ -159,42 +157,88 @@ public class JpgRgbData
 	private boolean run () throws Exception
 	{
 		if (_checkForOrphans) {
-			long startNano = System.nanoTime ();
+			runCheckForOrphans ();
 
-			if (!_recurseSubdirs) {
-				checkForOrphanedFiles (_folder);
-
-			} else {
-				final ExecutorService executor = Executors.newFixedThreadPool (VendoUtils.getLogicalProcessors () - 1);
-
-				//note this only gets the subfolders in this folder (it does not recurse)
-				final Collection<Path> subFolders = getSubFolders (_folder);
-				final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
-
-				for (final Path folder : subFolders) {
-					Runnable task = () -> {
-						checkForOrphanedFiles (folder);
-						endGate.countDown ();
-					};
-					executor.execute (task);
-				}
-
-				try {
-					endGate.await ();
-				} catch (Exception ee) {
-					_log.error ("JpgRgbData.run: endGate:", ee);
-				}
-
-				executor.shutdownNow ();
-			}
-
-			long elapsedMillis = (System.nanoTime () - startNano) / 1000000;
-			System.out.println ("JpgRgbData.run: checkForOrphanedFiles: elapsed: " + elapsedMillis + " ms");
-
-			return true;
+		} else { //default behavior
+			runProcessFiles ();
 		}
 
-		processFiles (_folder);
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean runCheckForOrphans () throws Exception
+	{
+		long startNano = System.nanoTime ();
+
+		if (!_recurseSubdirs) {
+			checkForOrphanedFiles (_folder);
+
+		} else {
+			final ExecutorService executor = Executors.newFixedThreadPool (VendoUtils.getLogicalProcessors () - 1);
+
+			//note this only gets the subfolders in this folder (it does not recurse)
+			final Collection<Path> subFolders = getSubFolders (_folder);
+			final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+
+			for (final Path folder : subFolders) {
+				Runnable task = () -> {
+					checkForOrphanedFiles (folder);
+					endGate.countDown ();
+				};
+				executor.execute (task);
+			}
+
+			try {
+				endGate.await ();
+			} catch (Exception ee) {
+				_log.error ("JpgRgbData.runCheckForOrphans: endGate:", ee);
+			}
+
+			executor.shutdownNow ();
+		}
+
+		long elapsedMillis = (System.nanoTime () - startNano) / 1000000;
+		System.out.println ("JpgRgbData.runCheckForOrphans: checkForOrphanedFiles: elapsed: " + elapsedMillis + " ms");
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean runProcessFiles () throws Exception
+	{
+		long startNano = System.nanoTime ();
+
+//		final ExecutorService executor = Executors.newFixedThreadPool (VendoUtils.getLogicalProcessors () - 1);
+		final ExecutorService executor = Executors.newFixedThreadPool (26);
+
+		//note this only gets the subfolders in this folder (it does not recurse)
+		Collection<Path> subFolders = getSubFolders (_folder);
+		subFolders = VendoUtils.shuffleAndTruncate (subFolders, 0);
+		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+
+		for (final Path folder : subFolders) {
+			Runnable task = () -> {
+				try {
+					processFiles (folder);
+				} catch (Exception ee) {
+					_log.error ("JpgRgbData.runProcessFiles: processFiles (" + folder.toString () + "):", ee);
+				}
+				endGate.countDown ();
+			};
+			executor.execute (task);
+		}
+
+		try {
+			endGate.await ();
+		} catch (Exception ee) {
+			_log.error ("JpgRgbData.runProcessFiles: endGate:", ee);
+		}
+
+		executor.shutdownNow ();
+
+		long elapsedMillis = (System.nanoTime () - startNano) / 1000000;
+		System.out.println ("JpgRgbData.runProcessFiles: processFiles: elapsed: " + elapsedMillis + " ms");
 
 		return true;
 	}
@@ -203,7 +247,9 @@ public class JpgRgbData
 	//recursive call to process folders (and optionally) subfolders
 	private boolean processFiles (Path folder) throws Exception
 	{
-		try (DirectoryStream <Path> ds = Files.newDirectoryStream (folder)) {
+        System.out.println ("begin processing folder: " + folder.toString ());
+
+        try (DirectoryStream <Path> ds = Files.newDirectoryStream (folder)) {
 			for (Path file : ds) {
 				if (_filenamePatternFilter.accept (file)) {
 					processFile (file);
@@ -215,16 +261,16 @@ public class JpgRgbData
 			}
 
 		} catch (IOException ee) {
-//TODO - better error?
-			ee.printStackTrace ();
+			_log.error ("JpgRgbData.processFiles() failed", ee);
 		}
 
-        System.out.println ("images found:   " + _imagesFound.get ());
-        System.out.println ("images written: " + _imagesWritten.get ());
+        System.out.println ("done processing folder: " + folder.toString ());
+        System.out.println ("total images found:      " + _decimalFormat.format(_imagesFound.get ()));
+        System.out.println ("total dat files written: " + _decimalFormat.format(_imagesWritten.get ()));
 
-        System.out.println ("readImage            elapsed: " + LocalTime.ofNanoOfDay (_readImageElapsedNanos.get ()));
-        System.out.println ("writeScaledImageData elapsed: " + LocalTime.ofNanoOfDay (_writeScaledImageDataElapsedNanos.get ()));
-        System.out.println ("readScaledImageData  elapsed: " + LocalTime.ofNanoOfDay (_readScaledImageDataElapsedNanos.get ()));
+//        System.out.println ("readImage            elapsed: " + LocalTime.ofNanoOfDay (_readImageElapsedNanos.get ()));
+//        System.out.println ("writeScaledImageData elapsed: " + LocalTime.ofNanoOfDay (_writeScaledImageDataElapsedNanos.get ()));
+//        System.out.println ("readScaledImageData  elapsed: " + LocalTime.ofNanoOfDay (_readScaledImageDataElapsedNanos.get ()));
 
 		return true;
 	}
@@ -284,8 +330,7 @@ public class JpgRgbData
 			scaledWidth = 96;
 			scaledHeight = 144;
 		} else { //imageWidth == imageHeight
-			scaledWidth = 116;
-			scaledHeight = 116;
+			scaledWidth = scaledHeight = 120;
 		}
 
 		final int hints = BufferedImage.SCALE_FAST;
@@ -420,8 +465,7 @@ public class JpgRgbData
 			return Files.isDirectory (file);
 
 		} catch (Exception ee) {
-			_log.error ("JpgRgbData.isDirectory() failed");
-			_log.error (ee);
+			_log.error ("JpgRgbData.isDirectory() failed", ee);
 		}
 
 		return false;
@@ -442,8 +486,7 @@ public class JpgRgbData
 			}
 
 		} catch (IOException ee) {
-//TODO - better error?
-			ee.printStackTrace ();
+			_log.error ("JpgRgbData.getSubFolders() failed", ee);
 		}
 
 		return folders;
@@ -485,8 +528,7 @@ public class JpgRgbData
 			}
 
 		} catch (IOException ee) {
-//TODO - better error?
-			ee.printStackTrace ();
+			_log.error ("JpgRgbData.checkForOrphanedFiles() failed", ee);
 		}
 
 		//use Collection#equals to compare two Sets
@@ -589,6 +631,7 @@ public class JpgRgbData
 
 	private static Logger _log = LogManager.getLogger (JpgRgbData.class);
 //	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
+	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //int
 
 	//global members
 	public static boolean _Debug = false;
