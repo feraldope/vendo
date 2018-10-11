@@ -571,7 +571,7 @@ public class AlbumImage
 
 				//drop out of loop once averageDiff will exceed maxRgbDiffs
 				if (totalDiff > maxAcceptableTotalDiff) {
-					throw new Exception ();
+					return Integer.MAX_VALUE;
 				}
 			}
 
@@ -581,7 +581,7 @@ public class AlbumImage
 
 //		AlbumProfiling.getInstance ().exit (5);
 
-		return totalDiff / numBytes; //averageDiff
+		return totalDiff / numBytes;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

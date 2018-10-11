@@ -280,7 +280,7 @@ public class AlbumTags
 
 		RowCounts initialCounts = new RowCounts ();
 
-		if (!databaseNeedsUpdate () && !_dumpTagData && !_resetTables) {
+		if (!databaseNeedsUpdate () && !_dumpTagData && !_resetTables && !_checkForOrphanFilters) {
 			_log.debug ("AlbumTags.run: skipping update");
 
 			AlbumProfiling.getInstance ().exit (5);
@@ -1010,7 +1010,7 @@ public class AlbumTags
 						}
 
 						orphanMap.put (tagFilter._filter.toString (), value);
-						System.out.println ("orphan filter: " + tagFilter._filter.toString () + ", tag: " + value +
+						printWithColor (_warningColor, "orphan filter: " + tagFilter._filter.toString () + ", tag: " + value +
 											", remaining files: " + Arrays.toString (remainingFiles.toArray ()));
 					}
 				}
@@ -1018,6 +1018,8 @@ public class AlbumTags
 			};
 			executor.execute (task);
 		}
+		_log.debug ("AlbumTags.checkForOrphanFilters: queued " + _decimalFormat2.format (tagFilters.size ()) + " threads");
+
 		try {
 			endGate.await ();
 		} catch (Exception ee) {

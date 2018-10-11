@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -353,6 +354,7 @@ public class AlbumImages
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
 		boolean collapseGroups = form.getCollapseGroups ();
 		boolean limitedCompare = form.getLimitedCompare ();
+		boolean dbCompare = form.getDbCompare ();
 		boolean looseCompare = form.getLooseCompare ();
 		boolean ignoreBytes = form.getIgnoreBytes ();
 		boolean useCase = form.getUseCase ();
@@ -390,7 +392,7 @@ public class AlbumImages
 
 		//if looseCompare, determine work to be done
 		int maxComparisons = getMaxComparisons (numImages);
-		if (looseCompare) {
+		if (looseCompare && !dbCompare) {
 			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat.format (maxComparisons) + " (max possible combos)");
 			final int maxAllowedComparisons = 80 * 1000 * 1000;
 			if (maxComparisons > maxAllowedComparisons) {
@@ -399,7 +401,7 @@ public class AlbumImages
 			}
 		}
 
-		if (looseCompare) {
+		if (looseCompare && !dbCompare) {
 			final List<VPair<Integer, Integer>> allCombos = getAllCombos (numImages);
 
 			int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
@@ -466,7 +468,7 @@ public class AlbumImages
 							String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
 							AlbumImagePair pair = _looseCompareMap.get (joinedNamesPlus);
 							if (pair != null) {
-								if (pair.getAverageDiff () < maxRgbDiffs) {
+								if (pair.getAverageDiff () <= maxRgbDiffs) {
 									pairsReady.add (pair);
 								}
 							} else {
@@ -549,7 +551,7 @@ public class AlbumImages
 					ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
 					int averageDiff = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data, maxRgbDiffs);
 					pair.setAverageDiff (averageDiff);
-					if (averageDiff < maxRgbDiffs) {
+					if (averageDiff <= maxRgbDiffs) {
 						pairsReady.add (pair);
 					}
 					String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
@@ -588,8 +590,34 @@ public class AlbumImages
 			AlbumProfiling.getInstance ().exit (5, "dups.add");
 		}
 
-		if (!looseCompare) {
-			if (useExifDates) {
+		if (!looseCompare || dbCompare) {
+			if (dbCompare) {
+				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.db");
+//TODO - honor filters?
+
+				//we need a map of imageNames->images
+				Map<String, AlbumImage> map = new HashMap<String, AlbumImage> ();
+				for (AlbumImage image : _imageDisplayList) {
+					map.put (image.getName (), image);
+				}
+
+				AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
+				final double sinceDays = _form.getHighlightDays (); //TODO - using highlightDays is a HACK
+				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (_form.getMaxRgbDiffs (), sinceDays);
+
+				for (AlbumImageDiffData item : imageDiffData) {
+					AlbumImage image1 = map.get (item.getNameNoExt1 ());
+					AlbumImage image2 = map.get (item.getNameNoExt2 ());
+					if (image1.getOrientation () == image2.getOrientation ()) {
+						AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff ());
+						dups.add (pair);
+						String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
+						_looseCompareMap.put (joinedNamesPlus, pair);
+					}
+				}
+				AlbumProfiling.getInstance ().exit (5, "dups.db");
+
+			} else if (useExifDates) {
 				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.exif");
 
 				Set<AlbumImagePair> dupSet = new HashSet<AlbumImagePair> (); //use Set to avoid duplicate AlbumImagePairs
@@ -623,7 +651,7 @@ public class AlbumImages
 
 				AlbumProfiling.getInstance ().exit (5, "dups.exif");
 
-			} else { //!useExifDates
+			} else { //!dbCompare && !useExifDates
 				AlbumImage prevImage = null;
 				for (AlbumImage image : images) {
 					if (image != null && prevImage != null) {
@@ -696,8 +724,11 @@ public class AlbumImages
 			AlbumProfiling.getInstance ().exit (5, "dups.sets");
 		}
 
-//		_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByName); //debugging
-		_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByDate); //shows newest first in browser
+		if (dbCompare) {
+			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByNone); //already sorted by averageDiff by db query
+		} else {
+			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByDate); //shows newest first in browser
+		}
 
 		AlbumProfiling.getInstance ().exit (1);
 
@@ -818,10 +849,13 @@ public class AlbumImages
 		case DoDir:		return "#FDF5E5";
 		case DoSampler:	return "#C0C0B0";
 		case DoDup:
-			if (_form.getLooseCompare ())
+			if (_form.getDbCompare ()) {
+				return "#478D70";
+			} else if (_form.getLooseCompare ()) {
 				return "#E37BCE";
-			else
+			} else {
 				return "#8DF5F6";
+			}
 		}
 	}
 
@@ -917,6 +951,7 @@ public class AlbumImages
 		  .append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 		  .append ("&collapseGroups=").append (_form.getCollapseGroups ())
 		  .append ("&limitedCompare=").append (_form.getLimitedCompare ())
+		  .append ("&dbCompare=").append (_form.getDbCompare ())
 		  .append ("&looseCompare=").append (_form.getLooseCompare ())
 		  .append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 		  .append ("&useExifDates=").append (_form.getUseExifDates ())
@@ -969,6 +1004,7 @@ public class AlbumImages
 //		  .append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 //		  .append ("&collapseGroups=").append (_form.getCollapseGroups ())
 //		  .append ("&limitedCompare=").append (_form.getLimitedCompare ())
+//		  .append ("&dbCompare=").append (_form.getDbCompare ())
 		  .append ("&looseCompare=").append (_form.getLooseCompare ())
 		  .append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 		  .append ("&useExifDates=").append (_form.getUseExifDates ())

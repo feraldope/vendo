@@ -254,7 +254,7 @@ public class AlbumServlet extends HttpServlet
 
 //		   .append (inputElement ("Extension", "extension", form.getExtension (), 10)) //could make this hidden??
 		   .append (radioButtons ("Columns", "columns", form.getColumns (), 1, form.getMaxColumns (), 4)).append (_break).append (NL)
-		   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
+		   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (/*visibleInUi*/ true), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
 		   .append (checkbox ("Reverse Sort", "reverseSort", form.getReverseSort ())).append (_spacing).append (NL)
 		   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_break).append (NL)
 
@@ -271,6 +271,7 @@ public class AlbumServlet extends HttpServlet
 		   .append (checkbox ("Tag Oper OR", "tagFilterOperandOr", form.getTagFilterOperandOr ())).append (_spacing).append (NL)
 		   .append (checkbox ("Collapse Groups", "collapseGroups", form.getCollapseGroups ())).append (_spacing).append (NL)
 		   .append (checkbox ("Limited Compare", "limitedCompare", form.getLimitedCompare ())).append (_spacing).append (NL)
+		   .append (checkbox ("DB Compare", "dbCompare", form.getDbCompare ())).append (_spacing).append (NL)
 		   .append (checkbox ("Loose Compare", "looseCompare", form.getLooseCompare ())).append (_spacing).append (NL)
 		   .append (checkbox ("Ignore Bytes", "ignoreBytes", form.getIgnoreBytes ())).append (_spacing).append (NL)
 		   .append (checkbox ("EXIF Dates", "useExifDates", form.getUseExifDates ())).append (_spacing).append (NL)

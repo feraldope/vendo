@@ -90,6 +90,7 @@ public class AlbumFormInfo
 		_tagFilterOperandOr = false;
 		_collapseGroups = false;
 		_limitedCompare = false;
+		_dbCompare = false;
 		_looseCompare = false;
 		_ignoreBytes = false;
 		_useExifDates = false;
@@ -115,6 +116,7 @@ public class AlbumFormInfo
 		boolean gotFilterOperandOr = false;
 		boolean gotCollapseGroups = false;
 		boolean gotLimitedCompare = false;
+		boolean gotDbCompare = false;
 		boolean gotLooseCompare = false;
 		boolean gotIgnoreBytes = false;
 		boolean gotUseExifDates = false;
@@ -172,6 +174,11 @@ public class AlbumFormInfo
 				if (_debugProperties)
 					_log.debug ("AlbumFormInfo.processRequest: got limitedCompare");
 				gotLimitedCompare = true;
+
+			} else if (paramName.equals ("dbCompare")) {
+				if (_debugProperties)
+					_log.debug ("AlbumFormInfo.processRequest: got dbCompare");
+				gotDbCompare = true;
 
 			} else if (paramName.equals ("looseCompare")) {
 				if (_debugProperties)
@@ -325,6 +332,7 @@ public class AlbumFormInfo
 		_tagFilterOperandOr = gotFilterOperandOr;
 		_collapseGroups = gotCollapseGroups;
 		_limitedCompare = gotLimitedCompare;
+		_dbCompare = gotDbCompare;
 		_looseCompare = gotLooseCompare;
 		_ignoreBytes = gotIgnoreBytes;
 		_useExifDates = gotUseExifDates;
@@ -823,6 +831,17 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public void setDbCompare (boolean dbCompare)
+	{
+		_dbCompare = dbCompare;
+	}
+
+	public boolean getDbCompare ()
+	{
+		return _dbCompare;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public void setLooseCompare (boolean looseCompare)
 	{
 		_looseCompare = looseCompare;
@@ -1257,6 +1276,7 @@ public class AlbumFormInfo
 	private boolean _tagFilterOperandOr = false;
 	private boolean _collapseGroups = false;
 	private boolean _limitedCompare = false; //don't include dups that share common base (name)
+	private boolean _dbCompare = false; //compare dups retrieved from imgage_diffs table
 	private boolean _looseCompare = false; //compare dups with either loose or strict critera
 	private boolean _ignoreBytes = false; //optionally tell compare dups to ignore number of bytes
 	private boolean _useExifDates = false; //optionally tell compare dups to use the EXIF (date) data

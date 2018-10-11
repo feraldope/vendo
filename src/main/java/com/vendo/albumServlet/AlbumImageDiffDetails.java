@@ -71,7 +71,10 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	@Override
 	public int hashCode ()
 	{
-		return 31 * _nameId1 + _nameId2;
+		int hash = _nameId1;
+		hash = 31 * hash + _nameId2;
+		hash = 31 * hash + _avgDiff;
+		return hash;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

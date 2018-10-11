@@ -225,13 +225,25 @@ select d.count as count, count(d.count) as rows from image_diffs d group by d.co
 select * from image_diffs where name_id_2 < name_id_1
 select * from image_diffs where avg_diff < max_diff 
 
+-- query image_diffs table
 select i1.name_id, i1.name_no_ext, i2.name_id, i2.name_no_ext, d.avg_diff, d.max_diff, source, d.last_update
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
--- where d.avg_diff < d.max_diff 
+where d.avg_diff < d.max_diff 
 -- order by i1.name_no_ext, i2.name_no_ext
 order by d.last_update desc
+
+-- query image_diffs table for AlbumImages.doDups
+select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.last_update as last_update
+from image_diffs d
+join images i1 on i1.name_id = d.name_id_1
+join images i2 on i2.name_id = d.name_id_2
+where d.avg_diff <= 15 -- d.max_diff 
+and last_update >= TIMESTAMPADD(MINUTE, -(60 * 24 * 1), NOW())
+order by avg_diff, i1.name_no_ext, i2.name_no_ext
+-- order by i1.name_no_ext, i2.name_no_ext
+-- order by d.last_update asc
 
 -- find all matches in image_diffs table based on name
 select RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 40, ' ') as 'names',

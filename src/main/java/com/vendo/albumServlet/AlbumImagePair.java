@@ -2,7 +2,12 @@
 
 package com.vendo.albumServlet;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 
 //import org.apache.logging.log4j.*;
 
@@ -12,6 +17,12 @@ public class AlbumImagePair
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2)
 	{
+		this (image1, image2, 0);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff)
+	{
 		if (image1.getName ().compareToIgnoreCase (image2.getName ()) < 0) {
 			_image1 = image1;
 			_image2 = image2;
@@ -19,6 +30,7 @@ public class AlbumImagePair
 			_image1 = image2;
 			_image2 = image1;
 		}
+		_averageDiff = averageDiff;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -71,7 +83,7 @@ public class AlbumImagePair
 //currently only used by hashCode()
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized String getJoinedNames (String... extras)
+	private synchronized String getJoinedNames (String... extras)
 	{
 		if (_joinedNames == null) {
 			_joinedNames = getJoinedNames (getImage1 (), getImage2 (), extras);
@@ -133,25 +145,27 @@ public class AlbumImagePair
 		List<AlbumImagePair> pairs2 = new ArrayList<AlbumImagePair> (numPairs);
 		pairs2.addAll (pairs1);
 
-		Collections.sort (pairs2, new Comparator<AlbumImagePair> () {
-			@Override
-			public int compare (AlbumImagePair pair1, AlbumImagePair pair2) {
-				if (sortType == AlbumSortType.ByName) {
-					//this needs to be case-insensitive to achieve case-insensitive order in the browser
-					return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
+		if (sortType != AlbumSortType.ByNone) {
+			Collections.sort (pairs2, new Comparator<AlbumImagePair> () {
+				@Override
+				public int compare (AlbumImagePair pair1, AlbumImagePair pair2) {
+					if (sortType == AlbumSortType.ByName) {
+						//this needs to be case-insensitive to achieve case-insensitive order in the browser
+						return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
 
-				} else if (sortType == AlbumSortType.ByDate) {
-					//sort pairs by descending date (i.e., reverse)
-					long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
-					long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
+					} else if (sortType == AlbumSortType.ByDate) {
+						//sort pairs by descending date (i.e., reverse)
+						long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
+						long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
 
-					return (pair1Latest < pair2Latest ? 1 : pair1Latest > pair2Latest ? -1 : 0);
+						return (pair1Latest < pair2Latest ? 1 : pair1Latest > pair2Latest ? -1 : 0);
 
-				} else {
-					throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
+					} else {
+						throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
+					}
 				}
-			}
-		});
+			});
+		}
 
 		ArrayList<AlbumImage> images = new ArrayList<AlbumImage> (2 * numPairs);
 

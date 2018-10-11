@@ -18,6 +18,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -352,7 +353,7 @@ public class AlbumImageDiffer
 //			_log.debug ("AlbumImageDiffer.run: creating new thread/task for: " + albumImageDataA.getNameNoExt ());
 			getExecutor ().execute (task);
 		}
-		_log.debug ("AlbumImageDiffer.run: queued " + endGate.getCount () + " threads");
+		_log.debug ("AlbumImageDiffer.run: queued " + _decimalFormat.format (_idListA.size ()) + " threads");
 
 		try {
 			endGate.await ();
@@ -758,6 +759,7 @@ public class AlbumImageDiffer
 */
 
 //TODO - convert this to mybatis
+	///////////////////////////////////////////////////////////////////////////
 	private int insertImageIntoImageDiffs (Collection<AlbumImageDiffDetails> items)
 	{
 //		AlbumProfiling.getInstance ().enter (5);
@@ -823,6 +825,69 @@ public class AlbumImageDiffer
 //		AlbumProfiling.getInstance ().exit (5);
 
 		return rowsInserted;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by servlet
+	public Collection<AlbumImageDiffData> selectNamesFromImageDiffs (int maxRgbDiff, double sinceDays)
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		Collection<AlbumImageDiffData> items = new ArrayList<AlbumImageDiffData> ();
+
+		int sinceMinutes = (int) (sinceDays * 24 * 60);
+		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.last_update as last_update" +
+					 " from image_diffs d" +
+					 " join images i1 on i1.name_id = d.name_id_1" +
+					 " join images i2 on i2.name_id = d.name_id_2" +
+					 " where d.avg_diff <= " + maxRgbDiff +
+					 " and last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" +
+					 " order by avg_diff, i1.name_no_ext, i2.name_no_ext";
+
+		Connection connection = getConnection ();
+		Statement statement = null;
+		try {
+			statement = connection.createStatement ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: error from Connection.createStatement", ee);
+
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			return items;
+		}
+
+		ResultSet rs = null;
+		try {
+			rs = statement.executeQuery (sql);
+			while (rs.next ()) {
+				String nameNoExt1 = rs.getString ("name_no_ext1");
+				String nameNoExt2 = rs.getString ("name_no_ext2");
+				int averageRgbDiff = rs.getInt ("avg_diff");
+				Date lastUpdate = new Date (rs.getTimestamp ("last_update").getTime ());
+//				_log.debug (new AlbumImageDiffData (nameNoExt1, nameNoExt2, averageRgbDiff, lastUpdate));
+				items.add(new AlbumImageDiffData (nameNoExt1, nameNoExt2, averageRgbDiff, lastUpdate));
+			}
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: error from Statement.executeQuery", ee);
+			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
+			_log.error (ee);
+			return items;
+
+		} finally {
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+		}
+
+		if (items.size () == 0) {
+			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: no rows found for query:" + NL + sql);
+		}
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return items;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
