@@ -708,7 +708,7 @@ public class AlbumImages
 //											 .map (v -> v.getBaseName (/*collapseGroups*/ false))
 											 .sorted (VendoUtils.caseInsensitiveStringComparator)
 											 .collect (Collectors.toList ());
-					String str = VendoUtils.arrayToString (sorted.toArray (new String[] {}));
+					String str = VendoUtils.arrayToString (sorted.toArray (new String[] {}), ",");
 					sortedDupSet.add (str);
 				}
 			}

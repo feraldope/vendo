@@ -11,6 +11,12 @@ import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -20,6 +26,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
@@ -27,6 +34,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.vendoUtils.WatchDir;
 import com.vendo.win32.Win32;
 
 
@@ -35,13 +43,11 @@ public final class JHistory
 	///////////////////////////////////////////////////////////////////////////
 	static
 	{
-//		Thread.setDefaultUncaughtExceptionHandler (new VUncaughtExceptionHandler ());
 		Thread.setDefaultUncaughtExceptionHandler (new UncaughtExceptionHandler () {
 			@Override
 			public void uncaughtException (Thread thread, Throwable ex)
 			{
 				_log.error ("JHistory UncaughtExceptionHandler: ", ex);
-
 				Thread.currentThread ().interrupt ();
 			}
 		});
@@ -128,8 +134,10 @@ public final class JHistory
 			_log.debug ("JHistory.run");
 		}
 
-		Queue<StringBuffer> listenerQueue = new LinkedList<StringBuffer> ();
+		readHistoryFile ();
+		/*Thread watchHistoryFileThread =*/ watchHistoryFile ();
 
+		Queue<StringBuffer> listenerQueue = new LinkedList<StringBuffer> ();
 		ClipboardListener clipboardListener = new ClipboardListener (listenerQueue);
 		clipboardListener.start ();
 
@@ -157,7 +165,6 @@ public final class JHistory
 				if (urlData != null && urlData.isImage ()) {
 					System.out.println ("");
 
-					readHistoryFile ();
 					List<MatchData> matchList = findInHistory (urlData.getPathBase ());
 
 					if (matchList.size () > 0) {
@@ -181,42 +188,159 @@ public final class JHistory
 				}
 
 			} catch (Exception ee) {
-				_log.error ("JHistory.run: exception:");
-				_log.error (ee);
-				ee.printStackTrace ();
+				_log.error ("JHistory.run: exception", ee);
 			}
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean readHistoryFile ()
+	//watch file and call readHistoryFile() whenever file changes on disk
+	private Thread watchHistoryFile ()
 	{
-//TODO - do this based on file changing, not everytime
-		_historyFileContents.clear ();
+		Thread watchingThread = null;
+		try {
+			Path path = FileSystems.getDefault ().getPath (_destDir, _historyFilename);
+			Path dir = path.getRoot ().resolve (path.getParent ());
+			String filename = path.getFileName ().toString ();
 
-		Instant startInstant = Instant.now ();
-		if (_historyFileContents.size () == 0) {
-			try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
-				String line = new String ();
-				while ((line = reader.readLine ()) != null) {
-					UrlData urlData = parseLine (line);
-					if (urlData != null) {
-						_historyFileContents.add (urlData);
+			_log.info ("JHistory.watchHistoryFile: watching history file: " + path.normalize ().toString ());
+
+			Pattern pattern = Pattern.compile (filename, Pattern.CASE_INSENSITIVE);
+			boolean recurseSubdirs = false;
+
+			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
+			{
+				@Override
+				protected void notify (Path dir, WatchEvent<Path> pathEvent)
+				{
+					if (_Debug) {
+						Path file = pathEvent.context ();
+						Path path = dir.resolve (file);
+						_log.debug ("JHistory.watchHistoryFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+					}
+
+					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
+						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
+						readHistoryFile ();
 					}
 				}
 
-			} catch (IOException ee) {
-				_log.error ("JHistory.readHistoryFile: error reading history file \"" + _historyFilename + "\"");
-				_log.error (ee);
-				return false;
-			}
-		}
-		long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
-		if (_Debug) {
-			_log.debug ("readHistoryFile: read file: elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
+				@Override
+				protected void overflow (WatchEvent<?> event)
+				{
+					_log.error ("JHistory.watchHistoryFile.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
+					_log.error ("JHistory.watchHistoryFile.overflow: ", new Exception ("WatchDir overflow"));
+				}
+			};
+			watchingThread = new Thread (watchDir);
+			watchingThread.start ();
+
+//			thread.join (); //wait for thread to complete
+
+		} catch (Exception ee) {
+			_log.error ("JHistory.watchHistoryFile: exception watching history file", ee);
 		}
 
-		return true;
+		return watchingThread;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean readHistoryFile ()
+	{
+		timingStart ();
+
+		Path path = FileSystems.getDefault ().getPath (_destDir, _historyFilename);
+		FileTime historyFileModified = FileTime.from (Instant.MIN);
+		try {
+			historyFileModified = Files.getLastModifiedTime (path);
+		} catch (Exception ee) {
+			_log.error ("JHistory.watchHistoryFile: exception calling getLastModifiedTime", ee);
+		}
+
+		boolean status = true;
+		if (_historyFileModified.compareTo (historyFileModified) < 0) {
+			synchronized (_historyFileContents) {
+				_historyFileContents.clear ();
+				try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
+					String line = new String ();
+					while ((line = reader.readLine ()) != null) {
+						UrlData urlData = parseLine (line);
+						if (urlData != null) {
+							_historyFileContents.add (urlData);
+						}
+					}
+
+				} catch (IOException ee) {
+					_log.error ("JHistory.readHistoryFile: error reading history file \"" + _historyFilename + "\"", ee);
+					status = false;
+				}
+			}
+			if (status) {
+				_historyFileModified = historyFileModified;
+			}
+		}
+
+		timingEnd ("JHistory.readHistoryFile");
+
+		return status;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<MatchData> findInHistory (String basePattern)
+	{
+		String pattern = VendoUtils.getUrlFileComponent (basePattern).toLowerCase ();
+		if (_Debug) {
+			_log.debug ("JHistory.findInHistory: basePattern = " + basePattern);
+			_log.debug ("JHistory.findInHistory: pattern = " + pattern);
+		}
+
+		timingStart ();
+
+		List<MatchData> matchList = new ArrayList<MatchData> ();
+		synchronized (_historyFileContents) {
+			int numLines = _historyFileContents.size ();
+
+			//check for strong matches
+			for (int ii = 0; ii < numLines; ii++) {
+				UrlData urlData = _historyFileContents.get (ii);
+				String baseLine = urlData.getPathBase ();
+				if (strongMatch (baseLine.toLowerCase (), pattern)) {
+					matchList.add (new MatchData (urlData.getLine (), true, ii - numLines, 0));
+				}
+			}
+
+//TODO - this might be confusing: stronger weak matches are > 1000, but a strong match is 0.
+
+			if (matchList.size () == 0) {
+				//then check for stronger weak matches
+				int minStrength = 1000;
+				for (int ii = 0; ii < numLines; ii++) {
+					UrlData urlData = _historyFileContents.get (ii);
+					String baseLine = urlData.getPathBase ();
+					int strength = weakMatch (baseLine.toLowerCase (), pattern);
+					if (strength > minStrength) {
+						matchList.add (new MatchData (urlData.getLine (), false, ii - numLines, strength));
+					}
+				}
+			}
+
+			if (matchList.size () == 0) {
+				//then check for weaker weak matches
+				int minStrength = 0;
+				for (int ii = 0; ii < numLines; ii++) {
+					UrlData urlData = _historyFileContents.get (ii);
+					String baseLine = urlData.getPathBase ();
+					int strength = weakMatch (baseLine.toLowerCase (), pattern);
+					if (strength > minStrength) {
+						matchList.add (new MatchData (urlData.getLine (), false, ii - numLines, strength));
+					}
+				}
+			}
+		}
+
+		timingEnd ("JHistory.findInHistory");
+
+		return matchList;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -235,73 +359,16 @@ public final class JHistory
 			String pathBase = path.substring (0, lastSlash + 1);
 			String fileName = path.substring (lastSlash + 1);
 
-			UrlData urlData = new UrlData (line, url, pathBase, fileName);
-
-			return urlData;
+			return new UrlData (line, url, pathBase, fileName);
 
 		} catch (MalformedURLException ee) {
-			//ignore this
+			//bad URL, return null below
 
 		} catch (Exception ee) {
-			_log.error ("JHistory.parseLine: error parsing line \"" + line + "\"");
-			_log.error (ee);
-			ee.printStackTrace ();
+			_log.error ("JHistory.parseLine: error parsing line \"" + line + "\"", ee);
 		}
 
 		return null;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private List<MatchData> findInHistory (String basePattern)
-	{
-		List<MatchData> matchList = new ArrayList<MatchData> ();
-
-		String pattern = VendoUtils.getUrlFileComponent (basePattern).toLowerCase ();
-		if (_Debug) {
-			_log.debug ("JHistory.findInHistory: basePattern = " + basePattern);
-			_log.debug ("JHistory.findInHistory: pattern = " + pattern);
-		}
-
-		int numLines = _historyFileContents.size ();
-
-		//check for strong matches
-		for (int ii = 0; ii < numLines; ii++) {
-			UrlData urlData = _historyFileContents.get (ii);
-			String baseLine = urlData.getPathBase ();
-			if (strongMatch (baseLine.toLowerCase (), pattern)) {
-				matchList.add (new MatchData (urlData.getLine (), true, ii - numLines, 0));
-			}
-		}
-
-//TODO - this might be confusing: stronger weak matches are > 1000, but a strong match is 0.
-
-		if (matchList.size () == 0) {
-			//then check for stronger weak matches
-			int minStrength = 1000;
-			for (int ii = 0; ii < numLines; ii++) {
-				UrlData urlData = _historyFileContents.get (ii);
-				String baseLine = urlData.getPathBase ();
-				int strength = weakMatch (baseLine.toLowerCase (), pattern);
-				if (strength > minStrength) {
-					matchList.add (new MatchData (urlData.getLine (), false, ii - numLines, strength));
-				}
-			}
-		}
-
-		if (matchList.size () == 0) {
-			//then check for weaker weak matches
-			int minStrength = 0;
-			for (int ii = 0; ii < numLines; ii++) {
-				UrlData urlData = _historyFileContents.get (ii);
-				String baseLine = urlData.getPathBase ();
-				int strength = weakMatch (baseLine.toLowerCase (), pattern);
-				if (strength > minStrength) {
-					matchList.add (new MatchData (urlData.getLine (), false, ii - numLines, strength));
-				}
-			}
-		}
-
-		return matchList;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -421,6 +488,38 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private void timingStart ()
+	{
+		if (!_printTiming) {
+			return;
+		}
+
+		if (_startInstant != Instant.EPOCH) {
+			_log.error ("JHistory.timingStart: not reentrant");
+		}
+
+		_startInstant = Instant.now ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private void timingEnd (String message)
+	{
+		if (!_printTiming) {
+			return;
+		}
+
+		if (_startInstant == Instant.EPOCH) {
+			_log.error ("JHistory.timingEnd: not reentrant");
+			return;
+		}
+
+		long elapsedNanos = Duration.between (_startInstant, Instant.now ()).toNanos ();
+		_log.debug (message + ": elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
+
+		_startInstant = Instant.EPOCH; //reset
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private class UrlData
 	{
 		///////////////////////////////////////////////////////////////////////////
@@ -524,9 +623,12 @@ public final class JHistory
 	//private members
 	private String _destDir = null;
 	private List<UrlData> _historyFileContents = new ArrayList<UrlData> ();
+	private FileTime _historyFileModified = FileTime.from(Instant.MAX);
+
+	private boolean _printTiming = true; //for performance timing
+	private Instant _startInstant = Instant.EPOCH; //for performance timing
 
 	private static final String _historyFilename = "gu.history.txt";
-	private static final String _slash = System.getProperty ("file.separator");
 	private static Logger _log = LogManager.getLogger ();
 
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;

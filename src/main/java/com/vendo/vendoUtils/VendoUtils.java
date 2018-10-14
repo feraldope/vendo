@@ -771,21 +771,21 @@ public class VendoUtils
 	//use this version for primitive type (long)
 	public static String arrayToString (long[] items)
 	{
-		return arrayToString (ArrayUtils.toObject (items));
+		return arrayToString (ArrayUtils.toObject (items), ", ");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//Note this is very similar to Arrays.toString ()
-	public static <T> String arrayToString (T[] items)
+	public static <T> String arrayToString (T[] items, String separator)
 	{
 		StringBuffer sb = new StringBuffer (items.length * 10);
 
 		for (T item : items) {
-			sb.append (", ")
+			sb.append (separator)
 			  .append (item.toString ().trim ());
 		}
 
-		int startIndex = (sb.length () > 2 ? 2 : 0); //step over initial comma and space, if there
+		int startIndex = (sb.length () > separator.length () ? separator.length () : 0); //step over initial separator, if there
 
 		return sb.substring (startIndex);
 	}

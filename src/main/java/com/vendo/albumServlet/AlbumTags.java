@@ -1418,7 +1418,7 @@ public class AlbumTags
 		for (String tag : tagMap.keySet ()) {
 			List<String> filterList = new ArrayList<String> (tagMap.get (tag));
 			Collections.sort (filterList, AlbumFormInfo.caseInsensitiveStringComparator);
-			String filterStr = VendoUtils.arrayToString (filterList.toArray (new String[] {}));
+			String filterStr = VendoUtils.arrayToString (filterList.toArray (new String[] {}), ", ");
 			tagFilters.add (new TagFilter2 (tag, filterStr));
 		}
 
@@ -1703,7 +1703,7 @@ public class AlbumTags
 		//truncate the list
 		int maxTagsShown = 30;
 		VendoUtils.truncateList (tags, maxTagsShown);
-		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}));
+		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}), ", ");
 
 		AlbumProfiling.getInstance ().exit (5);
 

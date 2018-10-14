@@ -449,7 +449,7 @@ public class GetUrl
 						break;
 					}
 				}
-				elapsedSeconds = (double) (System.nanoTime () - startNano) / 1e9;
+				elapsedSeconds = (System.nanoTime () - startNano) / 1e9;
 
 				in.close ();
 				out.close ();
@@ -585,11 +585,14 @@ public class GetUrl
 		//Create a trust manager that does not validate certificate chains
 		TrustManager[] trustAllCerts = new TrustManager[] {
 			new X509TrustManager ()	{
+				@Override
 				public X509Certificate[] getAcceptedIssuers () {
 					return null;
 				}
+				@Override
 				public void checkClientTrusted (X509Certificate[] certs, String authType) {
 				}
+				@Override
 				public void checkServerTrusted (X509Certificate[] certs, String authType) {
 				}
 			}
@@ -603,6 +606,7 @@ public class GetUrl
 
 		//Create all-trusting host name verifier
 		HostnameVerifier allHostsValid = new HostnameVerifier () {
+			@Override
 			public boolean verify (String hostname, SSLSession session) {
 				return true;
 			}
@@ -649,18 +653,14 @@ public class GetUrl
 	///////////////////////////////////////////////////////////////////////////
 	private boolean validImage (String filename, ImageSize imageSize)
 	{
-		File file = null;
 		BufferedImage image = null;
 
 		try {
-//			file = new File (filename);
-//			image = ImageIO.read (file);
 			image = JpgUtils.readImage (new File (filename));
 			int width = image.getWidth ();
 			int height = image.getHeight ();
 //			if (_Debug)
 //				_log.debug ("w = " + width + ", h = " + height);
-//			image.flush ();
 			imageSize._width = width;
 			imageSize._height = height;
 
@@ -875,7 +875,7 @@ public class GetUrl
 		String parts1[] = splitLeaf (remainder, _blockNumber);
 
 		if (_Debug) {
-			_log.debug ("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString (parts1));
+			_log.debug ("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString (parts1, ", "));
 		}
 
 		if (parts1.length != 2) {
@@ -1091,6 +1091,7 @@ public class GetUrl
 		}
 
 		Collections.sort (_switches, new Comparator<String> () {
+			@Override
 			public int compare (String s1, String s2) {
 				return s1.compareToIgnoreCase (s2);
 			}
@@ -1478,6 +1479,7 @@ public class GetUrl
 
 			//for simple dir listings, it looks like java.io package is faster than java.nio
 			FilenameFilter filenameFilter = new FilenameFilter () {
+				@Override
 				public boolean accept (File dir, String name) {
 					return pattern.matcher (name).matches ();
 				}

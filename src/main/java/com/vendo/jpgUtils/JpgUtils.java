@@ -28,11 +28,11 @@ import javax.swing.ImageIcon;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.sun.image.codec.jpeg.JPEGCodec; //deprecated: access restriction: The type 'JPEGCodec' is not API (restriction on required library '...\jre\lib\rt.jar')
 import com.vendo.vendoUtils.VUncaughtExceptionHandler;
 import com.vendo.vendoUtils.VendoUtils;
 
-import com.sun.image.codec.jpeg.JPEGCodec; //deprecated
-import sun.awt.image.codec.JPEGImageDecoderImpl; //deprecated
+import sun.awt.image.codec.JPEGImageDecoderImpl; //deprecated: access restriction: The type 'JPEGImageDecoderImpl' is not API (restriction on required library '...\jre\lib\rt.jar')
 
 
 public class JpgUtils
@@ -258,6 +258,7 @@ public class JpgUtils
 
 		for (final String filename : filenames) {
 			Thread thread = new Thread () {
+				@Override
 				public void run () {
 					compressFile (filename);
 					endGate.countDown ();
@@ -334,9 +335,9 @@ public class JpgUtils
 			}
 
 			if (imageAttributes._width > imageAttributes._height)
-				newWidth = (int) ((double) imageAttributes._width * scaleFactor + .999);
+				newWidth = (int) (imageAttributes._width * scaleFactor + .999);
 			else
-				newHeight = (int) ((double) imageAttributes._height * scaleFactor + .999);
+				newHeight = (int) (imageAttributes._height * scaleFactor + .999);
 		}
 
 		boolean status = generateScaledImage (infilePath, outfilePath, newWidth, newHeight);
@@ -361,6 +362,7 @@ public class JpgUtils
 	{
 		//for simple dir listings, it looks like java.io package is faster than java.nio
 		FilenameFilter filenameFilter = new FilenameFilter () {
+			@Override
 			public boolean accept (File dir, String name) {
 				return VendoUtils.matchPattern (name, nameWild);
 			}
@@ -629,6 +631,7 @@ public class JpgUtils
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		@Override
 		public String toString ()
 		{
 			final long kiloBytes = _bytes / 1024;
