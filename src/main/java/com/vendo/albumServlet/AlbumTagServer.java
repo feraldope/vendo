@@ -32,6 +32,7 @@ public class AlbumTagServer implements ServletContextListener
 		_log.info ("AlbumTagServer.contextInitialized");
 
 		Thread thread = new Thread () {
+			@Override
 			public void run () {
 				AlbumTags.main (new String[] {
 									"/tagFile", "E:/Netscape/Program/todo.dat",

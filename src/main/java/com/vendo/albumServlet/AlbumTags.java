@@ -476,37 +476,32 @@ public class AlbumTags
 		tagPatternString = tagPatternString.replace ("*", ".*");
 		Pattern tagPattern = Pattern.compile (tagPatternString, Pattern.CASE_INSENSITIVE);
 
-		//read file and find tag lines that match tagPatternString
+		//read file and find tag lines that match tagPatternString and one of the tag markers
 		List<String> matchingTagLines = new ArrayList<String> ();
+		StringBuffer wildTagBuffer = new StringBuffer (200);
 		try {
 			String line = new String ();
 			while ((line = reader.readLine ()) != null) {
 				Matcher matcher = tagPattern.matcher (line);
-				if (matcher.matches () && line.contains (_tagMarker)) {
+				if (matcher.matches () && line.contains (_tagMarker1)) {
 					matchingTagLines.add (line);
-
-//					if (true) { //debugging
-//						final int stubLength = 40;
-//						String lineStub = line;
-//						if (lineStub.length () > stubLength) {
-//							lineStub = lineStub.substring (0, stubLength) + "*";
-//						}
-//						_log.debug ("AlbumTags.readTagFile: match found for tag \"" + tagPatternString + "\": \"" + lineStub + "\"");
-//					}
+				}
+				if (matcher.matches () && line.contains (_tagMarker2)) {
+					wildTagBuffer.append (line.replaceAll("\\(.*\\)", ",")).append (",");
 				}
 			}
 
 		} catch (IOException ee) {
 			_log.error ("AlbumTags.readTagFile: error reading tag file: " + tagFilename, ee);
 			return null;
+
 		} finally {
-			try {
-				inputStream.close ();
-				reader.close ();
-			} catch (Exception ee) {
-				//ignore
-			}
+			if (reader != null) try { reader.close (); } catch (Exception ex) { _log.error (ex); }
+			if (inputStream != null) try { inputStream.close (); } catch (Exception ex) { _log.error (ex); }
 		}
+
+		//process and add in the wild tag
+		matchingTagLines.add ("*" + _tagMarker1 + processWildTag (wildTagBuffer.toString ()));
 
 		Collections.sort (matchingTagLines, AlbumFormInfo.caseInsensitiveStringComparator);
 		int numMatchingLines = matchingTagLines.size ();
@@ -514,7 +509,7 @@ public class AlbumTags
 
 		//add taglines to tagFileMap
 		for (String tagLine : matchingTagLines) {
-			String[] parts = tagLine.split (_tagMarker);
+			String[] parts = tagLine.split (_tagMarker1);
 			String tag = parts[0].trim ();
 			String[] filterArray = VendoUtils.trimArrayItems (parts[1].split (","));
 
@@ -790,12 +785,29 @@ public class AlbumTags
 		for (String tagIn : tagsIn) {
 			Collection<String> rawNames = getNamesForTags (/*useCase*/ false, new String[] {tagIn});
 			String string = AlbumImages.collectionToString (rawNames);
-			out.println (tagIn + _tagMarker + string + ", ");
+			out.println (tagIn + _tagMarker1 + string + ", ");
 		}
 		AlbumFormInfo._logLevel = saveLogLevel;
 
 		String filename = FileSystems.getDefault ().getPath (dumpFile).toAbsolutePath ().toString ();
 		System.out.println ("Output written to: " + filename);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//process string and return sorted string
+	private String processWildTag (String wildTagRawString)
+	{
+		wildTagRawString = wildTagRawString.replaceAll(" == ", ",").trim ()
+										   .replaceAll(" = ", ",").trim ()
+										   .replaceAll(",,", ",").trim ();
+		String[] wildTags = VendoUtils.trimArrayItems (wildTagRawString.split(","));
+		List<String> wildTagList = Arrays.asList (wildTags);
+		wildTagList.sort ((s1, s2) -> s1.compareTo (s2));
+		String wildTagString = VendoUtils.arrayToString (wildTagList.toArray (new String[] {}), ",");
+
+//		_log.debug ("AlbumTags.processWildTag: wildTag: " + wildTagString);
+
+		return wildTagString;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -2150,7 +2162,8 @@ public class AlbumTags
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
 	private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;
 	private static final short _highlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;
-	private static final String _tagMarker = " := ";
+	private static final String _tagMarker1 = " := ";
+	private static final String _tagMarker2 = " == ";
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+#;-#"); //print integer with +/- sign
