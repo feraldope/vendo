@@ -2,7 +2,8 @@
 
 package com.vendo.albumServlet;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 //import org.apache.logging.log4j.*;
 
@@ -65,6 +66,21 @@ public enum AlbumOrientation
 		}
 
 		throw new RuntimeException ("AlbumOrientation.getValue: invalid symbol \"" + symbol + "\"");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static AlbumOrientation getOrientation (int imageWidth, int imageHeight)
+	{
+		final int squareSlop = 10; //allowable variation from exactly square that will still be considered square
+
+		int diff = imageWidth - imageHeight;
+		if (diff > squareSlop) {
+			return AlbumOrientation.ShowLandScape;
+		} else if (diff < -squareSlop) {
+			return AlbumOrientation.ShowPortrait;
+		} else {
+			return AlbumOrientation.ShowSquare;
+		}
 	}
 
 

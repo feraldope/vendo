@@ -234,17 +234,6 @@ where d.avg_diff < d.max_diff
 -- order by i1.name_no_ext, i2.name_no_ext
 order by d.last_update desc
 
--- query image_diffs table for AlbumImages.doDups
-select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.last_update as last_update
-from image_diffs d
-join images i1 on i1.name_id = d.name_id_1
-join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff <= 15 -- d.max_diff 
-and last_update >= TIMESTAMPADD(MINUTE, -(60 * 24 * 1), NOW())
-order by avg_diff, i1.name_no_ext, i2.name_no_ext
--- order by i1.name_no_ext, i2.name_no_ext
--- order by d.last_update asc
-
 -- find all matches in image_diffs table based on name
 select RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 40, ' ') as 'names',
 	d.avg_diff, d.max_diff, source, d.last_update,
@@ -257,9 +246,10 @@ where d.avg_diff < d.max_diff and
       (i1.name_no_ext like 's%4679%' or i2.name_no_ext like 's%4679%')
 order by i1.name_no_ext
 
---
-xx delete from image_diffs where avg_diff <= 12
+-- image_diffs cleanup
+xx delete from image_diffs where avg_diff >= 19
 xx delete from image_diffs where max_diff = 30
+xx delete from image_diffs where timestampdiff (hour, last_update, current_timestamp) > 1
 
 select distinct name from albumtags.base1_names where name_id in (
 select name_id from (
@@ -269,5 +259,61 @@ where tags.tag_id = (
 select tag_id from albumtags.tags
 where tag = 'bumble'
 )) order by rand() limit 500) t)
+
+-- query image_diffs table for AlbumImages.doDups, with orientation test
+set @row_number := 0;
+select @row_number := @row_number + 1 as row,
+	RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 42, ' ') as 'names                                   ',
+	d.avg_diff as avg,
+	d.max_diff as max,
+	d.source as 'source',
+	d.count as 'count',
+	d.last_update as 'last update     ',	
+	timestampdiff (hour, d.last_update, current_timestamp()) as hours,
+	case
+	when cast(i1.width as int) - cast(i1.height as int) > 10 then 'L'
+	when cast(i1.height as int) - cast(i1.width as int) > 10 then 'P'
+	else 'S' end as i1_orient,
+	case
+	when cast(i2.width as int) - cast(i2.height as int) > 10 then 'L'
+	when cast(i2.height as int) - cast(i2.width as int) > 10 then 'P'
+	else 'S' end as i2_orient
+from image_diffs d
+join images i1 on i1.name_id = d.name_id_1
+join images i2 on i2.name_id = d.name_id_2
+where d.avg_diff < d.max_diff and
+	d.avg_diff <= 15 and -- MAX_RGB_DIFF and
+	timestampdiff (hour, d.last_update, current_timestamp) <= 12 -- and -- SINCE_HOURS
+  having strcmp(i1_orient, i2_orient) = 0
+-- order by avg_diff, i1.name_no_ext, i2.name_no_ext
+-- order by avg desc, i1.name_no_ext
+order by d.last_update
+
+
+
+-- number of rows with mismatched orientation vs all rows
+select count(*) from (
+select 
+d.name_id_1,
+d.name_id_2,
+d.last_update,
+	case
+	when cast(i1.width as int) - cast(i1.height as int) > 10 then 'L'
+	when cast(i1.height as int) - cast(i1.width as int) > 10 then 'P'
+	else 'S' end as i1o,
+	case
+	when cast(i2.width as int) - cast(i2.height as int) > 10 then 'L'
+	when cast(i2.height as int) - cast(i2.width as int) > 10 then 'P'
+	else 'S' end as i2o
+from image_diffs d
+join images i1 on i1.name_id = d.name_id_1
+join images i2 on i2.name_id = d.name_id_2
+where d.avg_diff < d.max_diff -- and
+having strcmp(i1o, i2o) != 0
+order by d.last_update
+) as temp
+union all
+select count(*) from image_diffs
+
 
 */

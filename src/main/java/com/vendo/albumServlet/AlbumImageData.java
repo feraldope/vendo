@@ -2,20 +2,30 @@ package com.vendo.albumServlet;
 
 import java.util.Comparator;
 
-public class AlbumImageData implements Comparator<AlbumImageData> /*, Comparable<AlbumImageData>*/
+public class AlbumImageData implements Comparator<AlbumImageData>
 {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageData (int nameId, String nameNoExt)
+	AlbumImageData (int nameId, String name, AlbumOrientation orientation)
 	{
 		_nameId = nameId;
-		_nameNoExt = nameNoExt;
+		_name = name;
+		_orientation = orientation;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	AlbumImageData (int nameId, String name, int width, int height)
+	{
+		_nameId = nameId;
+		_name = name;
+		_orientation = AlbumOrientation.getOrientation (width, height);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumImageData (AlbumImageData imageData)
 	{
 		_nameId = imageData.getNameId ();
-		_nameNoExt = imageData.getNameNoExt ();
+		_name = imageData.getName ();
+		_orientation = imageData.getOrientation ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -25,66 +35,43 @@ public class AlbumImageData implements Comparator<AlbumImageData> /*, Comparable
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getNameNoExt ()
+	public String getName ()
 	{
-		return _nameNoExt;
+		return _name;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public AlbumOrientation getOrientation ()
+	{
+		return _orientation;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getSubFolder ()
 	{
-		return getNameNoExt ().substring (0, 1).toLowerCase ();
+		return getName ().substring (0, 1).toLowerCase ();
 	}
 
 	@Override
 	public int compare (AlbumImageData data1, AlbumImageData data2)
 	{
-		return data1._nameNoExt.compareToIgnoreCase(data2._nameNoExt);
+		return data1._name.compareToIgnoreCase(data2.getName ());
 	}
-
-/*
-	///////////////////////////////////////////////////////////////////////////
-	@Override
-	public int compareTo (AlbumImageData obj)
-	{
-		return (obj == null ? 1 : _nameNoExt.compareToIgnoreCase(obj._nameNoExt));
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	@Override
-	public int hashCode ()
-	{
-		return 31 * _nameNoExt.hashCode() + _nameId;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	@Override
-	public boolean equals (Object obj)
-	{
-		if (!(obj instanceof AlbumImageData)) {
-			return false;
-		}
-		if (this == obj) {
-			return true;
-		}
-		return _nameNoExt.compareToIgnoreCase (((AlbumImageData) obj)._nameNoExt) == 0;
-//			   _nameId.equals (((AlbumImageData) obj)._nameId);
-	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public String toString ()
 	{
 		StringBuffer sb = new StringBuffer (getClass ().getSimpleName ());
-		sb.append (": ").append (getNameNoExt ());
+		sb.append (": ").append (getName ());
 		sb.append (", ").append (getNameId ());
-//		sb.append (", ").append (getSubFolder ());
+		sb.append (", ").append (getOrientation ());
 
 		return sb.toString ();
 	}
 
 	//members
 	private final int _nameId;
-	private final String _nameNoExt;
+	private final String _name;
+	private final AlbumOrientation _orientation;
 }

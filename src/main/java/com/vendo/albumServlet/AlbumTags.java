@@ -480,14 +480,16 @@ public class AlbumTags
 		List<String> matchingTagLines = new ArrayList<String> ();
 		StringBuffer wildTagBuffer = new StringBuffer (200);
 		try {
-			String line = new String ();
-			while ((line = reader.readLine ()) != null) {
-				Matcher matcher = tagPattern.matcher (line);
-				if (matcher.matches () && line.contains (_tagMarker1)) {
-					matchingTagLines.add (line);
-				}
-				if (matcher.matches () && line.contains (_tagMarker2)) {
-					wildTagBuffer.append (line.replaceAll("\\(.*\\)", ",")).append (",");
+			String line = new String();
+			while ((line = reader.readLine()) != null) {
+				Matcher matcher = tagPattern.matcher(line);
+				if (matcher.matches()) {
+					if (line.contains(_tagMarker1)) {
+						matchingTagLines.add(line);
+					}
+					if (line.contains(_tagMarker2)) {
+						wildTagBuffer.append(line.replaceAll("\\(.*\\)", ",")).append(",");
+					}
 				}
 			}
 

@@ -287,8 +287,10 @@ public class AlbumImageDiffer
 
 		AlbumProfiling.getInstance ().enterAndTrace(5, "diff");
 
-		final AtomicInteger rowsInserted = new AtomicInteger (0);
 		final AtomicInteger numDiffs = new AtomicInteger (0);
+		final AtomicInteger orientationMismatch = new AtomicInteger (0);
+		final AtomicInteger sameBaseName = new AtomicInteger (0);
+		final AtomicInteger rowsInserted = new AtomicInteger (0);
 		final Set<String> toBeSkipped = new HashSet<String>();
 
 		final CountDownLatch endGate = new CountDownLatch (_idListA.size ());
@@ -296,16 +298,16 @@ public class AlbumImageDiffer
 		while (iterA.hasNext ()) {
 			final AlbumImageData albumImageDataA = iterA.next ();
 			synchronized (toBeSkipped) {
-				if (toBeSkipped.contains (albumImageDataA.getNameNoExt ())) {
+				if (toBeSkipped.contains (albumImageDataA.getName ())) {
 					continue;
 				}
 			}
-			final AlbumImage imageA = new AlbumImage (albumImageDataA.getNameNoExt (), albumImageDataA.getSubFolder (), false);
+			final AlbumImage imageA = new AlbumImage (albumImageDataA.getName (), albumImageDataA.getSubFolder (), false);
 
 			final ByteBuffer scaledImageDataA = imageA.readScaledImageData ();
 			if (scaledImageDataA == null) {
 				synchronized (toBeSkipped) {
-					toBeSkipped.add(albumImageDataA.getNameNoExt ());
+					toBeSkipped.add(albumImageDataA.getName ());
 				}
 			}
 
@@ -316,24 +318,32 @@ public class AlbumImageDiffer
 				while (iterB.hasNext ()) {
 					AlbumImageData albumImageDataB = iterB.next ();
 					synchronized (toBeSkipped) {
-						if (toBeSkipped.contains (albumImageDataB.getNameNoExt ())) {
+						if (toBeSkipped.contains (albumImageDataB.getName ())) {
 							continue;
 						}
 					}
 
-					AlbumImage imageB = new AlbumImage (albumImageDataB.getNameNoExt (), albumImageDataB.getSubFolder (), false);
+					AlbumImage imageB = new AlbumImage (albumImageDataB.getName (), albumImageDataB.getSubFolder (), false);
 					if (imageA.equalBase (imageB, false)) {
+//						_log.debug ("AlbumImageDiffer.run: skipping images with same baseName: " + imageA.getBaseName (false));
+						sameBaseName.incrementAndGet ();
+						continue;
+					}
+
+					if (albumImageDataA.getOrientation () != albumImageDataB.getOrientation ()) {
+//						_log.debug ("AlbumImageDiffer.run: skipping images with different orientation: " + imageA.getName () + "," + imageB.getName ());
+						orientationMismatch.incrementAndGet ();
 						continue;
 					}
 
 					ByteBuffer scaledImageDataB = imageB.readScaledImageData ();
 					if (scaledImageDataB == null) {
 						synchronized (toBeSkipped) {
-							toBeSkipped.add(albumImageDataB.getNameNoExt ());
+							toBeSkipped.add(albumImageDataB.getName ());
 						}
 					}
 
-//					_log.debug ("AlbumImageDiffer.run: comparison: " + albumImageDataA.getNameNoExt () + ", " + albumImageDataB.getNameNoExt ());
+//					_log.debug ("AlbumImageDiffer.run: comparison: " + albumImageDataA.getName () + ", " + albumImageDataB.getName ());
 					numDiffs.incrementAndGet ();
 
 					int averageDiff = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB, _maxRgbDiffs);
@@ -346,11 +356,11 @@ public class AlbumImageDiffer
 				if (imageDiffDetails.size () > 0) {
 					rowsInserted.addAndGet (insertImageIntoImageDiffs (imageDiffDetails));
 				}
-//				_log.debug ("AlbumImageDiffer.run: thread/task complete for: " + albumImageDataA.getNameNoExt ());
+//				_log.debug ("AlbumImageDiffer.run: thread/task complete for: " + albumImageDataA.getName ());
 
 				endGate.countDown ();
 			};
-//			_log.debug ("AlbumImageDiffer.run: creating new thread/task for: " + albumImageDataA.getNameNoExt ());
+//			_log.debug ("AlbumImageDiffer.run: creating new thread/task for: " + albumImageDataA.getName ());
 			getExecutor ().execute (task);
 		}
 		_log.debug ("AlbumImageDiffer.run: queued " + _decimalFormat.format (_idListA.size ()) + " threads");
@@ -363,8 +373,10 @@ public class AlbumImageDiffer
 
 		AlbumProfiling.getInstance ().exit (5, "diff");
 
-		_log.debug ("AlbumImageDiffer.run: numDiffs     = " + _decimalFormat.format (numDiffs.get ()));
-		_log.debug ("AlbumImageDiffer.run: rowsInserted = " + _decimalFormat.format (rowsInserted.get ()));
+		_log.debug ("AlbumImageDiffer.run: numDiffs            = " + _decimalFormat.format (numDiffs.get ()));
+		_log.debug ("AlbumImageDiffer.run: orientationMismatch = " + _decimalFormat.format (orientationMismatch.get ()));
+		_log.debug ("AlbumImageDiffer.run: sameBaseName        = " + _decimalFormat.format (sameBaseName.get ()));
+		_log.debug ("AlbumImageDiffer.run: rowsInserted        = " + _decimalFormat.format (rowsInserted.get ()));
 
 		AlbumProfiling.getInstance ().exit (5);
 	}
@@ -423,7 +435,7 @@ public class AlbumImageDiffer
 		AlbumProfiling.getInstance ().enterAndTrace (5, profileTag);
 
 		//example where clause: "where name_no_ext like 's%' or name_no_ext like 'b%'"
-		String sql = "select name_id, name_no_ext from images where name_id in " + NL +
+		String sql = "select name_id, name_no_ext, width, height from images where name_id in " + NL +
 			    	 "(select name_id from (select name_id from images " + NL +
 			    	 whereClause + NL +
 			    	 "order by rand() limit " + _maxRows + ") t)";
@@ -449,8 +461,10 @@ public class AlbumImageDiffer
 			rs = statement.executeQuery (sql);
 			while (rs.next ()) {
 				int nameId = rs.getInt ("name_id");
-				String nameNoExt = rs.getString ("name_no_ext");
-				items.add(new AlbumImageData (nameId, nameNoExt));
+				String name = rs.getString ("name_no_ext");
+				int width = rs.getInt ("width");
+				int height = rs.getInt ("height");
+				items.add (new AlbumImageData (nameId, name, AlbumOrientation.getOrientation (width, height)));
 			}
 
 		} catch (Exception ee) {
@@ -645,17 +659,17 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	private Collection<AlbumImageData> selectNamesFromImagesDB (Collection<String> names)
+	private Collection<AlbumImageData> selectNamesFromImagesDB (Collection<String> baseNames)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
 		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
-		if (names.size () == 0) {
+		if (baseNames.size () == 0) {
 			return items;
 		}
 
-		String sqlBase = "select name_id, name_no_ext from images where name_no_ext rlike ";
+		String sqlBase = "select name_id, name_no_ext, width, height from images where name_no_ext rlike ";
 
 		Connection connection = getConnection ();
 		Statement statement = null;
@@ -673,13 +687,15 @@ public class AlbumImageDiffer
 		String sql = null;
 		ResultSet rs = null;
 		try {
-			for (String name : names) {
-				sql = sqlBase + "'" + name + ".*'";
+			for (String baseName : baseNames) {
+				sql = sqlBase + "'" + baseName + ".*'";
 				rs = statement.executeQuery (sql);
 				while (rs.next ()) {
 					int nameId = rs.getInt ("name_id");
-					String nameNoExt = rs.getString ("name_no_ext");
-					items.add(new AlbumImageData (nameId, nameNoExt));
+					String name = rs.getString ("name_no_ext");
+					int width = rs.getInt ("width");
+					int height = rs.getInt ("height");
+					items.add (new AlbumImageData (nameId, name, AlbumOrientation.getOrientation (width, height)));
 				}
 			}
 
@@ -861,12 +877,12 @@ public class AlbumImageDiffer
 		try {
 			rs = statement.executeQuery (sql);
 			while (rs.next ()) {
-				String nameNoExt1 = rs.getString ("name_no_ext1");
-				String nameNoExt2 = rs.getString ("name_no_ext2");
+				String name1 = rs.getString ("name_no_ext1");
+				String name2 = rs.getString ("name_no_ext2");
 				int averageRgbDiff = rs.getInt ("avg_diff");
 				Date lastUpdate = new Date (rs.getTimestamp ("last_update").getTime ());
-//				_log.debug (new AlbumImageDiffData (nameNoExt1, nameNoExt2, averageRgbDiff, lastUpdate));
-				items.add(new AlbumImageDiffData (nameNoExt1, nameNoExt2, averageRgbDiff, lastUpdate));
+//				_log.debug (new AlbumImageDiffData (name1, name2, averageRgbDiff, lastUpdate));
+				items.add(new AlbumImageDiffData (name1, name2, averageRgbDiff, lastUpdate));
 			}
 
 		} catch (Exception ee) {

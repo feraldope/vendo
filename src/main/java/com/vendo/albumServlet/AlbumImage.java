@@ -417,16 +417,7 @@ public class AlbumImage
 	public synchronized AlbumOrientation getOrientation ()
 	{
 		if (_orientation == AlbumOrientation.ShowAny) {
-			final int squareSlop = 10; //allowable variation from exactly square that will still be considered square
-
-			int diff = getWidth () - getHeight ();
-			if (Math.abs (diff) <= squareSlop) {
-				_orientation = AlbumOrientation.ShowSquare;
-			} else if (diff > 0) {
-				_orientation = AlbumOrientation.ShowLandScape;
-			} else { //diff < 0
-				_orientation = AlbumOrientation.ShowPortrait;
-			}
+			_orientation = AlbumOrientation.getOrientation (getWidth (), getHeight ());
 		}
 
 		return _orientation;

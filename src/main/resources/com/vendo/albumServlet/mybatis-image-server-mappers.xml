@@ -71,6 +71,8 @@ mysql -u root -proot albumimages -e "describe images"
 		<constructor>
 			<arg column="name_id" javaType="_integer" />
 			<arg column="name_no_ext" javaType="String" />
+			<arg column="width" javaType="_integer" />
+			<arg column="height" javaType="_integer" />
 		</constructor>
 	</resultMap>
 
@@ -148,7 +150,7 @@ mysql -u root -proot albumimages -e "describe images"
 	</select>
 
 	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
-		select name_id, name_no_ext
+		select name_id, name_no_ext, width, height
 		from images
 		where name_no_ext in
 		<foreach item="item" index="index" collection="names" open="(" separator="," close=")">
@@ -156,7 +158,7 @@ mysql -u root -proot albumimages -e "describe images"
 		</foreach>
 	</select>
 
-<!-- could not get this to work
+<!-- could not get this to work using rlike
 	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
 		select name_id, name_no_ext
 		from images
