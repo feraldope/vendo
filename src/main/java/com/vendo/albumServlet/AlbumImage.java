@@ -169,10 +169,13 @@ public class AlbumImage
 	public String toString (boolean full, boolean collapseGroups)
 	{
 		StringBuffer sb = new StringBuffer (256);
-		sb.append (getName ()).append (", ")
-		  .append (getWidth ()).append ("x").append (getHeight ()).append (", ")
-		  .append (getNumBytes () / 1024).append ("KB, ")
-		  .append (getModifiedString ());
+		sb.append (getName ()).append (", ");
+		sb.append (getWidth ()).append ("x").append (getHeight ()).append (", ");
+		sb.append (getNumBytes () / 1024).append ("KB, ");
+		if (AlbumFormInfo.getShowRgbData () && AlbumFormInfo.getInstance ().getMode () == AlbumMode.DoDup) { //debugging
+			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
+		}
+		sb.append (getModifiedString ());
 
 		if (full) { //typically true for servlet, false for CLI
 
@@ -187,14 +190,6 @@ public class AlbumImage
 			if (tagStr.length () != 0) {
 				sb.append (HtmlNewline)
 				  .append (tagStr);
-			}
-
-			if (AlbumFormInfo._showRgbData) { //debugging
-				String string = getRgbData ();
-//				String string = String.format ("0x%08x", getRgbData ().hashCode ());
-
-				sb.append (", ")
-				  .append (string);
 			}
 		}
 

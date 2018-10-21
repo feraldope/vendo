@@ -31,19 +31,15 @@ public class AlbumTagServer implements ServletContextListener
 //		ServletContext context = servletContextEvent.getServletContext ();
 		_log.info ("AlbumTagServer.contextInitialized");
 
-		Thread thread = new Thread () {
-			@Override
-			public void run () {
-				AlbumTags.main (new String[] {
-									"/tagFile", "E:/Netscape/Program/todo.dat",
-									"/continuous",
-//									"/checkForOrphans",
-//									"/resetTables",
-									"/debug"
+		new Thread (() -> {
+			AlbumTags.main (new String[] {
+								"/tagFile", "E:/Netscape/Program/todo.dat",
+								"/continuous",
+//								"/checkForOrphans",
+//								"/resetTables",
+								"/debug"
 				});
-			}
-		};
-		thread.start ();
+		}).start ();
 	}
 
 

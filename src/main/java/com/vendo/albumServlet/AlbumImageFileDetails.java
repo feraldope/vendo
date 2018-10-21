@@ -8,17 +8,17 @@ package com.vendo.albumServlet;
 public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageFileDetails (String nameNoExt, long bytes, long modified)
+	AlbumImageFileDetails (String name, long bytes, long modified)
 	{
-		_nameNoExt = nameNoExt;
+		_name = name;
 		_bytes = bytes;
 		_modified = modified;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getNameNoExt ()
+	public String getName ()
 	{
-		return _nameNoExt;
+		return _name;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -53,7 +53,7 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 		}
 
 		AlbumImageFileDetails other = (AlbumImageFileDetails) obj;
-		return _nameNoExt.compareTo (other.toString ()) == 0 && _bytes == other._bytes && _modified == other._modified;
+		return _name.compareTo (other.toString ()) == 0 && _bytes == other._bytes && _modified == other._modified;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -61,11 +61,11 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 	@Override
 	public String toString ()
 	{
-		return _nameNoExt;
+		return _name;
 	}
 
 	//members
-	private final String _nameNoExt;
+	private final String _name;
 	private final long _bytes;
 	private final long _modified;
 

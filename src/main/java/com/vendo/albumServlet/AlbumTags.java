@@ -40,13 +40,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-//import static com.mysql.jdbc.exceptions.MySQLIntegrityConstraintViolationException;
-//import com.mysql.jdbc.exceptions.MySQLIntegrityConstraintViolationException;
 import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.vendoUtils.WatchDir;
 import com.vendo.win32.Win32;
@@ -90,7 +89,6 @@ public class AlbumTags
 		try {
 			albumTags.run0 ();
 		} catch (Exception ee) {
-//			ee.printStackTrace (System.err); //stderr not ideal for tomcat
 			_log.error ("AlbumTags.main: ", ee);
 		}
 
@@ -269,7 +267,6 @@ public class AlbumTags
 
 		} catch (Exception ee) {
 			_log.error ("AlbumTags run: exception in continuous mode", ee);
-			ee.printStackTrace (System.err);
 		}
 	}
 
@@ -422,22 +419,17 @@ public class AlbumTags
 		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
 		for (final String subFolder : subFolders) {
-
-			Thread thread = new Thread () {
-				@Override
-				public void run () {
-					final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder);
-					Set<String> base1NameSet = new HashSet<String> (); //use Set to eliminate duplicates
-					for (AlbumImage image : images) {
-						base1NameSet.add (image.getBaseName (/*collapseGroups*/ false));
-					}
-
-					_albumBase1NameMap.put (subFolder, base1NameSet); //no synchronized block necessary for ConcurrentHashMap
-
-					endGate.countDown ();
+			new Thread (() -> {
+				final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder);
+				Set<String> base1NameSet = new HashSet<String> (); //use Set to eliminate duplicates
+				for (AlbumImage image : images) {
+					base1NameSet.add (image.getBaseName (/*collapseGroups*/ false));
 				}
-			};
-			thread.start ();
+
+				_albumBase1NameMap.put (subFolder, base1NameSet); //no synchronized block necessary for ConcurrentHashMap
+
+				endGate.countDown ();
+			}).start ();
 		}
 		try {
 			endGate.await ();
@@ -455,31 +447,22 @@ public class AlbumTags
 
 		final Map<String, Set<String>> tagFileMap = new HashMap<String, Set<String>> ();
 
-		//open tag file (read-only, with read-sharing)
-		InputStream inputStream = null;
-		BufferedReader reader = null;
-		try {
-			Path tagFile = FileSystems.getDefault ().getPath (tagFilename);
-			inputStream = Files.newInputStream (tagFile, StandardOpenOption.READ);
-			reader = new BufferedReader (new InputStreamReader (inputStream));
-
-		} catch (IOException ee) {
-			_log.error ("AlbumTags.readTagFile: error opening tag file: " + tagFilename, ee);
-			return null;
-		}
-//TODO: add finally block or use try-with-resources
-
-		//create pattern matcher
-		if (!tagPatternString.endsWith ("*")) {
-			tagPatternString += "*";
-		}
-		tagPatternString = tagPatternString.replace ("*", ".*");
-		Pattern tagPattern = Pattern.compile (tagPatternString, Pattern.CASE_INSENSITIVE);
-
-		//read file and find tag lines that match tagPatternString and one of the tag markers
 		List<String> matchingTagLines = new ArrayList<String> ();
 		StringBuffer wildTagBuffer = new StringBuffer (200);
-		try {
+
+		//open tag file (read-only, with read-sharing)
+		Path tagFile = FileSystems.getDefault ().getPath (tagFilename);
+		try (InputStream inputStream = Files.newInputStream (tagFile, StandardOpenOption.READ);
+			 BufferedReader reader = new BufferedReader (new InputStreamReader (inputStream))) {
+
+			//create pattern matcher
+			if (!tagPatternString.endsWith ("*")) {
+				tagPatternString += "*";
+			}
+			tagPatternString = tagPatternString.replace ("*", ".*");
+			Pattern tagPattern = Pattern.compile (tagPatternString, Pattern.CASE_INSENSITIVE);
+
+		//read file and find tag lines that match tagPatternString and one of the tag markers
 			String line = new String();
 			while ((line = reader.readLine()) != null) {
 				Matcher matcher = tagPattern.matcher(line);
@@ -496,10 +479,6 @@ public class AlbumTags
 		} catch (IOException ee) {
 			_log.error ("AlbumTags.readTagFile: error reading tag file: " + tagFilename, ee);
 			return null;
-
-		} finally {
-			if (reader != null) try { reader.close (); } catch (Exception ex) { _log.error (ex); }
-			if (inputStream != null) try { inputStream.close (); } catch (Exception ex) { _log.error (ex); }
 		}
 
 		//process and add in the wild tag
@@ -586,31 +565,27 @@ public class AlbumTags
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
 		for (final String subFolder : subFolders) {
 
-			Thread thread = new Thread () {
-				@Override
-				public void run () {
-					final List<String> outFilterList = new ArrayList<String> ();
-					for (String inFilter : inFilterSet) {
-						if (inFilter.length () > 0) {
-							String firstLower = inFilter.substring (0, 1).toLowerCase ();
-							if (subFolder.compareTo (firstLower) == 0 || "*".compareTo (firstLower) == 0) {
-								outFilterList.add (inFilter);
-							}
+			new Thread (() -> {
+				final List<String> outFilterList = new ArrayList<String> ();
+				for (String inFilter : inFilterSet) {
+					if (inFilter.length () > 0) {
+						String firstLower = inFilter.substring (0, 1).toLowerCase ();
+						if (subFolder.compareTo (firstLower) == 0 || "*".compareTo (firstLower) == 0) {
+							outFilterList.add (inFilter);
 						}
 					}
-//					_log.debug ("AlbumTags.generateTagData: " + subFolder + ": outFilterList.size() = " + outFilterList.size ());
-
-					if (outFilterList.size () > 0) {
-						Collections.sort (outFilterList, AlbumFormInfo.caseInsensitiveStringComparator);
-
-						synchronized (filterStringMap) {
-							filterStringMap.put (subFolder, outFilterList);
-						}
-					}
-					endGate.countDown ();
 				}
-			};
-			thread.start ();
+//				_log.debug ("AlbumTags.generateTagData: " + subFolder + ": outFilterList.size() = " + outFilterList.size ());
+
+				if (outFilterList.size () > 0) {
+					Collections.sort (outFilterList, AlbumFormInfo.caseInsensitiveStringComparator);
+
+					synchronized (filterStringMap) {
+						filterStringMap.put (subFolder, outFilterList);
+					}
+				}
+				endGate.countDown ();
+			}).start ();
 		}
 		try {
 			endGate.await ();
@@ -632,21 +607,17 @@ public class AlbumTags
 			final Collection<String> filterStrings = filterStringMap.get (subFolder);
 
 			if (filterStrings != null) {
-				Thread thread = new Thread () {
-					@Override
-					public void run () {
-						final String filters[] = filterStrings.toArray (new String[] {});
-						final AlbumFileFilter filter = new AlbumFileFilter (filters, null, /*useCase*/ false, /*sinceInMillis*/ 0);
+				new Thread (() -> {
+					final String filters[] = filterStrings.toArray (new String[] {});
+					final AlbumFileFilter filter = new AlbumFileFilter (filters, null, /*useCase*/ false, /*sinceInMillis*/ 0);
 
-						checkForMalformedFilters (filters); //prints any malformed filters
+					checkForMalformedFilters (filters); //prints any malformed filters
 
-						synchronized (filterMap) {
-							filterMap.put (subFolder, filter);
-						}
-						endGate.countDown ();
+					synchronized (filterMap) {
+						filterMap.put (subFolder, filter);
 					}
-				};
-				thread.start ();
+					endGate.countDown ();
+				}).start ();
 			}
 		}
 		try {
@@ -659,7 +630,7 @@ public class AlbumTags
 		filterStringMap.clear ();
 
 
-//create map of subFolders and images that actually match the filters in filterMap
+//create map of subFolders and images that match the filters in filterMap
 		final HashMap<String, Collection<String>> matchingBase1NameMap = new HashMap<String, Collection<String>> (filterMap.size ());
 		final HashMap<String, Collection<String>> matchingBase2NameMap = new HashMap<String, Collection<String>> (filterMap.size ());
 {
@@ -668,42 +639,39 @@ public class AlbumTags
 		for (final String subFolder : filterMap.keySet ()) {
 			final AlbumFileFilter filter = filterMap.get (subFolder);
 
+//TODO - this looks broken: if filter IS null then endGate.countDown() is never called below
 			if (filter != null) {
-				Thread thread = new Thread () {
-					@Override
-					public void run () {
-						final Collection<String> folderBase1Names = _albumBase1NameMap.get (subFolder);
-						final Set<String> outBase1Names = new HashSet<String> ();
-						final Set<String> outBase2Names = new HashSet<String> ();
-						for (String base1Name : folderBase1Names) {
-							if (filter.accept (null, base1Name)) {
-								outBase1Names.add (base1Name);
+				new Thread (() -> {
+					final Collection<String> folderBase1Names = _albumBase1NameMap.get (subFolder);
+					final Set<String> outBase1Names = new HashSet<String> ();
+					final Set<String> outBase2Names = new HashSet<String> ();
+					for (String base1Name : folderBase1Names) {
+						if (filter.accept (null, base1Name)) {
+							outBase1Names.add (base1Name);
 
-								//now convert the name from "collapseGroups = false" to "collapseGroups = true"
-								String base2Name = base1Name.replaceAll ("[0-9]", "");
-								outBase2Names.add (base2Name);
-							}
+							//now convert the name from "collapseGroups = false" to "collapseGroups = true"
+							String base2Name = base1Name.replaceAll ("[0-9]", "");
+							outBase2Names.add (base2Name);
 						}
-
-						if (outBase1Names.size () == 0 && !filter.isAllFolders ()) {
-							printWithColor (_alertColor, "orphan filter @1 for " + subFolder + ": " + filter);
-						}
-						if ((filter.getMinItemCount ()) > outBase1Names.size () && !filter.isAllFolders ()) {
-							printWithColor (_alertColor, "orphan filter @2 for " + subFolder + ": " + filter);
-						}
-
-						if (outBase1Names.size () > 0) {
-							synchronized (matchingBase1NameMap) {
-								matchingBase1NameMap.put (subFolder, outBase1Names);
-							}
-							synchronized (matchingBase2NameMap) {
-								matchingBase2NameMap.put (subFolder, outBase2Names);
-							}
-						}
-						endGate.countDown ();
 					}
-				};
-				thread.start ();
+
+					if (outBase1Names.size () == 0 && !filter.isAllFolders ()) {
+						printWithColor (_alertColor, "orphan filter @1 for " + subFolder + ": " + filter);
+					}
+					if ((filter.getMinItemCount ()) > outBase1Names.size () && !filter.isAllFolders ()) {
+						printWithColor (_alertColor, "orphan filter @2 for " + subFolder + ": " + filter);
+					}
+
+					if (outBase1Names.size () > 0) {
+						synchronized (matchingBase1NameMap) {
+							matchingBase1NameMap.put (subFolder, outBase1Names);
+						}
+						synchronized (matchingBase2NameMap) {
+							matchingBase2NameMap.put (subFolder, outBase2Names);
+						}
+					}
+					endGate.countDown ();
+				}).start ();
 			}
 		}
 
@@ -925,7 +893,6 @@ public class AlbumTags
 		final Pattern pattern2 = Pattern.compile (".*\\]$"); //ends with square bracket
 		final Pattern pattern3 = Pattern.compile (".*\\+$"); //ends with plus sign
 		final Pattern pattern4 = Pattern.compile (".*[A-Za-z]$"); //ends with alpha (case insensitive)
-//TODO: what about filters that end in "*"
 
 		List<String> misMatchedFilters1 = new ArrayList<String> ();
 		Set<String> rawSet = new HashSet<String> ();
@@ -952,6 +919,7 @@ public class AlbumTags
 				}
 
 			} else {
+				//catches filters that end with e.g., "*"
 //				misMatchedFilters1.add (rawName);
 			}
 
@@ -1074,74 +1042,52 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	private void updateTagDatabase (Map<String, Set<String>> tagFileMap)
 	{
-		Thread thread = null;
-
 		///////////////////////////////////////////////////////////////////////
 		//run first set of inserts
-		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase (part 1)");
+		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase.part1");
 
 		final int numStepsFirst = 5;
 		final CountDownLatch endGate1 = new CountDownLatch (numStepsFirst);
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				writeTagDatabase (tagFileMap);
-				endGate1.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			writeTagDatabase (tagFileMap);
+			endGate1.countDown ();
+		}).start ();
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				insertTags (_tags);
-				endGate1.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			insertTags (_tags);
+			endGate1.countDown ();
+		}).start ();
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				insertBase1Names (_base1Names);
-				endGate1.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			insertBase1Names (_base1Names);
+			endGate1.countDown ();
+		}).start ();
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				insertBase2Names (_base2Names);
-				endGate1.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			insertBase2Names (_base2Names);
+			endGate1.countDown ();
+		}).start ();
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				insertRawNames (_rawNames);
-				endGate1.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			insertRawNames (_rawNames);
+			endGate1.countDown ();
+		}).start ();
 
 		//wait for first set of inserts to complete
 		try {
 			endGate1.await ();
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.updateTagDatabase: endGate:", ee);
+			_log.error ("AlbumTags.updateTagDatabase: endGate1:", ee);
 		}
-		AlbumProfiling.getInstance ().exit (5, "updateTagDatabase (part 1)");
+		AlbumProfiling.getInstance ().exit (5, "updateTagDatabase.part1");
 
 		///////////////////////////////////////////////////////////////////////
 		//run second set of inserts
-		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase (part 2)");
+		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase.part2");
 
 		final int batchSize = 30000;
-		List<List<NameTag>> base1NameTagsList = ListUtils.partition ((List<NameTag>) _base1NameTags, batchSize);
+		final List<List<NameTag>> base1NameTagsList = ListUtils.partition ((List<NameTag>) _base1NameTags, batchSize);
 //		_log.debug ("AlbumTags.updateTagDatabase: base1NameTagsList.size() = " + base1NameTagsList.size ());
 
 		final int numStepsSecond = 2 + base1NameTagsList.size ();
@@ -1149,42 +1095,30 @@ public class AlbumTags
 
 		for (int ii = 0; ii < base1NameTagsList.size (); ii++) {
 			final int jj = ii;
-			thread = new Thread () {
-				@Override
-				public void run () {
-					List<NameTag> base1NameTags = base1NameTagsList.get (jj);
-					insertBase1NameTags (base1NameTags);
-					endGate2.countDown ();
-				}
-			};
-			thread.start ();
+			new Thread (() -> {
+				List<NameTag> base1NameTags = base1NameTagsList.get (jj);
+				insertBase1NameTags (base1NameTags);
+				endGate2.countDown ();
+			}).start ();
 		}
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				insertBase2NameTags (_base2NameTags);
-				endGate2.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			insertBase2NameTags (_base2NameTags);
+			endGate2.countDown ();
+		}).start ();
 
-		thread = new Thread () {
-			@Override
-			public void run () {
-				insertRawNameTags (_rawNameTags);
-				endGate2.countDown ();
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			insertRawNameTags (_rawNameTags);
+			endGate2.countDown ();
+		}).start ();
 
 		//wait for second set of inserts to complete
 		try {
 			endGate2.await ();
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.updateTagDatabase: endGate:", ee);
+			_log.error ("AlbumTags.updateTagDatabase: endGate2:", ee);
 		}
-		AlbumProfiling.getInstance ().exit (5, "updateTagDatabase (part 2)");
+		AlbumProfiling.getInstance ().exit (5, "updateTagDatabase.part2");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1219,8 +1153,10 @@ public class AlbumTags
 	//insert _batchInsertSize rows at a time; caller should use 'insert ignore' to avoid any problems with duplicates
 	private int insertStringsIntoTable (String sqlBase, String sqlValues, int numColumns, Collection<String> items)
 	{
-		int numItems = items.size ();
 
+//TODO - rewrite to use batch mode
+
+		int numItems = items.size ();
 		String id = sqlBase.split (" ")[3]; //id = hopefully get table name from insert statement
 		_log.debug ("AlbumTags.insertStringsIntoTable(\"" + id + "\"): rows = " + numItems / numColumns);
 
@@ -1240,8 +1176,7 @@ public class AlbumTags
 		int itemIndex = 0;
 		int itemsRemaining = numItems - itemIndex; //note only update as each chunk is executed, not on each loop
 
-		Connection connection = getConnection ();
-		try {
+		try (Connection connection = getConnection ()) {
 			connection.setAutoCommit (false);
 
 			//loop
@@ -1262,7 +1197,6 @@ public class AlbumTags
 				if (parameters.size () >= chunkSize) {
 					sb.setCharAt (0, ' '); //replace leading comma with space
 					sql += sb.toString ();
-//_log.debug ("AlbumTags.insertStringsIntoTable: sql = " + sql);
 					ps = connection.prepareStatement (sql);
 
 					int parameterIndex = 0;
@@ -1272,6 +1206,7 @@ public class AlbumTags
 
 					//execute
 					rowsInserted += ps.executeUpdate ();
+	                connection.commit ();
 
 					//re-init
 					ps.close ();
@@ -1287,7 +1222,6 @@ public class AlbumTags
 			if (parameters.size () > 0) {
 				sb.setCharAt (0, ' '); //replace leading comma with space
 				sql += sb.toString ();
-//_log.debug ("AlbumTags.insertStringsIntoTable: sql = " + sql);
 				ps = connection.prepareStatement (sql);
 
 				int parameterIndex = 0;
@@ -1304,25 +1238,22 @@ public class AlbumTags
 				ps = null;
 			}
 
-//		} catch (MySQLIntegrityConstraintViolationException ee) {
-		} catch (com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException ee) {
+			connection.setAutoCommit (true);
+
+		} catch (MySQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
-//			_log.debug ("Ignoring exception from database while adding " + name, ee);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.insertStringsIntoTable: error from Connection.prepareStatement or PreparedStatement.executeUpdate");
+			_log.error ("AlbumTags.insertStringsIntoTable:", ee);
 			_log.error ("AlbumTags.insertStringsIntoTable: sql:" + NL + sql);
-			_log.error (ee);
-//			ex.printStackTrace (System.err); //note this goes to (tomcat) stderr, not log4j log file
-//			return rowsInserted;
 
 		} finally {
-			if (connection != null) try { connection.setAutoCommit (true); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error ("Error", ex); }
 		}
 
 //		AlbumProfiling.getInstance ().exit (5);
+
+//		_log.debug ("AlbumTags.insertStringsIntoTable(\"" + id + "\"): rowsInserted = " + rowsInserted);
 
 		return rowsInserted;
 	}
@@ -1449,7 +1380,7 @@ public class AlbumTags
 
 		String value = defaultValue;
 		try {
-			Collection<String> strings = getStringsFromDatabase (sql);
+			Collection<String> strings = getObjectsFromDatabase (sql, new String ());
 			value = strings.toArray (new String[] {})[0];
 
 		} catch (Exception ee) {
@@ -1464,56 +1395,39 @@ public class AlbumTags
 	public Collection<String> getAllTags ()
 	{
 		String sql = "select tag from tags order by lower(tag)";
-		return getStringsFromDatabase (sql);
+		return getObjectsFromDatabase (sql, new String ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//assumes important data will be returned as a string in column 1
+	//assumes important data will be returned as type T in column 1
 	//used by servlet (indirectly): returns empty collection on error, or if no entries found
-	private Collection<String> getStringsFromDatabase (String sql)
+	@SuppressWarnings("unchecked")
+	private <T> Collection<T> getObjectsFromDatabase (String sql, T object)
 	{
-		String id = sql.split (" ")[1]; //id = hopefully get column name from select statement
+		AlbumProfiling.getInstance ().enter (5);
 
-		AlbumProfiling.getInstance ().enter (5, id);
+		Collection<T> items = new LinkedList<T> ();
 
-		Collection<String> items = new LinkedList<String> ();
+		try (Connection connection = getConnection ();
+			Statement statement = connection.createStatement ();
+			ResultSet rs = statement.executeQuery (sql)) {
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
-
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.getStringsFromDatabase: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-
-			return items;
-		}
-
-		ResultSet rs = null;
-		try {
-			rs = statement.executeQuery (sql);
 			while (rs.next ()) {
-				items.add (rs.getString (1));
+				if (object instanceof String) {
+					items.add ((T) rs.getString (1));
+				} else if (object instanceof Integer) {
+					items.add ((T) new Integer (rs.getInt (1)));
+				} else {
+					throw new RuntimeException ("AlbumTags.getObjectsFromDatabase: unhandled type: " + object.getClass ().getName ());
+				}
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getStringsFromDatabase: error from Statement.executeQuery");
-			_log.error ("AlbumTags.getStringsFromDatabase: sql:" + NL + sql);
-			_log.error (ee);
-			return items;
-
-		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			_log.error ("AlbumTags.getObjectsFromDatabase:", ee);
+			_log.error ("AlbumTags.getObjectsFromDatabase: sql:" + NL + sql);
 		}
 
-		AlbumProfiling.getInstance ().exit (5, id);
-
-		_log.debug ("AlbumTags.getStringsFromDatabase(\"" + id + "\"): items.size() = " + items.size ());
+		AlbumProfiling.getInstance ().exit (5);
 
 		return items;
 	}
@@ -1522,29 +1436,16 @@ public class AlbumTags
 	//returns empty map on error, or if no entries found
 	private Map<String, String> getStringMapFromDatabase (String sql)
 	{
-		String id = sql.split (" ")[1]; //id = hopefully get column name from select statement
+		String id = massageSqlToId (sql);
 
 		AlbumProfiling.getInstance ().enter (5, id);
 
 		Map<String, String> items = new HashMap<String, String> ();
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
+		try (Connection connection = getConnection ();
+			 Statement statement = connection.createStatement ();
+			 ResultSet rs = statement.executeQuery (sql)) {
 
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.getStringMapFromDatabase: error from Connection.createStatement",ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-
-			return items;
-		}
-
-		ResultSet rs = null;
-		try {
-			rs = statement.executeQuery (sql);
 			while (rs.next ()) {
 				String key = rs.getString (1);
 				String value = rs.getString (2);
@@ -1552,15 +1453,8 @@ public class AlbumTags
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getStringMapFromDatabase: error from Statement.executeQuery");
+			_log.error ("AlbumTags.getStringMapFromDatabase:", ee);
 			_log.error ("AlbumTags.getStringMapFromDatabase: sql:" + NL + sql);
-			_log.error (ee);
-			return items;
-
-		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		AlbumProfiling.getInstance ().exit (5, id);
@@ -1574,7 +1468,7 @@ public class AlbumTags
 	private int getCountFromDatabase (String table)
 	{
 		String sql = "select count(*) from " + table;
-		Collection<Integer> items = getIntsFromDatabase (sql);
+		Collection<Integer> items = getObjectsFromDatabase (sql, new Integer (0));
 
 		int count = 0;
 		if (items.size () > 0) {
@@ -1583,56 +1477,6 @@ public class AlbumTags
 		}
 
 		return count;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//assumes important data will be returned as in int in column 1
-	private Collection<Integer> getIntsFromDatabase (String sql)
-	{
-		String id = sql.split (" ")[1]; //id = hopefully get column name from select statement
-
-		AlbumProfiling.getInstance ().enter (5, id);
-
-		Collection<Integer> items = new LinkedList<Integer> ();
-
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
-
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.getIntsFromDatabase: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-
-			return items;
-		}
-
-		ResultSet rs = null;
-		try {
-			rs = statement.executeQuery (sql);
-			while (rs.next ()) {
-				items.add (rs.getInt (1));
-			}
-
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.getIntsFromDatabase: error from Statement.executeQuery");
-			_log.error ("AlbumTags.getIntsFromDatabase: sql:" + NL + sql);
-			_log.error (ee);
-			return items;
-
-		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-		}
-
-		AlbumProfiling.getInstance ().exit (5, id);
-
-//		_log.debug ("AlbumTags.getIntsFromDatabase(\"" + id + "\"): items.size() = " + items.size ());
-
-		return items;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1653,10 +1497,10 @@ public class AlbumTags
 		String tablePrefix = (collapseGroups ? "base2" : "base1");
 
 		String sql1 = "select distinct tag" + NL +
-					  " from " + tablePrefix + "_names bn" + NL +
-					  " join " + tablePrefix + "_names_tags bnt on bn.name_id = bnt.name_id" + NL +
-					  " join tags t on bnt.tag_id = t.tag_id" + NL +
-					  " where bn.name in (?";
+					  "from " + tablePrefix + "_names bn" + NL +
+					  "join " + tablePrefix + "_names_tags bnt on bn.name_id = bnt.name_id" + NL +
+					  "join tags t on bnt.tag_id = t.tag_id" + NL +
+					  "where bn.name in (?";
 		String sql2 = new String ();
 		String sql3 = ")" + NL + " order by lower(tag)";
 
@@ -1666,36 +1510,20 @@ public class AlbumTags
 		}
 
 		String sql = sql1 + sql2 + sql3;
+		List<String> tags = new ArrayList<String> ();
 
-		Connection connection = getConnection ();
-		PreparedStatement ps = null;
-		try {
-			ps = connection.prepareStatement (sql);
+		ResultSet rs = null;
+		try (Connection connection = getConnection ();
+			 PreparedStatement ps = connection.prepareStatement (sql)) {
 
 			int baseNameIndex = 0;
 			for (String baseName : baseNames) {
 				ps.setString (++baseNameIndex, baseName);
 			}
 
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.getTagsForBaseNames: error from Connection.prepareStatement");
-			_log.error ("AlbumTags.getTagsForBaseNames: sql:" + NL + sql);
-			_log.error (ee);
+//			String finalSql = ps.toString ().replaceFirst (" ", NL);
+//			_log.debug ("AlbumTags.getTagsForBaseNames: sql: " + finalSql);
 
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-
-			return new String ();
-		}
-
-		if (AlbumFormInfo._logLevel >= 9) {
-			String finalSql = ps.toString ().replaceFirst (" ", NL);
-			_log.debug ("AlbumTags.getTagsForBaseNames: sql: " + finalSql);
-		}
-
-		List<String> tags = new ArrayList<String> ();
-		ResultSet rs = null;
-		try {
 			rs = ps.executeQuery ();
 
 			while (rs.next ()) {
@@ -1703,15 +1531,11 @@ public class AlbumTags
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getTagsForBaseNames: error from PreparedStatement.executeQuery");
+			_log.error ("AlbumTags.getTagsForBaseNames:", ee);
 			_log.error ("AlbumTags.getTagsForBaseNames: sql:" + NL + sql);
-			_log.error (ee);
-			return new String ();
 
 		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error ("Error", ex); }
 		}
 
 		//truncate the list
@@ -1820,10 +1644,9 @@ public class AlbumTags
 			sql += sqlOrderByStub;
 		}
 
-		Connection connection = getConnection ();
-		PreparedStatement ps = null;
-		try {
-			ps = connection.prepareStatement (sql);
+		ResultSet rs = null;
+		try (Connection connection = getConnection ();
+			 PreparedStatement ps = connection.prepareStatement (sql)) {
 
 			int index = 1;
 
@@ -1840,24 +1663,6 @@ public class AlbumTags
 				ps.setString (index++, tagsNotIn[ii]);
 			}
 
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.getNamesForTags: error from Connection.prepareStatement");
-			_log.error ("AlbumTags.getNamesForTags: sql:" + NL + sql);
-			_log.error (ee);
-
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-
-			return baseNames;
-		}
-
-		if (AlbumFormInfo._logLevel >= 5) {
-			String finalSql = ps.toString ().replaceFirst (" ", NL);
-			_log.debug ("AlbumTags.getNamesForTags: sql: " + finalSql);
-		}
-
-		ResultSet rs = null;
-		try {
 			rs = ps.executeQuery ();
 
 			while (rs.next ()) {
@@ -1865,18 +1670,13 @@ public class AlbumTags
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.getNamesForTags: error from PreparedStatement.executeQuery");
+			_log.error ("AlbumTags.getNamesForTags:", ee);
 			_log.error ("AlbumTags.getNamesForTags: sql:" + NL + sql);
-			_log.error (ee);
-			return baseNames;
 
 		} finally {
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error ("Error", ex); }
 		}
 
-//TODO - should call exit in catch blocks
 		AlbumProfiling.getInstance ().exit (5);
 
 		return baseNames;
@@ -1886,21 +1686,40 @@ public class AlbumTags
 	private boolean resetTables ()
 	{
 		if (AlbumFormInfo._logLevel >= 5) {
-			_log.debug ("AlbumTags.resetTables");
+			_log.trace ("AlbumTags.resetTables");
 		}
 
-		resetTable ("config");
-		resetTable ("tags");
-		resetTable ("base1_names");
-		resetTable ("base2_names");
-		resetTable ("raw_names");
-		resetTable ("base1_names_tags");
-		resetTable ("base2_names_tags");
-		resetTable ("raw_names_tags");
-//		resetTable ("tags_filters");
-//TODO - catch bad return from previous calls
+		int errorCount = 0;
 
-		return true;
+		if (!resetTable("config")) {
+			errorCount++;
+		}
+		if (!resetTable("tags")) {
+			errorCount++;
+		}
+		if (!resetTable("base1_names")) {
+			errorCount++;
+		}
+		if (!resetTable("base2_names")) {
+			errorCount++;
+		}
+		if (!resetTable("raw_names")) {
+			errorCount++;
+		}
+		if (!resetTable("base1_names_tags")) {
+			errorCount++;
+		}
+		if (!resetTable("base2_names_tags")) {
+			errorCount++;
+		}
+		if (!resetTable("raw_names_tags")) {
+			errorCount++;
+		}
+//		if (resetTable ("tags_filters")) {
+//			errorCount++;
+//		}
+
+		return (errorCount > 0 ? false : true);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1908,68 +1727,25 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enter (7);
 
+		boolean status = true;
+
 		String sql = "truncate table " + tableName;
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
+		try (Connection connection = getConnection ();
+			 Statement statement = connection.createStatement ()){
 
-		} catch (Exception ee) {
-			_log.error ("AlbumTags.resetTable: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-
-			return false;
-		}
-
-		try {
 			statement.executeUpdate (sql);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumTags.resetTable: error from Statement.executeUpdate");
+			_log.error ("AlbumTags.resetTable:", ee);
 			_log.error ("AlbumTags.resetTable: sql:" + NL + sql);
-			_log.error (ee);
-			return false;
-
-		} finally {
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			status = false;
 		}
 
-//TODO - should call exit in catch blocks
 		AlbumProfiling.getInstance ().exit (7);
 
-		return true;
+		return status;
 	}
-
-/* obsolete
-	///////////////////////////////////////////////////////////////////////////
-	private Connection connectDatabase ()
-	{
-		//TODO - move connection info to properties file, with hard-coded defaults
-		final String jdbcDriver = "com.mysql.jdbc.Driver";
-		final String dbUrl = "jdbc:mysql://localhost/albumtags";
-		final String dbUser = "root";
-		final String dbPass = "root";
-
-//		_log.debug ("AlbumTags.connectDatabase: connecting to " + dbUrl);
-
-		try {
-			if (connection == null || !connection.isValid (/*timeout* 0)) {
-				Class.forName (jdbcDriver); //locate, load, and link the class
-				connection = DriverManager.getConnection (dbUrl, dbUser, dbPass);
-			}
-
-		} catch (Exception ee) {
-			connection = null;
-			_log.error ("AlbumTags.connectDatabase: error connecting to \"" + dbUrl + "\"", ee);
-		}
-
-		return connection;
-	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	private Connection getConnection ()
@@ -2013,6 +1789,16 @@ public class AlbumTags
 		}
 
 		return _dataSource;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private String massageSqlToId (String sql)
+	{
+		return sql.replaceAll ("select ", " ")
+				  .replaceAll ("from ", ":")
+				  .replaceAll ("order.*", " ")
+				  .replaceAll ("where.*", " ")
+				  .replaceAll (" ", "");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -2169,7 +1955,7 @@ public class AlbumTags
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+#;-#"); //print integer with +/- sign
-	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
+	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //print as integer
 	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
 
 	private static boolean _Debug = false;

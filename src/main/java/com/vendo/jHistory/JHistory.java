@@ -250,7 +250,7 @@ public final class JHistory
 		timingStart ();
 
 		Path path = FileSystems.getDefault ().getPath (_destDir, _historyFilename);
-		FileTime historyFileModified = FileTime.from (Instant.MIN);
+		FileTime historyFileModified = FileTime.from (Instant.MAX);
 		try {
 			historyFileModified = Files.getLastModifiedTime (path);
 		} catch (Exception ee) {
@@ -623,7 +623,7 @@ public final class JHistory
 	//private members
 	private String _destDir = null;
 	private List<UrlData> _historyFileContents = new ArrayList<UrlData> ();
-	private FileTime _historyFileModified = FileTime.from(Instant.MAX);
+	private FileTime _historyFileModified = FileTime.from (Instant.MIN);
 
 	private boolean _printTiming = true; //for performance timing
 	private Instant _startInstant = Instant.EPOCH; //for performance timing

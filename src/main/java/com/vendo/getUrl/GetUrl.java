@@ -31,7 +31,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeSet;
 import java.util.Vector;
 import java.util.regex.Pattern;
@@ -863,6 +862,8 @@ public class GetUrl
 	///////////////////////////////////////////////////////////////////////////
 	private boolean parseModel ()
 	{
+		_model = _model.replaceAll("\\/tn\\/", "/");
+
 		int lastSlash = _model.lastIndexOf ('/');
 		if (lastSlash < 0) {
 			_log.error ("parseModel: no slash found in '" + _model + "'");
@@ -1201,22 +1202,24 @@ public class GetUrl
 
 			_dist.put (bytes, new Integer (++count));
 
-			if (false) { //debug
-				_log.debug ("SizeDist.add - hash dump:");
-				for (Map.Entry<Integer, Integer> entry : _dist.entrySet ()) {
-					Integer key = entry.getKey ();
-					Integer val = entry.getValue ();
-					_log.debug (key + " bytes (" + val + " instances)");
-				}
+//			if (false) { //debug
+//				_log.debug ("SizeDist.add - hash dump:");
+//				for (Map.Entry<Integer, Integer> entry : _dist.entrySet ()) {
+//					Integer key = entry.getKey ();
+//					Integer val = entry.getValue ();
+//					_log.debug (key + " bytes (" + val + " instances)");
+//				}
+//			}
 
 //old way uses iterator (save as interesting example)
+//			if (false) { //debug
 //				for (Iterator<Map.Entry<Integer, Integer>> iter = _dist.entrySet ().iterator (); iter.hasNext ();) {
 //					Map.Entry<Integer, Integer> entry = iter.next ();
 //					Integer key = entry.getKey ();
 //					Integer val = entry.getValue ();
 //					_log.debug (key + " bytes (" + val + " instances)");
 //				}
-			}
+//			}
 
 			return count;
 		}

@@ -85,7 +85,6 @@ public class AlbumImageDao
 			albumImageDao.run ();
 
 		} catch (Exception ee) {
-//			ee.printStackTrace (System.err); //stderr not ideal for tomcat
 			_log.error ("AlbumImageDao.main: ", ee);
 		}
 
@@ -207,14 +206,10 @@ public class AlbumImageDao
 		//sync all subfolders at startup
 		final CountDownLatch endGate = new CountDownLatch (getAlbumSubFolders ().size ());
 		for (final String subFolder : getAlbumSubFolders ()) {
-			Thread thread = new Thread () {
-				@Override
-				public void run () {
-					syncFolder (subFolder);
-					endGate.countDown ();
-				}
-			};
-			thread.start ();
+			new Thread (() -> {
+				syncFolder (subFolder);
+				endGate.countDown ();
+			}).start ();
 		}
 		try {
 			endGate.await ();
@@ -253,7 +248,6 @@ public class AlbumImageDao
 
 			} catch (Exception ee) {
 				_log.error ("AlbumImageDao.run: ", ee);
-//				ee.printStackTrace ();
 			}
 		}
 	}
@@ -443,7 +437,7 @@ public class AlbumImageDao
 		final long minDatFileSize = 10000L;
 		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
 			if (fsDatFileDetail.getBytes() < minDatFileSize) {
-				String filePath = Paths.get (_rootPath, subFolder, fsDatFileDetail.getNameNoExt () + ".dat").toString ();
+				String filePath = Paths.get (_rootPath, subFolder, fsDatFileDetail.getName () + ".dat").toString ();
 				_log.debug ("AlbumImageDao.syncFolder: warning: too-small dat file (" + fsDatFileDetail.getBytes () + " < " + minDatFileSize + "): " + filePath);
 			}
 		}
@@ -453,76 +447,74 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private Thread createWatcherThreadsForFolder (String subFolder)
+	private Thread createWatcherThreadsForFolder (String subFolder1)
 	{
 		final BlockingQueue<AlbumImageEvent> queue = new LinkedBlockingQueue<AlbumImageEvent> ();
 
 		//start thread to watch queue and handle events
-		Thread thread = new Thread () {
-			@Override
-			public void run () {
-				while (true) {
-					try {
-						AlbumImageEvent albumImageEvent = queue.take (); //will block if queue is empty
+		new Thread (() -> {
+			while (true) {
+				try {
+					AlbumImageEvent albumImageEvent = queue.take (); //will block if queue is empty
 
-						Path dir = albumImageEvent.getDir ();
-						WatchEvent<Path> pathEvent = albumImageEvent.getPathEvent ();
+					Path dir = albumImageEvent.getDir ();
+					WatchEvent<Path> pathEvent = albumImageEvent.getPathEvent ();
 
-						Path file = pathEvent.context ();
-						Path path = dir.resolve (file);
-						String subFolder = dir.getName (dir.getNameCount () - 1).toString ();
+					Path file = pathEvent.context ();
+					Path path = dir.resolve (file);
+					String subFolder2 = dir.getName (dir.getNameCount () - 1).toString ();
 
-						//give file system a chance to settle
-						final long delayMillis = 5;
-						int sleepMillis = (int) (albumImageEvent.getTimestamp () + delayMillis - new GregorianCalendar ().getTimeInMillis ());
-						if (sleepMillis > 0) {
-							VendoUtils.sleepMillis (sleepMillis);
-						}
-
-						if (_Debug) {
-//						if (AlbumFormInfo._logLevel >= 6) {
-							if (sleepMillis > 0) {
-								_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder + "\"/" + queue.size () + "): " + pathEvent.kind ().name () + ": " + path.normalize ().toString () + ": slept " + sleepMillis + " ms");
-							} else {
-								_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder + "\"/" + queue.size () + "): " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
-							}
-						}
-
-						if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
-							handleFileCreate (subFolder, path);
-
-						} else if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY)) {
-							handleFileModify (subFolder, path);
-
-						} else if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_DELETE)) {
-							handleFileDelete (subFolder, path);
-
-						} else {
-							_log.warn ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder + "\"/" + queue.size () + "): unhandled event: " + pathEvent.kind ().name () + " on file: " + path.normalize ().toString ());
-						}
-
-						if (queue.size () == 0) {
-							_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder + "\") empty -------------------------------------------------------------------");
-						}
-
-					} catch (Exception ee) {
-						_log.error ("AlbumImageDao.WatchDir.queueHandler: ", ee);
-//						ex.printStackTrace (); //note this goes to (tomcat) stderr, not log4j log file
+					if (subFolder1.compareToIgnoreCase(subFolder2) != 0) {
+						_log.warn ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") subFolder mismatch: " + subFolder1 + " != " + subFolder2);
 					}
+
+					//give file system a chance to settle
+					final long delayMillis = 5;
+					int sleepMillis = (int) (albumImageEvent.getTimestamp () + delayMillis - new GregorianCalendar ().getTimeInMillis ());
+					if (sleepMillis > 0) {
+						VendoUtils.sleepMillis (sleepMillis);
+					}
+
+					if (_Debug) {
+						String message = "AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size () + "): " +
+										 pathEvent.kind ().name () + ": " + path.normalize ().toString ();
+						if (sleepMillis > 0) {
+							message += ": slept " + sleepMillis + " ms";
+						}
+						_log.debug (message);
+					}
+
+					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
+						handleFileCreate (subFolder2, path);
+
+					} else if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY)) {
+						handleFileModify (subFolder2, path);
+
+					} else if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_DELETE)) {
+						handleFileDelete (subFolder2, path);
+
+					} else {
+						_log.warn ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size () + "): unhandled event: " + pathEvent.kind ().name () + " on file: " + path.normalize ().toString ());
+					}
+
+					if (queue.size () == 0) {
+						_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") empty -------------------------------------------------------------------");
+					}
+
+				} catch (Exception ee) {
+					_log.error ("AlbumImageDao.WatchDir.queueHandler: ", ee);
 				}
 			}
-		};
-		thread.start ();
+		}).start ();
 
 		//start thread to watch for events, and put in queue
 		Thread watcherThread = null;
 		try {
-			final Path dir = FileSystems.getDefault ().getPath (_rootPath, subFolder);
+			final Path dir = FileSystems.getDefault ().getPath (_rootPath, subFolder1);
 
 			_log.debug ("AlbumImageDao.createWatcherThreadsForFolder: watching folder: " + dir.normalize ().toString ());
 
 			final Pattern pattern = Pattern.compile (".*\\" + _extension, Pattern.CASE_INSENSITIVE);
-//			boolean recurseSubdirs = true;
 			boolean recurseSubdirs = false;
 
 			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
@@ -532,7 +524,6 @@ public class AlbumImageDao
 				{
 					try {
 						if (_Debug) {
-//						if (AlbumFormInfo._logLevel >= 6) {
 							Path file = pathEvent.context ();
 							Path path = dir.resolve (file);
 							String subFolder = dir.getName (dir.getNameCount () - 1).toString ();
@@ -544,7 +535,6 @@ public class AlbumImageDao
 
 					} catch (Exception ee) {
 						_log.error ("AlbumImageDao.WatchDir.notify: ", ee);
-//						ex.printStackTrace (); //note this goes to (tomcat) stderr, not log4j log file
 					}
 				}
 
@@ -559,7 +549,7 @@ public class AlbumImageDao
 			watcherThread.start ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDao.createWatcherThreadsForFolder(\"" + subFolder + "\"): exception in continuous mode", ee);
+			_log.error ("AlbumImageDao.createWatcherThreadsForFolder(\"" + subFolder1 + "\"): exception in continuous mode", ee);
 		}
 
 		return watcherThread;
@@ -1242,55 +1232,6 @@ public class AlbumImageDao
 		return matchList;
 	}
 
-/*obsolete after MyBatis changes
-	///////////////////////////////////////////////////////////////////////////
-	//used by CLI and servlet
-	private Connection getConnection ()
-	{
-		Connection connection = null;
-
-		try {
-			connection = getDataSource ().getConnection ();
-
-		} catch (Exception ee) {
-			connection = null;
-			_log.error ("AlbumImageDao.getConnection: error connecting to database");
-			_log.error (ee);
-		}
-
-		return connection;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//used by CLI and servlet
-	private synchronized static BasicDataSource getDataSource ()
-	{
-		//TODO - move connection info to properties file, with hard-coded defaults
-		final String jdbcDriver = "com.mysql.jdbc.Driver";
-		final String dbUrl = "jdbc:mysql://localhost/albumimages";
-		final String dbUser = "root";
-		final String dbPass = "root";
-
-		if (_dataSource == null) {
-//			_log.debug ("AlbumTags.getDataSource: url = " + dbUrl);
-
-			BasicDataSource ds = new BasicDataSource ();
-			ds.setDriverClassName (jdbcDriver);
-			ds.setUrl (dbUrl);
-			ds.setUsername (dbUser);
-			ds.setPassword (dbPass);
-
-//			ds.setMinIdle (5);
-//			ds.setMaxIdle (10);
-//			ds.setMaxOpenPreparedStatements (100);
-
-			_dataSource = ds;
-		}
-
-		return _dataSource;
-	}
-*/
-
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
 	private class AlbumImagesData
@@ -1356,7 +1297,6 @@ public class AlbumImageDao
 		private final WatchEvent<Path> _pathEvent;
 	}
 
-
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
 	private static class AlbumImageDaoUncaughtExceptionHandler implements UncaughtExceptionHandler
@@ -1365,9 +1305,7 @@ public class AlbumImageDao
 		@Override
 		public void uncaughtException (Thread thread, Throwable ex)
 		{
-//			System.err.println ("UncaughtException: " + thread.getName () + ": ");
-//			ex.printStackTrace (); //note this goes to (tomcat) stderr, not log4j log file
-			_log.error ("AlbumImageDaoUncaughtExceptionHandler: ", ex);
+			_log.error ("AlbumImageDaoUncaughtExceptionHandler: thread: " + thread.getName () + ": ", ex);
 
 			if (_isCLI) { //restart any watcher threads that die
 				String subFolder = _watcherThreadMap.get (thread);
@@ -1391,13 +1329,11 @@ public class AlbumImageDao
 
 	private SqlSessionFactory _sqlSessionFactory = null;
 
-//	private static BasicDataSource _dataSource = null;
-
 	private String _rootPath = null;
 
 	private Collection<String> _subFolders = null;
 
-	private static AlbumImageDao _instance; //singleton
+	private static AlbumImageDao _instance = null;
 
 	private static final Map<Thread, String> _watcherThreadMap = new HashMap<Thread, String> ();
 

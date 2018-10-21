@@ -40,6 +40,7 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
 import com.vendo.vendoUtils.VendoUtils;
 
 
@@ -443,22 +444,10 @@ public class AlbumImageDiffer
 
 		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
+		try (Connection connection = getConnection ();
+			 Statement statement = connection.createStatement ();
+			 ResultSet rs = statement.executeQuery (sql)) {
 
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.queryImageIdsNames: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			return items;
-		}
-
-		ResultSet rs = null;
-		try {
-			rs = statement.executeQuery (sql);
 			while (rs.next ()) {
 				int nameId = rs.getInt ("name_id");
 				String name = rs.getString ("name_no_ext");
@@ -468,15 +457,8 @@ public class AlbumImageDiffer
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.queryImageIdsNames: error from Statement.executeQuery");
+			_log.error ("AlbumImageDiffer.queryImageIdsNames:", ee);
 			_log.error ("AlbumImageDiffer.queryImageIdsNames: sql:" + NL + sql);
-			_log.error (ee);
-			return items;
-
-		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		if (items.size () == 0) {
@@ -509,32 +491,20 @@ public class AlbumImageDiffer
 		}
 
 		//example where clause: "where tag = 'blue'"
-		String sql1 = "select distinct name from albumtags.base1_names where name_id in (" + NL +
-					  "select name_id from (" + NL +
-					  "(select name_id from albumtags.base1_names_tags" + NL +
-					  "inner join albumtags.tags on base1_names_tags.tag_id = tags.tag_id" + NL +
-					  "where tags.tag_id in (" + NL +
-					  "select tag_id from albumtags.tags " + NL +
-					  whereClause + NL +
-					  ")) order by rand() limit " + maxRowsForQuery + ") t)";
+		String sql = "select distinct name from albumtags.base1_names where name_id in (" + NL +
+					 "select name_id from (" + NL +
+					 "(select name_id from albumtags.base1_names_tags" + NL +
+					 "inner join albumtags.tags on base1_names_tags.tag_id = tags.tag_id" + NL +
+					 "where tags.tag_id in (" + NL +
+					 "select tag_id from albumtags.tags " + NL +
+					 whereClause + NL +
+					 ")) order by rand() limit " + maxRowsForQuery + ") t)";
 //		_log.debug ("AlbumImageDiffer.queryImageIdsTags: sql: " + NL + sql1);
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
+		try (Connection connection = getConnection ();
+			 Statement statement = connection.createStatement ();
+			 ResultSet rs = statement.executeQuery (sql)) {
 
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.queryImageIdsTags: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			return null;
-		}
-
-		ResultSet rs = null;
-		try {
-			rs = statement.executeQuery (sql1);
 			while (rs.next ()) {
 				String name = rs.getString ("name");
 				if (!useFilters || (useFilters && accept (name, filters))) {
@@ -543,20 +513,14 @@ public class AlbumImageDiffer
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.queryImageIdsTags: error from Statement.executeQuery");
-			_log.error ("AlbumImageDiffer.queryImageIdsTags: sql1:" + NL + sql1);
-			_log.error (ee);
+			_log.error ("AlbumImageDiffer.queryImageIdsTags:", ee);
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: sql:" + NL + sql);
 			return null;
-
-		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 		_log.debug ("AlbumImageDiffer.queryImageIdsTags: baseNames.size(): " + baseNames.size ());
 
 		if (baseNames.size () == 0) {
-			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: sql:" + NL + sql1);
+			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: sql:" + NL + sql);
 			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: filters:" + NL + filters);
 		}
 
@@ -671,22 +635,11 @@ public class AlbumImageDiffer
 
 		String sqlBase = "select name_id, name_no_ext, width, height from images where name_no_ext rlike ";
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
-
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			return items;
-		}
-
 		String sql = null;
 		ResultSet rs = null;
-		try {
+		try (Connection connection = getConnection ();
+			 Statement statement = connection.createStatement ()) {
+
 			for (String baseName : baseNames) {
 				sql = sqlBase + "'" + baseName + ".*'";
 				rs = statement.executeQuery (sql);
@@ -700,15 +653,11 @@ public class AlbumImageDiffer
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: error from Statement.executeQuery");
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB:", ee);
 			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: sql:" + NL + sql);
-			_log.error (ee);
-			return items;
 
 		} finally {
 			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		if (items.size () == 0) {
@@ -780,24 +729,22 @@ public class AlbumImageDiffer
 	{
 //		AlbumProfiling.getInstance ().enter (5);
 
-		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff, count, source) values";
-		String sqlValues = " (?, ?, ?, ?, ?, ?)";
-		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff), " +
-													"max_diff = values (max_diff), " +
-													"count = count + values(count), " +
-													"source = values (source), " +
-													"last_update = now()";
+		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff, count, source) values" + NL;
+		String sqlValues = "(?, ?, ?, ?, ?, ?)" + NL;
+		String sqlOnDup = "on duplicate key update avg_diff = values (avg_diff)," + NL +
+												  "max_diff = values (max_diff)," + NL +
+												  "count = count + values(count)," + NL +
+												  "source = values (source)," + NL +
+												  "last_update = now()";
 		String sql = sqlBase + sqlValues + sqlOnDup;
 
-		Connection connection = getConnection ();
-		PreparedStatement statement = null;
-
 		int rowsInserted = 0;
-		try {
-			connection.setAutoCommit (false);
-			int ii = 0;
+		try (Connection connection = getConnection ();
+			 PreparedStatement statement = connection.prepareStatement (sql)) {
 
-			statement = connection.prepareStatement (sql);
+			connection.setAutoCommit (false);
+
+			int ii = 0;
 	        for (AlbumImageDiffDetails item : items) {
 	        	statement.setInt (1, item.getNameId1 ());
 	        	statement.setInt (2, item.getNameId2 ());
@@ -818,22 +765,14 @@ public class AlbumImageDiffer
 	        	}
 	        }
 
-//		} catch (MySQLIntegrityConstraintViolationException ee) {
-		} catch (com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException ee) {
+	        connection.setAutoCommit (true);
+
+		} catch (MySQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
-//			_log.debug ("Ignoring exception from database while adding ??");// + name);
-			_log.error (ee);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs: error from Connection.prepareStatement or PreparedStatement.executeUpdate");
+			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs:", ee);
 			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs: sql:" + NL + sql);
-			_log.error (ee);
-//			return rowsInserted;
-
-		} finally {
-			if (connection != null) try { connection.setAutoCommit (true); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 //		_log.debug ("AlbumImageDiffer.insertImageIntoImageDiffs: rowsInserted: " + rowsInserted);
@@ -852,30 +791,18 @@ public class AlbumImageDiffer
 		Collection<AlbumImageDiffData> items = new ArrayList<AlbumImageDiffData> ();
 
 		int sinceMinutes = (int) (sinceDays * 24 * 60);
-		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.last_update as last_update" +
-					 " from image_diffs d" +
-					 " join images i1 on i1.name_id = d.name_id_1" +
-					 " join images i2 on i2.name_id = d.name_id_2" +
-					 " where d.avg_diff <= " + maxRgbDiff +
-					 " and last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" +
-					 " order by avg_diff, i1.name_no_ext, i2.name_no_ext";
+		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.last_update as last_update" + NL +
+					 "from image_diffs d" + NL +
+					 "join images i1 on i1.name_id = d.name_id_1" + NL +
+					 "join images i2 on i2.name_id = d.name_id_2" + NL +
+					 "where d.avg_diff <= " + maxRgbDiff + NL +
+					 "and last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" + NL +
+					 "order by avg_diff, i1.name_no_ext, i2.name_no_ext";
 
-		Connection connection = getConnection ();
-		Statement statement = null;
-		try {
-			statement = connection.createStatement ();
+		try (Connection connection = getConnection ();
+			 Statement statement = connection.createStatement ();
+			 ResultSet rs = statement.executeQuery (sql)) {
 
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: error from Connection.createStatement", ee);
-
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			return items;
-		}
-
-		ResultSet rs = null;
-		try {
-			rs = statement.executeQuery (sql);
 			while (rs.next ()) {
 				String name1 = rs.getString ("name_no_ext1");
 				String name2 = rs.getString ("name_no_ext2");
@@ -886,15 +813,8 @@ public class AlbumImageDiffer
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: error from Statement.executeQuery", ee);
+			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs:", ee);
 			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
-			_log.error (ee);
-			return items;
-
-		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (statement != null) try { statement.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
-			if (connection != null) try { connection.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
 		}
 
 		if (items.size () == 0) {

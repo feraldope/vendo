@@ -45,15 +45,9 @@ public class AlbumImageServer implements ServletContextListener
 //			}
 //		}
 
-		Thread thread = new Thread () {
-			@Override
-			public void run () {
-				AlbumImageDao.main (new String[] {
-									"/debug"
-				});
-			}
-		};
-		thread.start ();
+		new Thread (() -> {
+			AlbumImageDao.main (new String[] { "/debug" });
+		}).start ();
 	}
 
 

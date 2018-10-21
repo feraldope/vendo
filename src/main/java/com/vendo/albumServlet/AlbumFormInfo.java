@@ -244,19 +244,11 @@ public class AlbumFormInfo
 
 		//handle values in properties file
 		Properties properties = new Properties ();
-		InputStream inputStream = null;
-		try {
-			inputStream = context.getResourceAsStream (_propertiesFile);
+		try (InputStream inputStream = context.getResourceAsStream (_propertiesFile)) {
 			properties.load (inputStream);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumFormInfo.processRequest: failed to read properties file \"" + _propertiesFile + "\"");
-		} finally {
-			try {
-				inputStream.close ();
-			} catch (Exception ee) {
-				//ignore
-			}
+			_log.error ("AlbumFormInfo.processRequest: failed to read properties file \"" + _propertiesFile + "\"", ee);
 		}
 
 		//string properties that are booleans
@@ -1046,11 +1038,11 @@ public class AlbumFormInfo
 		return _server;
 	}
 
-//	///////////////////////////////////////////////////////////////////////////
-//	public boolean getShowRgbData ()
-//	{
-//		return _showRgbData;
-//	}
+	///////////////////////////////////////////////////////////////////////////
+	public static boolean getShowRgbData ()
+	{
+		return _showRgbData;
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public void setMaxFilters (int maxFilters)
@@ -1301,13 +1293,14 @@ public class AlbumFormInfo
 
 	//global variables - NOT PART OF BEAN
 	public static boolean _Debug = false;
-	public static boolean _showRgbData = false;
 	public static int _profileLevel = 5; //note this value is in use until processRequest() is called
 	public static int _logLevel = 5; //note this value is in use until processRequest() is called
 	public static int _maxFilesDir = 300000; //soft limit - used to init collections
 	public static int _maxFilesSubdir = 40000; //soft limit - used to init collections
 	public static int _maxFilePatterns = 3000; //soft limit - used to init collections
 	public static int _maxImageScalePercent; //don't scale images over this size
+
+	private static boolean _showRgbData = false;
 
 	private static AlbumFormInfo _instance = null;
 
