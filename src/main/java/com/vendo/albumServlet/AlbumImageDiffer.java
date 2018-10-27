@@ -798,6 +798,7 @@ public class AlbumImageDiffer
 					 "where d.avg_diff <= " + maxRgbDiff + NL +
 					 "and last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" + NL +
 					 "order by avg_diff, i1.name_no_ext, i2.name_no_ext";
+//		_log.debug ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
 
 		try (Connection connection = getConnection ();
 			 Statement statement = connection.createStatement ();

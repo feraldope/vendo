@@ -1177,7 +1177,7 @@ public class AlbumTags
 		int itemsRemaining = numItems - itemIndex; //note only update as each chunk is executed, not on each loop
 
 		try (Connection connection = getConnection ()) {
-			connection.setAutoCommit (false);
+//			connection.setAutoCommit (false);
 
 			//loop
 			for (String item : items) {
@@ -1206,7 +1206,7 @@ public class AlbumTags
 
 					//execute
 					rowsInserted += ps.executeUpdate ();
-	                connection.commit ();
+//	                connection.commit ();
 
 					//re-init
 					ps.close ();
@@ -1231,14 +1231,14 @@ public class AlbumTags
 
 				//execute
 				rowsInserted += ps.executeUpdate ();
-                connection.commit ();
+//				connection.commit ();
 
 				//cleanup
 				ps.close ();
 				ps = null;
 			}
 
-			connection.setAutoCommit (true);
+//			connection.setAutoCommit (true);
 
 		} catch (MySQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions

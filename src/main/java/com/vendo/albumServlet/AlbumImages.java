@@ -234,7 +234,7 @@ public class AlbumImages
 		String[] tagsOut = _form.getTags (AlbumTagMode.TagOut);
 		String[] excludes = _form.getExcludes ();
 		int maxFilters = _form.getMaxFilters ();
-		long sinceInMillis = _form.getSinceInMillis ();
+		long sinceInMillis = _form.getSinceInMillis (/*truncateToMidnightBoundary*/ true);
 		boolean tagFilterOperandOr = _form.getTagFilterOperandOr ();
 		boolean useCase = _form.getUseCase ();
 
@@ -358,7 +358,7 @@ public class AlbumImages
 
 		int numImages = 0;
 		if (dbCompare) {
-			numImages = doDir (new String[] {"*"}, excludes, /*sinceInMillis*/ 0); //ignore sinceInMillis here; it will be honored below
+			numImages = doDir (new String[] {"*"}, excludes, /*sinceInMillis*/ 0); //use "*" here, as filtering will be done below
 		} else {
 			numImages = doDir (filters, excludes, /*sinceInMillis*/ 0); //ignore sinceInMillis here; it will be honored below
 		}
@@ -609,14 +609,19 @@ public class AlbumImages
 					map.put (image.getName (), image);
 				}
 
-				AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
 				final double sinceDays = _form.getHighlightDays (); //TODO - using highlightDays is a HACK
+				//debugging
+				long highlightInMillis = _form.getHighlightInMillis (/*truncateToMidnightBoundary*/ false);
+				_log.debug ("AlbumImages.doDup: since/highlight date/time: " + _dateFormat.format (new Date (highlightInMillis)));
+
+				AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
 				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (_form.getMaxRgbDiffs (), sinceDays);
 
 				for (AlbumImageDiffData item : imageDiffData) {
 					AlbumImage image1 = map.get (item.getName1 ());
 					AlbumImage image2 = map.get (item.getName2 ());
-					if (image1.getOrientation () == image2.getOrientation ()) {
+					//images can be null if excludes was used
+					if (image1 != null && image2 != null && image1.getOrientation () == image2.getOrientation ()) {
 						//at least one of each pair must be accepted by filter1
 						if (filter1.accept (null, image1.getName ()) || filter1.accept (null, image2.getName ())) {
 							AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff ());
@@ -1168,14 +1173,14 @@ public class AlbumImages
 		}
 
 		double sinceDays = _form.getSinceDays ();
-		long sinceInMillis = _form.getSinceInMillis ();
+		long sinceInMillis = _form.getSinceInMillis (/*truncateToMidnightBoundary*/ true);
 		String sinceStr = new String ();
 		if (sinceInMillis > 0)
 			sinceStr = " (since " + _dateFormat.format (new Date (sinceInMillis)) + ")";
 
 		int highlightMinPixels = _form.getHighlightMinPixels ();
 		int highlightMaxKilobytes = _form.getHighlightMaxKilobytes ();
-		long highlightInMillis = _form.getHighlightInMillis ();
+		long highlightInMillis = _form.getHighlightInMillis (/*truncateToMidnightBoundary*/ true);
 		String highlightStr = new String ();
 		if (highlightInMillis > 0)
 			highlightStr = " (highlight " + _dateFormat.format (new Date (highlightInMillis)) + ")";

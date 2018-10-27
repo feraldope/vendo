@@ -25,7 +25,6 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
@@ -762,28 +761,14 @@ public class AlbumFormInfo
 		return _sinceDays;
 	}
 
-	//truncate to midnight boundary
-	public long getSinceInMillis ()
+	public long getSinceInMillis (boolean truncateToMidnightBoundary)
 	{
-		if (getSinceDays () == 0) { //0 means disabled, 1 means last night at midnight, 2 means yesterday at midnight, etc.
+		if (getSinceDays () == 0) { //0 means disabled
 			return 0;
 		}
 
 		if (_sinceInMillis < 0) {
-			Calendar date = new GregorianCalendar ();
-			date.set (Calendar.HOUR_OF_DAY, 0);
-			date.set (Calendar.MINUTE, 0);
-			date.set (Calendar.SECOND, 0);
-			date.set (Calendar.MILLISECOND, 0);
-
-			int days = (int) getSinceDays ();
-			date.add (Calendar.DAY_OF_MONTH, 1 - days);
-			_sinceInMillis = date.getTimeInMillis ();
-
-			if (_Debug) {
-				String sinceStr = _dateFormat.format (new Date (_sinceInMillis));
-				_log.debug ("AlbumFormInfo.getSinceInMillis: since date: " + sinceStr);
-			}
+			_highlightInMillis = getMillisFromDays (getHighlightDays (), truncateToMidnightBoundary);
 		}
 
 		return _sinceInMillis;
@@ -1067,28 +1052,14 @@ public class AlbumFormInfo
 		return _highlightDays;
 	}
 
-	//truncate to midnight boundary
-	public long getHighlightInMillis ()
+	public long getHighlightInMillis (boolean truncateToMidnightBoundary)
 	{
-		if (getHighlightDays () == 0) { //0 means disabled, 1 means last night at midnight, 2 means yesterday at midnight, etc.
+		if (getHighlightDays () == 0) { //0 means disabled
 			return 0;
 		}
 
 		if (_highlightInMillis < 0) {
-			Calendar date = new GregorianCalendar ();
-			date.set (Calendar.HOUR_OF_DAY, 0);
-			date.set (Calendar.MINUTE, 0);
-			date.set (Calendar.SECOND, 0);
-			date.set (Calendar.MILLISECOND, 0);
-
-			int days = (int) getHighlightDays ();
-			date.add (Calendar.DAY_OF_MONTH, 1 - days);
-			_highlightInMillis = date.getTimeInMillis ();
-
-			if (_Debug) {
-				String highlightStr = _dateFormat.format (new Date (_highlightInMillis));
-				_log.debug ("AlbumFormInfo.getHighlightInMillis: highlight date: " + highlightStr);
-			}
+			_highlightInMillis = getMillisFromDays (getHighlightDays (), truncateToMidnightBoundary);
 		}
 
 		return _highlightInMillis;
@@ -1110,6 +1081,36 @@ public class AlbumFormInfo
 	public String getMethod ()
 	{
 		return "get";
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private long getMillisFromDays (double days, boolean truncateToMidnightBoundary)
+	{
+		Calendar date = new GregorianCalendar (); //now
+
+		if (truncateToMidnightBoundary) {
+			//truncate to last night at midnight; days = 1 means last night at midnight, 2 means yesterday at midnight, etc.
+			date.set (Calendar.HOUR_OF_DAY, 0);
+			date.set (Calendar.MINUTE, 0);
+			date.set (Calendar.SECOND, 0);
+			date.set (Calendar.MILLISECOND, 0);
+
+			date.add (Calendar.DAY_OF_MONTH, 1 - (int) days);
+
+		} else {
+			double minutes = 60 * 24 * days;
+
+			date.add (Calendar.MINUTE, (int) -minutes);
+		}
+
+		long millis = date.getTimeInMillis ();
+
+//		if (_Debug) {
+//			String highlightStr = _dateFormat.format (new Date (millis));
+//			_log.debug ("AlbumFormInfo.getMillisFromDays(" + days + ", " + truncateToMidnightBoundary + "): highlight date: " + highlightStr);
+//		}
+
+		return millis;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
