@@ -33,6 +33,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -219,7 +220,7 @@ public class AlbumImageDao
 
 		Map<String, Integer> misMatchedMap = getMismatchedEntriesFromImageCounts ();
 		for (String str : misMatchedMap.keySet ()) {
-			_log.debug ("AlbumImageDao.run: syncFolders: found images files in wrong folder: " + str);
+			_log.debug ("AlbumImageDao.run: syncFolders: found image files in wrong folder: " + str);
 		}
 
 		AlbumFormInfo._profileLevel = saveProfileLevel; //disable profiling during syncFolder
@@ -348,53 +349,68 @@ public class AlbumImageDao
 			String nameNoExt = imageFileDetail.toString ();
 			if (!AlbumImage.isValidImageName (nameNoExt)) {
 				if (!nameNoExt.startsWith ("q-")) { //hack
-					_log.error ("AlbumImageDao.syncFolder: warning: invalid image name \"" + nameNoExt + "\"");
+					_log.warn ("AlbumImageDao.syncFolder: warning: invalid image name \"" + nameNoExt + "\"");
 				}
 			}
 		}
 
 		//validate image names have consistent numbering ----------------------
 
-		final int numPatterns = 6;
-		final List<Pattern> patterns = new ArrayList <Pattern> (numPatterns);
+		final int numPatterns = 5;
+		final List<Pattern> patterns1 = new ArrayList <Pattern> (numPatterns);
+		final List<Pattern> patterns2 = new ArrayList <Pattern> (numPatterns);
 		for (int ii = 0; ii < numPatterns; ii++) {
 			//note array index is 0-based, but pattern string is 1-based
 			String numberValue = (ii < numPatterns - 1 ? String.valueOf (ii + 1) : String.valueOf (ii + 1) + ",99");
-			Pattern pattern = Pattern.compile ("(?!\\s).*-\\d{" + numberValue + "}"); //regex [non-whitespace][dash][specific number of digits]
-			patterns.add (ii, pattern);
+			patterns1.add (ii, Pattern.compile ("^[A-Za-z]*[0-9]*\\-[0-9]{" + numberValue + "}$")); //regex [letters][digits][dash][specific number of digits]
+			patterns2.add (ii, Pattern.compile ("^[A-Za-z]*[0-9]{" + numberValue + "}\\-[0-9]*$")); //regex [letters][specific number of digits][dash][digits]
 		}
 
-		String prevBaseName = new String ();
-		List<Boolean> hasMatches = null;
-		dbImageFileDetails.add (new AlbumImageFileDetails ("dummy", 0, 0)); //hack add dummy value for loop processing
+		String prevBaseName1 = new String ();
+		String prevBaseName2 = new String ();
+		List<Boolean> hasMatches1 = new ArrayList <Boolean> (Collections.nCopies (numPatterns, false));
+		List<Boolean> hasMatches2 = new ArrayList <Boolean> (Collections.nCopies (numPatterns, false));
+		dbImageFileDetails.add (new AlbumImageFileDetails ("dummy", 0, 0)); //HACK - add dummy value to the end for loop processing
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
 			String nameNoExt = imageFileDetail.toString ();
-			String baseName = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ false);
+			String baseName1 = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ false);
+			String baseName2 = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ true);
 
 			//skip some known offenders
 			if (nameNoExt.startsWith ("q") || nameNoExt.startsWith ("x")) {
 				continue;
 			}
 
-			if (baseName.compareToIgnoreCase (prevBaseName) != 0) {
+			if (baseName1.compareToIgnoreCase (prevBaseName1) != 0) {
 				//complete processing for this baseName
-				List<Integer> matchList = getMatchList (hasMatches);
-				if (matchList.size () > 1) {
-					_log.debug ("AlbumImageDao.syncFolder: warning: inconsistent numbering: " + matchList + " digits: " + prevBaseName);
+				String matchList = getMatchList (hasMatches1);
+				if (matchList.length () > 1) {
+					_log.warn ("AlbumImageDao.syncFolder: warning: inconsistent numbering: [" + matchList + "] digits: " + prevBaseName1);
 				}
 
 				//reset for next baseName
-				hasMatches = new ArrayList <Boolean> (numPatterns);
-				for (int ii = 0; ii < numPatterns; ii++) {
-					hasMatches.add (ii, false);
+				hasMatches1 = new ArrayList <Boolean> (Collections.nCopies (numPatterns, false));
+				prevBaseName1 = baseName1;
+			}
+
+			if (baseName2.compareToIgnoreCase (prevBaseName2) != 0) {
+				//complete processing for this baseName
+				String matchList = getMatchList (hasMatches2);
+				if (matchList.length () > 1) {
+					_log.warn ("AlbumImageDao.syncFolder: warning: inconsistent numbering: [" + matchList + "] digits: " + prevBaseName2);
 				}
 
-				prevBaseName = baseName;
+				//reset for next baseName
+				hasMatches2 = new ArrayList <Boolean> (Collections.nCopies (numPatterns, false));
+				prevBaseName2 = baseName2;
 			}
 
 			for (int ii = 0; ii < numPatterns; ii++) {
-				if (patterns.get (ii).matcher (nameNoExt).matches ()) {
-					hasMatches.set (ii, true);
+				if (patterns1.get (ii).matcher (nameNoExt).matches ()) {
+					hasMatches1.set (ii, true);
+				}
+				if (patterns2.get (ii).matcher (nameNoExt).matches ()) {
+					hasMatches2.set (ii, true);
 				}
 			}
 		}
@@ -428,7 +444,7 @@ public class AlbumImageDao
 										   .collect (Collectors.toList ());
 			for (String str : sorted) {
 				String filePath = Paths.get (_rootPath, subFolder, str + ".dat").toString ();
-				_log.debug ("AlbumImageDao.syncFolder: warning: missing .jpg for : " + filePath);
+				_log.warn ("AlbumImageDao.syncFolder: warning: missing .jpg for : " + filePath);
 			}
 		}
 
@@ -438,7 +454,7 @@ public class AlbumImageDao
 		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
 			if (fsDatFileDetail.getBytes() < minDatFileSize) {
 				String filePath = Paths.get (_rootPath, subFolder, fsDatFileDetail.getName () + ".dat").toString ();
-				_log.debug ("AlbumImageDao.syncFolder: warning: too-small dat file (" + fsDatFileDetail.getBytes () + " < " + minDatFileSize + "): " + filePath);
+				_log.warn ("AlbumImageDao.syncFolder: warning: too-small dat file (" + fsDatFileDetail.getBytes () + " < " + minDatFileSize + "): " + filePath);
 			}
 		}
 
@@ -704,6 +720,14 @@ public class AlbumImageDao
 			long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
 			imagesData = new AlbumImagesData (images, nowInMillis);
 			_albumImagesDataCache.put (subFolder, imagesData);
+
+			Set<String> misFiled = images.stream ()
+										 .filter (s -> !subFolder.equalsIgnoreCase (s.getNameFirstLetterLower ()))
+										 .map (s -> s.getBaseName (true))
+										 .collect (Collectors.toSet ());
+			if (misFiled.size () > 0) {
+				_log.error ("AlbumImageDao.getImagesFromCache(" + subFolder + "): found image files in wrong folder: " + VendoUtils.collectionToString (misFiled));
+			}
 		}
 
 		AlbumProfiling.getInstance ().exit (7, subFolder);
@@ -1215,21 +1239,14 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
-	//returns List of indexes that have true in the passed-in List
-	private static List<Integer> getMatchList (List<Boolean> hasMatches)
+	//returns comma separated list of indexes that have true in the passed-in List
+	private static String getMatchList (List<Boolean> hasMatches)
 	{
-		List<Integer> matchList = new ArrayList<Integer> ();
-
-		if (hasMatches != null) {
-			for (int ii = 0; ii < hasMatches.size (); ii++) {
-				//note array index is 0-based, but pattern string is 1-based
-				if (hasMatches.get (ii) != null && hasMatches.get (ii) == true) {
-					matchList.add (ii + 1);
-				}
-			}
-		}
-
-		return matchList;
+		//note array index is 0-based, but pattern string is 1-based
+		return IntStream.range (0, hasMatches.size ())
+						.filter(i -> hasMatches.get(i) == true)
+						.mapToObj (i -> String.valueOf (i + 1))
+						.collect (Collectors.joining (","));
 	}
 
 	///////////////////////////////////////////////////////////////////////////

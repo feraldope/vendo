@@ -417,18 +417,11 @@ public class AlbumImages
 		if (looseCompare && !dbCompare) {
 			final List<VPair<Integer, Integer>> allCombos = getAllCombos (numImages);
 
-			int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
-//			int maxThreads = VendoUtils.getLogicalProcessors () - 1;
-
-			int chunkSize = allCombos.size ();
-			if (chunkSize == 0) {
-				chunkSize = 1;
-			} else if (chunkSize > maxThreads * 20) {
-				chunkSize = 1 + allCombos.size () / maxThreads;
-			}
-
+			final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
+			final int minPerThread = 100;
+			final int chunkSize = calculateChunk (maxThreads, minPerThread, allCombos.size ()).getFirst ();
 			List<List<VPair<Integer, Integer>>> allComboChunks = ListUtils.partition (allCombos, chunkSize);
-			int numChunks = allComboChunks.size ();
+			final int numChunks = allComboChunks.size ();
 			_log.debug ("AlbumImages.doDup: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
 
 			long maxElapsedSecs1 = 30;
@@ -443,7 +436,7 @@ public class AlbumImages
 
 			final CountDownLatch endGate = new CountDownLatch (numChunks);
 
-			for (List<VPair<Integer, Integer>> comboChunk : allComboChunks) {
+			for (final List<VPair<Integer, Integer>> comboChunk : allComboChunks) {
 //				_log.debug ("AlbumImages.doDup: comboChunk.size = " + _decimalFormat2.format (comboChunk.size ()));
 				new Thread (() -> {
 					for (VPair<Integer, Integer> vpair : comboChunk) {
@@ -798,6 +791,40 @@ public class AlbumImages
 		}
 
 		return (int) maxComparisons;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//tries to honor minPerChunk, but never more than maxChunks
+	//returns <chunkSize, numChunks>
+	public static VPair<Integer, Integer> calculateChunk (int maxChunks, int minPerChunk, int numItems)
+	{
+		int numChunks = 0;
+		int chunkSize = 0;
+
+		if (numItems == 0) { //special case
+			numChunks = 0;
+			chunkSize = 1;
+
+		} else if (numItems <= minPerChunk) {
+			numChunks = 1;
+			chunkSize = numItems;
+
+		} else if (numItems <= maxChunks * minPerChunk) {
+			numChunks = numItems / minPerChunk;
+			chunkSize = roundUp ((double) numItems / numChunks);
+
+		} else {
+			numChunks = maxChunks;
+			chunkSize = roundUp ((double) numItems / numChunks);
+		}
+
+		return VPair.of (chunkSize, numChunks);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static int roundUp (double x)
+	{
+		return (int) Math.ceil (x);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1619,26 +1646,6 @@ public class AlbumImages
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	public static <T> String collectionToString (Collection<T> collection)
-	{
-		return arrayToString (collection.toArray (new Object[] {}));
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	public static String arrayToString (Object[] items)
-	{
-		StringBuilder sb = new StringBuilder (items.length * 15);
-
-		for (Object item : items) {
-			sb.append (", ").append (item.toString ());
-		}
-
-		int startIndex = (sb.length () > 2 ? 2 : 0); //skip initial comma and space, if there
-
-		return sb.substring (startIndex);
-	}
-
-	///////////////////////////////////////////////////////////////////////////
 	public static String[] addArrays (String[] items1, String[] items2)
 	{
 		ArrayList<String> list = new ArrayList<String> (items1.length + items2.length);
@@ -1747,7 +1754,7 @@ public class AlbumImages
 	private static final String NL = System.getProperty ("line.separator");
 	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm");
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("###,##0.0");
-	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
+	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
 
 	private static AlbumImages _instance = null;
 	private static String _prevRootPath = "";

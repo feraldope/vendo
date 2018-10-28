@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -754,7 +755,7 @@ public class AlbumTags
 		AlbumFormInfo._logLevel = 1;
 		for (String tagIn : tagsIn) {
 			Collection<String> rawNames = getNamesForTags (/*useCase*/ false, new String[] {tagIn});
-			String string = AlbumImages.collectionToString (rawNames);
+			String string = VendoUtils.collectionToString (rawNames);
 			out.println (tagIn + _tagMarker1 + string + ", ");
 		}
 		AlbumFormInfo._logLevel = saveLogLevel;
@@ -945,62 +946,69 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enterAndTrace (5);
 
-		Collection<TagFilter1> tagFilters = new ArrayList<TagFilter1> ();
+		List<TagFilter1> tagFilters = new ArrayList<TagFilter1> ();
 		for (String tag : tagMap.keySet ()) {
 			for (String filterString : tagMap.get (tag)) {
 				AlbumFileFilter filter = new AlbumFileFilter (new String[] {filterString}, null, /*useCase*/ false, /*sinceInMillis*/ 0);
 				tagFilters.add (new TagFilter1 (tag, filter));
 			}
 		}
-//		_log.debug ("AlbumTags.checkForOrphanFilters: tagFilters.size() = " + tagFilters.size ());
+
+		final int maxThreads = 10 * VendoUtils.getLogicalProcessors ();
+		final int minPerThread = 1000;
+		final int chunkSize = AlbumImages.calculateChunk (maxThreads, minPerThread, tagFilters.size ()).getFirst ();
+		List<List<TagFilter1>> tagFilterChunks = ListUtils.partition (tagFilters, chunkSize);
+		final int numChunks = tagFilterChunks.size ();
+		_log.debug ("AlbumTags.checkForOrphanFilters: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
 
 		List<String> allBase1Names = new ArrayList<String> ();
 		for (String subFolder : _albumBase1NameMap.keySet ()) {
 			allBase1Names.addAll (_albumBase1NameMap.get (subFolder));
 		}
-//		_log.debug ("AlbumTags.checkForOrphanFilters: allBase1Names.size() = " + allBase1Names.size ());
 
 		final ExecutorService executor = AlbumImages.getExecutor ();
-		final CountDownLatch endGate = new CountDownLatch (tagFilters.size ());
+		final CountDownLatch endGate = new CountDownLatch (numChunks);
 
 		HashMap<String, String> orphanMap = new HashMap<String, String> ();
 
-		for (final TagFilter1 tagFilter : tagFilters) {
+		for (final List<TagFilter1> filterChunk : tagFilterChunks) {
 			Runnable task = () -> {
-				AlbumFileFilter filter = tagFilter._filter;
-				int minExpectedMatches = filter.getMinItemCount ();
+				for (final TagFilter1 tagFilter : filterChunk) {
+					AlbumFileFilter filter = tagFilter._filter;
+					int minExpectedMatches = filter.getMinItemCount ();
 
-				int foundMatches = 0;
-				Set<String> remainingFiles = new HashSet<String> (); //use set to eliminate dups
-				for (String base1Name : allBase1Names) {
-					if (filter.accept (null, base1Name)) {
-						foundMatches++;
-						remainingFiles.add (base1Name);
-						if (foundMatches >= minExpectedMatches) {
-							break;
+					int foundMatches = 0;
+					Set<String> remainingFiles = new HashSet<String> (); //use set to eliminate dups
+					for (String base1Name : allBase1Names) {
+						if (filter.accept (null, base1Name)) {
+							foundMatches++;
+							remainingFiles.add (base1Name);
+							if (foundMatches >= minExpectedMatches) {
+								break;
+							}
 						}
 					}
-				}
 
-				if (foundMatches < minExpectedMatches) {
-					synchronized (orphanMap) {
-						String value = orphanMap.get (tagFilter._filter.toString ());
-						if (value == null) {
-							value = tagFilter._tag;
-						} else {
-							value += ", " + tagFilter._tag;
+					if (foundMatches < minExpectedMatches) {
+						synchronized (orphanMap) {
+							String value = orphanMap.get (tagFilter._filter.toString ());
+							if (value == null) {
+								value = tagFilter._tag;
+							} else {
+								value += ", " + tagFilter._tag;
+							}
+
+							orphanMap.put (tagFilter._filter.toString (), value);
+							printWithColor (_warningColor, "orphan filter: " + tagFilter._filter.toString () + ", tag: " + value +
+												", remaining files: " + Arrays.toString (remainingFiles.toArray ()));
 						}
-
-						orphanMap.put (tagFilter._filter.toString (), value);
-						printWithColor (_warningColor, "orphan filter: " + tagFilter._filter.toString () + ", tag: " + value +
-											", remaining files: " + Arrays.toString (remainingFiles.toArray ()));
 					}
 				}
 				endGate.countDown ();
 			};
 			executor.execute (task);
 		}
-		_log.debug ("AlbumTags.checkForOrphanFilters: queued " + _decimalFormat2.format (tagFilters.size ()) + " threads");
+		_log.debug ("AlbumTags.checkForOrphanFilters: queued " + _decimalFormat2.format (numChunks) + " threads");
 
 		try {
 			endGate.await ();
@@ -1046,8 +1054,8 @@ public class AlbumTags
 		//run first set of inserts
 		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase.part1");
 
-		final int numStepsFirst = 5;
-		final CountDownLatch endGate1 = new CountDownLatch (numStepsFirst);
+		final int numStepsPart1 = 5;
+		final CountDownLatch endGate1 = new CountDownLatch (numStepsPart1);
 
 		new Thread (() -> {
 			writeTagDatabase (tagFileMap);
@@ -1086,17 +1094,18 @@ public class AlbumTags
 		//run second set of inserts
 		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase.part2");
 
-		final int batchSize = 30000;
-		final List<List<NameTag>> base1NameTagsList = ListUtils.partition ((List<NameTag>) _base1NameTags, batchSize);
-//		_log.debug ("AlbumTags.updateTagDatabase: base1NameTagsList.size() = " + base1NameTagsList.size ());
+		final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
+		final int minPerThread = 1000;
+		final int chunkSize = AlbumImages.calculateChunk (maxThreads, minPerThread, _base1NameTags.size ()).getFirst ();
+		final List<List<NameTag>> base1NameTagsList = ListUtils.partition ((List<NameTag>) _base1NameTags, chunkSize);
+		final int numChunks = base1NameTagsList.size ();
+		_log.debug ("AlbumTags.updateTagDatabase: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
 
-		final int numStepsSecond = 2 + base1NameTagsList.size ();
-		final CountDownLatch endGate2 = new CountDownLatch (numStepsSecond);
+		final int numStepsPart2 = 2 + numChunks;
+		final CountDownLatch endGate2 = new CountDownLatch (numStepsPart2);
 
-		for (int ii = 0; ii < base1NameTagsList.size (); ii++) {
-			final int jj = ii;
+		for (final List<NameTag> base1NameTags : base1NameTagsList) {
 			new Thread (() -> {
-				List<NameTag> base1NameTags = base1NameTagsList.get (jj);
 				insertBase1NameTags (base1NameTags);
 				endGate2.countDown ();
 			}).start ();
@@ -1153,92 +1162,40 @@ public class AlbumTags
 	//insert _batchInsertSize rows at a time; caller should use 'insert ignore' to avoid any problems with duplicates
 	private int insertStringsIntoTable (String sqlBase, String sqlValues, int numColumns, Collection<String> items)
 	{
-
-//TODO - rewrite to use batch mode
-
-		int numItems = items.size ();
-		String id = sqlBase.split (" ")[3]; //id = hopefully get table name from insert statement
-		_log.debug ("AlbumTags.insertStringsIntoTable(\"" + id + "\"): rows = " + numItems / numColumns);
-
-		if (numItems == 0)
-			return 0;
-
-		int rowsInserted = 0;
+//TODO: validate that collection size is multiple of numColumns
 
 //		AlbumProfiling.getInstance ().enter (5);
 
-		//init
-		String sql = sqlBase;
-		PreparedStatement ps = null;
-		StringBuffer sb = new StringBuffer ();
-		Collection<String> parameters = new ArrayList<String> ();
-		int chunkSize = _batchInsertSize * numColumns;
-		int itemIndex = 0;
-		int itemsRemaining = numItems - itemIndex; //note only update as each chunk is executed, not on each loop
+		String sql = sqlBase + sqlValues;
+//		_log.debug ("AlbumTags.insertStringsIntoTable: sql: " + sql);
 
-		try (Connection connection = getConnection ()) {
-//			connection.setAutoCommit (false);
+		int rowsInserted = 0;
+		try (Connection connection = getConnection ();
+			 PreparedStatement statement = connection.prepareStatement (sql)) {
+//			_log.debug ("AlbumTags.insertStringsIntoTable: connection: " + connection);
 
-			//loop
-			for (String item : items) {
-				itemIndex++;
+			connection.setAutoCommit (false);
 
-				//build up entire values string for this loop
-				if (sb.length () == 0) {
-					int innerLoop = Math.min (itemsRemaining / numColumns, _batchInsertSize);
-					for (int jj = 0; jj < innerLoop; jj++) {
-						sb.append (",").append (sqlValues);
-					}
-				}
+			int batchCount = 0;
+ 			Iterator<String> iter = items.iterator ();
+			while (iter.hasNext ()) {
+	        	for (int col = 0; col < numColumns; col++) {
+		        	statement.setString (1 + col, iter.next ());
+	        	}
+	        	statement.addBatch ();
+	        	batchCount++;
 
-				parameters.add (item);
+	        	if (batchCount % _batchInsertSize == 0 || !iter.hasNext ()) {
+	        		int [] updateCounts = statement.executeBatch ();
+	        		rowsInserted += Arrays.stream (updateCounts).sum ();
 
-				//execute chunk
-				if (parameters.size () >= chunkSize) {
-					sb.setCharAt (0, ' '); //replace leading comma with space
-					sql += sb.toString ();
-					ps = connection.prepareStatement (sql);
+//        			AlbumProfiling.getInstance ().enter (5, "commit");
+	       			connection.commit ();
+//	       			AlbumProfiling.getInstance ().exit (5, "commit");
+	        	}
+	        }
 
-					int parameterIndex = 0;
-					for (String parameter : parameters) {
-						ps.setString (++parameterIndex, parameter);
-					}
-
-					//execute
-					rowsInserted += ps.executeUpdate ();
-//	                connection.commit ();
-
-					//re-init
-					ps.close ();
-					ps = null;
-					parameters.clear ();
-					sql = sqlBase;
-					sb = new StringBuffer ();
-					itemsRemaining = numItems - itemIndex;
-				}
-			}
-
-			//execute remainder
-			if (parameters.size () > 0) {
-				sb.setCharAt (0, ' '); //replace leading comma with space
-				sql += sb.toString ();
-				ps = connection.prepareStatement (sql);
-
-				int parameterIndex = 0;
-				for (String parameter : parameters) {
-					ps.setString (++parameterIndex, parameter);
-				}
-
-				//execute
-				rowsInserted += ps.executeUpdate ();
-//				connection.commit ();
-
-				//cleanup
-				ps.close ();
-				ps = null;
-			}
-
-//			connection.setAutoCommit (true);
+	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
 		} catch (MySQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
@@ -1246,14 +1203,11 @@ public class AlbumTags
 		} catch (Exception ee) {
 			_log.error ("AlbumTags.insertStringsIntoTable:", ee);
 			_log.error ("AlbumTags.insertStringsIntoTable: sql:" + NL + sql);
-
-		} finally {
-			if (ps != null) try { ps.close (); } catch (SQLException ex) { _log.error ("Error", ex); }
 		}
 
-//		AlbumProfiling.getInstance ().exit (5);
+//		_log.debug ("AlbumTags.insertStringsIntoTable: rowsInserted: " + rowsInserted);
 
-//		_log.debug ("AlbumTags.insertStringsIntoTable(\"" + id + "\"): rowsInserted = " + rowsInserted);
+//		AlbumProfiling.getInstance ().exit (5);
 
 		return rowsInserted;
 	}
@@ -1363,7 +1317,7 @@ public class AlbumTags
 		for (String tag : tagMap.keySet ()) {
 			List<String> filterList = new ArrayList<String> (tagMap.get (tag));
 			Collections.sort (filterList, AlbumFormInfo.caseInsensitiveStringComparator);
-			String filterStr = VendoUtils.arrayToString (filterList.toArray (new String[] {}), ", ");
+			String filterStr = VendoUtils.arrayToString (filterList.toArray (new String[] {}));
 			tagFilters.add (new TagFilter2 (tag, filterStr));
 		}
 
@@ -1541,7 +1495,7 @@ public class AlbumTags
 		//truncate the list
 		int maxTagsShown = 30;
 		VendoUtils.truncateList (tags, maxTagsShown);
-		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}), ", ");
+		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}));
 
 		AlbumProfiling.getInstance ().exit (5);
 
@@ -1562,9 +1516,9 @@ public class AlbumTags
 	public Collection<String> getNamesForTags (boolean useCase, String[] tagsIn, String[] tagsNotIn, String[] filters)
 	{
 		if (AlbumFormInfo._logLevel >= 5) {
-			_log.debug ("AlbumTags.getNamesForTags: tagsIn = \"" + AlbumImages.arrayToString (tagsIn) + "\"");
-			_log.debug ("AlbumTags.getNamesForTags: tagsNotIn = \"" + AlbumImages.arrayToString (tagsNotIn) + "\"");
-			_log.debug ("AlbumTags.getNamesForTags: filters = \"" + AlbumImages.arrayToString (filters) + "\"");
+			_log.debug ("AlbumTags.getNamesForTags: tagsIn = \"" + VendoUtils.arrayToString (tagsIn) + "\"");
+			_log.debug ("AlbumTags.getNamesForTags: tagsNotIn = \"" + VendoUtils.arrayToString (tagsNotIn) + "\"");
+			_log.debug ("AlbumTags.getNamesForTags: filters = \"" + VendoUtils.arrayToString (filters) + "\"");
 		}
 
 		Collection<String> baseNames = new ArrayList<String> ();
@@ -1829,8 +1783,8 @@ public class AlbumTags
 			return _name + ", " + _tag;
 		}
 
-		private String _name;
-		private String _tag;
+		private final String _name;
+		private final String _tag;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1842,14 +1796,14 @@ public class AlbumTags
 			_filter = filter;
 		}
 
-//		@Override
-//		public String toString ()
-//		{
-//			return _tag + ": " + _filter;
-//		}
+		@Override
+		public String toString ()
+		{
+			return _tag + ": " + _filter;
+		}
 
-		private String _tag;
-		private AlbumFileFilter _filter;
+		private final String _tag;
+		private final AlbumFileFilter _filter;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1861,14 +1815,14 @@ public class AlbumTags
 			_filter = filter;
 		}
 
-//		@Override
-//		public String toString ()
-//		{
-//			return _tag + ": " + _filter;
-//		}
+		@Override
+		public String toString ()
+		{
+			return _tag + ": " + _filter;
+		}
 
-		private String _tag;
-		private String _filter;
+		private final String _tag;
+		private final String _filter;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1954,8 +1908,8 @@ public class AlbumTags
 	private static final String _tagMarker2 = " == ";
 
 	private static final String NL = System.getProperty ("line.separator");
-	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+#;-#"); //print integer with +/- sign
-	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //print as integer
+	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+#;-#"); //format integer with +/- sign
+	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
 	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
 
 	private static boolean _Debug = false;

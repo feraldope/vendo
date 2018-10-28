@@ -744,7 +744,7 @@ public class AlbumImageDiffer
 
 			connection.setAutoCommit (false);
 
-			int ii = 0;
+			int batchCount = 0;
 	        for (AlbumImageDiffDetails item : items) {
 	        	statement.setInt (1, item.getNameId1 ());
 	        	statement.setInt (2, item.getNameId2 ());
@@ -753,9 +753,9 @@ public class AlbumImageDiffer
 	        	statement.setInt (5, item.getCount ());
 	        	statement.setString (6, item.getSource ());
 	        	statement.addBatch ();
+	        	batchCount++;
 
-	        	ii++;
-	        	if (ii % 1000 == 0 || ii == items.size ()) {
+	        	if (batchCount % _batchInsertSize == 0 || batchCount == items.size ()) {
 	        		int [] updateCounts = statement.executeBatch ();
 	        		rowsInserted += Arrays.stream (updateCounts).sum ();
 
@@ -765,7 +765,7 @@ public class AlbumImageDiffer
 	        	}
 	        }
 
-	        connection.setAutoCommit (true);
+	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
 		} catch (MySQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
@@ -996,6 +996,7 @@ public class AlbumImageDiffer
 	//members
 	private SqlSessionFactory _sqlSessionFactory = null;
 	private String _defaultRootFolder = "jroot";
+	private int _batchInsertSize = 1000;
 
 	private Collection<AlbumImageData> _idListB = null;
 	private Collection<AlbumImageData> _idListA = null;

@@ -53,15 +53,18 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String args[])
 	{
+		boolean runTest = true;
+		boolean skipTest = true;
+
 		//syntax test: create thread using lambda expression, then start it
-		if (true) {
+		if (runTest) {
 			for (int ii = 0; ii < 10; ii++) {
 				new Thread (() -> System.out.println ("Thread name: " + Thread.currentThread ().getName ())).start ();
 			}
 		}
 
 		//print system properties (sorted)
-		if (false) {
+		if (skipTest) {
 		    List<String> sorted = System.getProperties ().stringPropertyNames ().stream ()
 																				.map (v -> v + "=" + System.getProperty (v).trim ())
 																				.sorted (caseInsensitiveStringComparator)
@@ -74,7 +77,7 @@ public class VendoUtils
 		}
 
 		//print environment variables (sorted)
-		if (false) {
+		if (skipTest) {
 		    List<String> sorted = System.getenv ().entrySet ().stream ()
 															  .map (v -> v.getKey () + "=" + v.getValue ())
 															  .sorted (caseInsensitiveStringComparator)
@@ -87,7 +90,7 @@ public class VendoUtils
 		}
 
 		//print command line arguments to Java VM
-		if (false) {
+		if (skipTest) {
 		    List<String> sorted = ManagementFactory.getRuntimeMXBean ().getInputArguments ().stream ()
 																							.sorted (caseInsensitiveStringComparator)
 																							.collect (Collectors.toList ());
@@ -99,7 +102,7 @@ public class VendoUtils
 		}
 
 		//print available character sets (sorted)
-		if (false) {
+		if (skipTest) {
 		    List<String> sorted = Charset.availableCharsets ().keySet ().stream ()
 																		.sorted (caseInsensitiveStringComparator)
 																		.collect (Collectors.toList ());
@@ -111,7 +114,7 @@ public class VendoUtils
 		}
 
 		//print available time zones (sorted)
-		if (false) {
+		if (skipTest) {
 		    List<String> sorted = ZoneId.getAvailableZoneIds ().stream ()
 															   .sorted (caseInsensitiveStringComparator)
 															   .collect (Collectors.toList ());
@@ -123,7 +126,7 @@ public class VendoUtils
 		}
 
 		//print known logger names (!sorted)
-		if (false) {
+		if (skipTest) {
 //this fails with "error: cannot find symbol", symbol: method getLogManager(), location: class LogManager
 //			org.apache.logging.log4j.LogManager logManager = org.apache.logging.log4j.LogManager.getLogManager ();
 
@@ -137,16 +140,16 @@ public class VendoUtils
 		}
 
 		//find jar/class
-		if (false) {
+		if (skipTest) {
 			System.out.println ("--------------- Find Jar/Class ---------------");
 			try {
-				Class cls = Class.forName ("JpgInfo.JpgInfo");
+				Class<?> cls = Class.forName ("JpgInfo.JpgInfo");
 				ClassLoader cLoader = cls.getClassLoader ();
 				if (cLoader == null) {
 					System.out.println ("The default system class was used.");
 
 				} else {
-					Class loaderClass = cLoader.getClass ();
+					Class<? extends ClassLoader> loaderClass = cLoader.getClass ();
 					System.out.println ("Class associated with ClassLoader = " + loaderClass.getName ());
 				}
 				System.out.println (cls.getClassLoader ()
@@ -159,7 +162,7 @@ public class VendoUtils
 		}
 
 		//print class path (not sorted!)
-		if (false) {
+		if (skipTest) {
 			ClassLoader classLoader = ClassLoader.getSystemClassLoader ();
 			URL[] urls = ((URLClassLoader) classLoader).getURLs ();
 
@@ -170,7 +173,7 @@ public class VendoUtils
 		}
 
 		//test findPattern and replacePattern
-		if (false) {
+		if (skipTest) {
 			final String strings[] = {
 				"foo23bar456baz8put",
 				"012dog3cat7bird78"
@@ -198,7 +201,7 @@ public class VendoUtils
 		}
 
 		//test matchPattern ()
-		if (false) {
+		if (skipTest) {
 			System.out.println ("");
 			System.out.println ("These should match:");
 			matchTest ("foobar", "foobar");
@@ -235,7 +238,7 @@ public class VendoUtils
 		}
 
 		//test unitSuffixScale ()
-		if (false) {
+		if (skipTest) {
 			{ //test KB
 				System.out.println ("");
 
@@ -265,7 +268,7 @@ public class VendoUtils
 		}
 
 		//test listAllThreads ()
-		if (false) {
+		if (skipTest) {
 			List<String> threadDetails = new ArrayList<String> ();
 			listAllThreads (threadDetails);
 
@@ -275,14 +278,14 @@ public class VendoUtils
 		}
 
 		//test the speed of various methods for getting the caller *class* name (not method name)
-		if (false) {
+		if (skipTest) {
 			testMethod (new ReflectionMethod ());
 			testMethod (new ThreadStackTraceMethod ());
 			testMethod (new ThrowableStackTraceMethod ());
 			testMethod (new SecurityManagerMethod ());
 		}
 
-		if (false) {
+		if (skipTest) {
 			System.out.println ("--------------- Test color printing ---------------");
 
 			final short fg = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
@@ -310,7 +313,7 @@ public class VendoUtils
 			System.out.println ("");
 		}
 
-		if (false) {
+		if (skipTest) {
 			System.out.println ("--------------- Compare Lists ---------------");
 			compareLists ();
 		}
@@ -328,7 +331,7 @@ public class VendoUtils
 	private static class ReflectionMethod extends GetCallerClassNameMethod
 	{
 		@Override
-		@SuppressWarnings ("deprecation")
+		@SuppressWarnings ({ "deprecation", "restriction" })
 		public String getCallerClassName (int callStackDepth)
 		{
 			return sun.reflect.Reflection.getCallerClass (callStackDepth).getName ();
@@ -390,6 +393,7 @@ public class VendoUtils
 		}
 		private final static MySecurityManager _mySecurityManager = new MySecurityManager ();
 	}
+	@SuppressWarnings("unused")
 	private static void testMethod (GetCallerClassNameMethod method)
 	{
 		long startTime = System.nanoTime ();
@@ -684,10 +688,10 @@ public class VendoUtils
 		sb.append ("Request Protocol: " + request.getProtocol () + NL);
 		sb.append ("Request URI: " + request.getRequestURI () + NL);
 
-		Enumeration headerNames = request.getHeaderNames ();
+		Enumeration<String> headerNames = request.getHeaderNames ();
 		sb.append ("Request Headers:" + NL);
 		while (headerNames.hasMoreElements ()) {
-			String headerName = (String) headerNames.nextElement ();
+			String headerName = headerNames.nextElement ();
 			sb.append (headerName + ": " + request.getHeader (headerName) + NL);
 		}
 
@@ -775,7 +779,22 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//Note this is very similar to Arrays.toString ()
+	//use these version for Collections
+	public static <T> String collectionToString (Collection<T> collection)
+	{
+		return collectionToString (collection, ", ");
+	}
+	public static <T> String collectionToString (Collection<T> collection, String separator)
+	{
+		return arrayToString (collection.toArray (new Object[] {}), separator);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//Note these are very similar to Arrays.toString ()
+	public static <T> String arrayToString (T[] items)
+	{
+		return arrayToString (items, ", ");
+	}
 	public static <T> String arrayToString (T[] items, String separator)
 	{
 		StringBuffer sb = new StringBuffer (items.length * 10);
@@ -1127,63 +1146,6 @@ public class VendoUtils
 			ee.printStackTrace ();
 		}
 	}
-
-/*
-	///////////////////////////////////////////////////////////////////////////
-	//original from: http://www.java2s.com/Code/Java/Collections-Data-Structure/intarraytobytearray.htm
-//TODO: endian-ness?
-	public static byte[] int2byte (int[] src) {
-		int srcLength = src.length;
-		byte[] dst = new byte[srcLength << 2];
-
-		for (int ii = 0; ii < srcLength; ii++) {
-			int x = src[ii];
-			int jj = ii << 2;
-
-			if (true) {
-				dst[jj++] = (byte) ((x >>> 0) & 0xff);
-				dst[jj++] = (byte) ((x >>> 8) & 0xff);
-				dst[jj++] = (byte) ((x >>> 16) & 0xff);
-				dst[jj++] = (byte) ((x >>> 24) & 0xff);
-			} else {
-				dst[jj++] = (byte) ((x >>> 24) & 0xff);
-				dst[jj++] = (byte) ((x >>> 16) & 0xff);
-				dst[jj++] = (byte) ((x >>> 8) & 0xff);
-				dst[jj++] = (byte) ((x >>> 0) & 0xff);
-			}
-		}
-
-		return dst;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//original from: http://www.java2s.com/Code/Java/Collections-Data-Structure/bytearraytointarray.htm
-//TODO: endian-ness?
-	public static int[] byte2int (byte[] src) {
-		int dstLength = src.length >>> 2;
-		int[] dst = new int[dstLength];
-
-		for (int ii = 0; ii < dstLength; ii++) {
-			int jj = ii << 2;
-			int x = 0;
-
-			if (true) {
-				x += (src[jj++] & 0xff) << 0;
-				x += (src[jj++] & 0xff) << 8;
-				x += (src[jj++] & 0xff) << 16;
-				x += (src[jj++] & 0xff) << 24;
-			} else {
-				x += (src[jj++] & 0xff) << 24;
-				x += (src[jj++] & 0xff) << 16;
-				x += (src[jj++] & 0xff) << 8;
-				x += (src[jj++] & 0xff) << 0;
-			}
-			dst[ii] = x;
-		}
-
-		return dst;
-	}
-*/
 
 
 	//members

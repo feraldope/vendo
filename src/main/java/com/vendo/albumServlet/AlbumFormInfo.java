@@ -18,7 +18,6 @@ package com.vendo.albumServlet;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -1308,7 +1307,7 @@ public class AlbumFormInfo
 	private final boolean _debugProperties = false;
 
 //	private static final String NL = System.getProperty ("line.separator");
-	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm");
+//	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm");
 
 	private static final String _basePath = "E:/Netscape/Program/"; //need trailing slash
 	private static final String _albumRoot = "/albumRoot/"; //should match tomcat's server.xml

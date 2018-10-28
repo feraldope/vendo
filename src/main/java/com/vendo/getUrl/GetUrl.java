@@ -876,7 +876,7 @@ public class GetUrl
 		String parts1[] = splitLeaf (remainder, _blockNumber);
 
 		if (_Debug) {
-			_log.debug ("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString (parts1, ", "));
+			_log.debug ("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString (parts1));
 		}
 
 		if (parts1.length != 2) {

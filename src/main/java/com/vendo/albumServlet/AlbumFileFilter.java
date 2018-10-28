@@ -12,13 +12,15 @@ import java.util.regex.Pattern;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.vendo.vendoUtils.VendoUtils;
+
 
 public class AlbumFileFilter implements FilenameFilter
 {
 	///////////////////////////////////////////////////////////////////////////
 	AlbumFileFilter (String[] includeFilters, String[] excludeFilters, boolean useCase, long sinceInMillis)
 	{
-		final boolean debugCtor = false;
+		boolean debugCtor = false;
 
 		int patternFlags = (useCase ? 0 : Pattern.CASE_INSENSITIVE);
 
@@ -65,7 +67,6 @@ public class AlbumFileFilter implements FilenameFilter
 
 					} catch (Exception ee) {
 						AlbumFormInfo.getInstance ().addServletError ("Ignoring invalid includeFilter: \"" + orinalIncludeFilter + "\": " + ee);
-//						throw new RuntimeException ("AlbumFileFilter ctor: invalid includeFilter = \"" + orinalIncludeFilter + "\": " + ee);
 					}
 				}
 			}
@@ -93,7 +94,6 @@ public class AlbumFileFilter implements FilenameFilter
 
 					} catch (Exception ee) {
 						AlbumFormInfo.getInstance ().addServletError ("Ignoring invalid excludeFilter: \"" + orinalExcludeFilter + "\": " + ee);
-//						throw new RuntimeException ("AlbumFileFilter ctor: invalid excludeFilter = \"" + orinalExcludeFilter + "\": " + ee);
 					}
 				}
 			}
@@ -262,27 +262,25 @@ public class AlbumFileFilter implements FilenameFilter
 	@Override
 	public String toString ()
 	{
-		StringBuffer sb = new StringBuffer ();
+		final String separator = ",";
+		final StringBuilder sb = new StringBuilder ();
 
-//		if (_includeAllFiles) {
-//			sb.append (", ")
-//			  .append ("<allFiles>");
-//		}
-
-//		if (_includeAllFolders) {
-//			sb.append (", ")
-//			  .append ("<allFolders>");
-//		}
-
-		if (_includePatterns != null) {
-			for (Pattern pattern : _includePatterns) {
-				String patternString = AlbumFormInfo.convertRegexToWildcards (pattern.toString ());
-				sb.append (", ")
-				  .append (patternString);
-			}
+		if (_includeAllFiles) {
+			sb.append (separator).append ("<allFiles>");
 		}
 
-		int startIndex = (sb.length () > 2 ? 2 : 0); //skip initial comma and space, if there
+		if (_includeAllFolders) {
+			sb.append (separator).append ("<allFolders>");
+		}
+
+		if (_includePatterns != null) {
+			_includePatterns.stream ()
+							.map (p -> AlbumFormInfo.convertRegexToWildcards (p.toString ()))
+							.sorted (VendoUtils.caseInsensitiveStringComparator)
+							.forEach (s -> sb.append (separator).append (s));
+		}
+
+		int startIndex = (sb.length () > separator.length () ? separator.length () : 0); //step over initial separator, if there
 
 		return sb.substring (startIndex);
 	}
