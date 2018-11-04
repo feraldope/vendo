@@ -289,8 +289,6 @@ where d.avg_diff < d.max_diff and
 -- order by avg desc, i1.name_no_ext
 order by d.last_update
 
-
-
 -- number of rows with mismatched orientation vs all rows
 select count(*) from (
 select 
@@ -315,5 +313,19 @@ order by d.last_update
 union all
 select count(*) from image_diffs
 
+-- count distribution (includes rows that no longer have existing images)
+select 'Total' as count, count(count) as rows from image_diffs
+union all 
+select count as count, count(count) as rows from image_diffs group by count 
+
+-- avg_diff distribution (includes rows that no longer have existing images)
+select 'Total' as diff, count(avg_diff) as rows from image_diffs
+union all 
+select avg_diff as diff, count(avg_diff) as rows from image_diffs group by avg_diff 
+
+-- image_diffs date ranges
+select 'Min' as name, min(last_update) as last_update from image_diffs
+union all 
+select 'Max' as name, max(last_update) as last_update from image_diffs
 
 */

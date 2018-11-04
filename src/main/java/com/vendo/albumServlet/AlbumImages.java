@@ -204,8 +204,9 @@ public class AlbumImages
 						File origFile = new File (origName);
 
 						if (!origFile.renameTo (newFile)) {
-							_log.error ("AlbumImages.processParams: rename failed (" + origFile.getCanonicalPath () +
-																			  " to " + newFile.getCanonicalPath () + ")");
+							String message = "rename failed (" + origFile.getCanonicalPath () + " to " + newFile.getCanonicalPath () + ")";
+							_log.error ("AlbumImages.processParams: " + message);
+							_form.addServletError ("Error " + message);
 						} else {
 							imagesRemoved++;
 						}
@@ -575,9 +576,9 @@ public class AlbumImages
 			}
 
 			if (timeElapsedCount.get () > 0) {
-				String message = "Warning: time elapsed in " + timeElapsedCount.get () + " of " + numChunks + " threads; partial results ************************************************************";
-				_log.debug ("AlbumImages.doDup: " + message);
-				form.addServletError (message);
+				String message = "time elapsed in " + timeElapsedCount.get () + " of " + numChunks + " threads; partial results ************************************************************";
+				_log.warn ("AlbumImages.doDup: " + message);
+				form.addServletError ("Warning: " + message);
 			}
 
 			AlbumProfiling.getInstance ().enterAndTrace (5, "dups.add");
@@ -1127,24 +1128,8 @@ public class AlbumImages
 			font1 = "fontsize24";
 		}
 
-		String servletErrorsHtml = new String ();
-		if (_form.getNumServletErrors () > 0) {
-			StringBuilder sb1 = new StringBuilder (200);
-			if (numImages > 0) {
-				sb1.append ("<TR>").append (NL);
-			}
-
-			sb1.append ("<TD class=\"")
-			   .append (font1)
-			   .append ("\" ALIGN=LEFT>")
-			   .append (_form.getServletErrorsHtml ()).append (NL)
-			   .append ("</TD>").append (NL);
-
-			if (numImages > 0) {
-				sb1.append ("</TR>").append (NL);
-			}
-			servletErrorsHtml = sb1.toString ();
-		}
+		String tagsMarker = "<tagsMarker>";
+		String servletErrorsMarker = "<servletErrorsMarker>";
 
 		if (numImages == 0) {
 			StringBuilder sb1 = new StringBuilder (200);
@@ -1152,7 +1137,7 @@ public class AlbumImages
 			   .append (_tableBorderPixels)
 			   .append (">").append (NL)
 			   .append ("<TR>").append (NL)
-			   .append (servletErrorsHtml)
+			   .append (servletErrorsMarker)
 			   .append ("<TD class=\"")
 			   .append (font1)
 			   .append ("\" ALIGN=RIGHT>")
@@ -1162,13 +1147,16 @@ public class AlbumImages
 			   .append ("</TR>").append (NL)
 			   .append ("</TABLE>").append (NL)
 			   .append ("No images").append (NL);
+			String htmlString = sb1.toString ();
+
+			//replace servletErrorsMarker with any servlet errors
+			htmlString = htmlString.replace (servletErrorsMarker, getServletErrorsHtml ());
 
 			AlbumProfiling.getInstance ().exit (1);
-			return sb1.toString ();
+			return htmlString;
 		}
 
 		String imageUrlPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ true);
-		String tagMarker = "<tagMarker>";
 
 		AlbumMode mode = _form.getMode ();
 		int defaultCols = _form.getDefaultColumns ();
@@ -1220,7 +1208,7 @@ public class AlbumImages
 		  .append (_tableBorderPixels)
 		  .append (">").append (NL);
 
-		sb.append (servletErrorsHtml);
+		sb.append (servletErrorsMarker);
 
 		sb.append ("<TR>").append (NL)
 		  .append ("<TD class=\"")
@@ -1239,7 +1227,7 @@ public class AlbumImages
 		  .append (sinceStr)
 		  .append (highlightStr)
 		  .append ("</NOBR>")
-		  .append (tagMarker)
+		  .append (tagsMarker)
 		  .append ("</TD>").append (NL)
 		  .append ("<a name=\"topAnchor\"></a>").append (NL)
 		  .append ("<TD class=\"")
@@ -1541,16 +1529,13 @@ public class AlbumImages
 		  .append ("<TR><TD>&nbsp</TD></TR>").append (NL)
 		  .append ("</TABLE>").append (NL);
 
-		//replace tagMarker with tags
-		String tagStr = AlbumTags.getInstance ().getTagsForBaseNames (imagesInSlice, collapseGroupsForTags);
-		if (tagStr.length () != 0) {
-			StringBuilder sb1 = new StringBuilder (512);
-			sb1.append (" (tags: ")
-			   .append (tagStr)
-			   .append (")");
-			tagStr = sb1.toString ();
-		}
-		String htmlString = sb.toString ().replace (tagMarker, tagStr);
+		String htmlString = sb.toString ();
+
+		//replace tagsMarker with any tags
+		htmlString = htmlString.replace (tagsMarker, getTagsString (imagesInSlice, collapseGroupsForTags));
+
+		//replace servletErrorsMarker with any servlet errors
+		htmlString = htmlString.replace (servletErrorsMarker, getServletErrorsHtml ());
 
 		if (AlbumFormInfo._Debug)
 			_log.debug ("AlbumImages.generateHtml: imageCount = " + imageCount);
@@ -1558,6 +1543,48 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().exit (1);
 
 		return htmlString;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private String getTagsString (Set<String> imagesInSlice, boolean collapseGroupsForTags)
+	{
+		StringBuilder sb = new StringBuilder (64);
+
+		String tagsStr = AlbumTags.getInstance ().getTagsForBaseNames (imagesInSlice, collapseGroupsForTags);
+		if (tagsStr.length () > 0) {
+			sb.append (" (tags: ")
+		      .append (tagsStr)
+		      .append (")");
+		}
+
+		return sb.toString ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private String getServletErrorsHtml ()
+	{
+		String servletErrorsHtml = new String ();
+
+		if (_form.getNumServletErrors () > 0) {
+			final String bgColor = "#E00000"; //red
+			StringBuilder sb = new StringBuilder (100);
+			sb.append ("<TR>").append (NL)
+			  .append ("<TD class=\"")
+			  .append ("fontsize12")
+			  .append ("\" BGCOLOR=\"")
+			  .append(bgColor)
+			  .append("\" ALIGN=LEFT>")
+			  .append (NL);
+
+			_form.getServletErrors ().stream ().forEach(s -> sb.append (s).append ("<BR>").append (NL));
+
+			sb.append ("</TD>").append (NL)
+			  .append ("</TR>").append (NL);
+
+			servletErrorsHtml = sb.toString ();
+		}
+
+		return servletErrorsHtml;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

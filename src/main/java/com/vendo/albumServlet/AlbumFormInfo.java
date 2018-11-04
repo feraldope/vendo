@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.GregorianCalendar;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 
@@ -66,7 +67,6 @@ public class AlbumFormInfo
 		_filter1 = "";
 		_filter2 = "";
 		_filter3 = "";
-		_servletErrors = new ArrayList<String> ();
 
 		for (int ii = 0; ii < _NumTagParams; ii++) {
 			_tagMode.add (AlbumTagMode.TagIn);
@@ -384,30 +384,24 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getServletErrorsHtml ()
+	public synchronized void addServletError (String servletError)
 	{
-		StringBuffer sb = new StringBuffer ();
-
-		if (_servletErrors.size () != 0) {
-			sb.append ("<B>");
-			for (String servletError : _servletErrors) {
-				sb.append (servletError);
-				sb.append ("<BR>");
-			}
-			sb.append ("</B>");
-		}
-
-		return sb.toString ();
-	}
-
-	public int getNumServletErrors ()
-	{
-		return _servletErrors.size ();
-	}
-
-	public void addServletError (String servletError)
-	{
+//		_log.trace ("AlbumFormInfo.addServletError: \"" + servletError + "\"");
 		_servletErrors.add (servletError);
+	}
+	public synchronized int getNumServletErrors ()
+	{
+//		_log.trace ("AlbumFormInfo.getNumServletErrors: " + getServletErrors ().size ());
+		return getServletErrors ().size ();
+	}
+	public Collection<String> getServletErrors ()
+	{
+		Collection<String> servletErrors = new HashSet<String> (); //use set to avoid dups
+		servletErrors.addAll (_servletErrors);
+		servletErrors.addAll (AlbumImageDao.getInstance ().getServletErrors ());
+//		_log.trace ("AlbumFormInfo.getServletErrors: " + servletErrors);
+
+		return servletErrors;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1242,7 +1236,7 @@ public class AlbumFormInfo
 	private int _highlightMinPixels = _defaultHighlightMinPixels;
 	private int _highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 	private int _maxColumns = 32;
-	private List<String> _servletErrors = null;
+	private Collection<String> _servletErrors = new HashSet<String> (); //use set to avoid dups
 
 	//parameters from URL
 	private AlbumMode _mode = AlbumMode.DoDir;

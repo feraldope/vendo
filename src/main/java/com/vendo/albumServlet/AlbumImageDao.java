@@ -721,12 +721,17 @@ public class AlbumImageDao
 			imagesData = new AlbumImagesData (images, nowInMillis);
 			_albumImagesDataCache.put (subFolder, imagesData);
 
+//			AlbumProfiling.getInstance ().enter (5, subFolder + ".misFiled");
+			_servletErrorsMap.remove (subFolder);
 			Set<String> misFiled = images.stream ()
 										 .filter (s -> !subFolder.equalsIgnoreCase (s.getNameFirstLetterLower ()))
 										 .map (s -> s.getBaseName (true))
 										 .collect (Collectors.toSet ());
+//			AlbumProfiling.getInstance ().exit (5, subFolder + ".misFiled");
 			if (misFiled.size () > 0) {
-				_log.error ("AlbumImageDao.getImagesFromCache(" + subFolder + "): found image files in wrong folder: " + VendoUtils.collectionToString (misFiled));
+				String message = "found image files in wrong folder (" + subFolder + "): " + VendoUtils.collectionToString (misFiled);
+				_log.error ("AlbumImageDao.getImagesFromCache: " + message);
+				_servletErrorsMap.put (subFolder, "Error: " + message);
 			}
 		}
 
@@ -797,7 +802,7 @@ public class AlbumImageDao
 
 		int numMatchingImages = 0;
 
-//TODO - does this work when image isn't in its own subfolder? (can happen when image is moved prior to rename)
+//TODO - does this work when image is in wrong subfolder? (can happen when image is renamed prior to move)
 		String subFolder = baseName.substring (0, 1).toLowerCase ();
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
@@ -805,6 +810,10 @@ public class AlbumImageDao
 			numMatchingImages = mapper.selectImageCountFromImageCounts (AlbumImage.subFolderToByte (subFolder), baseName);
 
 		} catch (Exception ee) {
+//			if (ee instanceof org.apache.ibatis.binding.BindingException) {
+//				//most likely cause
+//				AlbumFormInfo.getInstance ().addServletError ("Error: found image files (" + baseName + ") in wrong folder");
+//			}
 			_log.error ("AlbumImageDao.getNumMatchingImages(\"" + baseName + "\"): ", ee);
 		}
 
@@ -1238,6 +1247,15 @@ public class AlbumImageDao
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public Collection<String> getServletErrors ()
+	{
+//		_log.trace ("AlbumImageDao.getServletErrors: " + _servletErrorsMap);
+		return _servletErrorsMap.values ()
+								.stream ()
+								.collect (Collectors.toList ());
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
 	//returns comma separated list of indexes that have true in the passed-in List
 	private static String getMatchList (List<Boolean> hasMatches)
@@ -1352,9 +1370,11 @@ public class AlbumImageDao
 
 	private static AlbumImageDao _instance = null;
 
-	private static final Map<Thread, String> _watcherThreadMap = new HashMap<Thread, String> ();
+	private static final Map<Thread, String> _watcherThreadMap = new HashMap<Thread, String> (26);
 
-	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<String, AlbumImagesData> ();
+	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<String, AlbumImagesData> (26);
+
+	private static final Map<String, String> _servletErrorsMap = new HashMap<String, String> (26);
 
 	private final String _extension = AlbumFormInfo._ImageExtension;
 	private final int _extensionLength = _extension.length ();

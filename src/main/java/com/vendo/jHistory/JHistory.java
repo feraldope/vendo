@@ -488,7 +488,7 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void timingStart ()
+	private synchronized void timingStart ()
 	{
 		if (!_printTiming) {
 			return;
@@ -502,7 +502,7 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void timingEnd (String message)
+	private synchronized void timingEnd (String message)
 	{
 		if (!_printTiming) {
 			return;

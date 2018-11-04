@@ -107,7 +107,6 @@ public class AlbumServlet extends HttpServlet
 		_album.processRequest ();
 
 		String bgColor = _album.getBgColor ();
-//		int numSlices = _album.getNumSlices ();
 		int stringFieldWidth1 = 40;
 		int stringFieldWidth2 = 60;
 		int numberFieldWidth = 2;
@@ -143,7 +142,7 @@ public class AlbumServlet extends HttpServlet
 		   .append ("		font-size: 10pt;").append (NL)
 		   .append ("	}").append (NL);
 
-		List<Integer> fontSizes = Arrays.asList (8, 9, 10, 24);
+		List<Integer> fontSizes = Arrays.asList (8, 9, 10, 12, 24);
 		for (Integer fontSize : fontSizes) {
 			sb1.append ("	td.fontsize").append (fontSize).append (" {").append (NL)
 			   .append ("		font-size: ").append (fontSize).append ("pt;").append (NL)
