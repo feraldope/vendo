@@ -48,8 +48,6 @@ import com.vendo.vendoUtils.WatchDir;
 
 public class AlbumImageDao
 {
-	private enum Operator {Plus, Minus, Equals};
-
 	///////////////////////////////////////////////////////////////////////////
 	static
 	{
@@ -328,17 +326,15 @@ public class AlbumImageDao
 			Integer fsImageCount = fsEntry.getValue ();
 			Integer dbImageCount = dbImageCounts.get (fsBaseName);
 
-//TODO - if (count == 0), delete row
 			if (dbImageCount == null || !dbImageCount.equals (fsImageCount)) {
 				boolean collapseGroups = !endsWithDigitPattern.matcher (fsBaseName).matches ();
-				_log.debug ("AlbumImageDao.syncFolder: updating image counts: (\"" + subFolder + "\", \"" + fsBaseName + "\", " + collapseGroups + ", " + Operator.Equals + ", " + fsImageCount + ")");
-				insertImageCountsIntoImageCounts (subFolder, fsBaseName, collapseGroups, Operator.Equals, fsImageCount);
+				_log.debug ("AlbumImageDao.syncFolder: updating image counts: (\"" + subFolder + "\", \"" + fsBaseName + "\", " + collapseGroups + ", " + fsImageCount + ")");
+				updateImageCountsInImageCounts (subFolder, fsBaseName, collapseGroups, fsImageCount);
 			}
 		}
 
 		//update update time in image_folder table ----------------------------
 
-//		long updateTimeInMillis = getMaxInsertDateFromImages (subFolder);
 		long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
 		insertLastUpdateIntoImageFolder (subFolder, nowInMillis);
 
@@ -514,6 +510,7 @@ public class AlbumImageDao
 					}
 
 					if (queue.size () == 0) {
+						handleQueueEmpty (subFolder2);
 						_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") empty -------------------------------------------------------------------");
 					}
 
@@ -530,7 +527,7 @@ public class AlbumImageDao
 
 			_log.debug ("AlbumImageDao.createWatcherThreadsForFolder: watching folder: " + dir.normalize ().toString ());
 
-			final Pattern pattern = Pattern.compile (".*\\" + _extension, Pattern.CASE_INSENSITIVE);
+			final Pattern pattern = Pattern.compile (".*\\" + AlbumFormInfo._ImageExtension, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
 
 			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
@@ -608,11 +605,10 @@ public class AlbumImageDao
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
+	//used by CLI and servlet
 	private boolean handleFileModify (String subFolder, Path path) //complete path plus extension
 	{
-		String nameWithExt = path.getFileName ().toString ();
-		String nameNoExt = nameWithExt.substring (0, nameWithExt.length () - _extensionLength);
+		String nameNoExt = AlbumFormInfo.stripImageExtension (path.getFileName ().toString ());
 
 		return handleFileModify (subFolder, nameNoExt);
 	}
@@ -627,11 +623,10 @@ public class AlbumImageDao
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
+	//used by CLI and servlet
 	private boolean handleFileCreate (String subFolder, Path path) //complete path plus extension
 	{
-		String nameWithExt = path.getFileName ().toString ();
-		String nameNoExt = nameWithExt.substring (0, nameWithExt.length () - _extensionLength);
+		String nameNoExt = AlbumFormInfo.stripImageExtension (path.getFileName ().toString ());
 
 		return handleFileCreate (subFolder, nameNoExt);
 	}
@@ -648,14 +643,7 @@ public class AlbumImageDao
 
 		boolean status = insertImageIntoImages (image);
 
-		if (status) {
-			status = insertImageCountsIntoImageCounts (subFolder, nameNoExt, Operator.Plus, 1);
-		}
-
-		if (status) {
-			long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
-			status = insertLastUpdateIntoImageFolder (subFolder, nowInMillis);
-		}
+	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, /*collapseGroups*/ false));
 
 		if (status) {
 			_log.debug ("AlbumImageDao.handleFileCreate(\"" + subFolder + "\"): created image: " + image);
@@ -665,11 +653,10 @@ public class AlbumImageDao
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
+	//used by CLI and servlet
 	private boolean handleFileDelete (String subFolder, Path path) //complete path plus extension
 	{
-		String nameWithExt = path.getFileName ().toString ();
-		String nameNoExt = nameWithExt.substring (0, nameWithExt.length () - _extensionLength);
+		String nameNoExt = AlbumFormInfo.stripImageExtension (path.getFileName ().toString ());
 
 		return handleFileDelete (subFolder, nameNoExt);
 	}
@@ -682,20 +669,45 @@ public class AlbumImageDao
 		boolean status = deleteImageFromImages (subFolder, nameNoExt);
 		AlbumImage.removeRgbDataFileFromFileSystem (rgbDataFile.toString ());
 
-		if (status) {
-			status = insertImageCountsIntoImageCounts (subFolder, nameNoExt, Operator.Minus, 1);
-		}
-
-		if (status) {
-			long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
-			status = insertLastUpdateIntoImageFolder (subFolder, nowInMillis);
-		}
+	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, /*collapseGroups*/ false));
 
 		if (status) {
 			_log.debug ("AlbumImageDao.handleFileDelete(\"" + subFolder + "\"): deleted image: " + nameNoExt);
 		}
 
 		return status;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by CLI and servlet
+	private boolean handleQueueEmpty (String subFolder)
+	{
+		Set<String> baseNames1 = _imagesNeedingCountUpdate.get (); //baseNames with collapseGroups = false
+		Set<String> baseNames2 = new HashSet<String> ();		   //baseNames with collapseGroups = true
+
+		int rowsAffected = 0;
+
+		for (String baseName : baseNames1) {
+			baseNames2.add (AlbumImage.getBaseName(baseName + "-01", true)); //HACK - add extra for getBaseName()
+
+			int count = getImageCountFromImages (subFolder, baseName + ".*"); //regex (e.g., Foo01 -> Foo01.*)
+			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, /*collapseGroups*/ false, count);
+			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + " = " + count);
+		}
+		baseNames1.clear ();
+
+		for (String baseName : baseNames2) {
+			int count = getImageCountFromImages (subFolder, baseName + "[0-9].*"); //regex  (e.g., Foo -> Foo[0-9].*)
+			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, /*collapseGroups*/ true, count);
+			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + " = " + count);
+		}
+
+		if (rowsAffected > 0) {
+			long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
+			insertLastUpdateIntoImageFolder (subFolder, nowInMillis);
+		}
+
+		return rowsAffected > 0;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -741,57 +753,68 @@ public class AlbumImageDao
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
-	private boolean insertImageCountsIntoImageCounts (String subFolder, String nameNoExt, Operator operator, int value)
+	//used by CLI and servlet
+	private int updateImageCountsInImageCounts (String subFolder, String baseName, boolean collapseGroups, int count)
 	{
-		insertImageCountsIntoImageCounts (subFolder, nameNoExt, /*collapseGroups*/ false, operator, value);
-		insertImageCountsIntoImageCounts (subFolder, nameNoExt, /*collapseGroups*/ true,  operator, value);
+		int rowsAffected = 0;
 
-		return true;
+		if (count > 0) {
+			rowsAffected = insertImageCountsIntoImageCounts (subFolder, baseName, collapseGroups, count);
+		} else {
+			rowsAffected = deleteImageCountsFromImageCounts (subFolder, baseName);
+		}
+
+		return rowsAffected;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
-	private boolean insertImageCountsIntoImageCounts (String subFolder, String nameNoExt, boolean collapseGroups, Operator operator, int value)
+	//used by CLI and servlet
+	private int insertImageCountsIntoImageCounts (String subFolder, String nameNoExt, boolean collapseGroups, int value)
 	{
 		AlbumProfiling.getInstance ().enter (7, subFolder);
 
 		String baseName = AlbumImage.getBaseName (nameNoExt, collapseGroups);
 		int collapseGroupsInt = (collapseGroups ? 1 : 0);
 
-		boolean status = true;
+		int rowsAffected = 0;
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-
-			int rowsAffected = 0;
-			switch (operator) {
-			case Plus:
-				rowsAffected = mapper.insertImageCountsIntoImageCountsPlus (AlbumImage.subFolderToByte (subFolder), baseName, collapseGroupsInt, value);
-				break;
-			case Minus:
-				rowsAffected = mapper.insertImageCountsIntoImageCountsMinus (AlbumImage.subFolderToByte (subFolder), baseName, collapseGroupsInt, value);
-				break;
-			case Equals:
-				rowsAffected = mapper.insertImageCountsIntoImageCountsEquals (AlbumImage.subFolderToByte (subFolder), baseName, collapseGroupsInt, value);
-				break;
-			}
-
+			rowsAffected = mapper.insertImageCountsIntoImageCounts (AlbumImage.subFolderToByte (subFolder), baseName, collapseGroupsInt, value);
 			session.commit ();
 
-			status = rowsAffected > 0;
-
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDao.insertImageCountsIntoImageCounts(\"" + subFolder + "\", \"" + nameNoExt + "\", " + collapseGroups + ", " + operator + ", " + value + "): ", ee);
-
-			status = false;
+			_log.error ("AlbumImageDao.insertImageCountsIntoImageCounts(\"" + subFolder + "\", \"" + nameNoExt + "\", " + collapseGroups + ", " + value + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance ().exit (7, subFolder);
 
-//		_log.debug ("AlbumImageDao.insertImageCountsIntoImageCounts(\"" + subFolder + "\"): ...
+//		_log.debug ("AlbumImageDao.insertImageCountsIntoImageCounts(\"" + subFolder + "\"): nameNoExt: " + nameNoExt + ", value: " + value);
 
-		return status;
+		return rowsAffected;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by servlet
+	public int getImageCountFromImages (String subFolder, String wildName)
+	{
+		AlbumProfiling.getInstance ().enter (7, subFolder);
+
+		int count = 0;
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			count = mapper.selectImageCountFromImages (AlbumImage.subFolderToByte (subFolder), wildName);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDao.getImageCountFromImages(\"" + wildName + "\"): ", ee);
+		}
+
+		AlbumProfiling.getInstance ().exit (7, subFolder);
+
+//		_log.debug ("AlbumImageDao.getImageCountFromImages(\"" + wildName + "\"): count = " + count);
+
+		return count;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -802,7 +825,7 @@ public class AlbumImageDao
 
 		int numMatchingImages = 0;
 
-//TODO - does this work when image is in wrong subfolder? (can happen when image is renamed prior to move)
+//TODO - this does not work when image is in wrong subfolder (can happen when image is renamed prior to move)
 		String subFolder = baseName.substring (0, 1).toLowerCase ();
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
@@ -1200,6 +1223,30 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
+	private int deleteImageCountsFromImageCounts (String subFolder, String baseName)
+	{
+//		AlbumProfiling.getInstance ().enter (7);
+
+		int rowsAffected = 0;
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			rowsAffected = mapper.deleteImageCountsFromImageCounts (AlbumImage.subFolderToByte (subFolder), baseName);
+			session.commit ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDao.deleteImageCountsFromImageCounts(\"" + subFolder + "\", \"" + baseName + "\"): ", ee);
+		}
+
+//		AlbumProfiling.getInstance ().exit (7);
+
+//		_log.debug ("AlbumImageDao.deleteImageCountsFromImageCounts(\"" + baseName + "\"): " + rowsAffected + " rows deleted");
+
+		return rowsAffected;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by CLI
 	private int deleteZeroCountsFromImageCounts ()
 	{
 //		AlbumProfiling.getInstance ().enter (7);
@@ -1374,10 +1421,15 @@ public class AlbumImageDao
 
 	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<String, AlbumImagesData> (26);
 
-	private static final Map<String, String> _servletErrorsMap = new HashMap<String, String> (26);
+    private static final ThreadLocal<Set<String>> _imagesNeedingCountUpdate = new ThreadLocal<Set<String>>(){
+        @Override
+        protected Set<String> initialValue()
+        {
+            return new HashSet<String> ();
+        }
+    };
 
-	private final String _extension = AlbumFormInfo._ImageExtension;
-	private final int _extensionLength = _extension.length ();
+	private static final Map<String, String> _servletErrorsMap = new HashMap<String, String> (26);
 
 	private static final String NL = System.getProperty ("line.separator");
 //	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int

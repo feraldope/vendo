@@ -161,14 +161,14 @@ public class AlbumFileFilter implements FilenameFilter
 		//optimization: AlbumXml.doDir calls this with null dir and names with no extensions
 		//for other callers, reject any file without an image extension
 		if (dir != null) {
-			if (!name.toLowerCase ().endsWith (_extension)) {
+			if (!name.toLowerCase ().endsWith (AlbumFormInfo._ImageExtension)) {
 				if (AlbumFormInfo._logLevel >= 10)
 					_log.debug ("AlbumFileFilter.accept: rejecting non-image, name = " + name);
 
 				return false; //not an image file
 			}
 
-			name = name.substring (0, name.length () - _extensionLength);
+			name = AlbumFormInfo.stripImageExtension (name);
 		}
 
 		boolean status = false;
@@ -293,9 +293,6 @@ public class AlbumFileFilter implements FilenameFilter
 	private Collection<Pattern> _includePatterns = null;
 	private Collection<Pattern> _excludePatterns = null;
 //	private AlbumImages _albumImages = null;
-
-	private final String _extension = AlbumFormInfo._ImageExtension;
-	private final int _extensionLength = _extension.length ();
 
 	private final boolean _profileAccept = false;
 

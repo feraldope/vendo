@@ -23,6 +23,8 @@ public interface AlbumImageMapper {
 
 	public List<AlbumImage> selectImagesFromImages (@Param("sub_folder_int") int subFolderInt);
 
+	public int selectImageCountFromImages (@Param("sub_folder_int") int subFolderInt, @Param("name_no_ext") String nameNoExt);
+
 	public int selectImageCountFromImageCounts (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName);
 
 	public List<AlbumImageCount> selectImageCountsFromImageCounts (@Param("sub_folder_int") int subFolderInt);
@@ -39,15 +41,15 @@ public interface AlbumImageMapper {
 
 	public int insertImageIntoImages (AlbumImage image);
 
-	public int insertImageCountsIntoImageCountsPlus (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
-	public int insertImageCountsIntoImageCountsMinus (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
-	public int insertImageCountsIntoImageCountsEquals (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
+	public int insertImageCountsIntoImageCounts (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
 
 	public int insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails);
 
 	//deletes
 
 	public int deleteImageFromImages (@Param("sub_folder_int") int subFolderInt, @Param("name_no_ext") String nameNoExt);
+
+	public int deleteImageCountsFromImageCounts (@Param("sub_folder_int") int subFolderInt, @Param("base_name") String baseName);
 
 	public int deleteZeroCountsFromImageCounts ();
 

@@ -85,14 +85,18 @@ SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 10
 FROM information_schema.tables 
 GROUP BY table_schema; 
 
--- manual cleanup of image_counts
+-- manual cleanup of image_counts (1)
 select * from image_counts where image_count < 1 order by lower(base_name);
 delete from image_counts where image_count = 0;
 
-select * from image_counts where base_name like 'Ho%Fu%' order by base_name;
-delete from image_counts where base_name like 'Ho%Fu%';
+-- manual cleanup of image_counts (2)
+-- all basenames with 0 or 1 capital letters
+select * from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$' order by base_name;
+-- delete from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$';
 
-delete from images where name_no_ext like 'xbf%';
+
+delete from image_counts where base_name like 'Ho%Fu%';
+-- delete from images where name_no_ext like 'xbf%';
 
 -- subquery: first letter of name in lowercase
 select lower(substring(base_name,1,1)) from image_counts;

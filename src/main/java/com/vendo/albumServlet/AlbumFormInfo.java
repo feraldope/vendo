@@ -1139,7 +1139,7 @@ public class AlbumFormInfo
 		final String extension = AlbumFormInfo._ImageExtension;
 		final int length = extension.length ();
 
-		if (name.toLowerCase ().endsWith (extension)) {
+		if (name.endsWith (extension)) {
 			name = name.substring (0, name.length () - length);
 		}
 

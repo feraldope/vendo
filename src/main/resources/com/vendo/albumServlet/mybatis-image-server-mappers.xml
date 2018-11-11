@@ -121,6 +121,13 @@ mysql -u root -proot albumimages -e "describe images"
 		where sub_folder_int = #{sub_folder_int}
 	</select>
 
+	<select id="selectImageCountFromImages" resultType="int">
+		select count(name_id)
+		from images
+		where sub_folder_int = #{sub_folder_int}
+		and name_no_ext rlike #{name_no_ext}
+	</select>
+
 	<select id="selectImageCountFromImageCounts" resultType="int">
 		select image_count
 		from image_counts
@@ -185,29 +192,7 @@ mysql -u root -proot albumimages -e "describe images"
 		)
 	</insert>
 
-	<insert id="insertImageCountsIntoImageCountsPlus">
-		insert into image_counts (
-			<include refid="imageCountsColumns"/>
-		)
-		values (
-			<include refid="imageCountsValues"/>
-		)
-		on duplicate key update
-		image_count = image_count + values (image_count),
-		sub_folder_int = values (sub_folder_int)
-	</insert>
-	<insert id="insertImageCountsIntoImageCountsMinus">
-		insert into image_counts (
-			<include refid="imageCountsColumns"/>
-		)
-		values (
-			<include refid="imageCountsValues"/>
-		)
-		on duplicate key update
-		image_count = image_count - values (image_count),
-		sub_folder_int = values (sub_folder_int)
-	</insert>
-	<insert id="insertImageCountsIntoImageCountsEquals">
+	<insert id="insertImageCountsIntoImageCounts">
 		insert into image_counts (
 			<include refid="imageCountsColumns"/>
 		)
@@ -238,6 +223,12 @@ mysql -u root -proot albumimages -e "describe images"
 		delete from images
 		where sub_folder_int = #{sub_folder_int}
 		and name_no_ext = #{name_no_ext}
+	</delete>
+
+	<delete id="deleteImageCountsFromImageCounts">
+		delete from image_counts
+		where sub_folder_int = #{sub_folder_int}
+		and base_name = #{base_name}
 	</delete>
 
 	<delete id="deleteZeroCountsFromImageCounts">
