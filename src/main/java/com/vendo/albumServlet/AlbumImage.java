@@ -494,15 +494,33 @@ public class AlbumImage
 		String nameWithExt = getImagePath () + getName () + AlbumFormInfo._RgbDataExtension;
 
 		ByteBuffer scaledImageData = null;
-		try (FileChannel fileChannel = new FileInputStream (nameWithExt).getChannel ()) {
-//Bug in FileChannel#map() in Java 7 prevents file from closing: http://stackoverflow.com/questions/13065358/java-7-filechannel-not-closing-properly-after-calling-a-map-method
-//			scaledImageData = fileChannel.map (FileChannel.MapMode.READ_ONLY, 0, fileChannel.size ());
+		FileInputStream inputStream = null;
+		FileChannel fileChannel = null;
+		try {
+			inputStream = new FileInputStream (nameWithExt);
+			fileChannel = inputStream.getChannel ();
 			scaledImageData = ByteBuffer.allocate ((int) fileChannel.size ());
 			fileChannel.read (scaledImageData, 0);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
+
+		} finally {
+			if (fileChannel != null) try { fileChannel.close (); } catch (Exception ex) { _log.error (ex); ex.printStackTrace (); }
+			if (inputStream != null) try { inputStream.close (); } catch (Exception ex) { _log.error (ex); ex.printStackTrace (); }
 		}
+
+// old way - thread hangs in some cases when file does not exist
+//		ByteBuffer scaledImageData = null;
+//		try (FileChannel fileChannel = new FileInputStream (nameWithExt).getChannel ()) {
+////Bug in FileChannel#map() in Java 7 prevents file from closing: http://stackoverflow.com/questions/13065358/java-7-filechannel-not-closing-properly-after-calling-a-map-method
+////			scaledImageData = fileChannel.map (FileChannel.MapMode.READ_ONLY, 0, fileChannel.size ());
+//			scaledImageData = ByteBuffer.allocate ((int) fileChannel.size ());
+//			fileChannel.read (scaledImageData, 0);
+//
+//		} catch (Exception ee) {
+//			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
+//		}
 
 		if (scaledImageData != null && scaledImageData.position () < 10000) {
 			_log.error ("AlbumImage.readScaledImageData: error: unexpected size (" + scaledImageData.position () + " bytes) for " + nameWithExt);

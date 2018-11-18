@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.GregorianCalendar;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -219,8 +218,8 @@ public class AlbumImages
 		}
 
 		if (imagesRemoved > 0) {
-			int sleepMillis = 20 + imagesRemoved * 20;
-			VendoUtils.sleepMillis (sleepMillis); //hack - try to give AlbumImageDao some time to complete its file processing
+			int sleepMillis = 80 + imagesRemoved * 20;
+			VendoUtils.sleepMillis (sleepMillis); //HACK - try to give AlbumImageDao some time to complete its file processing
 			_log.debug ("AlbumImages.processParams: slept " + sleepMillis + " ms");
 		}
 
@@ -597,11 +596,8 @@ public class AlbumImages
 			if (dbCompare) {
 				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.db");
 
-				//we need a map of imageNames->images
-				Map<String, AlbumImage> map = new HashMap<String, AlbumImage> ();
-				for (AlbumImage image : _imageDisplayList) {
-					map.put (image.getName (), image);
-				}
+				//generate map of imageNames->images
+				Map<String, AlbumImage> map = _imageDisplayList.stream ().collect (Collectors.toMap (AlbumImage::getName, i -> i));
 
 				final double sinceDays = _form.getHighlightDays (); //TODO - using highlightDays is a HACK
 				//debugging

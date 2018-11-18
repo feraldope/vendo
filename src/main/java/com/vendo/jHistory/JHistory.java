@@ -247,7 +247,7 @@ public final class JHistory
 	///////////////////////////////////////////////////////////////////////////
 	private boolean readHistoryFile ()
 	{
-		timingStart ();
+		Instant startInstant = Instant.now ();
 
 		Path path = FileSystems.getDefault ().getPath (_destDir, _historyFilename);
 		FileTime historyFileModified = FileTime.from (Instant.MAX);
@@ -280,7 +280,7 @@ public final class JHistory
 			}
 		}
 
-		timingEnd ("JHistory.readHistoryFile");
+		printTiming (startInstant, "JHistory.readHistoryFile");
 
 		return status;
 	}
@@ -294,7 +294,7 @@ public final class JHistory
 			_log.debug ("JHistory.findInHistory: pattern = " + pattern);
 		}
 
-		timingStart ();
+		Instant startInstant = Instant.now ();
 
 		List<MatchData> matchList = new ArrayList<MatchData> ();
 		synchronized (_historyFileContents) {
@@ -338,7 +338,7 @@ public final class JHistory
 			}
 		}
 
-		timingEnd ("JHistory.findInHistory");
+		printTiming (startInstant, "JHistory.findInHistory");
 
 		return matchList;
 	}
@@ -488,35 +488,14 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private synchronized void timingStart ()
+	private void printTiming (Instant startInstant, String message)
 	{
 		if (!_printTiming) {
 			return;
 		}
 
-		if (_startInstant != Instant.EPOCH) {
-			_log.error ("JHistory.timingStart: not reentrant");
-		}
-
-		_startInstant = Instant.now ();
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private synchronized void timingEnd (String message)
-	{
-		if (!_printTiming) {
-			return;
-		}
-
-		if (_startInstant == Instant.EPOCH) {
-			_log.error ("JHistory.timingEnd: not reentrant");
-			return;
-		}
-
-		long elapsedNanos = Duration.between (_startInstant, Instant.now ()).toNanos ();
+		long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
 		_log.debug (message + ": elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
-
-		_startInstant = Instant.EPOCH; //reset
 	}
 
 	///////////////////////////////////////////////////////////////////////////

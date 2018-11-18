@@ -61,14 +61,6 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public int compareTo (AlbumImageDiffDetails obj)
-	{
-		int cmp = obj == null ? 1 : _nameId1.compareTo (obj._nameId1);
-		return cmp == 0 ? _nameId2.compareTo (obj._nameId2) : cmp;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	@Override
 	public int hashCode ()
 	{
 		int hash = _nameId1;
@@ -78,6 +70,16 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//note compareTo and equals only operate on _nameId1 and _nameId2
+	@Override
+	public int compareTo (AlbumImageDiffDetails obj)
+	{
+		int cmp = obj == null ? 1 : _nameId1.compareTo (obj._nameId1);
+		return cmp == 0 ? _nameId2.compareTo (obj._nameId2) : cmp;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//note compareTo and equals only operate on _nameId1 and _nameId2
 	@Override
 	public boolean equals (Object obj)
 	{
@@ -95,13 +97,13 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	@Override
 	public String toString ()
 	{
-		StringBuffer sb = new StringBuffer (getClass ().getSimpleName ());
-		sb.append (": ").append (getNameId1 ());
-		sb.append (", ").append (getNameId2 ());
-		sb.append (", ").append (getAvgDiff ());
-		sb.append (", ").append (getMaxDiff ());
-		sb.append (", ").append (getCount ());
-		sb.append (", ").append (getSource ());
+		StringBuffer sb = new StringBuffer ();
+		sb.append (getNameId1 ()).append (", ");
+		sb.append (getNameId2 ()).append (", ");
+		sb.append (getAvgDiff ()).append (", ");
+		sb.append (getMaxDiff ()).append (", ");
+		sb.append (getCount ()).append (", ");
+		sb.append (getSource ());
 
 		return sb.toString ();
 	}

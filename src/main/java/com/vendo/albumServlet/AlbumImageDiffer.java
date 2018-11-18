@@ -22,6 +22,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,6 +32,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.ibatis.io.Resources;
@@ -291,8 +293,11 @@ public class AlbumImageDiffer
 		final AtomicInteger numDiffs = new AtomicInteger (0);
 		final AtomicInteger orientationMismatch = new AtomicInteger (0);
 		final AtomicInteger sameBaseName = new AtomicInteger (0);
+		final AtomicInteger duplicates = new AtomicInteger (0);
 		final AtomicInteger rowsInserted = new AtomicInteger (0);
 		final Set<String> toBeSkipped = new HashSet<String>();
+
+		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> existingDiffs = getImagesFromImageDiffs ();
 
 		final CountDownLatch endGate = new CountDownLatch (_idListA.size ());
 		final Iterator<AlbumImageData> iterA = _idListA.iterator();
@@ -337,6 +342,15 @@ public class AlbumImageDiffer
 						continue;
 					}
 
+					AlbumImageDiffDetails existingDiff = existingDiffs.get (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), 0, 0, 0, getMode ()));
+					if (existingDiff != null) {
+						//if this image pair already exists in database, skip diffing them, but still update record in database
+						_log.debug ("AlbumImageDiffer.run: skipping duplicate: " + imageA.getName () + "," + imageB.getName ()  + ", " + existingDiff);
+						imageDiffDetails.add (new AlbumImageDiffDetails (existingDiff.getNameId1(), existingDiff.getNameId2(), existingDiff.getAvgDiff(), _maxRgbDiffs, 1, getMode ()));
+						duplicates.incrementAndGet ();
+						continue;
+					}
+
 					ByteBuffer scaledImageDataB = imageB.readScaledImageData ();
 					if (scaledImageDataB == null) {
 						synchronized (toBeSkipped) {
@@ -377,6 +391,7 @@ public class AlbumImageDiffer
 		_log.debug ("AlbumImageDiffer.run: numDiffs            = " + _decimalFormat.format (numDiffs.get ()));
 		_log.debug ("AlbumImageDiffer.run: orientationMismatch = " + _decimalFormat.format (orientationMismatch.get ()));
 		_log.debug ("AlbumImageDiffer.run: sameBaseName        = " + _decimalFormat.format (sameBaseName.get ()));
+		_log.debug ("AlbumImageDiffer.run: duplicates          = " + _decimalFormat.format (duplicates.get ()));
 		_log.debug ("AlbumImageDiffer.run: rowsInserted        = " + _decimalFormat.format (rowsInserted.get ()));
 
 		AlbumProfiling.getInstance ().exit (5);
@@ -669,10 +684,10 @@ public class AlbumImageDiffer
 		return items;
 	}
 
-/* unused
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	private Collection<AlbumImageDiffDetails> getImagesFromImageDiffs ()
+	//returns a Map because I want to use get() on the result, and Set does not support get()
+	private Map<AlbumImageDiffDetails, AlbumImageDiffDetails> getImagesFromImageDiffs ()
 	{
 		AlbumProfiling.getInstance ().enter (7);
 
@@ -680,20 +695,20 @@ public class AlbumImageDiffer
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			list = mapper.selectImagesFromImageDiffs ();
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDiffer.getImagesFromImageDiffs(): ", ee);
 		}
 
-		Collections.sort (list);
+		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i, i -> i));
 
 		AlbumProfiling.getInstance ().exit (7);
 
-//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): list.size: " + list.size ());
+//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): map.size: " + map.size ());
 
-		return list;
+		return map;
 	}
-*/
 
 /* unused
 	///////////////////////////////////////////////////////////////////////////

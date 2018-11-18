@@ -60,10 +60,12 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<resultMap id="AlbumImageDiffDetailsMap" type="com.vendo.albumServlet.AlbumImageDiffDetails">
 		<constructor>
-			<arg column="name_id_1" javaType="Integer" />
-			<arg column="name_id_2" javaType="Integer" />
-			<arg column="avg_diff" javaType="Integer" />
-			<arg column="max_diff" javaType="Integer" />
+			<arg column="name_id_1" javaType="_integer" />
+			<arg column="name_id_2" javaType="_integer" />
+			<arg column="avg_diff" javaType="_integer" />
+			<arg column="max_diff" javaType="_integer" />
+			<arg column="count" javaType="_integer" />
+			<arg column="source" javaType="String" />
 		</constructor>
 	</resultMap>
 
@@ -87,9 +89,9 @@ mysql -u root -proot albumimages -e "describe images"
 	<sql id="imageCountsValues">#{sub_folder_int}, #{base_name}, #{collapse_groups}, #{image_count}</sql>
 
 	<!-- each argument must be a column name from the database table definition -->
-	<sql id="imageDiffsColumns">name_id_1, name_id_2, avg_diff, max_diff</sql>
+	<sql id="imageDiffsColumns">name_id_1, name_id_2, avg_diff, max_diff, count, source</sql>
 	<!-- each argument must represent a "getter" value from the corresponding class -->
-	<sql id="imageDiffsValues">#{nameId1}, #{nameId2}, #{avgDiff}, #{maxDiff}</sql>
+	<sql id="imageDiffsValues">#{nameId1}, #{nameId2}, #{avgDiff}, #{maxDiff}, #{count}, #{source}</sql>
 
 	<select id="selectLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
 		select last_update
