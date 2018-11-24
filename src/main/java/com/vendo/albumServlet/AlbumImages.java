@@ -218,7 +218,7 @@ public class AlbumImages
 		}
 
 		if (imagesRemoved > 0) {
-			int sleepMillis = 80 + imagesRemoved * 20;
+			int sleepMillis = 150 + imagesRemoved * 10;
 			VendoUtils.sleepMillis (sleepMillis); //HACK - try to give AlbumImageDao some time to complete its file processing
 			_log.debug ("AlbumImages.processParams: slept " + sleepMillis + " ms");
 		}
@@ -552,12 +552,12 @@ public class AlbumImages
 					ByteBuffer scaledImage1Data = _nameScaledImageMap.get (image1.getNamePlus ());
 					ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
 					int averageDiff = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data, maxRgbDiffs);
-					pair.setAverageDiff (averageDiff);
+					AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff);
 					if (averageDiff <= maxRgbDiffs) {
-						pairsReady.add (pair);
+						pairsReady.add (newPair);
 					}
 					String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
-					_looseCompareMap.put (joinedNamesPlus, pair);
+					_looseCompareMap.put (joinedNamesPlus, newPair);
 
 					endGate.countDown ();
 				};
@@ -614,7 +614,7 @@ public class AlbumImages
 					if (image1 != null && image2 != null && image1.getOrientation () == image2.getOrientation ()) {
 						//at least one of each pair must be accepted by filter1
 						if (filter1.accept (null, image1.getName ()) || filter1.accept (null, image2.getName ())) {
-							AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff ());
+							AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff (), item.getLastUpdate());
 							dups.add (pair);
 							String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
 							_looseCompareMap.put (joinedNamesPlus, pair);
@@ -1294,12 +1294,12 @@ public class AlbumImages
 
 			String imageName;
 			String href;
-			String averageDiffString = new String ();
 
 			for (int col = 0; col < cols; col++) {
 				AlbumImage image = images[start + imageCount];
 				image.calculateScaledSize (imageWidth, imageHeight);
 
+				String extraDiffString = new String ();
 				StringBuilder details = new StringBuilder ();
 
 				if (mode == AlbumMode.DoSampler) {
@@ -1349,15 +1349,17 @@ public class AlbumImages
 						String joinedNamesPlus = AlbumImagePair.getJoinedNames (image, partner, maxRgbDiffsStr);
 						AlbumImagePair pair = _looseCompareMap.get (joinedNamesPlus);
 						if (pair != null) {
-							Integer cachedDiff = _looseCompareMap.get (joinedNamesPlus).getAverageDiff ();
-							averageDiffString = AlbumImage.HtmlNewline + "Average Diff = ";
-							if (cachedDiff != null) {
-								int averageDiff = cachedDiff.intValue ();
+							Integer averageDiff = pair.getAverageDiff ();
+							Date lastUpdate = pair.getLastUpdate ();
+							if (averageDiff != null) {
 								imageBorderColor = (averageDiff < 1 ? "white" : averageDiff < 10 ? "green" : averageDiff < 20 ? "yellow" : "orange");
-								averageDiffString += cachedDiff;
+								extraDiffString += AlbumImage.HtmlNewline + "Average Diff = " + averageDiff;
 //							} else {
 //								imageBorderColor = "red"; //not found in looseCompareMap
 //								averageDiffString += "unknown";
+							}
+							if (lastUpdate != null) {
+								extraDiffString += AlbumImage.HtmlNewline + "Last Update = " + _dateFormat.format (lastUpdate);
 							}
 						}
 					}
@@ -1457,7 +1459,7 @@ public class AlbumImages
 				  .append (href)
 				  .append ("\" ").append (NL)
 				  .append ("title=\"")
-				  .append (image.toString (/*full*/ true, collapseGroupsForTags) + averageDiffString)
+				  .append (image.toString (/*full*/ true, collapseGroupsForTags) + extraDiffString)
 				  .append ("\" target=_blank>").append (NL)
 //				  .append ("\" target=view>").append (NL)
 

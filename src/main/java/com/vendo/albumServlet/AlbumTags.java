@@ -493,7 +493,7 @@ public class AlbumTags
 		for (String tagLine : matchingTagLines) {
 			String[] parts = tagLine.split (_tagMarker1);
 			String tag = parts[0].trim ();
-			String[] filterArray = VendoUtils.trimArrayItems (parts[1].split (","));
+			String[] filterArray = /*VendoUtils.trimArrayItems*/ (parts[1].split (", ")); //require comma+space as separator
 
 			checkForIncorrectSorting (tag, filterArray);
 			checkForDuplicateEntries (tag, filterArray);
@@ -535,7 +535,7 @@ public class AlbumTags
 		final Map<String, String> tempMap = getStringMapFromDatabase (sql);
 
 		for (String tag : tempMap.keySet ()) {
-			String[] filterArray = VendoUtils.trimArrayItems (tempMap.get (tag).split (","));
+			String[] filterArray = /*VendoUtils.trimArrayItems*/ (tempMap.get (tag).split (", ")); //require comma+space as separator
 			Set<String> filters = new HashSet<String> (Arrays.asList (filterArray));
 			tagDatabaseMap.put (tag, filters);
 		}
@@ -768,13 +768,13 @@ public class AlbumTags
 	//process string and return sorted string
 	private String processWildTag (String wildTagRawString)
 	{
-		wildTagRawString = wildTagRawString.replaceAll(" == ", ",").trim ()
-										   .replaceAll(" = ", ",").trim ()
-										   .replaceAll(",,", ",").trim ();
-		String[] wildTags = VendoUtils.trimArrayItems (wildTagRawString.split(","));
+		wildTagRawString = wildTagRawString.replaceAll (" == ", ",").trim ()
+										   .replaceAll (" = ", ",").trim ()
+										   .replaceAll (",,", ",").trim ();
+		String[] wildTags = VendoUtils.trimArrayItems (wildTagRawString.split (","));
 		List<String> wildTagList = Arrays.asList (wildTags);
-		wildTagList.sort ((s1, s2) -> s1.compareTo (s2));
-		String wildTagString = VendoUtils.arrayToString (wildTagList.toArray (new String[] {}), ",");
+		wildTagList.sort ((s1, s2) -> s1.compareToIgnoreCase(s2));
+		String wildTagString = VendoUtils.arrayToString (wildTagList.toArray (new String[] {}), ", "); //caller requires comma+space as separator
 
 //		_log.debug ("AlbumTags.processWildTag: wildTag: " + wildTagString);
 

@@ -772,6 +772,13 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//use this version for primitive type (int)
+	public static String arrayToString (int[] items)
+	{
+		return arrayToString (ArrayUtils.toObject (items), ", ");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//use this version for primitive type (long)
 	public static String arrayToString (long[] items)
 	{

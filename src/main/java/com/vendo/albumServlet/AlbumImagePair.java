@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
@@ -17,11 +18,17 @@ public class AlbumImagePair
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2)
 	{
-		this (image1, image2, 0);
+		this (image1, image2, 0, null);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff)
+	{
+		this (image1, image2, averageDiff, null);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, Date lastUpdate)
 	{
 		if (image1.getName ().compareToIgnoreCase (image2.getName ()) < 0) {
 			_image1 = image1;
@@ -31,6 +38,7 @@ public class AlbumImagePair
 			_image2 = image1;
 		}
 		_averageDiff = averageDiff;
+		_lastUpdate = lastUpdate;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -46,15 +54,15 @@ public class AlbumImagePair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void setAverageDiff (int averageDiff)
-	{
-		_averageDiff = averageDiff;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
 	public int getAverageDiff ()
 	{
 		return _averageDiff;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public Date getLastUpdate ()
+	{
+		return _lastUpdate;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -181,8 +189,9 @@ public class AlbumImagePair
 	//members
 	private final AlbumImage _image1;
 	private final AlbumImage _image2;
+	private final int _averageDiff;
+	private final Date _lastUpdate;
 	private String _joinedNames = null;
-	private int _averageDiff = Integer.MAX_VALUE;
 
 //	private static Logger _log = LogManager.getLogger ();
 }

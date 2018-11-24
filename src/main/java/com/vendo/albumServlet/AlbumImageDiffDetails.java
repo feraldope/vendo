@@ -60,17 +60,18 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//note compareTo, equals, and hashCode only operate on _nameId1 and _nameId2
 	@Override
 	public int hashCode ()
 	{
 		int hash = _nameId1;
 		hash = 31 * hash + _nameId2;
-		hash = 31 * hash + _avgDiff;
+//		hash = 31 * hash + _avgDiff;
 		return hash;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//note compareTo and equals only operate on _nameId1 and _nameId2
+	//note compareTo, equals, and hashCode only operate on _nameId1 and _nameId2
 	@Override
 	public int compareTo (AlbumImageDiffDetails obj)
 	{
@@ -79,7 +80,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//note compareTo and equals only operate on _nameId1 and _nameId2
+	//note compareTo, equals, and hashCode only operate on _nameId1 and _nameId2
 	@Override
 	public boolean equals (Object obj)
 	{

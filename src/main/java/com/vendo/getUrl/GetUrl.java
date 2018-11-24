@@ -443,6 +443,8 @@ public class GetUrl
 					if (bytesRead > 0) {
 						totalBytesRead += bytesRead;
 						out.write (bytes, 0, bytesRead);
+//testing force invalid image
+//						out.write (bytes, 0, bytesRead - 1);
 
 					} else {
 						break;
@@ -473,7 +475,7 @@ public class GetUrl
 
 				int responseCode = getResponseCode (conn);
 				_log.error ("getUrl: error (" + responseCode + ") reading url: " + _urlStr);
-				_log.error (ee);
+				_log.error (ee); //print exception, but no stack trace
 
 				boolean retryableCondition = ee instanceof ConnectException ||
 											 ee instanceof SocketException ||
@@ -509,9 +511,13 @@ public class GetUrl
 		PerfStatsRecord record = new PerfStatsRecord (_filename, totalBytesRead , elapsedSeconds, imageSize._width, imageSize._height);
 		_perfStats.add (record);
 
+//TODO
+//		private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
+//		private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;
+
 		short color = _highlightColor;
 		if (imageSize._width < _alertPixels || imageSize._height < _alertPixels) {
-			color = _alertColor;
+			color = _warningColor;
 		}
 
 		VendoUtils.printWithColor (color, "Downloaded: " + record.toString2 ());
@@ -648,14 +654,55 @@ public class GetUrl
 			case AVI:	return validVideo (filename);
 		}
 	}
+/*moved to JpgUtils
+	///////////////////////////////////////////////////////////////////////////
+	//returns false if the last part of the image contains the same invalid data
+	// or if the image is not the size it claims
+	///////////////////////////////////////////////////////////////////////////
+	private static boolean validateImageData (String filename)
+	{
+		boolean validImage = false;
 
+		BufferedImage image = null;
+		try {
+			image = JpgUtils.readImage (new File (filename));
+			validImage = validateImageData (image);
+
+		} catch (Exception ee) {
+			_log.error ("validateImageData: failed to read '" + filename + "'");
+			_log.error (ee); //print exception, but no stack trace
+		}
+
+		return validImage;
+	}
+	private static boolean validateImageData (BufferedImage image)
+	{
+		int width = image.getWidth ();
+		int height = image.getHeight ();
+
+		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
+		final int w = 100;
+		final int h = 10;
+		int[] rgbIntArray = new int [w * h];
+		image.getRGB (width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
+
+		final int invalidData = 0xFF808080;
+		boolean invalidImage = Arrays.stream (rgbIntArray).allMatch (t -> t == invalidData);
+
+		return !invalidImage;
+	}
+*/
 	///////////////////////////////////////////////////////////////////////////
 	private boolean validImage (String filename, ImageSize imageSize)
 	{
-		BufferedImage image = null;
-
 		try {
-			image = JpgUtils.readImage (new File (filename));
+			BufferedImage image = JpgUtils.readImage (new File (filename));
+
+			if (!JpgUtils.validateImageData (image)) {
+				VendoUtils.printWithColor (_alertColor, "Image corrupt");
+				return false; //image corrupt
+			}
+
 			int width = image.getWidth ();
 			int height = image.getHeight ();
 //			if (_Debug)
@@ -664,7 +711,7 @@ public class GetUrl
 			imageSize._height = height;
 
 			if (width <= 200 || height <= 200) {
-				VendoUtils.printWithColor (_alertColor, "Image too small (" + width + " x " + height + ")");
+				VendoUtils.printWithColor (_warningColor, "Image too small (" + width + " x " + height + ")");
 				return false; //not an image
 			}
 
@@ -676,7 +723,7 @@ public class GetUrl
 
 		} catch (Exception ee) {
 			_log.error ("validImage: failed to read '" + filename + "'");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false; //not an image
 		}
 
@@ -711,7 +758,7 @@ public class GetUrl
 
 		} catch (Exception ee) {
 			_log.error ("validVideo: failed to read '" + filename + "'");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -771,7 +818,7 @@ public class GetUrl
 
 		} catch (Exception ee) {
 			_log.error ("moveFile: error moving file (" + src.toString () + " to " + dest.toString () + ")");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -794,7 +841,7 @@ public class GetUrl
 
 		} catch (Exception ee) {
 			_log.error ("copyFile: error copying file (" + src.toString () + " to " + dest.toString () + ")");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -804,7 +851,7 @@ public class GetUrl
 
 			} catch (Exception ee) {
 				_log.error ("copyFile: error deleting '" + srcName + "'");
-				_log.error (ee);
+				_log.error (ee); //print exception, but no stack trace
 //				return false;
 			}
 		}
@@ -825,7 +872,7 @@ public class GetUrl
 //
 //		} catch (Exception ee) {
 //			_log.error ("copyFile: error copying '" + srcName + "' to '" + destName + "'");
-//			_log.error (ee);
+//			_log.error (ee); //print exception, but no stack trace
 //			return false;
 //		}
 
@@ -1014,7 +1061,7 @@ public class GetUrl
 
 			} catch (IOException ee) {
 				_log.error ("findInHistory: error reading history file \"" + _historyFilename + "\"");
-				_log.error (ee);
+				_log.error (ee); //print exception, but no stack trace
 				return false;
 			}
 		}
@@ -1066,7 +1113,7 @@ public class GetUrl
 
 		} catch (IOException ee) {
 			_log.error ("findInHistoryFromFile: error reading from file \"" + _fromFilename + "\"");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -1111,7 +1158,7 @@ public class GetUrl
 
 		} catch (IOException ee) {
 			_log.error ("writeHistory: error opening output file \"" + _historyFilename + "\"");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -1122,7 +1169,7 @@ public class GetUrl
 
 		} catch (IOException ee) {
 			_log.error ("writeHistory: error writing to output file \"" + _historyFilename + "\"");
-			_log.error (ee);
+			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -1162,7 +1209,7 @@ public class GetUrl
 
 		} catch (Exception ee) {
 //			_log.error ("getResponseCode: exception:");
-//			_log.error (ee);
+//			_log.error (ee); //print exception, but no stack trace
 		}
 
 		return responseCode;
@@ -1177,7 +1224,7 @@ public class GetUrl
 
 			} catch (Exception ee) {
 				_log.debug ("Thread.sleep exception", ee);
-				_log.error (ee);
+				_log.error (ee); //print exception, but no stack trace
 			}
 		}
 	}
@@ -1258,7 +1305,7 @@ public class GetUrl
 
 				short color = _highlightColor;
 				if (record._width < _alertPixels || record._height < _alertPixels) {
-					color = _alertColor;
+					color = _warningColor;
 				}
 
 				VendoUtils.printWithColor (color, record.toString2 ());

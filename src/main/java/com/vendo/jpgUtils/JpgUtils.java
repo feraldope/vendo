@@ -204,7 +204,7 @@ public class JpgUtils
 			msg = message + NL;
 
 //TODO
-		msg += "Usage: " + _AppName + " [/debug] ... TBD";
+		msg += "Usage: " + _AppName + " [/debug] [/destDir] [/sourceDir] [/height] [/width] [/minimumHeight] [/minimumWidth] [/query] [/scalePercent] [/suffix] <wildname>";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -234,13 +234,14 @@ public class JpgUtils
 	///////////////////////////////////////////////////////////////////////////
 	private boolean run ()
 	{
-//		if (_Debug)
-//			_log.debug ("JpgUtils.run");
+		if (_Debug) {
+			_log.trace ("JpgUtils.run");
+		}
 
 		String[] filenames = getFileList (_sourceDir, _infilenameWild);
 
 		if (filenames.length == 0) {
-			_log.error ("no files matching '" + _sourceDir + _infilenameWild + "' found");
+			_log.error ("JpgUtils.run: no files matching '" + _sourceDir + _infilenameWild + "' found");
 			return true;
 		}
 
@@ -278,26 +279,27 @@ public class JpgUtils
 	///////////////////////////////////////////////////////////////////////////
 	private boolean compressFile (String filename)
 	{
-//		if (_Debug)
-//			_log.debug ("JpgUtils.compressFile");
+		if (_Debug) {
+			_log.trace ("JpgUtils.compressFile(" + filename + ")");
+		}
 
 		String infilePath = _sourceDir + filename;
 		String outfilePath = generateOutfilePath (_destDir + filename, _nameSuffix);
-		if (_Debug)
-			System.out.println (infilePath);
+//		if (_Debug)
+//			System.out.println (infilePath);
 
 		if (outfilePath.compareToIgnoreCase (infilePath) == 0) {
-			_log.error ("output file name '" + outfilePath + "' is the same as input file name (need to specify /suffix)");
+			_log.error ("JpgUtils.compressFile: output file name '" + outfilePath + "' is the same as input file name (need to specify /suffix)");
 			return false;
 		}
 
 		if (fileExists (outfilePath)) {
-			_log.error ("output file '" + outfilePath + "' already exists");
+			_log.error ("JpgUtils.compressFile: output file '" + outfilePath + "' already exists");
 			return false;
 		}
 
-		if (_Debug)
-			System.out.println (outfilePath);
+//		if (_Debug)
+//			System.out.println (outfilePath);
 
 		//if either one of these is less than 0, it directs the scaler to maintain the aspect ratio
 		int newWidth = -1;
@@ -326,7 +328,7 @@ public class JpgUtils
 						Files.copy (srcPath, dstPath);
 
 					} catch (Exception ee) {
-						_log.error ("Files.copy failed to copy '" + infilePath + "' to '" + outfilePath + "'");
+						_log.error ("JpgUtils.compressFile: Files.copy failed to copy '" + infilePath + "' to '" + outfilePath + "'");
 						_log.error (ee);
 					}
 				}
@@ -335,9 +337,9 @@ public class JpgUtils
 			}
 
 			if (imageAttributes._width > imageAttributes._height)
-				newWidth = (int) (imageAttributes._width * scaleFactor + .999);
+				newWidth = roundUp (scaleFactor * imageAttributes._width);
 			else
-				newHeight = (int) (imageAttributes._height * scaleFactor + .999);
+				newHeight = roundUp (scaleFactor * imageAttributes._height);
 		}
 
 		boolean status = generateScaledImage (infilePath, outfilePath, newWidth, newHeight);
@@ -360,6 +362,10 @@ public class JpgUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String[] getFileList (String dirName, final String nameWild)
 	{
+		if (_Debug) {
+			_log.trace ("JpgUtils.getFileList(" + dirName + ", " + nameWild + ")");
+		}
+
 		//for simple dir listings, it looks like java.io package is faster than java.nio
 		FilenameFilter filenameFilter = new FilenameFilter () {
 			@Override
@@ -379,10 +385,15 @@ public class JpgUtils
 	@SuppressWarnings("restriction")
 	public static BufferedImage readImage (File file)
 	{
+		if (_Debug) {
+			_log.trace ("JpgUtils.readImage(" + file + ")");
+		}
+
 		BufferedImage image = null;
 
 		//first try faster, deprecated Sun class: sun.awt.image.codec.JPEGImageDecoderImpl
 		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
+			//note this prints errors directly to stderr; e.g., "Corrupt JPEG data: bad Huffman code" "Corrupt JPEG data: premature end of data segment"
 			image = new JPEGImageDecoderImpl (inputStream).decodeAsBufferedImage ();
 			return image;
 
@@ -420,6 +431,10 @@ public class JpgUtils
 	///////////////////////////////////////////////////////////////////////////
 	private static boolean generateScaledImage (String inFilename, String outFilename, int desiredWidth, int desiredHeight)
 	{
+		if (_Debug) {
+			_log.trace ("JpgUtils.generateScaledImage(" + inFilename + ", " + outFilename + ", " + desiredWidth + ", " + desiredHeight + ")");
+		}
+
 		BufferedImage image = null;
 		final int hints = Image.SCALE_SMOOTH;
 //		final int hints = Image.SCALE_REPLICATE;
@@ -429,7 +444,7 @@ public class JpgUtils
 			image = readImage (new File (inFilename));
 
 		} catch (Exception ee) {
-			_log.error ("generateScaledImage: failed to read '" + inFilename + "'");
+			_log.error ("JpgUtils.generateScaledImage: failed to read '" + inFilename + "'");
 			_log.error (ee);
 			return false; //not an image
 		}
@@ -439,7 +454,7 @@ public class JpgUtils
 			ImageIO.write (scaledImage, _formatName, new File (outFilename));
 
 		} catch (Exception ee) {
-			_log.error ("generateScaledImage: failed to write '" + outFilename + "'");
+			_log.error ("JpgUtils.generateScaledImage: failed to write '" + outFilename + "'");
 			_log.error (ee);
 			return false;
 		}
@@ -454,6 +469,10 @@ public class JpgUtils
 	// This method returns a BufferedImage with the contents of an image
 	public static BufferedImage toBufferedImage(Image image)
 	{
+		if (_Debug) {
+			_log.trace ("JpgUtils.toBufferedImage(" + image + ")");
+		}
+
 		if (image instanceof BufferedImage) {
 			return (BufferedImage)image;
 		}
@@ -576,7 +595,7 @@ public class JpgUtils
 		String s1 = VendoUtils.reverse (filename);
 		String s2 = VendoUtils.replacePattern (s1, pattern, marker, blockNumber);
 		String s3 = VendoUtils.reverse (s2);
-		String parts[] = s3.split (marker);
+		String[] parts = s3.split (marker);
 
 		return parts;
 	}
@@ -591,8 +610,77 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private static int roundUp (double x)
+	{
+		return (int) Math.ceil (x);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns false if the last part of the image contains the same invalid data
+	// or if the image is not the size it claims
+	///////////////////////////////////////////////////////////////////////////
+	public static boolean validateImageData (String filename)
+	{
+		_log.trace ("getRealPath: Path.toRealPath failed");
+
+		boolean validImage = false;
+
+		BufferedImage image = null;
+		try {
+			image = JpgUtils.readImage (new File (filename));
+			validImage = validateImageData (image);
+
+		} catch (Exception ee) {
+			_log.error ("JpgUtils.validateImageData: failed to read '" + filename + "'");
+			_log.error (ee); //print exception, but no stack trace
+		}
+
+		return validImage;
+	}
+	public static boolean validateImageData (BufferedImage image)
+	{
+		int width = image.getWidth ();
+		int height = image.getHeight ();
+
+		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
+		final int w = 100;
+		final int h = 10;
+		int[] rgbIntArray = new int [w * h];
+		image.getRGB (width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
+
+		final int invalidData = 0xFF808080;
+		boolean invalidImage = Arrays.stream (rgbIntArray).allMatch (t -> t == invalidData);
+
+		return !invalidImage;
+	}
+
+/*
+	///////////////////////////////////////////////////////////////////////////
+	//returns false if the last part of the image contains the same invalid data
+	private static boolean validateImageData (BufferedImage image)
+	{
+		int width = image.getWidth ();
+		int height = image.getHeight ();
+
+		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
+		final int w = 100;
+		final int h = 1;
+		int[] rgbIntArray = new int [w * h];
+		image.getRGB (width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
+
+		final int invalidData = 0xFF808080;
+		boolean invalidImage = Arrays.stream (rgbIntArray).allMatch (t -> t == invalidData);
+
+		return !invalidImage;
+	}
+*/
+	///////////////////////////////////////////////////////////////////////////
 	private ImageAttributes getImageAttributes (String filename)
 	{
+		if (_Debug) {
+			_log.trace ("JpgUtils.getImageAttributes(" + filename + ")");
+		}
+
 		BufferedImage image = null;
 
 		int width = -1;
@@ -601,16 +689,16 @@ public class JpgUtils
 
 		try {
 			image = readImage (new File (filename));
-			width = image.getWidth ();
-			height = image.getHeight ();
+			if (validateImageData (image)) {
+				width = image.getWidth ();
+				height = image.getHeight ();
 
-			File file = new File (filename);
-			bytes = file.length ();
+				File file = new File (filename);
+				bytes = file.length ();
+			}
 
 		} catch (Exception ee) {
-			_log.error ("getImageAttributes: failed on '" + filename + "'");
-			_log.error (ee);
-//			return false; //not an image
+			_log.error ("JpgUtils.getImageAttributes: failed on '" + filename + "'", ee);
 		}
 
 		ImageAttributes imageAttributes = new ImageAttributes (filename, width, height, bytes);

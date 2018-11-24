@@ -1,4 +1,4 @@
-//AlbumImageDiffer.java
+//AlbumImageDifferGen.java
 
 package com.vendo.albumServlet;
 
@@ -13,7 +13,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 
-public class AlbumImageDiffer
+public class AlbumImageDifferGen
 {
 	///////////////////////////////////////////////////////////////////////////
 	static
@@ -35,13 +35,13 @@ public class AlbumImageDiffer
 
 		AlbumProfiling.getInstance ().enter/*AndTrace*/ (1);
 
-		AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
+		AlbumImageDifferGen albumImageDifferGen = AlbumImageDifferGen.getInstance ();
 
-		if (!albumImageDiffer.processArgs (args))
+		if (!albumImageDifferGen.processArgs (args))
 			System.exit (1); //processArgs displays error
 
 		try {
-			albumImageDiffer.run ();
+			albumImageDifferGen.run ();
 		} catch (Exception ee) {
 			ee.printStackTrace (System.err);
 		}
@@ -63,42 +63,6 @@ public class AlbumImageDiffer
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_Debug = true;
-
-/*
-				} else if (arg.equalsIgnoreCase ("batchInsertSize") || arg.equalsIgnoreCase ("batch")) {
-					try {
-						_batchInsertSize = Integer.parseInt (args[++ii]);
-						if (_batchInsertSize < 0)
-							throw (new NumberFormatException ());
-					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
-					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
-					}
-
-				} else if (arg.equalsIgnoreCase ("dumpTagData") || arg.equalsIgnoreCase ("dump")) {
-					_dumpTagData = true;
-
-				} else if (arg.equalsIgnoreCase ("checkForOrphans") || arg.equalsIgnoreCase ("co")) {
-					_checkForOrphanFilters = true;
-
-				} else if (arg.equalsIgnoreCase ("resetTables") || arg.equalsIgnoreCase ("reset")) {
-					_resetTables = true;
-
-				} else if (arg.equalsIgnoreCase ("tagFilename") || arg.equalsIgnoreCase ("tagFile")) {
-					try {
-						_tagFilename = args[++ii];
-					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
-					}
-
-				} else if (arg.equalsIgnoreCase ("tagPatternString") || arg.equalsIgnoreCase ("p")) {
-					try {
-						_tagPatternString = args[++ii];
-					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
-					}
-*/
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -145,26 +109,20 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public synchronized static AlbumImageDiffer getInstance ()
+	public synchronized static AlbumImageDifferGen getInstance ()
 	{
 		if (_instance == null)
-			_instance = new AlbumImageDiffer ();
+			_instance = new AlbumImageDifferGen ();
 
 		return _instance;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private AlbumImageDiffer ()
+	private AlbumImageDifferGen ()
 	{
-		_log.debug ("AlbumImageDiffer ctor");
+		_log.debug ("AlbumImageDifferGen ctor");
 
 //		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
-//
-//		_subFolders = AlbumDirList.getInstance ().getAlbumSubFolders ();
-//		if (_subFolders.length == 0) {
-//			_log.error ("AlbumImageDiffer ctor: no album.xml files found under " + _rootPath);
-//			return;
-//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -175,12 +133,12 @@ public class AlbumImageDiffer
 		try {
 			image1Orig = ImageIO.read (new File (_imageFilename1));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.run: failed to read image \"" + _imageFilename1 + "\"");
+			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilename1 + "\"");
 		}
 		try {
 			image2Orig = ImageIO.read (new File (_imageFilename2));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.run: failed to read image \"" + _imageFilename2 + "\"");
+			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilename2 + "\"");
 		}
 
 		int image1Width = image1Orig.getWidth ();
@@ -189,8 +147,10 @@ public class AlbumImageDiffer
 		int image2Width = image2Orig.getWidth ();
 		int image2Height = image2Orig.getHeight ();
 
-		_log.debug ("AlbumImageDiffer.run: image1Orig: " + image1Width + " x " + image1Height);
-		_log.debug ("AlbumImageDiffer.run: image2Orig: " + image2Width + " x " + image2Height);
+		if (_Debug) {
+			_log.debug ("AlbumImageDifferGen.run: image1Orig: " + image1Width + " x " + image1Height);
+			_log.debug ("AlbumImageDifferGen.run: image2Orig: " + image2Width + " x " + image2Height);
+		}
 
 		int hints = BufferedImage.SCALE_FAST;
 		BufferedImage image1Scaled = image1Orig;
@@ -201,8 +161,10 @@ public class AlbumImageDiffer
 			image1Scaled = toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
 		}
 
-//		_log.debug ("AlbumImageDiffer.run: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
-//		_log.debug ("AlbumImageDiffer.run: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
+		if (_Debug) {
+			_log.debug ("AlbumImageDifferGen.run: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
+			_log.debug ("AlbumImageDifferGen.run: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
+		}
 
 		createImageDiff (image1Scaled, image2Scaled, new File (_imageFilename3));
 	}
@@ -219,12 +181,12 @@ public class AlbumImageDiffer
 		try {
 			image1Orig = ImageIO.read (new File (filename1));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.createImageDiff: failed to read image \"" + filename1 + "\"");
+			_log.error ("AlbumImageDifferGen.createImageDiff: failed to read image \"" + filename1 + "\"");
 		}
 		try {
 			image2Orig = ImageIO.read (new File (filename2));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.createImageDiff: failed to read image \"" + filename2 + "\"");
+			_log.error ("AlbumImageDifferGen.createImageDiff: failed to read image \"" + filename2 + "\"");
 		}
 		AlbumProfiling.getInstance ().exit (5, "reading");
 
@@ -234,8 +196,10 @@ public class AlbumImageDiffer
 		int image2Width = image2Orig.getWidth ();
 		int image2Height = image2Orig.getHeight ();
 
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image1Orig: " + image1Width + " x " + image1Height);
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image2Orig: " + image2Width + " x " + image2Height);
+		if (_Debug) {
+			_log.debug ("AlbumImageDifferGen.createImageDiff: image1Orig: " + image1Width + " x " + image1Height);
+			_log.debug ("AlbumImageDifferGen.createImageDiff: image2Orig: " + image2Width + " x " + image2Height);
+		}
 
 		int hints = BufferedImage.SCALE_FAST;
 		BufferedImage image1Scaled = image1Orig;
@@ -249,12 +213,14 @@ public class AlbumImageDiffer
 		}
 		AlbumProfiling.getInstance ().exit (5, "scaling");
 
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
-//		_log.debug ("AlbumImageDiffer.createImageDiff: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
+		if (_Debug) {
+			_log.debug ("AlbumImageDifferGen.createImageDiff: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
+			_log.debug ("AlbumImageDifferGen.createImageDiff: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
+		}
 
 		int averageDiff = createImageDiff (image1Scaled, image2Scaled, null);//new File (_imageFilename3));
 
-		_log.debug ("AlbumImageDiffer.createImageDiff: " + averageDiff + " " + filename1 + " " + filename2);
+		_log.debug ("AlbumImageDifferGen.createImageDiff: " + averageDiff + " " + filename1 + " " + filename2);
 
 		AlbumProfiling.getInstance ().exit (5, "1");
 
@@ -273,12 +239,12 @@ public class AlbumImageDiffer
 
 		int image1Width = image1.getWidth ();
 		if (image1.getWidth () != image2.getWidth ()) {
-			_log.error ("AlbumImageDiffer.createImageDiff: widths not equal (" + image1.getWidth () + " != " + image2.getWidth () + ")");
+			_log.error ("AlbumImageDifferGen.createImageDiff: widths not equal (" + image1.getWidth () + " != " + image2.getWidth () + ")");
 			return 10000;
 		}
 		int image1Height = image1.getHeight ();
 		if (image1.getHeight () != image2.getHeight ()) {
-			_log.error ("AlbumImageDiffer.createImageDiff: heights not equal (" + image1.getHeight () + " != " + image2.getHeight () + ")");
+			_log.error ("AlbumImageDifferGen.createImageDiff: heights not equal (" + image1.getHeight () + " != " + image2.getHeight () + ")");
 			return 10000;
 		}
 
@@ -309,8 +275,8 @@ public class AlbumImageDiffer
 					a0a1NotEqual = true;
 				}
 
-//_log.debug ("AlbumImageDiffer.createImageDiff: a0: " + a0 + ", a1: " + a1 + ", aDiff: " + aDiff);
-//_log.debug ("AlbumImageDiffer.createImageDiff: r0: " + r0 + ", r1: " + r1 + ", rDiff: " + rDiff);
+//_log.debug ("AlbumImageDifferGen.createImageDiff: a0: " + a0 + ", a1: " + a1 + ", aDiff: " + aDiff);
+//_log.debug ("AlbumImageDifferGen.createImageDiff: r0: " + r0 + ", r1: " + r1 + ", rDiff: " + rDiff);
 
 				if (imageDiff != null) {
 					int pixel = (a0 << 24) | (rDiff << 16) | (gDiff << 8) | bDiff;
@@ -323,23 +289,27 @@ public class AlbumImageDiffer
 		AlbumProfiling.getInstance ().exit (5, "getRGB loop");
 
 //		if (a0a1NotEqual) {
-			_log.error ("AlbumImageDiffer.createImageDiff: a0a1NotEqual: " + a0a1NotEqual);
+			_log.error ("AlbumImageDifferGen.createImageDiff: a0a1NotEqual: " + a0a1NotEqual);
 //		}
 
 		double averageDiff = (double) totalDiff / (image1Width * image1Height);
-		_log.debug ("AlbumImageDiffer.createImageDiff: image3: totalDiff: " + totalDiff);
-		_log.debug ("AlbumImageDiffer.createImageDiff: image3: averageDiff: " + averageDiff);
+		if (_Debug) {
+			_log.debug ("AlbumImageDifferGen.createImageDiff: image3: totalDiff: " + totalDiff);
+			_log.debug ("AlbumImageDifferGen.createImageDiff: image3: averageDiff: " + averageDiff);
+		}
 
 		if (imageDiff != null) {
 			int image3Width = image3.getWidth ();
 			int image3Height = image3.getHeight ();
-			_log.debug ("AlbumImageDiffer.createImageDiff: image3: " + image3Width + " x " + image3Height);
+			if (_Debug) {
+				_log.debug ("AlbumImageDifferGen.createImageDiff: image3: " + image3Width + " x " + image3Height);
+			}
 
 			try {
 				ImageIO.write (image3, "jpg", imageDiff);
 
 			} catch (Exception ee) {
-				_log.error ("AlbumImageDiffer.createImageDiff: failed to write image \"" + imageDiff + "\"");
+				_log.error ("AlbumImageDifferGen.createImageDiff: failed to write image \"" + imageDiff + "\"");
 			}
 		}
 
@@ -347,68 +317,6 @@ public class AlbumImageDiffer
 
 		return (int) averageDiff;
 	}
-
-/*
-	///////////////////////////////////////////////////////////////////////////
-	//Creating a Buffered Image from an Image:
-	//original from: http://www.exampledepot.com/egs/java.awt.image/Image2Buf.html
-	//
-	// This method returns a BufferedImage with the contents of an image
-	public static BufferedImage toBufferedImage (Image image)
-	{
-		if (image instanceof BufferedImage) {
-			return (BufferedImage)image;
-		}
-
-		AlbumProfiling.getInstance ().enter (5);
-
-		// This code ensures that all the pixels in the image are loaded
-		image = new ImageIcon (image).getImage ();
-
-		// Determine if the image has transparent pixels; for this method's
-		// implementation, see e661 Determining If an Image Has Transparent Pixels
-		boolean hasAlpha = false; //hasAlpha (image);
-
-		// Create a buffered image with a format that's compatible with the screen
-		BufferedImage bimage = null;
-		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment ();
-		try {
-			// Determine the type of transparency of the new buffered image
-			int transparency = Transparency.OPAQUE;
-			if (hasAlpha) {
-				transparency = Transparency.BITMASK;
-			}
-
-			// Create the buffered image
-			GraphicsDevice gs = ge.getDefaultScreenDevice ();
-			GraphicsConfiguration gc = gs.getDefaultConfiguration ();
-			bimage = gc.createCompatibleImage (
-				image.getWidth (null), image.getHeight (null), transparency);
-		} catch (HeadlessException ee) {
-			// The system does not have a screen
-		}
-
-		if (bimage == null) {
-			// Create a buffered image using the default color model
-			int type = BufferedImage.TYPE_INT_RGB;
-			if (hasAlpha) {
-				type = BufferedImage.TYPE_INT_ARGB;
-			}
-			bimage = new BufferedImage (image.getWidth (null), image.getHeight (null), type);
-		}
-
-		// Copy image to buffered image
-		Graphics g = bimage.createGraphics ();
-
-		// Paint the image onto the buffered image
-		g.drawImage (image, 0, 0, null);
-		g.dispose ();
-
-		AlbumProfiling.getInstance ().exit (5);
-
-		return bimage;
-	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	//Creating a Buffered Image from an Image:
@@ -443,9 +351,8 @@ public class AlbumImageDiffer
 	private String _imageFilename3 = null;
 
 //	private String _rootPath = null;
-//	private String[] _subFolders = null;
 
-	private static AlbumImageDiffer _instance = null;
+	private static AlbumImageDifferGen _instance = null;
 
 	private static final String NL = System.getProperty ("line.separator");
 //	private static final DecimalFormat _decimalFormat = new DecimalFormat ("+#;-#"); //print integer with +/- sign
@@ -453,5 +360,5 @@ public class AlbumImageDiffer
 
 	private static boolean _Debug = false;
 	private static Logger _log = LogManager.getLogger ();
-	private static final String _AppName = "AlbumImageDiffer";
+	private static final String _AppName = "AlbumImageDifferGen";
 }

@@ -240,15 +240,15 @@ order by d.last_update desc
 
 -- find all matches in image_diffs table based on name
 select RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 40, ' ') as 'names',
-	d.avg_diff, d.max_diff, source, d.last_update,
+	d.avg_diff, d.max_diff, count, source, d.last_update,
 	timestampdiff (hour, curdate(), d.last_update) as hours
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
 where d.avg_diff < d.max_diff and
 	    d.avg_diff <= 20 and
-      (i1.name_no_ext like 's%4679%' or i2.name_no_ext like 's%4679%')
-order by i1.name_no_ext
+      (i1.name_no_ext like 'Jo%' or i2.name_no_ext like 'Jo%')
+order by count desc
 
 -- image_diffs cleanup
 xx delete from image_diffs where avg_diff >= 19
