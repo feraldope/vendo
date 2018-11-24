@@ -1,6 +1,7 @@
 Tomcat Configuration Instructions
 
 -------------------------------------------------------------------------------
+04/21/18
 07/18/17
 
 NEW VERSION OF JAVA JRE:
@@ -91,9 +92,6 @@ Default value for Java->Java Options:
 -Djava.io.tmpdir=C:\Program Files\Apache Software Foundation\Tomcat 8.0\temp
 -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager
 -Djava.util.logging.config.file=C:\Program Files\Apache Software Foundation\Tomcat 8.0\conf\logging.properties
-
-REM added for debugging log4j2 configuration
--Dlog4j2.debug
 
 REM added for "Java Mission Control" and "Java Flight Recorder"
 -XX:+UnlockCommercialFeatures

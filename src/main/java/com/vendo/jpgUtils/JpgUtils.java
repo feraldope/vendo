@@ -654,26 +654,6 @@ public class JpgUtils
 		return !invalidImage;
 	}
 
-/*
-	///////////////////////////////////////////////////////////////////////////
-	//returns false if the last part of the image contains the same invalid data
-	private static boolean validateImageData (BufferedImage image)
-	{
-		int width = image.getWidth ();
-		int height = image.getHeight ();
-
-		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
-		final int w = 100;
-		final int h = 1;
-		int[] rgbIntArray = new int [w * h];
-		image.getRGB (width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
-
-		final int invalidData = 0xFF808080;
-		boolean invalidImage = Arrays.stream (rgbIntArray).allMatch (t -> t == invalidData);
-
-		return !invalidImage;
-	}
-*/
 	///////////////////////////////////////////////////////////////////////////
 	private ImageAttributes getImageAttributes (String filename)
 	{

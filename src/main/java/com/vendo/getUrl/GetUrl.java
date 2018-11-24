@@ -654,44 +654,7 @@ public class GetUrl
 			case AVI:	return validVideo (filename);
 		}
 	}
-/*moved to JpgUtils
-	///////////////////////////////////////////////////////////////////////////
-	//returns false if the last part of the image contains the same invalid data
-	// or if the image is not the size it claims
-	///////////////////////////////////////////////////////////////////////////
-	private static boolean validateImageData (String filename)
-	{
-		boolean validImage = false;
 
-		BufferedImage image = null;
-		try {
-			image = JpgUtils.readImage (new File (filename));
-			validImage = validateImageData (image);
-
-		} catch (Exception ee) {
-			_log.error ("validateImageData: failed to read '" + filename + "'");
-			_log.error (ee); //print exception, but no stack trace
-		}
-
-		return validImage;
-	}
-	private static boolean validateImageData (BufferedImage image)
-	{
-		int width = image.getWidth ();
-		int height = image.getHeight ();
-
-		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
-		final int w = 100;
-		final int h = 10;
-		int[] rgbIntArray = new int [w * h];
-		image.getRGB (width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
-
-		final int invalidData = 0xFF808080;
-		boolean invalidImage = Arrays.stream (rgbIntArray).allMatch (t -> t == invalidData);
-
-		return !invalidImage;
-	}
-*/
 	///////////////////////////////////////////////////////////////////////////
 	private boolean validImage (String filename, ImageSize imageSize)
 	{
