@@ -278,7 +278,6 @@ public class AlbumImageDao
 	{
 		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImages (subFolder); //result is sorted
 		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".jpg"); //result is sorted
-		Collection<AlbumImageFileDetails> fsDatFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".dat"); //result is sorted
 
 		Set<AlbumImageFileDetails> dbDiff = new HashSet<AlbumImageFileDetails> ();
 		Set<AlbumImageFileDetails> fsDiff = new HashSet<AlbumImageFileDetails> ();
@@ -416,7 +415,11 @@ public class AlbumImageDao
 		Set<AlbumImageFileDetails> fsJpgDiff = new HashSet<AlbumImageFileDetails> ();
 		Set<AlbumImageFileDetails> fsDatDiff = new HashSet<AlbumImageFileDetails> ();
 
+		Collection<AlbumImageFileDetails> fsDatFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".dat"); //result is sorted
+
 		VendoUtils.removeAll (fsImageFileDetails, fsDatFileDetails, fsJpgDiff, fsDatDiff);
+
+		Collection<AlbumImage> imagesMissingOrBadDatFiles = new HashSet<AlbumImage> ();
 
 		if (fsJpgDiff.size () > 0) {
 			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsJpgDiff.size() = " + fsJpgDiff.size () + " (mismatched jpg/dat pairs)");
@@ -427,7 +430,8 @@ public class AlbumImageDao
 										   .collect (Collectors.toList ());
 			for (String str : sorted) {
 				String filePath = Paths.get (_rootPath, subFolder, str + ".jpg").toString ();
-				_log.debug ("AlbumImageDao.syncFolder: warning: missing .dat for : " + filePath);
+				_log.debug ("AlbumImageDao.syncFolder: warning: missing .dat for: " + filePath);
+				imagesMissingOrBadDatFiles.add (new AlbumImage (str, subFolder, true)); //this AlbumImage ctor reads image from disk
 			}
 		}
 
@@ -440,17 +444,28 @@ public class AlbumImageDao
 										   .collect (Collectors.toList ());
 			for (String str : sorted) {
 				String filePath = Paths.get (_rootPath, subFolder, str + ".dat").toString ();
-				_log.warn ("AlbumImageDao.syncFolder: warning: missing .jpg for : " + filePath);
+				_log.warn ("AlbumImageDao.syncFolder: warning: missing .jpg for: " + filePath);
 			}
 		}
 
-		//validate dat files have minimum size --------------------------------
+		//validate dat files have correct size --------------------------------
 
-		final long minDatFileSize = 10000L;
 		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
-			if (fsDatFileDetail.getBytes() < minDatFileSize) {
+			if (fsDatFileDetail.getBytes() != AlbumImage._rgbDatSizeRectagular && fsDatFileDetail.getBytes() != AlbumImage._rgbDatSizeSquare) {
 				String filePath = Paths.get (_rootPath, subFolder, fsDatFileDetail.getName () + ".dat").toString ();
-				_log.warn ("AlbumImageDao.syncFolder: warning: too-small dat file (" + fsDatFileDetail.getBytes () + " < " + minDatFileSize + "): " + filePath);
+				_log.warn ("AlbumImageDao.syncFolder: warning: invalid .dat file size (" + fsDatFileDetail.getBytes () + ") for: " + filePath);
+				imagesMissingOrBadDatFiles.add (new AlbumImage (fsDatFileDetail.getName (), subFolder, true)); //this AlbumImage ctor reads image from disk
+			}
+		}
+
+		// create missing or corrupted dat files
+
+		if (imagesMissingOrBadDatFiles.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", imagesMissingOrBadDatFiles.size() = " + imagesMissingOrBadDatFiles.size () + " (missing or bad .dat files)");
+
+			for (AlbumImage image : imagesMissingOrBadDatFiles) {
+				_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", creating .dat file: " + image.getName () + ".dat");
+				image.createRgbDataFile ();
 			}
 		}
 
@@ -692,14 +707,14 @@ public class AlbumImageDao
 
 			int count = getImageCountFromImages (subFolder, baseName + ".*"); //regex (e.g., Foo01 -> Foo01.*)
 			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, /*collapseGroups*/ false, count);
-			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + " = " + count);
+			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 		baseNames1.clear ();
 
 		for (String baseName : baseNames2) {
 			int count = getImageCountFromImages (subFolder, baseName + "[0-9].*"); //regex  (e.g., Foo -> Foo[0-9].*)
 			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, /*collapseGroups*/ true, count);
-			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + " = " + count);
+			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 
 		if (rowsAffected > 0) {

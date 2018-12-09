@@ -63,14 +63,14 @@ CREATE TABLE IF NOT EXISTS image_diffs
 	name_id_1		INTEGER UNSIGNED NOT NULL, -- (name_id_1 < name_id_2) should be true
 	name_id_2		INTEGER UNSIGNED NOT NULL,
 	avg_diff		TINYINT UNSIGNED NOT NULL, -- max 255
-	max_diff		TINYINT UNSIGNED NOT NULL, -- max 255
-	count			TINYINT UNSIGNED NOT NULL, -- max 255
+	std_dev 		TINYINT UNSIGNED NOT NULL, -- max 255
+	count	  		TINYINT UNSIGNED NOT NULL, -- max 255
 	source			VARCHAR(20) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
 	last_update	TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (name_id_1, name_id_2)
 );
 CREATE INDEX avg_diff_idx on image_diffs (avg_diff);
-CREATE INDEX max_diff_idx on image_diffs (max_diff);
+CREATE INDEX std_dev_idx on image_diffs (std_dev);
 CREATE INDEX source_idx on image_diffs (source);
 CREATE INDEX last_update_idx on image_diffs (last_update);
 SHOW COLUMNS FROM image_diffs;
@@ -194,14 +194,14 @@ INSERT INTO images (name_id, insert_date, sub_folder_int, name_no_ext, bytes, wi
 -- ADDING COLUMN TO TABLE (2)
 -- step 1: create new table image_diffs_tmp
 -- step 2: copy data from image_diffs to image_diffs_tmp
-INSERT INTO image_diffs_tmp (name_id_1, name_id_2, avg_diff, max_diff, source, last_update)
-				              SELECT name_id_1, name_id_2, avg_diff, max_diff, source, last_update
+INSERT INTO image_diffs_tmp (name_id_1, name_id_2, avg_diff, count, source, last_update)
+				              SELECT name_id_1, name_id_2, avg_diff, count, source, last_update
 				              FROM image_diffs
 -- step 3: drop table image_diffs
 -- step 4: create new table image_diffs
 -- step 5: copy data from image_diffs_tmp to image_diffs
-INSERT INTO image_diffs (name_id_1, name_id_2, avg_diff, max_diff, source, COUNT, last_update)
-                  SELECT name_id_1, name_id_2, avg_diff, max_diff, source, 1, last_update
+INSERT INTO image_diffs (name_id_1, name_id_2, avg_diff, std_dev, source, count, last_update)
+                  SELECT name_id_1, name_id_2, avg_diff, 35, source, count, last_update
                   FROM image_diffs_tmp
 -- step 6: drop table image_diffs_tmp
 
@@ -227,32 +227,29 @@ select d.* from image_diffs d where d.count > 1
 select d.count as count, count(d.count) as rows from image_diffs d group by d.count
 
 select * from image_diffs where name_id_2 < name_id_1
-select * from image_diffs where avg_diff < max_diff 
 
 -- query image_diffs table
-select i1.name_id, i1.name_no_ext, i2.name_id, i2.name_no_ext, d.avg_diff, d.max_diff, source, d.last_update
+select i1.name_id, i1.name_no_ext, i2.name_id, i2.name_no_ext, d.avg_diff, source, d.last_update
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff < d.max_diff 
+where d.avg_diff < 25 
 -- order by i1.name_no_ext, i2.name_no_ext
 order by d.last_update desc
 
 -- find all matches in image_diffs table based on name
 select RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 40, ' ') as 'names',
-	d.avg_diff, d.max_diff, count, source, d.last_update,
+	d.avg_diff, count, source, d.last_update,
 	timestampdiff (hour, curdate(), d.last_update) as hours
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff < d.max_diff and
-	    d.avg_diff <= 20 and
+where d.avg_diff <= 20 and
       (i1.name_no_ext like 'Jo%' or i2.name_no_ext like 'Jo%')
 order by count desc
 
 -- image_diffs cleanup
 xx delete from image_diffs where avg_diff >= 19
-xx delete from image_diffs where max_diff = 30
 xx delete from image_diffs where timestampdiff (hour, last_update, current_timestamp) > 1
 
 select distinct name from albumtags.base1_names where name_id in (
@@ -269,7 +266,6 @@ set @row_number := 0;
 select @row_number := @row_number + 1 as row,
 	RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 42, ' ') as 'names                                   ',
 	d.avg_diff as avg,
-	d.max_diff as max,
 	d.source as 'source',
 	d.count as 'count',
 	d.last_update as 'last update     ',	
@@ -285,8 +281,7 @@ select @row_number := @row_number + 1 as row,
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff < d.max_diff and
-	d.avg_diff <= 15 and -- MAX_RGB_DIFF and
+where d.avg_diff <= 15 and -- MAX_RGB_DIFF and
 	timestampdiff (hour, d.last_update, current_timestamp) <= 12 -- and -- SINCE_HOURS
   having strcmp(i1_orient, i2_orient) = 0
 -- order by avg_diff, i1.name_no_ext, i2.name_no_ext
@@ -310,7 +305,7 @@ d.last_update,
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff < d.max_diff -- and
+where d.avg_diff < 25
 having strcmp(i1o, i2o) != 0
 order by d.last_update
 ) as temp

@@ -40,6 +40,8 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 		return toString ().compareToIgnoreCase (obj.toString ());
 	}
 
+	//TODO: implement hashCode
+
 	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public boolean equals (Object obj)

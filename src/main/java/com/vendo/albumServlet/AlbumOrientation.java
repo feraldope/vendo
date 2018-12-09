@@ -71,12 +71,12 @@ public enum AlbumOrientation
 	///////////////////////////////////////////////////////////////////////////
 	public static AlbumOrientation getOrientation (int imageWidth, int imageHeight)
 	{
-		final int squareSlop = 10; //allowable variation from exactly square that will still be considered square
+		final double squareSlopPercent = 2.; //allowable variation from exactly square that will still be considered square
 
-		int diff = imageWidth - imageHeight;
-		if (diff > squareSlop) {
+		double ratio = (double) imageWidth / (double) imageHeight;
+		if (ratio > 1. + squareSlopPercent / 100.) {
 			return AlbumOrientation.ShowLandScape;
-		} else if (diff < -squareSlop) {
+		} else if (ratio < 1. - squareSlopPercent / 100.) {
 			return AlbumOrientation.ShowPortrait;
 		} else {
 			return AlbumOrientation.ShowSquare;

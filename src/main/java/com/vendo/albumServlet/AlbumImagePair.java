@@ -10,6 +10,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.commons.lang3.time.FastDateFormat;
+
 //import org.apache.logging.log4j.*;
 
 
@@ -18,17 +20,17 @@ public class AlbumImagePair
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2)
 	{
-		this (image1, image2, 0, null);
+		this (image1, image2, 0, 0, null, null);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff)
+	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source)
 	{
-		this (image1, image2, averageDiff, null);
+		this (image1, image2, averageDiff, stdDev, source, null);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, Date lastUpdate)
+	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source, Date lastUpdate)
 	{
 		if (image1.getName ().compareToIgnoreCase (image2.getName ()) < 0) {
 			_image1 = image1;
@@ -38,6 +40,8 @@ public class AlbumImagePair
 			_image2 = image1;
 		}
 		_averageDiff = averageDiff;
+		_stdDev = stdDev;
+		_source = source;
 		_lastUpdate = lastUpdate;
 	}
 
@@ -57,6 +61,24 @@ public class AlbumImagePair
 	public int getAverageDiff ()
 	{
 		return _averageDiff;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public int getStdDev ()
+	{
+		return _stdDev;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public int getMinDiff ()
+	{
+		return Math.min (_averageDiff, _stdDev);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String getSource ()
+	{
+		return _source;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -91,10 +113,10 @@ public class AlbumImagePair
 //currently only used by hashCode()
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	private synchronized String getJoinedNames (String... extras)
+	private synchronized String getJoinedNames ()
 	{
 		if (_joinedNames == null) {
-			_joinedNames = getJoinedNames (getImage1 (), getImage2 (), extras);
+			_joinedNames = getJoinedNames (getImage1 (), getImage2 ());
 		}
 
 		return _joinedNames;
@@ -126,20 +148,16 @@ public class AlbumImagePair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getJoinedNames (AlbumImage image1, AlbumImage image2, String... extras)
+	public static String getJoinedNames (AlbumImage image1, AlbumImage image2)
 	{
 		String namePlus1 = image1.getNamePlus ();
 		String namePlus2 = image2.getNamePlus ();
 
-		StringBuffer sb = new StringBuffer (100);
+		StringBuffer sb = new StringBuffer (48);
 		if (namePlus1.compareToIgnoreCase (namePlus2) < 0) {
 			sb.append (namePlus1).append (".").append (namePlus2);
 		} else {
 			sb.append (namePlus2).append (".").append (namePlus1);
-		}
-
-		for (String extra : extras) {
-			sb.append (".").append (extra);
 		}
 
 		return sb.toString ();
@@ -185,13 +203,43 @@ public class AlbumImagePair
 		return images;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	public String getDetailsString ()
+	{
+		StringBuffer sb = new StringBuffer ();
+		sb.append ("Avg/StdDev: ").append (getAverageDiff ()).append ("/").append (getStdDev ()).append (", ");
+		sb.append ("Src: ").append (getSource ()).append (", ");
+		sb.append ("Updated: ").append (getLastUpdate () != null ? _dateFormat.format (getLastUpdate ()) : "null");
+
+		return sb.toString ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	@Override
+	public String toString ()
+	{
+		StringBuffer sb = new StringBuffer ();
+		sb.append (getImage1 ().getName ()).append (", ");
+		sb.append (getImage2 ().getName ()).append (", ");
+		sb.append (getAverageDiff ()).append (", ");
+		sb.append (getStdDev ()).append (", ");
+		sb.append (getSource ()).append (", ");
+		sb.append (getLastUpdate () != null ? _dateFormat.format (getLastUpdate ()) : "null");
+
+		return sb.toString ();
+	}
+
 
 	//members
 	private final AlbumImage _image1;
 	private final AlbumImage _image2;
 	private final int _averageDiff;
+	private final int _stdDev;
+	private final String _source;
 	private final Date _lastUpdate;
 	private String _joinedNames = null;
+
+	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
 
 //	private static Logger _log = LogManager.getLogger ();
 }

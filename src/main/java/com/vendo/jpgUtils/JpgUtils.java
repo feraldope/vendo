@@ -337,9 +337,9 @@ public class JpgUtils
 			}
 
 			if (imageAttributes._width > imageAttributes._height)
-				newWidth = roundUp (scaleFactor * imageAttributes._width);
+				newWidth = VendoUtils.roundUp (scaleFactor * imageAttributes._width);
 			else
-				newHeight = roundUp (scaleFactor * imageAttributes._height);
+				newHeight = VendoUtils.roundUp (scaleFactor * imageAttributes._height);
 		}
 
 		boolean status = generateScaledImage (infilePath, outfilePath, newWidth, newHeight);
@@ -607,12 +607,6 @@ public class JpgUtils
 		String[] parts = splitFilename (filename);
 		String newFilename = parts[0] + suffix + "." + parts[1];
 		return newFilename;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private static int roundUp (double x)
-	{
-		return (int) Math.ceil (x);
 	}
 
 	///////////////////////////////////////////////////////////////////////////

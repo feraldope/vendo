@@ -8,7 +8,12 @@ package com.vendo.albumServlet;
 public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageDiffDetails (int nameId1, int nameId2, int avgDiff, int maxDiff, int count, String source)
+	AlbumImageDiffDetails (int nameId1, int nameId2)
+	{
+		this (nameId1, nameId2, 0, 0, 0, null);
+	}
+	///////////////////////////////////////////////////////////////////////////
+	AlbumImageDiffDetails (int nameId1, int nameId2, int avgDiff, int stdDev, int count, String source)
 	{
 		if (nameId1 < nameId2) {
 			_nameId1 = nameId1;
@@ -18,7 +23,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 			_nameId2 = nameId1;
 		}
 		_avgDiff = avgDiff;
-		_maxDiff = maxDiff;
+		_stdDev = stdDev;
 		_count = count;
 		_source = source;
 	}
@@ -42,9 +47,9 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public Integer getMaxDiff ()
+	public Integer getStdDev ()
 	{
-		return _maxDiff;
+		return _stdDev;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -66,7 +71,6 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	{
 		int hash = _nameId1;
 		hash = 31 * hash + _nameId2;
-//		hash = 31 * hash + _avgDiff;
 		return hash;
 	}
 
@@ -102,7 +106,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 		sb.append (getNameId1 ()).append (", ");
 		sb.append (getNameId2 ()).append (", ");
 		sb.append (getAvgDiff ()).append (", ");
-		sb.append (getMaxDiff ()).append (", ");
+		sb.append (getStdDev ()).append (", ");
 		sb.append (getCount ()).append (", ");
 		sb.append (getSource ());
 
@@ -113,7 +117,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	private final Integer _nameId1;
 	private final Integer _nameId2;
 	private final Integer _avgDiff;
-	private final Integer _maxDiff;
+	private final Integer _stdDev;
 	private final Integer _count;
 	private final String _source;
 

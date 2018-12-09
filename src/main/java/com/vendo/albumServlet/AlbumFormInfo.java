@@ -23,17 +23,20 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 
+import org.apache.commons.lang3.BooleanUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumFormInfo
@@ -83,7 +86,7 @@ public class AlbumFormInfo
 		_sinceDays = 0; //0 means show all
 		_maxFilters = _defaultMaxFilters;
 		_highlightDays = _defaultHighlightDays;
-		_maxRgbDiffs = _defaultMaxRgbDiffs;
+		_maxStdDev = _defaultMaxStdDev;
 		_exifDateIndex = _defaultExifDateIndex;
 		_tagFilterOperandOr = false;
 		_collapseGroups = false;
@@ -107,133 +110,67 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//handle non-primitive params and defaults from the properties file
+	//Note that primitive params are handled after this, by the call to AlbumBeanUtilities.populateBean() in AlbumServlet.doGet()
 	public void processRequest (HttpServletRequest request, ServletContext context)
 	{
-		//booleans
-		boolean gotDebugRequest = false;
-		boolean gotFilterOperandOr = false;
-		boolean gotCollapseGroups = false;
-		boolean gotLimitedCompare = false;
-		boolean gotDbCompare = false;
-		boolean gotLooseCompare = false;
-		boolean gotIgnoreBytes = false;
-		boolean gotUseExifDates = false;
-		boolean gotUseCase = false;
-		boolean gotClearCache = false;
-		boolean gotReverseSort = false;
-		boolean gotShowRgbData = false;
+		_isServlet = true;
 
 		if (_debugProperties) {
-			List<String> headerNames = Collections.list (request.getHeaderNames ());
-			Collections.sort (headerNames, AlbumFormInfo.caseInsensitiveStringComparator);
+			List<String> headerNames = Collections.list (request.getHeaderNames ()).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 			for (String headerName : headerNames) {
-				List<String> headerValues = Collections.list (request.getHeaders (headerName));
-				Collections.sort (headerValues, AlbumFormInfo.caseInsensitiveStringComparator);
+				List<String> headerValues = Collections.list (request.getHeaders (headerName)).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 				for (String headerValue : headerValues) {
 					_log.debug ("AlbumFormInfo.processRequest: header: " + headerName + " = " + headerValue);
 				}
 			}
 		}
 
-		//handle URL parameters and form checkbox/radiobutton parameters
-		List<String> paramNames = Collections.list (request.getParameterNames ());
-		Collections.sort (paramNames, AlbumFormInfo.caseInsensitiveStringComparator);
+		List<String> paramNames = Collections.list (request.getParameterNames ()).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 		for (String paramName : paramNames) {
-
 			if (_debugProperties) { //debug - log form parameters
-				List<String> paramValues = Arrays.asList (request.getParameterValues (paramName));
-				Collections.sort (paramValues, AlbumFormInfo.caseInsensitiveStringComparator);
+				List<String> paramValues = Arrays.asList (request.getParameterValues (paramName)).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 				for (String paramValue : paramValues) {
 					_log.debug ("AlbumFormInfo.processRequest: param: " + paramName + " = " + paramValue);
 				}
 			}
 
 			if (paramName.equals ("rootFolder")) {
-				if (_debugProperties)
+				if (_debugProperties) {
 					_log.debug ("AlbumFormInfo.processRequest: got rootFolder = " + request.getParameterValues (paramName)[0]);
+				}
 				_rootFolder = request.getParameterValues (paramName)[0];
 
-			} else if (paramName.equals ("debug")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got debug");
-				gotDebugRequest = true;
-
-			} else if (paramName.equals ("filterOperandOr")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got filterOperandOr");
-				gotFilterOperandOr = true;
-
-			} else if (paramName.equals ("collapseGroups")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got collapseGroups");
-				gotCollapseGroups = true;
-
-			} else if (paramName.equals ("limitedCompare")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got limitedCompare");
-				gotLimitedCompare = true;
-
-			} else if (paramName.equals ("dbCompare")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got dbCompare");
-				gotDbCompare = true;
-
-			} else if (paramName.equals ("looseCompare")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got looseCompare");
-				gotLooseCompare = true;
-
-			} else if (paramName.equals ("ignoreBytes")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got ignoreBytes");
-				gotIgnoreBytes = true;
-
-			} else if (paramName.equals ("useExifDates")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got useExifDates");
-				gotUseExifDates = true;
-
-			} else if (paramName.equals ("useCase")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got useCase");
-				gotUseCase = true;
-
-			} else if (paramName.equals ("clearCache")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got clearCache");
-				gotClearCache = true;
-
-			} else if (paramName.equals ("reverseSort")) {
-				if (_debugProperties)
-					_log.debug ("AlbumFormInfo.processRequest: got reverseSort");
-				gotReverseSort = true;
-
 			} else if (paramName.equals ("orientation")) {
-				if (_debugProperties)
+				if (_debugProperties) {
 					_log.debug ("AlbumFormInfo.processRequest: got orientation = " + request.getParameterValues (paramName)[0]);
+				}
 				setOrientation (request.getParameterValues (paramName)[0]);
 
 			} else if (paramName.equals ("sortType")) {
-				if (_debugProperties)
+				if (_debugProperties) {
 					_log.debug ("AlbumFormInfo.processRequest: got sortType = " + request.getParameterValues (paramName)[0]);
+				}
 				setSortType (request.getParameterValues (paramName)[0]);
 
 			} else if (paramName.equals ("mode")) {
-				if (_debugProperties)
+				if (_debugProperties) {
 					_log.debug ("AlbumFormInfo.processRequest: got mode = " + request.getParameterValues (paramName)[0]);
+				}
 				setMode (request.getParameterValues (paramName)[0]);
 
 			} else {
 				for (int ii = 0; ii < _NumTagParams; ii++) {
 					if (paramName.equals ("tagMode" + ii)) {
-						if (_debugProperties)
+						if (_debugProperties) {
 							_log.debug ("AlbumFormInfo.processRequest: got tagMode" + ii + " = " + request.getParameterValues (paramName)[0]);
+						}
 						setTagMode (ii, request.getParameterValues (paramName)[0]);
-					}
 
-					if (paramName.equals ("tag" + ii)) {
-						if (_debugProperties)
+					} else if (paramName.equals ("tag" + ii)) {
+						if (_debugProperties) {
 							_log.debug ("AlbumFormInfo.processRequest: got tag" + ii + " = " + request.getParameterValues (paramName)[0]);
+						}
 						setTag (ii, request.getParameterValues (paramName)[0]);
 					}
 				}
@@ -249,87 +186,72 @@ public class AlbumFormInfo
 			_log.error ("AlbumFormInfo.processRequest: failed to read properties file \"" + _propertiesFile + "\"", ee);
 		}
 
-		//string properties that are booleans
-		String string = properties.getProperty ("debug", "no");
-		if (string.compareToIgnoreCase ("yes") == 0) {
-			gotDebugRequest = true;
-			if (_debugProperties)
-				_log.debug ("AlbumFormInfo.processRequest: property: got debug");
+		//boolean properties
+		_Debug = getPropertyBoolean (properties, "debug", false);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: debug = " + _Debug);
 		}
 
-		string = properties.getProperty ("showRgbData", "no");
-		if (string.compareToIgnoreCase ("yes") == 0) {
-			gotShowRgbData = true;
-			if (_debugProperties)
-				_log.debug ("AlbumFormInfo.processRequest: property: got showRgbData");
+		_showRgbData = getPropertyBoolean (properties, "showRgbData", false);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: showRgbData = " + _showRgbData);
 		}
-
-//not currently working
-//		//other string properties
-//		_subFolders = getPropertyString (properties, "subFolders", "");
-//		if (_debugProperties)
-//			_log.debug ("AlbumFormInfo.processRequest: property: got subFolders = " + _subFolders);
-
-//TODO - check for valid values
 
 		//int properties
 		_columns = _defaultColumns = getPropertyInt (properties, "defaultColumns", _defaultColumns);
-		if (_debugProperties)
+		if (_debugProperties) {
 			_log.debug ("AlbumFormInfo.processRequest: property: got defaultColumns = " + _defaultColumns);
+		}
 
 		_maxFilters = _defaultMaxFilters = getPropertyInt (properties, "defaultMaxFilters", _defaultMaxFilters);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultMaxFilters = " + _defaultMaxFilters);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultMaxFilters = " + _defaultMaxFilters);
+		}
 
 		_highlightDays = _defaultHighlightDays = getPropertyInt (properties, "defaultHighlightDays", _defaultHighlightDays);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightDays = " + _defaultHighlightDays);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultHighlightDays = " + _defaultHighlightDays);
+		}
 
 		_highlightMinPixels = _defaultHighlightMinPixels = getPropertyInt (properties, "defaultHighlightMinPixels", _defaultHighlightMinPixels);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightMinPixels = " + _defaultHighlightMinPixels);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultHighlightMinPixels = " + _defaultHighlightMinPixels);
+		}
 
 		_highlightMaxKilobytes = _defaultHighlightMaxKilobytes = getPropertyInt (properties, "defaultHighlightMaxKilobytes", _defaultHighlightMaxKilobytes);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultHighlightMaxKilobytes = " + _defaultHighlightMaxKilobytes);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultHighlightMaxKilobytes = " + _defaultHighlightMaxKilobytes);
+		}
 
 		_maxImageScalePercent = _defaultMaxImageScalePercent = getPropertyInt (properties, "defaultMaxImageScalePercent", _defaultMaxImageScalePercent);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultMaxImageScalePercent = " + _defaultMaxImageScalePercent);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultMaxImageScalePercent = " + _defaultMaxImageScalePercent);
+		}
 
-		_maxRgbDiffs = _defaultMaxRgbDiffs = getPropertyInt (properties, "defaultMaxRgbDiffs", _defaultMaxRgbDiffs);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultMaxRgbDiffs = " + _defaultMaxRgbDiffs);
+		_maxStdDev = _defaultMaxStdDev = getPropertyInt (properties, "defaultMaxStdDev", _defaultMaxStdDev);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultMaxStdDev = " + _defaultMaxStdDev);
+		}
 
 		_panels = _defaultPanels = getPropertyInt (properties, "defaultPanels", _defaultPanels);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultPanels = " + _defaultPanels);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultPanels = " + _defaultPanels);
+		}
 
 		_exifDateIndex = _defaultExifDateIndex = getPropertyInt (properties, "defaultExifDateIndex", _defaultExifDateIndex);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultExifDateIndex = " + _defaultExifDateIndex);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultExifDateIndex = " + _defaultExifDateIndex);
+		}
 
 		_logLevel = _defaultLogLevel = getPropertyInt (properties, "defaultLogLevel", _defaultLogLevel);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultLogLevel = " + _defaultLogLevel);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultLogLevel = " + _defaultLogLevel);
+		}
 
 		_profileLevel = _defaultProfileLevel = getPropertyInt (properties, "defaultProfileLevel", _defaultProfileLevel);
-		if (_debugProperties)
-			_log.debug ("AlbumFormInfo.processRequest: property: got defaultProfileLevel = " + _defaultProfileLevel);
-
-		//booleans
-		_Debug = gotDebugRequest;
-		_tagFilterOperandOr = gotFilterOperandOr;
-		_collapseGroups = gotCollapseGroups;
-		_limitedCompare = gotLimitedCompare;
-		_dbCompare = gotDbCompare;
-		_looseCompare = gotLooseCompare;
-		_ignoreBytes = gotIgnoreBytes;
-		_useExifDates = gotUseExifDates;
-		_useCase = gotUseCase;
-		_clearCache = gotClearCache;
-		_reverseSort = gotReverseSort;
-		_showRgbData = gotShowRgbData;
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultProfileLevel = " + _defaultProfileLevel);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -337,14 +259,7 @@ public class AlbumFormInfo
 	{
 		final String invalidString = new Integer (-1).toString ();
 
-		//first try to get root-folder-specific value
-		String propertyName2 = _rootFolder + "." + propertyName;
-		String valueString = properties.getProperty (propertyName2, invalidString);
-
-		//if that fails, try to get generic value
-		if (valueString.equals (invalidString)) {
-			valueString = properties.getProperty (propertyName, invalidString);
-		}
+		String valueString = properties.getProperty (propertyName, invalidString);
 
 		//now try to parse value
 		int value = defaultValue; //default value if parsing fails
@@ -362,36 +277,30 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getPropertyString (Properties properties, String propertyName, String defaultValue)
+	public boolean getPropertyBoolean (Properties properties, String propertyName, boolean defaultValue)
 	{
-		final String invalidString = "invalid";//new Integer (-1).toString ();
+		final String invalidString = "invalid";
 
-		//first try to get root-folder-specific value
-		String propertyName2 = _rootFolder + "." + propertyName;
-		String valueString = properties.getProperty (propertyName2, invalidString);
+		String valueString = properties.getProperty (propertyName, invalidString);
+		Boolean booleanValue = BooleanUtils.toBooleanObject (valueString);
 
-		//if that fails, try to get generic value
-		if (valueString.equals (invalidString)) {
-			valueString = properties.getProperty (propertyName, invalidString);
+		if (booleanValue == null) {
+			booleanValue = defaultValue;
+			_log.error ("AlbumFormInfo.getPropertyBoolean: error parsing property \"" + propertyName + "\" value \"" + valueString + "\", using value " + defaultValue);
 		}
 
-		//if that fails, use default
-		if (valueString.equals (invalidString)) {
-			valueString = defaultValue;
-		}
-
-		return valueString;
+		return booleanValue;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public synchronized void addServletError (String servletError)
 	{
-//		_log.trace ("AlbumFormInfo.addServletError: \"" + servletError + "\"");
-		_servletErrors.add (servletError);
+		if (_isServlet) {
+			_servletErrors.add (servletError);
+		}
 	}
 	public synchronized int getNumServletErrors ()
 	{
-//		_log.trace ("AlbumFormInfo.getNumServletErrors: " + getServletErrors ().size ());
 		return getServletErrors ().size ();
 	}
 	public Collection<String> getServletErrors ()
@@ -399,7 +308,6 @@ public class AlbumFormInfo
 		Collection<String> servletErrors = new HashSet<String> (); //use set to avoid dups
 		servletErrors.addAll (_servletErrors);
 		servletErrors.addAll (AlbumImageDao.getInstance ().getServletErrors ());
-//		_log.trace ("AlbumFormInfo.getServletErrors: " + servletErrors);
 
 		return servletErrors;
 	}
@@ -419,7 +327,8 @@ public class AlbumFormInfo
 			//then parse as URI, which allows us to extract components
 			URI uri = new URI (filter);
 
-			filter = uri.getPath ();
+			filter = uri.getPath ().toLowerCase ();
+			filter = filter.replaceAll ("\\.jpg$", ""); //regex
 			filter = filter.replaceAll ("[0-9]", ","); //regex
 			filter = filter.replaceAll ("\\.", ","); //regex
 			filter = filter.replaceAll ("/", ","); //regex
@@ -555,7 +464,7 @@ public class AlbumFormInfo
 			filters.addAll (splitString (_filter3));
 		}
 
-		Collections.sort (filters, caseInsensitiveStringComparator);
+		Collections.sort (filters, VendoUtils.caseInsensitiveStringComparator);
 		caseInsensitiveDedup (filters);
 
 		return filters.toArray (new String[] {});
@@ -594,7 +503,7 @@ public class AlbumFormInfo
 			}
 		}
 
-		Collections.sort (tags, caseInsensitiveStringComparator);
+		Collections.sort (tags, VendoUtils.caseInsensitiveStringComparator);
 		caseInsensitiveDedup (tags);
 
 		return tags.toArray (new String[] {});
@@ -649,7 +558,7 @@ public class AlbumFormInfo
 			excludes.addAll (splitString (_exclude3));
 		}
 
-		Collections.sort (excludes, caseInsensitiveStringComparator);
+		Collections.sort (excludes, VendoUtils.caseInsensitiveStringComparator);
 		caseInsensitiveDedup (excludes);
 
 		return excludes.toArray (new String[] {});
@@ -658,7 +567,7 @@ public class AlbumFormInfo
 //	///////////////////////////////////////////////////////////////////////////
 //	public void setExtension (String extension)
 //	{
-//		_extension = extension.replaceAll ("[ \t]*", "");
+//		_extension = extension.replaceAll ("[ \t]*", ""); //regex
 //	}
 //
 //	public String getExtension ()
@@ -667,14 +576,14 @@ public class AlbumFormInfo
 //	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void setMaxRgbDiffs (int maxRgbDiffs)
+	public void setMaxStdDev (int maxStdDev)
 	{
-		_maxRgbDiffs = Math.max (maxRgbDiffs, 0);
+		_maxStdDev = Math.max (maxStdDev, 0);
 	}
 
-	public int getMaxRgbDiffs ()
+	public int getMaxStdDev ()
 	{
-		return _maxRgbDiffs;
+		return _maxStdDev;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -986,7 +895,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setRootFolder (String rootFolder)
 	{
-		_rootFolder = rootFolder.replaceAll ("[ \t]*", "");
+		_rootFolder = rootFolder.replaceAll ("[ \t]*", ""); //regex
 	}
 
 	public String getRootFolder ()
@@ -1192,29 +1101,6 @@ public class AlbumFormInfo
 		return string;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	public static final Comparator<String> caseInsensitiveStringComparator = new Comparator<String> ()
-	{
-		@Override
-		public int compare (String s1, String s2)
-		{
-			return s1.compareToIgnoreCase (s2);
-		}
-	};
-
-/* could not get this to compile
-	///////////////////////////////////////////////////////////////////////////
-	public static final <T> Comparator<T> caseInsensitiveStringComparator2 = new Comparator<T> ()
-	{
-		@Override
-		public int compare (T o1, T o2)
-		{
-			return o1.toString ().compareToIgnoreCase (o2.toString ());
-		}
-	};
-*/
-
-
 	//parameters from properties file at "%CATALINA_HOME%"\webapps\AlbumServlet\WEB-INF\classes\album.properties
 	private static final String _propertiesFile = "/WEB-INF/classes/album.properties";
 	private int _defaultColumns = 3;
@@ -1224,13 +1110,14 @@ public class AlbumFormInfo
 	private int _defaultHighlightMaxKilobytes = 1536;
 	private int _defaultLogLevel = 5;
 	private int _defaultMaxImageScalePercent = 150;
-	private int _defaultMaxRgbDiffs = 5;
+	private int _defaultMaxStdDev = 15;
 	private int _defaultPanels = 60;
 	private int _defaultExifDateIndex = 4; //earliestExifDate
 	private int _defaultProfileLevel = 5;
 	private boolean _defaultShowRgbData = false;
 
 	//private members
+	private boolean _isServlet = false;
 	private String _defaultRootFolder = "jroot";
 	private String _subFolders = "";
 	private int _highlightMinPixels = _defaultHighlightMinPixels;
@@ -1257,15 +1144,15 @@ public class AlbumFormInfo
 	private int _maxFilters = _defaultMaxFilters;
  	private double _highlightDays = _defaultHighlightDays;
 	private long _highlightInMillis = -1;
-	private int _maxRgbDiffs = _defaultMaxRgbDiffs;
+	private int _maxStdDev = _defaultMaxStdDev;
 	private int _exifDateIndex = _defaultExifDateIndex; //when sorting/comparing EXIF dates, specifies which date to use
 	private boolean _tagFilterOperandOr = false;
 	private boolean _collapseGroups = false;
-	private boolean _limitedCompare = false; //don't include dups that share common base (name)
+	private boolean _limitedCompare = false; //don't include dups that share common basename
 	private boolean _dbCompare = false; //compare dups retrieved from imgage_diffs table
 	private boolean _looseCompare = false; //compare dups with either loose or strict critera
 	private boolean _ignoreBytes = false; //optionally tell compare dups to ignore number of bytes
-	private boolean _useExifDates = false; //optionally tell compare dups to use the EXIF (date) data
+	private boolean _useExifDates = false; //optionally tell compare dups to use the EXIF date
 	private boolean _useCase = false;
 	private boolean _clearCache = false;
 	private boolean _reverseSort = false;
@@ -1299,9 +1186,6 @@ public class AlbumFormInfo
 	private static AlbumFormInfo _instance = null;
 
 	private final boolean _debugProperties = false;
-
-//	private static final String NL = System.getProperty ("line.separator");
-//	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm");
 
 	private static final String _basePath = "E:/Netscape/Program/"; //need trailing slash
 	private static final String _albumRoot = "/albumRoot/"; //should match tomcat's server.xml

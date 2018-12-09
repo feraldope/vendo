@@ -142,7 +142,7 @@ public class AlbumServlet extends HttpServlet
 		   .append ("		font-size: 10pt;").append (NL)
 		   .append ("	}").append (NL);
 
-		List<Integer> fontSizes = Arrays.asList (8, 9, 10, 12, 24);
+		List<Integer> fontSizes = Arrays.asList (8, 9, 10, 24);
 		for (Integer fontSize : fontSizes) {
 			sb1.append ("	td.fontsize").append (fontSize).append (" {").append (NL)
 			   .append ("		font-size: ").append (fontSize).append ("pt;").append (NL)
@@ -262,7 +262,7 @@ public class AlbumServlet extends HttpServlet
 		   .append (inputElement ("Max Filters", "maxFilters", form.getMaxFilters (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("Highlight Days", "highlightDays", form.getHighlightDays (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth)).append (_spacing).append (NL)
-		   .append (inputElement ("Max RGB Diffs", "maxRgbDiffs", form.getMaxRgbDiffs (), numberFieldWidth)).append (_spacing).append (NL)
+		   .append (inputElement ("Max StdDev", "maxStdDev", form.getMaxStdDev (), numberFieldWidth)).append (_spacing).append (NL)
 //		   .append (inputElement ("Folder", "rootFolder", form.getRootFolder (), 4)).append (_spacing).append (NL)
 
 //		   .append (inputElement ("", "slice", 1, 0)) //form submit always sets slice to 1

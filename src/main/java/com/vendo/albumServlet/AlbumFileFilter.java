@@ -66,7 +66,7 @@ public class AlbumFileFilter implements FilenameFilter
 						_includePatterns.add (pattern);
 
 					} catch (Exception ee) {
-						AlbumFormInfo.getInstance ().addServletError ("Ignoring invalid includeFilter: \"" + orinalIncludeFilter + "\": " + ee);
+						AlbumFormInfo.getInstance ().addServletError ("Warning: ignoring invalid includeFilter: \"" + orinalIncludeFilter + "\": " + ee);
 					}
 				}
 			}
@@ -93,7 +93,7 @@ public class AlbumFileFilter implements FilenameFilter
 						_excludePatterns.add (pattern);
 
 					} catch (Exception ee) {
-						AlbumFormInfo.getInstance ().addServletError ("Ignoring invalid excludeFilter: \"" + orinalExcludeFilter + "\": " + ee);
+						AlbumFormInfo.getInstance ().addServletError ("Warning: ignoring invalid excludeFilter: \"" + orinalExcludeFilter + "\": " + ee);
 					}
 				}
 			}

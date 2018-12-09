@@ -205,7 +205,7 @@ public class AlbumImages
 						if (!origFile.renameTo (newFile)) {
 							String message = "rename failed (" + origFile.getCanonicalPath () + " to " + newFile.getCanonicalPath () + ")";
 							_log.error ("AlbumImages.processParams: " + message);
-							_form.addServletError ("Error " + message);
+							_form.addServletError ("Error: " + message);
 						} else {
 							imagesRemoved++;
 						}
@@ -355,6 +355,7 @@ public class AlbumImages
 		boolean reverseSort = form.getReverseSort (); //reverses sense of limitedCompare
 		boolean useExifDates = form.getUseExifDates ();
 		int exifDateIndex = form.getExifDateIndex ();
+		int maxStdDev = form.getMaxStdDev ();
 
 		int numImages = 0;
 		if (dbCompare) {
@@ -400,9 +401,6 @@ public class AlbumImages
 		}
 		final AlbumFileFilter filter1 = new AlbumFileFilter (filters1, excludes, useCase, sinceInMillis);
 
-		int maxRgbDiffs = AlbumFormInfo.getInstance ().getMaxRgbDiffs ();
-		String maxRgbDiffsStr = String.valueOf (maxRgbDiffs);
-
 		//if looseCompare, determine work to be done
 		int maxComparisons = getMaxComparisons (numImages);
 		if (looseCompare && !dbCompare) {
@@ -427,6 +425,7 @@ public class AlbumImages
 			long maxElapsedSecs1 = 30;
 			long endNano1 = System.nanoTime () + maxElapsedSecs1 * 1000 * 1000 * 1000;
 			AtomicInteger timeElapsedCount = new AtomicInteger (0);
+			AtomicInteger cacheMisses = new AtomicInteger (0);
 
 			final List<AlbumImagePair> pairsReady = Collections.synchronizedList (new ArrayList<AlbumImagePair> (1000));
 			final List<AlbumImagePair> pairsWip = Collections.synchronizedList (new ArrayList<AlbumImagePair> (1000));
@@ -469,14 +468,16 @@ public class AlbumImages
 //TODO - if this is true, can we add pair directly to ready list?
 //						boolean equalAttrs = image1.equalAttrs (image2, looseCompare, ignoreBytes, useExifDates, exifDateIndex);
 
-						String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
-						AlbumImagePair pair = _looseCompareMap.get (joinedNamesPlus);
+						String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
+						AlbumImagePair pair = _looseCompareMap.get (joinedNames);
 						if (pair != null) {
-							if (pair.getAverageDiff () <= maxRgbDiffs) {
+							if (pair.getAverageDiff () <= (maxStdDev - 5) || pair.getStdDev () <= maxStdDev) { //TODO - need separate controls for maxStdDev and maxRgbDiff
 								pairsReady.add (pair);
 							}
 						} else {
 							pairsWip.add (new AlbumImagePair (image1, image2));
+//							_log.debug ("AlbumImages.doDup: cache miss for: " + new AlbumImagePair (image1, image2));
+							cacheMisses.incrementAndGet ();
 						}
 
 						if (System.nanoTime () > endNano1) {
@@ -501,6 +502,7 @@ public class AlbumImages
 
 			_log.debug ("AlbumImages.doDup: pairsReady.size = " + _decimalFormat2.format (pairsReady.size ()));
 			_log.debug ("AlbumImages.doDup: pairsWip.size = " + _decimalFormat2.format (pairsWip.size ()));
+			_log.debug ("AlbumImages.doDup: cacheMisses = " + _decimalFormat2.format (cacheMisses.get ()));
 
 			///////////////////////////////////////////////////////////////////
 			//determine set of images to collect scaled image data
@@ -551,13 +553,16 @@ public class AlbumImages
 					AlbumImage image2 = pair.getImage2 ();
 					ByteBuffer scaledImage1Data = _nameScaledImageMap.get (image1.getNamePlus ());
 					ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
-					int averageDiff = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data, maxRgbDiffs);
-					AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff);
-					if (averageDiff <= maxRgbDiffs) {
+					VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
+					int averageDiff = diffPair.getFirst ();
+					int stdDev = diffPair.getSecond ();
+					AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, "OnDemand");
+					if (averageDiff <= (maxStdDev - 5) || stdDev <= maxStdDev) { //TODO - need separate controls for maxStdDev and maxRgbDiff
+						_log.debug ("AlbumImages.doDup: " + stdDev + " " + averageDiff + " " + image1.getName () + " " + image2.getName ());
 						pairsReady.add (newPair);
 					}
-					String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
-					_looseCompareMap.put (joinedNamesPlus, newPair);
+					String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
+					_looseCompareMap.put (joinedNames, newPair);
 
 					endGate.countDown ();
 				};
@@ -586,7 +591,8 @@ public class AlbumImages
 				dups.add (imagePair);
 
 				int averageDiff = imagePair.getAverageDiff ();
-				_log.debug ("AlbumImages.doDup: " + averageDiff + " " + imagePair.getImage1 ().getName () + " " + imagePair.getImage2 ().getName ());
+				int stdDev = imagePair.getStdDev ();
+				_log.debug ("AlbumImages.doDup: " + averageDiff + " " + stdDev + " " + imagePair.getImage1 ().getName () + " " + imagePair.getImage2 ().getName ());
 			}
 
 			AlbumProfiling.getInstance ().exit (5, "dups.add");
@@ -600,12 +606,13 @@ public class AlbumImages
 				Map<String, AlbumImage> map = _imageDisplayList.stream ().collect (Collectors.toMap (AlbumImage::getName, i -> i));
 
 				final double sinceDays = _form.getHighlightDays (); //TODO - using highlightDays is a HACK
+				final boolean operatorOr = _form.getTagFilterOperandOr (); //TODO - using tagFilterOperandOr is a HACK
 				//debugging
 				long highlightInMillis = _form.getHighlightInMillis (/*truncateToMidnightBoundary*/ false);
 				_log.debug ("AlbumImages.doDup: since/highlight date/time: " + _dateFormat.format (new Date (highlightInMillis)));
 
 				AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
-				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (_form.getMaxRgbDiffs (), sinceDays);
+				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (maxStdDev, sinceDays, operatorOr);
 
 				for (AlbumImageDiffData item : imageDiffData) {
 					AlbumImage image1 = map.get (item.getName1 ());
@@ -614,10 +621,10 @@ public class AlbumImages
 					if (image1 != null && image2 != null && image1.getOrientation () == image2.getOrientation ()) {
 						//at least one of each pair must be accepted by filter1
 						if (filter1.accept (null, image1.getName ()) || filter1.accept (null, image2.getName ())) {
-							AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff (), item.getLastUpdate());
+							AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff (), item.getStdDev (), item.getSource (), item.getLastUpdate());
 							dups.add (pair);
-							String joinedNamesPlus = AlbumImagePair.getJoinedNames (image1, image2, maxRgbDiffsStr);
-							_looseCompareMap.put (joinedNamesPlus, pair);
+							String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
+							_looseCompareMap.put (joinedNames, pair);
 						}
 					}
 				}
@@ -732,7 +739,7 @@ public class AlbumImages
 		}
 
 		if (dbCompare) {
-			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByNone); //already sorted by averageDiff by db query
+			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByNone); //already sorted by avgDiff/stdDev by db query
 		} else {
 			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByDate); //shows newest first in browser
 		}
@@ -808,20 +815,14 @@ public class AlbumImages
 
 		} else if (numItems <= maxChunks * minPerChunk) {
 			numChunks = numItems / minPerChunk;
-			chunkSize = roundUp ((double) numItems / numChunks);
+			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
 
 		} else {
 			numChunks = maxChunks;
-			chunkSize = roundUp ((double) numItems / numChunks);
+			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
 		}
 
 		return VPair.of (chunkSize, numChunks);
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private static int roundUp (double x)
-	{
-		return (int) Math.ceil (x);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -987,7 +988,7 @@ public class AlbumImages
 		  .append ("&maxFilters=").append (_form.getMaxFilters ())
 		  .append ("&highlightDays=").append (_form.getHighlightDays ())
 		  .append ("&exifDateIndex=").append (_form.getExifDateIndex ())
-		  .append ("&maxRgbDiffs=").append (_form.getMaxRgbDiffs ())
+		  .append ("&maxStdDev=").append (_form.getMaxStdDev ())
 		  .append ("&rootFolder=").append (_form.getRootFolder ())
 		  .append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 		  .append ("&collapseGroups=").append (_form.getCollapseGroups ())
@@ -1040,7 +1041,7 @@ public class AlbumImages
 		  .append ("&maxFilters=").append (_form.getMaxFilters ())
 		  .append ("&highlightDays=").append (_form.getHighlightDays ())
 		  .append ("&exifDateIndex=").append (_form.getExifDateIndex ())
-		  .append ("&maxRgbDiffs=").append (_form.getMaxRgbDiffs ())
+		  .append ("&maxStdDev=").append (_form.getMaxStdDev ())
 		  .append ("&rootFolder=").append (_form.getRootFolder ())
 //		  .append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 //		  .append ("&collapseGroups=").append (_form.getCollapseGroups ())
@@ -1160,8 +1161,6 @@ public class AlbumImages
 		int rows = getNumRows ();
 		int numSlices = getNumSlices ();
 		int slice = _form.getSlice ();
-		int maxRgbDiffs = _form.getMaxRgbDiffs ();
-		String maxRgbDiffsStr = String.valueOf (maxRgbDiffs);
 		boolean looseCompare = _form.getLooseCompare ();
 		boolean collapseGroups = _form.getCollapseGroups ();
 		//for mode = AlbumMode.DoDup, disable collapseGroups for tags
@@ -1346,21 +1345,12 @@ public class AlbumImages
 					//for web color names, see http://www.w3schools.com/colors/colors_names.asp
 					imageBorderColor = "black";
 					if (looseCompare) {
-						String joinedNamesPlus = AlbumImagePair.getJoinedNames (image, partner, maxRgbDiffsStr);
-						AlbumImagePair pair = _looseCompareMap.get (joinedNamesPlus);
+						String joinedNames = AlbumImagePair.getJoinedNames (image, partner);
+						AlbumImagePair pair = _looseCompareMap.get (joinedNames);
 						if (pair != null) {
-							Integer averageDiff = pair.getAverageDiff ();
-							Date lastUpdate = pair.getLastUpdate ();
-							if (averageDiff != null) {
-								imageBorderColor = (averageDiff < 1 ? "white" : averageDiff < 10 ? "green" : averageDiff < 20 ? "yellow" : "orange");
-								extraDiffString += AlbumImage.HtmlNewline + "Average Diff = " + averageDiff;
-//							} else {
-//								imageBorderColor = "red"; //not found in looseCompareMap
-//								averageDiffString += "unknown";
-							}
-							if (lastUpdate != null) {
-								extraDiffString += AlbumImage.HtmlNewline + "Last Update = " + _dateFormat.format (lastUpdate);
-							}
+							extraDiffString += AlbumImage.HtmlNewline + pair.getDetailsString ();
+							int minDiff = pair.getMinDiff ();
+							imageBorderColor = (minDiff < 1 ? "white" : minDiff < 10 ? "green" : minDiff < 20 ? "yellow" : "orange");
 						}
 					}
 
@@ -1568,7 +1558,7 @@ public class AlbumImages
 			StringBuilder sb = new StringBuilder (100);
 			sb.append ("<TR>").append (NL)
 			  .append ("<TD class=\"")
-			  .append ("fontsize12")
+			  .append ("fontsize10")
 			  .append ("\" BGCOLOR=\"")
 			  .append(bgColor)
 			  .append("\" ALIGN=LEFT>")

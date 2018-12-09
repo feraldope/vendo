@@ -652,6 +652,12 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static int roundUp (double x)
+	{
+		return (int) Math.ceil (x);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static String reverse (String string)
 	{
 		return new StringBuffer (string).reverse ().toString ();
@@ -779,8 +785,15 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//use this version for primitive type (long)
+	//use this version for primitive type long
 	public static String arrayToString (long[] items)
+	{
+		return arrayToString (ArrayUtils.toObject (items), ", ");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//use this version for primitive type double
+	public static String arrayToString (double[] items)
 	{
 		return arrayToString (ArrayUtils.toObject (items), ", ");
 	}
@@ -874,7 +887,7 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String getStackTrace (Throwable ex)
 	{
-	    PrintWriter writer = new PrintWriter(new StringWriter ());
+	    PrintWriter writer = new PrintWriter (new StringWriter ());
 	    ex.printStackTrace (writer);
 	    return writer.toString ();
 	}

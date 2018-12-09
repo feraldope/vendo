@@ -43,6 +43,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
+import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
 
 
@@ -119,6 +120,17 @@ public class AlbumImageDiffer
 					try {
 						_maxRgbDiffs = Integer.parseInt (args[++ii]);
 						if (_maxRgbDiffs < 0)
+							throw (new NumberFormatException ());
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("maxStdDev")) {
+					try {
+						_maxStdDev = Integer.parseInt (args[++ii]);
+						if (_maxStdDev < 0)
 							throw (new NumberFormatException ());
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
@@ -223,6 +235,7 @@ public class AlbumImageDiffer
 			_log.debug ("AlbumImageDiffer.processArgs: filtersA = " + _filtersA);
 			_log.debug ("AlbumImageDiffer.processArgs: filtersB = " + _filtersB);
 			_log.debug ("AlbumImageDiffer.processArgs: maxRgbDiffs = " + _maxRgbDiffs);
+			_log.debug ("AlbumImageDiffer.processArgs: maxStdDev = " + _maxStdDev);
 			_log.debug ("AlbumImageDiffer.processArgs: maxRows = " + _decimalFormat.format (_maxRows));
 			_log.debug ("AlbumImageDiffer.processArgs: modeA = " + _modeA);
 			_log.debug ("AlbumImageDiffer.processArgs: modeB = " + _modeB);
@@ -241,7 +254,7 @@ public class AlbumImageDiffer
 		if (message != null)
 			msg = message + NL;
 
-		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxRows=<n>] /modeA={names|tags} /modeB={names|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
+		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxStdDev=<n>] [/maxRows=<n>] /modeA={names|tags} /modeB={names|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit)
@@ -342,11 +355,11 @@ public class AlbumImageDiffer
 						continue;
 					}
 
-					AlbumImageDiffDetails existingDiff = existingDiffs.get (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), 0, 0, 0, getMode ()));
+					AlbumImageDiffDetails existingDiff = existingDiffs.get (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId()));
 					if (existingDiff != null) {
 						//if this image pair already exists in database, skip diffing them, but still update record in database
 						_log.debug ("AlbumImageDiffer.run: skipping duplicate: " + imageA.getName () + "," + imageB.getName ()  + ", " + existingDiff);
-						imageDiffDetails.add (new AlbumImageDiffDetails (existingDiff.getNameId1(), existingDiff.getNameId2(), existingDiff.getAvgDiff(), _maxRgbDiffs, 1, getMode ()));
+						imageDiffDetails.add (new AlbumImageDiffDetails (existingDiff.getNameId1 (), existingDiff.getNameId2 (), existingDiff.getAvgDiff (), existingDiff.getStdDev (), 1, getMode ()));
 						duplicates.incrementAndGet ();
 						continue;
 					}
@@ -361,10 +374,12 @@ public class AlbumImageDiffer
 //					_log.debug ("AlbumImageDiffer.run: comparison: " + albumImageDataA.getName () + ", " + albumImageDataB.getName ());
 					numDiffs.incrementAndGet ();
 
-					int averageDiff = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB, _maxRgbDiffs);
-					if (averageDiff <= _maxRgbDiffs) {
-						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId(), averageDiff, _maxRgbDiffs, 1, getMode ()));
-						_log.debug ("AlbumImageDiffer.run: " + String.format("%-2s", averageDiff) + " " + imageA.getName () + "," + imageB.getName () + ",");
+					VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB);
+					int averageDiff = diffPair.getFirst ();
+					int stdDev = diffPair.getSecond ();
+					if (averageDiff <= _maxRgbDiffs || stdDev <= _maxStdDev) {
+						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId (), albumImageDataB.getNameId (), averageDiff, stdDev, 1, getMode ()));
+						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + ",");
 					}
 				}
 
@@ -738,19 +753,20 @@ public class AlbumImageDiffer
 	}
 */
 
-//TODO - convert this to mybatis
 	///////////////////////////////////////////////////////////////////////////
 	private int insertImageIntoImageDiffs (Collection<AlbumImageDiffDetails> items)
 	{
 //		AlbumProfiling.getInstance ().enter (5);
 
-		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, max_diff, count, source) values" + NL;
-		String sqlValues = "(?, ?, ?, ?, ?, ?)" + NL;
-		String sqlOnDup = "on duplicate key update avg_diff = values (avg_diff)," + NL +
-												  "max_diff = values (max_diff)," + NL +
-												  "count = count + values(count)," + NL +
-												  "source = values (source)," + NL +
-												  "last_update = now()";
+		final int maxUnsignedByte = 255; //max value that can be written to a TINYINT column
+
+		String sqlBase = "insert into image_diffs (name_id_1, name_id_2, avg_diff, std_dev, count, source) values" + NL;
+		String sqlValues = " (?, ?, ?, ?, ?, ?)" + NL;
+		String sqlOnDup = " on duplicate key update avg_diff = values (avg_diff)," + NL +
+												  " std_dev = values (std_dev)," + NL +
+												  " count = count + values(count)," + NL +
+												  " source = values (source)," + NL +
+												  " last_update = now()";
 		String sql = sqlBase + sqlValues + sqlOnDup;
 
 		int rowsInserted = 0;
@@ -761,12 +777,13 @@ public class AlbumImageDiffer
 
 			int batchCount = 0;
 	        for (AlbumImageDiffDetails item : items) {
-	        	statement.setInt (1, item.getNameId1 ());
-	        	statement.setInt (2, item.getNameId2 ());
-	        	statement.setInt (3, item.getAvgDiff ());
-	        	statement.setInt (4, item.getMaxDiff ());
-	        	statement.setInt (5, item.getCount ());
-	        	statement.setString (6, item.getSource ());
+	        	int index = 0;
+	        	statement.setInt (++index, item.getNameId1 ());
+	        	statement.setInt (++index, item.getNameId2 ());
+	        	statement.setInt (++index, Math.min (maxUnsignedByte, item.getAvgDiff ()));
+	        	statement.setInt (++index, Math.min (maxUnsignedByte, item.getStdDev ()));
+	        	statement.setInt (++index, item.getCount ());
+	        	statement.setString (++index, item.getSource ());
 	        	statement.addBatch ();
 	        	batchCount++;
 
@@ -799,20 +816,23 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public Collection<AlbumImageDiffData> selectNamesFromImageDiffs (int maxRgbDiff, double sinceDays)
+	public Collection<AlbumImageDiffData> selectNamesFromImageDiffs (int maxRgbDiff, double sinceDays, boolean operatorOr)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
 		Collection<AlbumImageDiffData> items = new ArrayList<AlbumImageDiffData> ();
 
+		final String operatorStr = (operatorOr ? "OR" : "AND");
 		int sinceMinutes = (int) (sinceDays * 24 * 60);
-		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.last_update as last_update" + NL +
-					 "from image_diffs d" + NL +
-					 "join images i1 on i1.name_id = d.name_id_1" + NL +
-					 "join images i2 on i2.name_id = d.name_id_2" + NL +
-					 "where d.avg_diff <= " + maxRgbDiff + NL +
-					 "and last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" + NL +
-					 "order by avg_diff, i1.name_no_ext, i2.name_no_ext";
+		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.std_dev as std_dev, d.source as source, d.last_update as last_update," + NL +
+				     " case when avg_diff < std_dev then avg_diff else std_dev end as min_diff," + NL +
+					 " case when avg_diff > std_dev then avg_diff else std_dev end as max_diff" + NL +
+					 " from image_diffs d" + NL +
+					 " join images i1 on i1.name_id = d.name_id_1" + NL +
+					 " join images i2 on i2.name_id = d.name_id_2" + NL +
+					 " where (d.avg_diff <= " + maxRgbDiff + " " + operatorStr + " d.std_dev <= " + maxRgbDiff + ")" + NL +
+					 " and d.last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" + NL +
+					 " order by min_diff, max_diff, i1.name_no_ext, i2.name_no_ext";
 //		_log.debug ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
 
 		try (Connection connection = getConnection ();
@@ -822,10 +842,12 @@ public class AlbumImageDiffer
 			while (rs.next ()) {
 				String name1 = rs.getString ("name_no_ext1");
 				String name2 = rs.getString ("name_no_ext2");
-				int averageRgbDiff = rs.getInt ("avg_diff");
+				int averageDiff = rs.getInt ("avg_diff");
+				int stdDev = rs.getInt ("std_dev");
+				String source = rs.getString ("source");
 				Date lastUpdate = new Date (rs.getTimestamp ("last_update").getTime ());
-//				_log.debug (new AlbumImageDiffData (name1, name2, averageRgbDiff, lastUpdate));
-				items.add(new AlbumImageDiffData (name1, name2, averageRgbDiff, lastUpdate));
+//				_log.debug (new AlbumImageDiffData (name1, name2, averageRgbDiff, stdDev, source, lastUpdate));
+				items.add(new AlbumImageDiffData (name1, name2, averageDiff, stdDev, source, lastUpdate));
 			}
 
 		} catch (Exception ee) {
@@ -1001,6 +1023,7 @@ public class AlbumImageDiffer
 	private static int _numThreads = 4;
 	private int _maxRows = 10;
 	private int _maxRgbDiffs = 25;
+	private int _maxStdDev = 30;
 	private Mode _modeA = Mode.NotSet;
 	private Mode _modeB = Mode.NotSet;
 	private String _whereClauseA = null;

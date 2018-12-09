@@ -22,6 +22,7 @@ import java.util.Random;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.time.FastDateFormat;
+import org.apache.commons.math3.stat.StatUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -32,6 +33,7 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.iptc.IptcDirectory;
 import com.drew.metadata.xmp.XmpDirectory;
 import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
 
 
@@ -522,8 +524,32 @@ public class AlbumImage
 //			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
 //		}
 
-		if (scaledImageData != null && scaledImageData.position () < 10000) {
-			_log.error ("AlbumImage.readScaledImageData: error: unexpected size (" + scaledImageData.position () + " bytes) for " + nameWithExt);
+		//basic validations
+		if (scaledImageData != null) {
+			//check for valid size
+			if (scaledImageData.position () != _rgbDatSizeRectagular && scaledImageData.position () != _rgbDatSizeSquare) {
+				String message = "unexpected size (" + scaledImageData.position () + " bytes) for " + nameWithExt;
+				_log.error ("AlbumImage.readScaledImageData: " + message);
+				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
+			}
+
+			//check for average value out of range
+			scaledImageData.rewind (); //always rewind before using
+			int numBytes = scaledImageData.remaining ();
+			int sum = 0;
+			try {
+				for (int ii = 0; ii < numBytes; ii++) {
+					sum += scaledImageData.get (ii) & 0xFF;
+				}
+			} catch (Exception ee) { //this can occur if we failed to read/parse the image
+				_log.error ("AlbumImage.readScaledImageData: error reading scaledImageData for " + nameWithExt);
+			}
+			int average = (int) Math.round ((double) sum / numBytes);
+			if (average < 15 || average > 255 - 15) { //hardcoded value
+				String message = "average (" + average + ") out of range for " + nameWithExt;
+				_log.error ("AlbumImage.readScaledImageData: " + message);
+				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
+			}
 		}
 
 //		AlbumProfiling.getInstance ().exit (5);
@@ -551,7 +577,51 @@ public class AlbumImage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int getScaledImageDiff (ByteBuffer buffer1, ByteBuffer buffer2, int maxRgbDiffs)
+	public static VPair<Integer, Integer> getScaledImageDiff (ByteBuffer buffer1, ByteBuffer buffer2)
+	{
+//		AlbumProfiling.getInstance ().enter (5); //too expensive
+
+		final VPair<Integer, Integer> errorPair = VPair.of (Integer.MAX_VALUE, Integer.MAX_VALUE);
+
+		if (buffer1 == null || buffer2 == null) {
+			return errorPair;
+		}
+
+		buffer1.rewind (); //always rewind before using
+		buffer2.rewind (); //always rewind before using
+		final int numBytes = Math.min (buffer1.remaining (), buffer1.remaining ());
+
+		double[] diffs = new double[numBytes];
+		try {
+			for (int ii = 0; ii < numBytes; ii++) {
+				int b1 = buffer1.get (ii) & 0xFF;
+				int b2 = buffer2.get (ii) & 0xFF;
+				diffs[ii] = b2 - b1;
+			}
+		} catch (Exception ee) { //this can occur if we failed to read/parse the image
+			return errorPair;
+		}
+
+		double mean = StatUtils.mean (diffs);
+
+		double totalAbsDiff = 0;
+		double totalSquDiff = 0;
+		for (int ii = 0; ii < numBytes; ii++) {
+			totalAbsDiff += Math.abs (diffs[ii]);
+			totalSquDiff += Math.pow (diffs[ii] - mean, 2.0);
+		}
+
+		int averageAbsDiff = (int) Math.round (totalAbsDiff / numBytes);
+		int stdDev = (int) Math.round (Math.sqrt (totalSquDiff / numBytes));
+
+//		AlbumProfiling.getInstance ().exit (5);
+
+		return VPair.of (averageAbsDiff, stdDev);
+	}
+
+/* moved into getScaledImageDiff
+	///////////////////////////////////////////////////////////////////////////
+	public static int getScaledImageStdDev (ByteBuffer buffer1, ByteBuffer buffer2, int unused)
 	{
 //		AlbumProfiling.getInstance ().enter (5); //too expensive
 
@@ -563,30 +633,25 @@ public class AlbumImage
 		buffer2.rewind (); //always rewind before using
 		int numBytes = buffer1.remaining ();
 
-		int maxAcceptableTotalDiff = maxRgbDiffs * numBytes;
-		int totalDiff = 0;
+		double[] diffs2 = new double[numBytes];
 		try {
 			for (int ii = 0; ii < numBytes; ii++) {
 				int b1 = buffer1.get (ii) & 0xFF;
 				int b2 = buffer2.get (ii) & 0xFF;
-
-				int diff = Math.abs (b2 - b1);
-				totalDiff += diff;
-
-				//drop out of loop once averageDiff will exceed maxRgbDiffs
-				if (totalDiff > maxAcceptableTotalDiff) {
-					return Integer.MAX_VALUE;
-				}
+				diffs2[ii] = b2 - b1;
 			}
 
 		} catch (Exception ee) { //this can occur if we failed to read/parse the image
 			return Integer.MAX_VALUE;
 		}
 
+		double stdDev = new StandardDeviation ().evaluate (diffs2);
+
 //		AlbumProfiling.getInstance ().exit (5);
 
-		return totalDiff / numBytes;
+		return (int) Math.round (stdDev);
 	}
+*/
 
 	///////////////////////////////////////////////////////////////////////////
 	public synchronized void createRgbDataFile () //throws Exception
@@ -599,19 +664,16 @@ public class AlbumImage
 
 		BufferedImage image = JpgUtils.readImage (_file);
 
-		int imageWidth = image.getWidth ();
-		int imageHeight = image.getHeight ();
-
 		int scaledWidth = 0;
 		int scaledHeight = 0;
-		if (imageWidth > imageHeight) {
-			scaledWidth = 144;
-			scaledHeight = 96;
-		} else if (imageWidth < imageHeight) {
-			scaledWidth = 96;
-			scaledHeight = 144;
-		} else { //imageWidth == imageHeight
-			scaledWidth = scaledHeight = 120;
+		if (getOrientation () == AlbumOrientation.ShowLandScape) {
+			scaledWidth = _rgbDatDimRectLarge;
+			scaledHeight = _rgbDatDimRectSmall;
+		} else if (getOrientation () == AlbumOrientation.ShowPortrait) {
+			scaledWidth = _rgbDatDimRectSmall;
+			scaledHeight = _rgbDatDimRectLarge;
+		} else { //AlbumOrientation.ShowSquare
+			scaledWidth = scaledHeight = _rgbDatSizeSquare;
 		}
 
 		ByteBuffer scaledImageData = null;
@@ -647,6 +709,10 @@ public class AlbumImage
 	//only keep R, G, and B data, not A data
 	private static ByteBuffer shrinkRgbData (int[] rawScaledImageData) throws Exception
 	{
+//		if (rawScaledImageData.length > 0 && Arrays.stream (rawScaledImageData).allMatch (i -> i < 5)) { //hardcoded value
+//			throw new Exception ("AlbumImage.shrinkRgbData buffer is all zeros or near zero");
+//		}
+
 		int numBytes = ((rawScaledImageData.length * 4) * 3) / 4;
 		ByteBuffer buffer = ByteBuffer.allocate (numBytes);
 
@@ -987,12 +1053,21 @@ public class AlbumImage
 	private String _modifiedString = null;
 	private AlbumOrientation _orientation = AlbumOrientation.ShowAny;
 
+	//for rgbDatFile
+	public static final int _rgbDatDimRectSmall = 96;
+	public static final int _rgbDatDimRectLarge = 144;
+	public static final int _rgbDatSizeRectagular = (_rgbDatDimRectSmall * _rgbDatDimRectLarge * 3) / 4;
+	public static final int _rgbDatDimSquare = 120;
+	public static final int _rgbDatSizeSquare = (_rgbDatDimSquare * _rgbDatDimSquare * 3) / 4;
+
 	public static final int NumExifDates = 6;		//4 exif dates read from database + 2 calculated
 	public static final int NumFileExifDates = 4;	//4 exif dates read from database + 2 calculated
 
 	public static final String HtmlNewline = "&#13;";
 
 	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
+
+//	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //format as integer
 
 //	private static final String NL = System.getProperty ("line.separator");
 //	private static final String _marker = ":::";
