@@ -10,6 +10,11 @@ public class AlbumOrientationTest {
 	@Test
 	public void testGetOrientation()
 	{
+		assertEquals (AlbumOrientation.ShowAny, AlbumOrientation.getOrientation (-1, -1));
+		assertEquals (AlbumOrientation.ShowAny, AlbumOrientation.getOrientation (-1, 1));
+		assertEquals (AlbumOrientation.ShowAny, AlbumOrientation.getOrientation (1, -1));
+		assertEquals (AlbumOrientation.ShowAny, AlbumOrientation.getOrientation (0, 0));
+
 		for (int ii = -50; ii < 50; ii++) {
 			double percent = (double) ii / 10;
 			int imageWidth = 1024;

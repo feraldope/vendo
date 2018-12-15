@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.commons.math3.stat.StatUtils;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -421,6 +422,19 @@ public class AlbumImage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public boolean isRgbDatExpectedSize (int size)
+	{
+		if (getOrientation () == AlbumOrientation.ShowAny) {
+			//if we do not know the orientation, verify that the size is one of the valid values
+			return size == RgbDatSizeSquare || size == RgbDatSizeRectagular;
+		} else if (getOrientation () == AlbumOrientation.ShowSquare) {
+			return size == RgbDatSizeSquare;
+		} else {
+			return size == RgbDatSizeRectagular;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//used for de-dup'ing
 	//calculated on demand and cached
 	public synchronized long getHash ()
@@ -524,37 +538,44 @@ public class AlbumImage
 //			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
 //		}
 
+//		AlbumProfiling.getInstance ().exit (5);
+
+		validateScaledImageData (scaledImageData, nameWithExt); //emits errors
+
+		return scaledImageData;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void validateScaledImageData (ByteBuffer scaledImageData, String nameWithExt)
+	{
+//		AlbumProfiling.getInstance ().enter (5); //don't profile; this is called by threads
+
 		//basic validations
 		if (scaledImageData != null) {
+			scaledImageData.rewind (); //always rewind before using
+			int numBytes = scaledImageData.remaining ();
+
 			//check for valid size
-			if (scaledImageData.position () != _rgbDatSizeRectagular && scaledImageData.position () != _rgbDatSizeSquare) {
-				String message = "unexpected size (" + scaledImageData.position () + " bytes) for " + nameWithExt;
-				_log.error ("AlbumImage.readScaledImageData: " + message);
+			if (!isRgbDatExpectedSize (numBytes)) {
+				String message = "unexpected size (" + numBytes + " bytes) for " + nameWithExt;
+				_log.error ("AlbumImage.validateScaledImageData: " + message);
 				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
 			}
 
 			//check for average value out of range
-			scaledImageData.rewind (); //always rewind before using
-			int numBytes = scaledImageData.remaining ();
 			int sum = 0;
-			try {
-				for (int ii = 0; ii < numBytes; ii++) {
-					sum += scaledImageData.get (ii) & 0xFF;
-				}
-			} catch (Exception ee) { //this can occur if we failed to read/parse the image
-				_log.error ("AlbumImage.readScaledImageData: error reading scaledImageData for " + nameWithExt);
+			for (int ii = 0; ii < numBytes; ii++) {
+				sum += scaledImageData.get (ii) & 0xFF;
 			}
 			int average = (int) Math.round ((double) sum / numBytes);
-			if (average < 15 || average > 255 - 15) { //hardcoded value
+			if (average < 10 || average > 255 - 10) { //hardcoded values
 				String message = "average (" + average + ") out of range for " + nameWithExt;
-				_log.error ("AlbumImage.readScaledImageData: " + message);
+				_log.error ("AlbumImage.validateScaledImageData: " + message);
 				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
 			}
 		}
 
 //		AlbumProfiling.getInstance ().exit (5);
-
-		return scaledImageData;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -614,44 +635,24 @@ public class AlbumImage
 		int averageAbsDiff = (int) Math.round (totalAbsDiff / numBytes);
 		int stdDev = (int) Math.round (Math.sqrt (totalSquDiff / numBytes));
 
-//		AlbumProfiling.getInstance ().exit (5);
+		boolean testStdDevFormula = false; //debug
+		if (testStdDevFormula) {
+			int stdDev2 = (int) Math.round (new StandardDeviation ().evaluate (diffs));
+			if (Math.abs (stdDev2 - stdDev) > 2) { //hardcoded value
+				_log.error ("AlbumImage.getScaledImageDiff: stdDev (" + stdDev + ") does not match stdDev2 (" + stdDev2 + ")");
+			}
+		}
+
+		//		AlbumProfiling.getInstance ().exit (5);
 
 		return VPair.of (averageAbsDiff, stdDev);
 	}
 
-/* moved into getScaledImageDiff
 	///////////////////////////////////////////////////////////////////////////
-	public static int getScaledImageStdDev (ByteBuffer buffer1, ByteBuffer buffer2, int unused)
+	public static boolean acceptDiff (int averageDiff, int stdDev, int maxRgbDiffs, int maxStdDev)
 	{
-//		AlbumProfiling.getInstance ().enter (5); //too expensive
-
-		if (buffer1 == null || buffer2 == null) {
-			return Integer.MAX_VALUE;
-		}
-
-		buffer1.rewind (); //always rewind before using
-		buffer2.rewind (); //always rewind before using
-		int numBytes = buffer1.remaining ();
-
-		double[] diffs2 = new double[numBytes];
-		try {
-			for (int ii = 0; ii < numBytes; ii++) {
-				int b1 = buffer1.get (ii) & 0xFF;
-				int b2 = buffer2.get (ii) & 0xFF;
-				diffs2[ii] = b2 - b1;
-			}
-
-		} catch (Exception ee) { //this can occur if we failed to read/parse the image
-			return Integer.MAX_VALUE;
-		}
-
-		double stdDev = new StandardDeviation ().evaluate (diffs2);
-
-//		AlbumProfiling.getInstance ().exit (5);
-
-		return (int) Math.round (stdDev);
+		return (averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 3 * maxRgbDiffs && stdDev <= 3 * maxStdDev; //hardcoded values
 	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	public synchronized void createRgbDataFile () //throws Exception
@@ -667,13 +668,13 @@ public class AlbumImage
 		int scaledWidth = 0;
 		int scaledHeight = 0;
 		if (getOrientation () == AlbumOrientation.ShowLandScape) {
-			scaledWidth = _rgbDatDimRectLarge;
-			scaledHeight = _rgbDatDimRectSmall;
+			scaledWidth = RgbDatDimRectLarge;
+			scaledHeight = RgbDatDimRectSmall;
 		} else if (getOrientation () == AlbumOrientation.ShowPortrait) {
-			scaledWidth = _rgbDatDimRectSmall;
-			scaledHeight = _rgbDatDimRectLarge;
+			scaledWidth = RgbDatDimRectSmall;
+			scaledHeight = RgbDatDimRectLarge;
 		} else { //AlbumOrientation.ShowSquare
-			scaledWidth = scaledHeight = _rgbDatSizeSquare;
+			scaledWidth = scaledHeight = RgbDatSizeSquare;
 		}
 
 		ByteBuffer scaledImageData = null;
@@ -692,6 +693,8 @@ public class AlbumImage
 
 			scaledImageData = shrinkRgbData (rawScaledImageData);
 
+			validateScaledImageData (scaledImageData, nameWithExt); //emits errors
+
 		} catch (Exception ee) {
 			_log.error ("AlbumImage.createRgbDataFile: error reading/scaling image file \"" + nameWithExt + "\"", ee);
 		}
@@ -709,10 +712,6 @@ public class AlbumImage
 	//only keep R, G, and B data, not A data
 	private static ByteBuffer shrinkRgbData (int[] rawScaledImageData) throws Exception
 	{
-//		if (rawScaledImageData.length > 0 && Arrays.stream (rawScaledImageData).allMatch (i -> i < 5)) { //hardcoded value
-//			throw new Exception ("AlbumImage.shrinkRgbData buffer is all zeros or near zero");
-//		}
-
 		int numBytes = ((rawScaledImageData.length * 4) * 3) / 4;
 		ByteBuffer buffer = ByteBuffer.allocate (numBytes);
 
@@ -1054,11 +1053,11 @@ public class AlbumImage
 	private AlbumOrientation _orientation = AlbumOrientation.ShowAny;
 
 	//for rgbDatFile
-	public static final int _rgbDatDimRectSmall = 96;
-	public static final int _rgbDatDimRectLarge = 144;
-	public static final int _rgbDatSizeRectagular = (_rgbDatDimRectSmall * _rgbDatDimRectLarge * 3) / 4;
-	public static final int _rgbDatDimSquare = 120;
-	public static final int _rgbDatSizeSquare = (_rgbDatDimSquare * _rgbDatDimSquare * 3) / 4;
+	public static final int RgbDatDimRectSmall = 96;
+	public static final int RgbDatDimRectLarge = 144;
+	public static final int RgbDatSizeRectagular = (RgbDatDimRectSmall * RgbDatDimRectLarge * 3) / 4;
+	public static final int RgbDatDimSquare = 120;
+	public static final int RgbDatSizeSquare = (RgbDatDimSquare * RgbDatDimSquare * 3) / 4;
 
 	public static final int NumExifDates = 6;		//4 exif dates read from database + 2 calculated
 	public static final int NumFileExifDates = 4;	//4 exif dates read from database + 2 calculated

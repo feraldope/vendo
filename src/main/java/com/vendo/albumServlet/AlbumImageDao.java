@@ -290,7 +290,7 @@ public class AlbumImageDao
 			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", dbDiff.size() = " + dbDiff.size () + " (to be removed from database)");
 
 			List<String> sorted = dbDiff.stream ()
-										.map (v -> v.toString ()) //nameNoExt
+										.map (v -> v.getName ())
 										.sorted (VendoUtils.caseInsensitiveStringComparator)
 										.collect (Collectors.toList ());
 			for (String str : sorted) {
@@ -303,7 +303,7 @@ public class AlbumImageDao
 			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsDiff.size() = " + fsDiff.size () + " (to be added to database)");
 
 			List<String> sorted = fsDiff.stream ()
-										.map (v -> v.toString ()) //nameNoExt
+										.map (v -> v.getName ())
 										.sorted (VendoUtils.caseInsensitiveStringComparator)
 										.collect (Collectors.toList ());
 			for (String str : sorted) {
@@ -341,7 +341,7 @@ public class AlbumImageDao
 
 		dbImageFileDetails = getImageFileDetailsFromImages (subFolder); //result is sorted
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
-			String nameNoExt = imageFileDetail.toString ();
+			String nameNoExt = imageFileDetail.getName ();
 			if (!AlbumImage.isValidImageName (nameNoExt)) {
 				if (!nameNoExt.startsWith ("q-")) { //hack
 					_log.warn ("AlbumImageDao.syncFolder: warning: invalid image name \"" + nameNoExt + "\"");
@@ -367,7 +367,7 @@ public class AlbumImageDao
 		List<Boolean> hasMatches2 = new ArrayList <Boolean> (Collections.nCopies (numPatterns, false));
 		dbImageFileDetails.add (new AlbumImageFileDetails ("dummy", 0, 0)); //HACK - add dummy value to the end for loop processing
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
-			String nameNoExt = imageFileDetail.toString ();
+			String nameNoExt = imageFileDetail.getName ();
 			String baseName1 = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ false);
 			String baseName2 = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ true);
 
@@ -425,7 +425,7 @@ public class AlbumImageDao
 			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsJpgDiff.size() = " + fsJpgDiff.size () + " (mismatched jpg/dat pairs)");
 
 			List<String> sorted = fsJpgDiff.stream ()
-										   .map (v -> v.toString ()) //nameNoExt
+										   .map (v -> v.getName ())
 										   .sorted (VendoUtils.caseInsensitiveStringComparator)
 										   .collect (Collectors.toList ());
 			for (String str : sorted) {
@@ -439,7 +439,7 @@ public class AlbumImageDao
 			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsDatDiff.size() = " + fsDatDiff.size () + " (mismatched jpg/dat pairs)");
 
 			List<String> sorted = fsDatDiff.stream ()
-										   .map (v -> v.toString ()) //nameNoExt
+										   .map (v -> v.getName ())
 										   .sorted (VendoUtils.caseInsensitiveStringComparator)
 										   .collect (Collectors.toList ());
 			for (String str : sorted) {
@@ -451,7 +451,7 @@ public class AlbumImageDao
 		//validate dat files have correct size --------------------------------
 
 		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
-			if (fsDatFileDetail.getBytes() != AlbumImage._rgbDatSizeRectagular && fsDatFileDetail.getBytes() != AlbumImage._rgbDatSizeSquare) {
+			if (fsDatFileDetail.getBytes() != AlbumImage.RgbDatSizeRectagular && fsDatFileDetail.getBytes() != AlbumImage.RgbDatSizeSquare) {
 				String filePath = Paths.get (_rootPath, subFolder, fsDatFileDetail.getName () + ".dat").toString ();
 				_log.warn ("AlbumImageDao.syncFolder: warning: invalid .dat file size (" + fsDatFileDetail.getBytes () + ") for: " + filePath);
 				imagesMissingOrBadDatFiles.add (new AlbumImage (fsDatFileDetail.getName (), subFolder, true)); //this AlbumImage ctor reads image from disk
@@ -927,8 +927,8 @@ public class AlbumImageDao
 		int imageCount1 = 0;
 		int imageCount2 = 0;
 		for (AlbumImageFileDetails imageFileDetail : imageFileDetails) {
-			String baseName1 = AlbumImage.getBaseName (imageFileDetail.toString (), /*collapseGroups*/ false);
-			String baseName2 = AlbumImage.getBaseName (imageFileDetail.toString (), /*collapseGroups*/ true);
+			String baseName1 = AlbumImage.getBaseName (imageFileDetail.getName (), /*collapseGroups*/ false);
+			String baseName2 = AlbumImage.getBaseName (imageFileDetail.getName (), /*collapseGroups*/ true);
 
 			if (baseName1.compareTo (prevBaseName1) == 0) {
 				imageCount1++;

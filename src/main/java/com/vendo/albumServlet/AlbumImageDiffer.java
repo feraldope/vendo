@@ -377,7 +377,7 @@ public class AlbumImageDiffer
 					VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB);
 					int averageDiff = diffPair.getFirst ();
 					int stdDev = diffPair.getSecond ();
-					if (averageDiff <= _maxRgbDiffs || stdDev <= _maxStdDev) {
+						if (AlbumImage.acceptDiff (averageDiff, stdDev, _maxRgbDiffs, _maxStdDev)) {
 						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId (), albumImageDataB.getNameId (), averageDiff, stdDev, 1, getMode ()));
 						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + ",");
 					}

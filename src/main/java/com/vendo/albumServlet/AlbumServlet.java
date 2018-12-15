@@ -85,8 +85,8 @@ public class AlbumServlet extends HttpServlet
 //		_log.debug ("Request Headers:" + NL + VendoUtils.getRequestHeaders (request));
 
 		//check the value of this property
-		String property = "java.util.Arrays.useLegacyMergeSort";
-		_log.debug (property + " = " + System.getProperty (property));
+//		String property = "java.util.Arrays.useLegacyMergeSort";
+//		_log.debug (property + " = " + System.getProperty (property));
 
 //TODO - change CLI to read properties file, too
 		ServletContext context = getServletContext ();

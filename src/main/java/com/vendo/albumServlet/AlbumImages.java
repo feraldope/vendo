@@ -404,7 +404,7 @@ public class AlbumImages
 		//if looseCompare, determine work to be done
 		int maxComparisons = getMaxComparisons (numImages);
 		if (looseCompare && !dbCompare) {
-			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat2.format (maxComparisons) + " (max possible combos)");
+			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat2.format (maxComparisons) + " (max possible combos, including mismatched orientation)");
 			final int maxAllowedComparisons = 80 * 1000 * 1000;
 			if (maxComparisons > maxAllowedComparisons) {
 				form.addServletError ("Warning: too many comparisons (" + _decimalFormat2.format (maxComparisons) + "), disabling looseCompare");
@@ -423,8 +423,9 @@ public class AlbumImages
 			_log.debug ("AlbumImages.doDup: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
 
 			long maxElapsedSecs1 = 30;
-			long endNano1 = System.nanoTime () + maxElapsedSecs1 * 1000 * 1000 * 1000;
+			final long endNano1 = System.nanoTime () + maxElapsedSecs1 * 1000 * 1000 * 1000;
 			AtomicInteger timeElapsedCount = new AtomicInteger (0);
+			AtomicInteger cacheHits = new AtomicInteger (0);
 			AtomicInteger cacheMisses = new AtomicInteger (0);
 
 			final List<AlbumImagePair> pairsReady = Collections.synchronizedList (new ArrayList<AlbumImagePair> (1000));
@@ -471,9 +472,10 @@ public class AlbumImages
 						String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
 						AlbumImagePair pair = _looseCompareMap.get (joinedNames);
 						if (pair != null) {
-							if (pair.getAverageDiff () <= (maxStdDev - 5) || pair.getStdDev () <= maxStdDev) { //TODO - need separate controls for maxStdDev and maxRgbDiff
+							if (AlbumImage.acceptDiff (pair.getAverageDiff (), pair.getStdDev (), maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
 								pairsReady.add (pair);
 							}
+							cacheHits.incrementAndGet ();
 						} else {
 							pairsWip.add (new AlbumImagePair (image1, image2));
 //							_log.debug ("AlbumImages.doDup: cache miss for: " + new AlbumImagePair (image1, image2));
@@ -502,6 +504,7 @@ public class AlbumImages
 
 			_log.debug ("AlbumImages.doDup: pairsReady.size = " + _decimalFormat2.format (pairsReady.size ()));
 			_log.debug ("AlbumImages.doDup: pairsWip.size = " + _decimalFormat2.format (pairsWip.size ()));
+			_log.debug ("AlbumImages.doDup: cacheHits = " + _decimalFormat2.format (cacheHits.get ()));
 			_log.debug ("AlbumImages.doDup: cacheMisses = " + _decimalFormat2.format (cacheMisses.get ()));
 
 			///////////////////////////////////////////////////////////////////
@@ -538,7 +541,7 @@ public class AlbumImages
 				_log.error ("AlbumImages.doDup: read RGB: endGate:", ee);
 			}
 
-			_log.debug ("AlbumImages.doDup: _nameScaledImageMap size = " + _decimalFormat2.format (_nameScaledImageMap.size ()) + " items");
+			_log.debug ("AlbumImages.doDup: _nameScaledImageMap = " + _decimalFormat2.format (_nameScaledImageMap.size ()) + " of " + _decimalFormat2.format (_nameScaledImageMapMaxSize));
 			AlbumProfiling.getInstance ().exit (5, "read RGB");
 			}
 
@@ -553,11 +556,12 @@ public class AlbumImages
 					AlbumImage image2 = pair.getImage2 ();
 					ByteBuffer scaledImage1Data = _nameScaledImageMap.get (image1.getNamePlus ());
 					ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
+
 					VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
 					int averageDiff = diffPair.getFirst ();
 					int stdDev = diffPair.getSecond ();
 					AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, "OnDemand");
-					if (averageDiff <= (maxStdDev - 5) || stdDev <= maxStdDev) { //TODO - need separate controls for maxStdDev and maxRgbDiff
+					if (AlbumImage.acceptDiff (averageDiff, stdDev, maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
 						_log.debug ("AlbumImages.doDup: " + stdDev + " " + averageDiff + " " + image1.getName () + " " + image2.getName ());
 						pairsReady.add (newPair);
 					}
@@ -575,6 +579,7 @@ public class AlbumImages
 			}
 
 			_log.debug ("AlbumImages.doDup: pairsReady size = " + _decimalFormat2.format (pairsReady.size ()) + " items");
+			_log.debug ("AlbumImages.doDup: _looseCompareMap = " + _decimalFormat2.format (_looseCompareMap.size ()) + " of " + _decimalFormat2.format (_looseCompareMapMaxSize));
 
 			AlbumProfiling.getInstance ().exit (5, "compute diffs");
 			}
@@ -628,6 +633,8 @@ public class AlbumImages
 						}
 					}
 				}
+
+				_log.debug ("AlbumImages.doDup: _looseCompareMap = " + _decimalFormat2.format (_looseCompareMap.size ()) + " of " + _decimalFormat2.format (_looseCompareMapMaxSize));
 
 				AlbumProfiling.getInstance ().exit (5, "dups.db");
 

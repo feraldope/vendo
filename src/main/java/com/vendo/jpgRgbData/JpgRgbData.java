@@ -39,6 +39,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.vendo.albumServlet.AlbumImage;
+import com.vendo.albumServlet.AlbumOrientation;
 import com.vendo.jpgInfo.FilenamePatternFilter;
 import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.VUncaughtExceptionHandler;
@@ -320,17 +321,18 @@ public class JpgRgbData
 
 		int imageWidth = image.getWidth ();
 		int imageHeight = image.getHeight ();
+		AlbumOrientation orientation = AlbumOrientation.getOrientation (imageWidth, imageHeight);
 
 		int scaledWidth = 0;
 		int scaledHeight = 0;
-		if (imageWidth > imageHeight) {
-			scaledWidth = 144;
-			scaledHeight = 96;
-		} else if (imageWidth < imageHeight) {
-			scaledWidth = 96;
-			scaledHeight = 144;
-		} else { //imageWidth == imageHeight
-			scaledWidth = scaledHeight = 120;
+		if (orientation == AlbumOrientation.ShowLandScape) {
+			scaledWidth = AlbumImage.RgbDatDimRectLarge;
+			scaledHeight = AlbumImage.RgbDatDimRectSmall;
+		} else if (orientation == AlbumOrientation.ShowPortrait) {
+			scaledWidth = AlbumImage.RgbDatDimRectSmall;
+			scaledHeight = AlbumImage.RgbDatDimRectLarge;
+		} else { //AlbumOrientation.ShowSquare
+			scaledWidth = scaledHeight = AlbumImage.RgbDatSizeSquare;
 		}
 
 		final int hints = BufferedImage.SCALE_FAST;
