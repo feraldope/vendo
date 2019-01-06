@@ -872,7 +872,10 @@ public class GetUrl
 	///////////////////////////////////////////////////////////////////////////
 	private boolean parseModel ()
 	{
+		_model = _model.replaceAll("\\/thumbs\\/", "/");
 		_model = _model.replaceAll("\\/tn\\/", "/");
+		_model = _model.replaceAll("\\/tn_/", "/");
+		_model = _model.replaceAll("\\/tn-/", "/");
 
 		int lastSlash = _model.lastIndexOf ('/');
 		if (lastSlash < 0) {

@@ -377,7 +377,7 @@ public class AlbumImageDiffer
 					VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImageDataA, scaledImageDataB);
 					int averageDiff = diffPair.getFirst ();
 					int stdDev = diffPair.getSecond ();
-						if (AlbumImage.acceptDiff (averageDiff, stdDev, _maxRgbDiffs, _maxStdDev)) {
+					if (AlbumImage.acceptDiff (averageDiff, stdDev, _maxRgbDiffs, _maxStdDev)) {
 						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId (), albumImageDataB.getNameId (), averageDiff, stdDev, 1, getMode ()));
 						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + ",");
 					}
@@ -816,24 +816,46 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public Collection<AlbumImageDiffData> selectNamesFromImageDiffs (int maxRgbDiff, double sinceDays, boolean operatorOr)
+	public Collection<AlbumImageDiffData> selectNamesFromImageDiffs (int maxRgbDiff, int maxStdDev, double sinceDays, boolean operatorOr)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
 		Collection<AlbumImageDiffData> items = new ArrayList<AlbumImageDiffData> ();
 
 		final String operatorStr = (operatorOr ? "OR" : "AND");
-		int sinceMinutes = (int) (sinceDays * 24 * 60);
+		final int sinceMinutes = (int) (sinceDays * 24 * 60);
+
+		AlbumSortType sortType = AlbumFormInfo.getInstance ().getSortType ();
+		boolean reverseSort = AlbumFormInfo.getInstance ().getReverseSort ();
+		String orderByClause = new String ();
+		switch (sortType) {
+		case ByName:
+			orderByClause = " order by i1.name_no_ext, i2.name_no_ext, min_diff, max_diff" + (reverseSort ? " desc" : " asc");
+			break;
+		case ByDate:
+			orderByClause = " order by d.last_update, min_diff, max_diff, i1.name_no_ext, i2.name_no_ext" + (reverseSort ? " asc" : " desc");
+			break;
+		default: //fall through
+		case ByRgb:
+			orderByClause = " order by min_diff, max_diff, i1.name_no_ext, i2.name_no_ext" + (reverseSort ? " asc" : " desc");
+			break;
+		}
+
+		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
+		String acceptDiffClause = " (d.avg_diff <= " + maxRgbDiff + " " + operatorStr + " d.std_dev <= " + maxStdDev + ")" +
+								  " and d.avg_diff <= (4 * " + maxRgbDiff + ") and d.std_dev <= (4 * " + maxStdDev + ")"; //hardcoded values
+
 		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.std_dev as std_dev, d.source as source, d.last_update as last_update," + NL +
 				     " case when avg_diff < std_dev then avg_diff else std_dev end as min_diff," + NL +
 					 " case when avg_diff > std_dev then avg_diff else std_dev end as max_diff" + NL +
 					 " from image_diffs d" + NL +
 					 " join images i1 on i1.name_id = d.name_id_1" + NL +
 					 " join images i2 on i2.name_id = d.name_id_2" + NL +
-					 " where (d.avg_diff <= " + maxRgbDiff + " " + operatorStr + " d.std_dev <= " + maxRgbDiff + ")" + NL +
+					 " where " + acceptDiffClause + NL +
 					 " and d.last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" + NL +
-					 " order by min_diff, max_diff, i1.name_no_ext, i2.name_no_ext";
-//		_log.debug ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
+					 orderByClause;
+//
+		_log.debug ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
 
 		try (Connection connection = getConnection ();
 			 Statement statement = connection.createStatement ();

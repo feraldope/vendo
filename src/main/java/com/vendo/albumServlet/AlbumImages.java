@@ -3,8 +3,12 @@
 package com.vendo.albumServlet;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -325,9 +329,15 @@ public class AlbumImages
 
 		AlbumProfiling.getInstance ().exit (5, "dao.doDir");
 
-		AlbumProfiling.getInstance ().enter (5, "sort " + _form.getSortType ());
-		Collections.sort ((List<AlbumImage>) _imageDisplayList, new AlbumImageComparator (_form));
-		AlbumProfiling.getInstance ().exit (5, "sort " + _form.getSortType ());
+		if (form.getMode () != AlbumMode.DoDup) { //skip sorting here because doDup() will do it
+			AlbumProfiling.getInstance ().enter (5, "sort " + _form.getSortType ());
+			Collections.sort ((List<AlbumImage>) _imageDisplayList, new AlbumImageComparator (_form));
+			AlbumProfiling.getInstance ().exit (5, "sort " + _form.getSortType ());
+		}
+
+		if (form.getMode () == AlbumMode.DoDir) {
+			generateExifSortCommands ();
+		}
 
 		if (AlbumFormInfo._logLevel >= 5)
 			_log.debug ("AlbumImages.doDir: _imageDisplayList.size = " + _decimalFormat2.format (_imageDisplayList.size ()));
@@ -368,7 +378,7 @@ public class AlbumImages
 		if (useExifDates) {
 			sortType = AlbumSortType.ByExif;
 		} else if (dbCompare) {
-			sortType = AlbumSortType.ByNone;
+			sortType = AlbumSortType.ByNone; //will be sorted by db query
 		} else if (ignoreBytes && !looseCompare) {
 			sortType = AlbumSortType.ByHash;
 		} else if (looseCompare) {
@@ -423,8 +433,10 @@ public class AlbumImages
 			_log.debug ("AlbumImages.doDup: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
 
 			long maxElapsedSecs1 = 30;
+			long maxElapsedSecs2 = 30;
 			final long endNano1 = System.nanoTime () + maxElapsedSecs1 * 1000 * 1000 * 1000;
-			AtomicInteger timeElapsedCount = new AtomicInteger (0);
+			AtomicInteger timeElapsedCount1 = new AtomicInteger (0);
+			AtomicInteger timeElapsedCount2 = new AtomicInteger (0);
 			AtomicInteger cacheHits = new AtomicInteger (0);
 			AtomicInteger cacheMisses = new AtomicInteger (0);
 
@@ -483,7 +495,7 @@ public class AlbumImages
 						}
 
 						if (System.nanoTime () > endNano1) {
-							if (timeElapsedCount.incrementAndGet () == 1) { //only log first occurrence
+							if (timeElapsedCount1.incrementAndGet () == 1) { //only log first occurrence
 								_log.debug ("AlbumImages.doDup: time elapsed @0 ************************************************************");
 							}
 							break;
@@ -550,23 +562,31 @@ public class AlbumImages
 
 			final CountDownLatch endGate = new CountDownLatch (pairsWip.size ());
 
+			final long endNano2 = System.nanoTime () + maxElapsedSecs2 * 1000 * 1000 * 1000;
 			for (final AlbumImagePair pair : pairsWip) {
 				Runnable task = () -> {
-					AlbumImage image1 = pair.getImage1 ();
-					AlbumImage image2 = pair.getImage2 ();
-					ByteBuffer scaledImage1Data = _nameScaledImageMap.get (image1.getNamePlus ());
-					ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
+					if (System.nanoTime () > endNano2) {
+						if (timeElapsedCount2.incrementAndGet () == 1) { //only log first occurrence
+							_log.debug ("AlbumImages.doDup: time elapsed @1 ************************************************************");
+						}
 
-					VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
-					int averageDiff = diffPair.getFirst ();
-					int stdDev = diffPair.getSecond ();
-					AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, "OnDemand");
-					if (AlbumImage.acceptDiff (averageDiff, stdDev, maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
-						_log.debug ("AlbumImages.doDup: " + stdDev + " " + averageDiff + " " + image1.getName () + " " + image2.getName ());
-						pairsReady.add (newPair);
+					} else {
+						AlbumImage image1 = pair.getImage1 ();
+						AlbumImage image2 = pair.getImage2 ();
+						ByteBuffer scaledImage1Data = _nameScaledImageMap.get (image1.getNamePlus ());
+						ByteBuffer scaledImage2Data = _nameScaledImageMap.get (image2.getNamePlus ());
+
+						VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
+						int averageDiff = diffPair.getFirst ();
+						int stdDev = diffPair.getSecond ();
+						AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, "OnDemand");
+						if (AlbumImage.acceptDiff (averageDiff, stdDev, maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
+							_log.debug ("AlbumImages.doDup: " + stdDev + " " + averageDiff + " " + image1.getName () + " " + image2.getName ());
+							pairsReady.add (newPair);
+						}
+						String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
+						_looseCompareMap.put (joinedNames, newPair);
 					}
-					String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
-					_looseCompareMap.put (joinedNames, newPair);
 
 					endGate.countDown ();
 				};
@@ -584,9 +604,14 @@ public class AlbumImages
 			AlbumProfiling.getInstance ().exit (5, "compute diffs");
 			}
 
-			if (timeElapsedCount.get () > 0) {
-				String message = "time elapsed in " + timeElapsedCount.get () + " of " + numChunks + " threads; partial results ************************************************************";
-				_log.warn ("AlbumImages.doDup: " + message);
+			if (timeElapsedCount1.get () > 0) {
+				String message = "time elapsed @0 in " + timeElapsedCount1.get () + " of " + numChunks + " threads; showing partial results";
+				_log.warn ("AlbumImages.doDup: " + message + " ************************************************************");
+				form.addServletError ("Warning: " + message);
+			}
+			if (timeElapsedCount2.get () > 0) {
+				String message = "time elapsed @1 in " + _decimalFormat2.format (timeElapsedCount2.get ()) + " of " + _decimalFormat2.format (pairsWip.size ()) + " threads; showing partial results";
+				_log.warn ("AlbumImages.doDup: " + message + "  ************************************************************");
 				form.addServletError ("Warning: " + message);
 			}
 
@@ -617,7 +642,7 @@ public class AlbumImages
 				_log.debug ("AlbumImages.doDup: since/highlight date/time: " + _dateFormat.format (new Date (highlightInMillis)));
 
 				AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
-				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (maxStdDev, sinceDays, operatorOr);
+				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (maxStdDev - 5, maxStdDev, sinceDays, operatorOr); //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
 
 				for (AlbumImageDiffData item : imageDiffData) {
 					AlbumImage image1 = map.get (item.getName1 ());
@@ -746,7 +771,7 @@ public class AlbumImages
 		}
 
 		if (dbCompare) {
-			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByNone); //already sorted by avgDiff/stdDev by db query
+			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByNone); //already sorted by db query
 		} else {
 			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByDate); //shows newest first in browser
 		}
@@ -1430,7 +1455,7 @@ public class AlbumImages
 					fontColor = "red";
 				}
 				if (image.getNumBytes() > highlightMaxKilobytes * 1024) {
-					fontColor = "yellow";
+					fontColor = "gold";
 				}
 
 				String fontWeight = "normal";
@@ -1594,6 +1619,62 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().exit (8);
 
 		return num;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//creates .BAT file with move commands
+	public void generateExifSortCommands ()
+	{
+		StringBuffer sb = new StringBuffer (2048);
+
+		//TODO - check filter for wildcards
+
+		int numImages = _imageDisplayList.size ();
+		AlbumFormInfo form = AlbumFormInfo.getInstance ();
+		Path rootPath = FileSystems.getDefault ().getPath (AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false));
+		boolean hasOneFilter = form.getFilters (/*index*/ 1).length == 1;
+
+		if (form.getMode () == AlbumMode.DoDir && form.getSortType () == AlbumSortType.ByExif && hasOneFilter && numImages > 0 && numImages < 24) {
+			String baseNameDest = form.getFilters (/*index*/ 1)[0]; //only uses the first filter
+			String dash = (baseNameDest.contains ("-") ? "" : "-"); //add dash unless already there
+			Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), baseNameDest.substring (0, 1).toLowerCase ());
+			final String whiteList = "[0-9A-Za-z\\-_]"; //all valid characters for basenames (disallow wildcards)
+
+			//skip if list is already sorted by name
+			Collection<AlbumImage> byName = new ArrayList<AlbumImage> (_imageDisplayList);
+			Collections.sort ((List<AlbumImage>) byName, new AlbumImageComparator (AlbumSortType.ByName));
+			if (byName.equals (_imageDisplayList)) {
+				_log.debug ("AlbumImages.generateExifSortCommands: image list is already sorted" + NL);
+
+			} else if (baseNameDest.replaceAll (whiteList, "").length () > 0) {
+				_log.debug ("AlbumImages.generateExifSortCommands: wildcards not allowed" + NL);
+
+			} else {
+				int index = 0;
+				sb.append ("setlocal").append (NL);
+				sb.append ("cd /d ").append (imagePath.toString ()).append (NL);
+				for (AlbumImage image : _imageDisplayList) {
+					String nexIndex = String.format ("%03d", ++index);
+					sb.append ("move ").append (image.getName ()).append (".jpg ").append (baseNameDest).append (dash).append (nexIndex).append (".jpg").append (NL);
+				}
+				sb.append ("sleep 1").append (NL);
+				sb.append ("mov.exe /renum2 ").append (baseNameDest).append (dash).append ("*.jpg").append (NL);
+			}
+		}
+
+		Path moveFile = FileSystems.getDefault ().getPath (rootPath.toString (), "moveRenameByExifDate.bat");
+		try (FileOutputStream outputStream = new FileOutputStream (moveFile.toFile ())) {
+			outputStream.write (sb.toString ().getBytes ());
+			outputStream.flush ();
+			outputStream.close ();
+			if (sb.length () > 0) {
+				_log.debug ("AlbumImages.generateExifSortCommands: move commands written to file: " + moveFile.toString () + NL);
+			}
+
+		} catch (IOException ee) {
+			_log.error ("AlbumImages.generateExifSortCommands: error writing output file: " + moveFile.toString () +NL);
+			_log.error (ee); //print exception, but no stack trace
+		}
 	}
 
 /*TODO - fix this (only used by AlbumFileFilter to implement sinceInMillis

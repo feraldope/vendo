@@ -568,7 +568,7 @@ public class AlbumImage
 				sum += scaledImageData.get (ii) & 0xFF;
 			}
 			int average = (int) Math.round ((double) sum / numBytes);
-			if (average < 10 || average > 255 - 10) { //hardcoded values
+			if (average < 5 || average > 255 - 5) { //hardcoded values
 				String message = "average (" + average + ") out of range for " + nameWithExt;
 				_log.error ("AlbumImage.validateScaledImageData: " + message);
 				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
@@ -651,7 +651,8 @@ public class AlbumImage
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean acceptDiff (int averageDiff, int stdDev, int maxRgbDiffs, int maxStdDev)
 	{
-		return (averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 3 * maxRgbDiffs && stdDev <= 3 * maxStdDev; //hardcoded values
+		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
+		return (averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 4 * maxRgbDiffs && stdDev <= 4 * maxStdDev; //hardcoded values
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -674,7 +675,7 @@ public class AlbumImage
 			scaledWidth = RgbDatDimRectSmall;
 			scaledHeight = RgbDatDimRectLarge;
 		} else { //AlbumOrientation.ShowSquare
-			scaledWidth = scaledHeight = RgbDatSizeSquare;
+			scaledWidth = scaledHeight = RgbDatDimSquare;
 		}
 
 		ByteBuffer scaledImageData = null;

@@ -332,7 +332,7 @@ public class JpgRgbData
 			scaledWidth = AlbumImage.RgbDatDimRectSmall;
 			scaledHeight = AlbumImage.RgbDatDimRectLarge;
 		} else { //AlbumOrientation.ShowSquare
-			scaledWidth = scaledHeight = AlbumImage.RgbDatSizeSquare;
+			scaledWidth = scaledHeight = AlbumImage.RgbDatDimSquare;
 		}
 
 		final int hints = BufferedImage.SCALE_FAST;
