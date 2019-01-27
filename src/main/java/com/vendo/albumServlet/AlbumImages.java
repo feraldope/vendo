@@ -39,6 +39,8 @@ import org.apache.commons.math.util.MathUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.vendo.vendoUtils.VFileList;
+import com.vendo.vendoUtils.VFileList.ListMode;
 import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
 
@@ -174,7 +176,6 @@ public class AlbumImages
 		int imagesRemoved = 0;
 		long currentTimestamp = 0;
 
-		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
 		Enumeration<String> paramNames = request.getParameterNames ();
 		while (paramNames.hasMoreElements ()) {
 			String paramName = paramNames.nextElement ();
@@ -188,34 +189,15 @@ public class AlbumImages
 			}
 
 			//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
-			if (paramName.endsWith (AlbumFormInfo._DeleteSuffix) && _previousRequestTimestamp != currentTimestamp) {
+			if ((paramName.startsWith (AlbumFormInfo._DeleteParam1) || paramName.startsWith (AlbumFormInfo._DeleteParam2)) && _previousRequestTimestamp != currentTimestamp) {
 				String[] paramValues = request.getParameterValues (paramName);
 				if (paramValues[0].equalsIgnoreCase ("on")) {
-					//rename image file on file system
-					String newName = rootPath + paramName;
-					String origName = newName.substring (0, newName.length () - AlbumFormInfo._DeleteSuffix.length ());
-					while (VendoUtils.fileExists (newName)) {
-						newName += AlbumFormInfo._DeleteSuffix;
-					}
-
-					if (AlbumFormInfo._Debug) {
-						_log.debug ("AlbumImages.processParams: renaming \"" + origName + "\"");
-					}
-
-					try {
-						File newFile = new File (newName);
-						File origFile = new File (origName);
-
-						if (!origFile.renameTo (newFile)) {
-							String message = "rename failed (" + origFile.getCanonicalPath () + " to " + newFile.getCanonicalPath () + ")";
-							_log.error ("AlbumImages.processParams: " + message);
-							_form.addServletError ("Error: " + message);
-						} else {
-							imagesRemoved++;
-						}
-
-					} catch (Exception ee) {
-						_log.error ("AlbumImages.processParams: error renaming file from \"" + origName + "\" to \"" + newName + "\"", ee);
+					if (paramName.startsWith (AlbumFormInfo._DeleteParam1)) {
+						String fileName = paramName.substring (AlbumFormInfo._DeleteParam1.length ());
+						imagesRemoved += renameImageFile (fileName);
+					} else {
+						String wildName = paramName.substring (AlbumFormInfo._DeleteParam2.length ());
+						imagesRemoved += renameImageFiles (wildName);
 					}
 				}
 			}
@@ -288,6 +270,76 @@ public class AlbumImages
 		case DoDup:		return doDup (filters, excludes, sinceInMillis);
 		case DoSampler:	return doSampler (filters, excludes, sinceInMillis);
 		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//rename image file on file system
+	private int renameImageFiles (String wildName)
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		int imagesRemoved = 0;
+		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
+		String subFolder = wildName.substring (0, 1).toLowerCase ();
+
+		List<String> fileList = new VFileList (rootPath + subFolder, wildName, /*recurseSubdirs*/ false).getFileList (ListMode.FileOnly);
+		if (AlbumFormInfo._logLevel >= 7) {
+			_log.debug ("AlbumImages.renameImageFiles: wildName = \"" + wildName + "\"");
+			_log.debug ("AlbumImages.renameImageFiles: fileList = " + fileList);
+		}
+
+		for (String filename : fileList) {
+			imagesRemoved += renameImageFile (filename);//path.getName (path.getNameCount () - 1).toString ());
+		}
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return imagesRemoved;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//rename image files on file system
+	private int renameImageFile (String origName)
+	{
+//		AlbumProfiling.getInstance ().enter (5);
+
+		int imagesRemoved = 0;
+		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
+		String subFolder = origName.substring (0, 1).toLowerCase ();
+		String origPath = rootPath + subFolder + "/" + origName;
+		String newPath = origPath + AlbumFormInfo._DeleteSuffix;
+		if (AlbumFormInfo._logLevel >= 7) {
+			_log.debug ("AlbumImages.renameImageFile: origPath \"" + origPath + "\"");
+			_log.debug ("AlbumImages.renameImageFile: newPath \"" + newPath + "\"");
+		}
+
+		while (VendoUtils.fileExists (newPath)) {
+			newPath += AlbumFormInfo._DeleteSuffix;
+		}
+
+		if (AlbumFormInfo._Debug) {
+			_log.debug ("AlbumImages.renameImageFile: renaming \"" + origPath + "\"");
+		}
+
+		try {
+			File newFile = new File (newPath);
+			File origFile = new File (origPath);
+
+			if (origFile.renameTo (newFile)) {
+				imagesRemoved++;
+			} else {
+				String message = "rename failed (" + origFile.getCanonicalPath () + " to " + newFile.getCanonicalPath () + ")";
+				_log.error ("AlbumImages.renameImageFile: " + message);
+				_form.addServletError ("Error: " + message);
+			}
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImages.renameImageFile: error renaming file from \"" + origName + "\" to \"" + newPath + "\"", ee);
+		}
+
+//		AlbumProfiling.getInstance ().exit (5);
+
+		return imagesRemoved;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1455,7 +1507,7 @@ public class AlbumImages
 					fontColor = "red";
 				}
 				if (image.getNumBytes() > highlightMaxKilobytes * 1024) {
-					fontColor = "gold";
+					fontColor = "magenta";
 				}
 
 				String fontWeight = "normal";
@@ -1503,13 +1555,16 @@ public class AlbumImages
 				  .append ("</A>").append (NL);
 
 				//conditionally add Delete checkbox
-				if (mode == AlbumMode.DoDir || mode == AlbumMode.DoDup) {
+				if (mode == AlbumMode.DoDir || mode == AlbumMode.DoDup || (mode == AlbumMode.DoSampler && !collapseGroups)) {
+					String deleteParam = new String ();
+					if (mode == AlbumMode.DoDir || mode == AlbumMode.DoDup) {
+						deleteParam = AlbumFormInfo._DeleteParam1 + image.getNameWithExt (); //single filename
+					} else {
+						deleteParam = AlbumFormInfo._DeleteParam2 + image.getBaseName(collapseGroups) + "*" + AlbumFormInfo._ImageExtension; //wildname
+					}
 					sb.append (_break).append (NL)
 					  .append ("<FORM>Delete<INPUT TYPE=\"CHECKBOX\" NAME=\"")
-					  .append (image.getSubFolder ())
-					  .append ("/")
-					  .append (image.getNameWithExt ())
-					  .append (AlbumFormInfo._DeleteSuffix)
+					  .append (deleteParam)
 //don't close form	  .append ("\"></FORM>").append (NL);
 					  .append ("\">").append (NL);
 				}

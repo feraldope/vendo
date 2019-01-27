@@ -14,13 +14,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 //import org.apache.logging.log4j.*;
 
 
 public class VFileList
 {
+	public enum ListMode {CompletePath, FileOnly};
+
 	///////////////////////////////////////////////////////////////////////////
 	public VFileList (String folderName, List<Pattern> filePatterns, boolean recurseSubdirs)
 	{
@@ -30,13 +34,41 @@ public class VFileList
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getFileList ()
+	public VFileList (String folderName, String wildName, boolean recurseSubdirs)
 	{
-		List<String> fileList = getFileList2 ();
+		this (folderName, getPatternsFromWildname (wildName), recurseSubdirs);
+	}
 
-		Collections.sort (fileList, VendoUtils.caseInsensitiveStringComparator);
+	///////////////////////////////////////////////////////////////////////////
+	private static List<Pattern> getPatternsFromWildname (String wildName)
+	{
+		List<Pattern> filePatterns = new ArrayList<Pattern> ();
 
-		return fileList;
+		wildName = wildName.replace ("*", ".*").trim (); //regex
+		filePatterns.add (Pattern.compile (wildName, Pattern.CASE_INSENSITIVE));
+
+		return filePatterns;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<Path> getPathList ()
+	{
+		return generatePathList ().stream ()
+								  .sorted ((p1, p2) -> p1.toAbsolutePath ().normalize ().toString ().compareToIgnoreCase (
+										  			   p2.toAbsolutePath ().normalize ().toString ()))
+								  .collect (Collectors.toList ());
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<String> getFileList (ListMode mode)
+	{
+		final Function<Path, Path> completePath = p -> p.toAbsolutePath ().normalize ();
+		final Function<Path, Path> fileOnly = p -> p.getName (p.getNameCount () - 1);
+
+		return getPathList ().stream ()
+							 .map (mode == ListMode.CompletePath ? completePath : fileOnly)
+							 .map (p -> p.toString ())
+							 .collect (Collectors.toList ());
 	}
 
 /* old way; keep as example
@@ -64,9 +96,9 @@ public class VFileList
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<String> getFileList2 ()
+	private List<Path> generatePathList ()
 	{
-		List<String> fileList = new ArrayList<String> ();
+		List<Path> pathList = new ArrayList<Path> ();
 
 		Set<FileVisitOption> opts = Collections.emptySet ();
 //		EnumSet<FileVisitOption> opts = EnumSet.of (FileVisitOption.FOLLOW_LINKS);
@@ -78,10 +110,9 @@ public class VFileList
  				@Override
 				public FileVisitResult visitFile (Path path, BasicFileAttributes attrs)
 				{
-//					System.err.println ("VFileList.getFileList: visitFile: path = " + path.toAbsolutePath ().normalize ().toString ());
+//					System.err.println ("VFileList.generatePathList: visitFile: path = " + path.toAbsolutePath ().normalize ().toString ());
 					if (matchesLeaf (path)) {
-						String filename = path.toAbsolutePath ().normalize ().toString ();
-						fileList.add (filename);
+						pathList.add (path);
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -112,7 +143,7 @@ public class VFileList
 			throw new AssertionError ("Files#walkFileTree will not throw IOException if the FileVisitor does not");
 		}
 
-		return fileList;
+		return pathList;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

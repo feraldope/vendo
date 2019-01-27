@@ -26,6 +26,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.vendo.vendoUtils.VFileList;
+import com.vendo.vendoUtils.VFileList.ListMode;
 import com.vendo.vendoUtils.VendoUtils;
 
 
@@ -124,7 +125,7 @@ public class FindJars
 
 		String filePatternsArray[] = filePatternsString.split (","); //split on commas
 		for (String filePatternString : filePatternsArray) {
-			filePatternString = filePatternString.replace ("*", ".*").trim ();
+			filePatternString = filePatternString.replace ("*", ".*").trim (); //regex
 			_filePatterns.add (Pattern.compile (filePatternString, Pattern.CASE_INSENSITIVE));
 		}
 
@@ -154,7 +155,7 @@ public class FindJars
 			_log.debug ("FindJars.run: " + vFileList);
 		}
 
-		List<String> fileList = vFileList.getFileList ();
+		List<String> fileList = vFileList.getFileList (ListMode.CompletePath);
 
 		if (fileList.size () == 0) {
 			System.out.println ("No files found");

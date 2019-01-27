@@ -930,14 +930,17 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String getRealPathString (Path file)
 	{
+		String realPath = new String ();
 		try {
-			return file.toRealPath ().toString ();
+			realPath = file.toRealPath ().toString ();
 
 		} catch (IOException ee) {
 			ee.printStackTrace ();
+
+			realPath = file.toAbsolutePath ().toString ();
 		}
 
-		return file.toAbsolutePath ().toString ();
+		return realPath;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -952,17 +955,31 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean isDirectory (String filename)
 	{
-		Path file = FileSystems.getDefault ().getPath (filename);
+		boolean isDirectory = false;
+		try {
+			Path file = FileSystems.getDefault ().getPath (filename);
+			isDirectory = Files.isDirectory (file, LinkOption.NOFOLLOW_LINKS);
 
-		return Files.isDirectory (file, LinkOption.NOFOLLOW_LINKS);
+		} catch (Exception ee) {
+			ee.printStackTrace ();
+		}
+
+		return isDirectory;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean fileExists (String filename)
 	{
-		Path file = FileSystems.getDefault ().getPath (filename);
+		boolean fileExists = false;
+		try {
+			Path file = FileSystems.getDefault ().getPath (filename);
+			fileExists = Files.exists (file);
 
-		return Files.exists (file);
+		} catch (Exception ee) {
+			ee.printStackTrace ();
+		}
+
+		return fileExists;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

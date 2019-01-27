@@ -1168,6 +1168,8 @@ public class AlbumFormInfo
 
 	public static final String _ImageExtension = ".jpg";
 	public static final String _RgbDataExtension = ".dat";
+	public static final String _DeleteParam1 = "DeleteImage:";
+	public static final String _DeleteParam2 = "DeleteImages:";
 	public static final String _DeleteSuffix = ".delete";
 
 	public static final int _NumTagParams = 9;
