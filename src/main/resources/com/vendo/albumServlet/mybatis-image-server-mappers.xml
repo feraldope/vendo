@@ -6,23 +6,24 @@ mysql -u root -proot -e "show databases"
 mysql -u root -proot albumimages -e "show tables"
 mysql -u root -proot albumimages -e "describe images"
 
-+======================================================================================================+
-| Field          | Type                 | Null | Key | Default           | Extra                       |
-+======================================================================================================+
-| name_id        | int(10) unsigned     | NO   | PRI | NULL              | auto_increment              |
-| insert_date    | timestamp            | NO   | PRI | CURRENT_TIMESTAMP | on update CURRENT_TIMESTAMP |
-| sub_folder_int | tinyint(3) unsigned  | NO   | PRI | NULL              |                             |
-| name_no_ext    | varchar(40)          | NO   | PRI | NULL              |                             |
-| bytes          | int(10) unsigned     | NO   |     | NULL              |                             |
-| width          | smallint(5) unsigned | NO   |     | NULL              |                             |
-| height         | smallint(5) unsigned | NO   |     | NULL              |                             |
-| modified       | bigint(20) unsigned  | NO   |     | NULL              |                             |
-| rgb_data       | char(40)             | NO   |     | NULL              |                             |
-| exifDate0      | bigint(20) unsigned  | YES  |     | NULL              |                             |
-| exifDate1      | bigint(20) unsigned  | YES  |     | NULL              |                             |
-| exifDate2      | bigint(20) unsigned  | YES  |     | NULL              |                             |
-| exifDate3      | bigint(20) unsigned  | YES  |     | NULL              |                             |
-+======================================================================================================+
+***Note: in this output, need to change each dash "-" to something else, like equals "=" to avoid issue with mybatis parser
++=============+======================+======+=====+===================+=============================+
+| Field       | Type                 | Null | Key | Default           | Extra                       |
++=============+======================+======+=====+===================+=============================+
+| name_id     | int(10) unsigned     | NO   | PRI | NULL              | auto_increment              |
+| insert_date | timestamp            | NO   | PRI | CURRENT_TIMESTAMP | on update CURRENT_TIMESTAMP |
+| sub_folder  | varchar(5)           | NO   | PRI | NULL              |                             |
+| name_no_ext | varchar(40)          | NO   | PRI | NULL              |                             |
+| bytes       | int(10) unsigned     | NO   |     | NULL              |                             |
+| width       | smallint(5) unsigned | NO   |     | NULL              |                             |
+| height      | smallint(5) unsigned | NO   |     | NULL              |                             |
+| modified    | bigint(20) unsigned  | NO   |     | NULL              |                             |
+| rgb_data    | char(40)             | NO   |     | NULL              |                             |
+| exifDate0   | bigint(20) unsigned  | YES  |     | NULL              |                             |
+| exifDate1   | bigint(20) unsigned  | YES  |     | NULL              |                             |
+| exifDate2   | bigint(20) unsigned  | YES  |     | NULL              |                             |
+| exifDate3   | bigint(20) unsigned  | YES  |     | NULL              |                             |
++=============+======================+======+=====+===================+=============================+
 -->
 
 <mapper namespace="com.vendo.albumServlet.AlbumImageMapper">
@@ -38,7 +39,7 @@ mysql -u root -proot albumimages -e "describe images"
 	<resultMap id="AlbumImageResultMap" type="com.vendo.albumServlet.AlbumImage">
 		<constructor>
 			<arg column="name_no_ext" javaType="String" />
-			<arg column="sub_folder_int" javaType="_integer" />
+			<arg column="sub_folder" javaType="String" />
 			<arg column="bytes" javaType="_long" />
 			<arg column="width" javaType="_integer" />
 			<arg column="height" javaType="_integer" />
@@ -80,13 +81,13 @@ mysql -u root -proot albumimages -e "describe images"
 
 
 	<!-- each argument must be a column name from the database table definition -->
-	<sql id="imagesColumns">name_no_ext, sub_folder_int, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
+	<sql id="imagesColumns">name_no_ext, sub_folder, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
 	<!-- each argument must represent a "getter" value from the corresponding class -->
-	<sql id="imagesValues">#{name}, #{subFolderInt}, #{numBytes}, #{width}, #{height}, #{modified}, #{rgbData}, #{exifDate0}, #{exifDate1}, #{exifDate2}, #{exifDate3}</sql>
+	<sql id="imagesValues">#{name}, #{subFolder}, #{numBytes}, #{width}, #{height}, #{modified}, #{rgbData}, #{exifDate0}, #{exifDate1}, #{exifDate2}, #{exifDate3}</sql>
 
 	<!-- each argument must be a column name from the database table definition -->
-	<sql id="imageCountsColumns">sub_folder_int, base_name, collapse_groups, image_count</sql>
-	<sql id="imageCountsValues">#{sub_folder_int}, #{base_name}, #{collapse_groups}, #{image_count}</sql>
+	<sql id="imageCountsColumns">sub_folder, base_name, collapse_groups, image_count</sql>
+	<sql id="imageCountsValues">#{sub_folder}, #{base_name}, #{collapse_groups}, #{image_count}</sql>
 
 	<!-- each argument must be a column name from the database table definition -->
 	<sql id="imageDiffsColumns">name_id_1, name_id_2, avg_diff, std_dev, count, source</sql>
@@ -96,7 +97,7 @@ mysql -u root -proot albumimages -e "describe images"
 	<select id="selectLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
 		select last_update
 		from image_folder
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 	</select>
 
 	<select id="selectMaxLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
@@ -107,48 +108,48 @@ mysql -u root -proot albumimages -e "describe images"
 	<select id="selectMaxInsertDateFromImages" resultType="java.sql.Timestamp">
 		select max(insert_date)
 		from images
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 	</select>
 
 	<select id="selectImageFileDetailsFromImages" resultMap="AlbumImageFileDetailsResultMap">
 		select name_no_ext, bytes, modified
 		from images
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 	</select>
 
 	<select id="selectImagesFromImages" resultMap="AlbumImageResultMap">
 		select
 		<include refid="imagesColumns"/>
 		from images
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 	</select>
 
 	<select id="selectImageCountFromImages" resultType="int">
 		select count(name_id)
 		from images
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 		and name_no_ext rlike #{name_no_ext}
 	</select>
 
 	<select id="selectImageCountFromImageCounts" resultType="int">
 		select image_count
 		from image_counts
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 		and base_name = #{base_name}
 	</select>
 
 	<select id="selectImageCountsFromImageCounts" resultMap="AlbumImageCountResultMap">
 		select base_name, image_count
 		from image_counts
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 	</select>
 
 	<select id="selectMismatchedEntriesFromImageCounts" resultMap="AlbumImageCountResultMap">
 		select t.base_name, t.image_count
 		from (
-			select base_name, image_count, sub_folder_int
+			select base_name, image_count, sub_folder
 			from image_counts
-			having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8)
+ 			having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder
 		) as t
 	</select>
 
@@ -179,8 +180,8 @@ mysql -u root -proot albumimages -e "describe images"
  -->
 
 	<insert id="insertLastUpdateIntoImageFolder">
-		insert into image_folder (sub_folder_int, last_update)
-		values (#{sub_folder_int}, #{last_update})
+		insert into image_folder (sub_folder, last_update)
+		values (#{sub_folder}, #{last_update})
 		on duplicate key update
 		last_update = values (last_update)
 	</insert>
@@ -203,7 +204,7 @@ mysql -u root -proot albumimages -e "describe images"
 		)
 		on duplicate key update
 		image_count = values (image_count),
-		sub_folder_int = values (sub_folder_int)
+		sub_folder = values (sub_folder)
 	</insert>
 
 <!-- not currently used	
@@ -223,13 +224,13 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<delete id="deleteImageFromImages">
 		delete from images
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 		and name_no_ext = #{name_no_ext}
 	</delete>
 
 	<delete id="deleteImageCountsFromImageCounts">
 		delete from image_counts
-		where sub_folder_int = #{sub_folder_int}
+		where sub_folder = #{sub_folder}
 		and base_name = #{base_name}
 	</delete>
 
@@ -242,9 +243,9 @@ mysql -u root -proot albumimages -e "describe images"
 		delete image_counts.*
 		from image_counts
 		inner join (
-			select name_id, base_name, sub_folder_int
+			select name_id, base_name, sub_folder
 			from image_counts
-			having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8)
+ 			having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder
 		) as todelete on todelete.name_id = image_counts.name_id
 	</delete>
 

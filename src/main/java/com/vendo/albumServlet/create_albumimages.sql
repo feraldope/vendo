@@ -14,11 +14,11 @@ tdir /s /on "F:\MariaDB 10.0\data\albumimages"
 CREATE TABLE IF NOT EXISTS images
 (
 	name_id			INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
-	insert_date		TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	sub_folder_int	TINYINT UNSIGNED NOT NULL, -- 1-based: 'a'=1, 'b'=2, etc.
-	name_no_ext		VARCHAR(40) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL UNIQUE,
-	bytes			INTEGER UNSIGNED NOT NULL,
-	width			SMALLINT UNSIGNED NOT NULL,
+	insert_date	TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	sub_folder	VARCHAR(5) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
+	name_no_ext	VARCHAR(40) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL UNIQUE,
+	bytes			  INTEGER UNSIGNED NOT NULL,
+	width			  SMALLINT UNSIGNED NOT NULL,
 	height			SMALLINT UNSIGNED NOT NULL,
 	modified		BIGINT UNSIGNED NOT NULL,
 	rgb_data		CHAR(40) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS images
 	exifDate1		BIGINT UNSIGNED,
 	exifDate2		BIGINT UNSIGNED,
 	exifDate3		BIGINT UNSIGNED,
-	PRIMARY KEY (name_id, insert_date, name_no_ext, sub_folder_int)
+	PRIMARY KEY (name_id, insert_date, name_no_ext, sub_folder)
 );
-CREATE INDEX sub_folder_int_idx on images (sub_folder_int);
+CREATE INDEX sub_folder_idx on images (sub_folder);
 CREATE INDEX name_no_ext_idx on images (name_no_ext);
 SHOW COLUMNS FROM images;
 SHOW INDEX FROM images;
@@ -36,9 +36,9 @@ SHOW INDEX FROM images;
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS image_folder
 (
-	sub_folder_int	TINYINT UNSIGNED NOT NULL, -- 1-based: 'a'=1, 'b'=2, etc.
+	sub_folder		VARCHAR(5) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL UNIQUE,
 	last_update		TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-	PRIMARY KEY (sub_folder_int)
+	PRIMARY KEY (sub_folder)
 );
 SHOW COLUMNS FROM image_folder;
 SHOW INDEX FROM image_folder;
@@ -47,13 +47,13 @@ SHOW INDEX FROM image_folder;
 CREATE TABLE IF NOT EXISTS image_counts
 (
 	name_id			INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
-	sub_folder_int	TINYINT UNSIGNED NOT NULL, -- 1-based: 'a'=1, 'b'=2, etc.
+	sub_folder	VARCHAR(5) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
 	base_name		VARCHAR(40) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL UNIQUE,
 	collapse_groups	TINYINT UNSIGNED NOT NULL,
 	image_count		INTEGER UNSIGNED NOT NULL,
-	PRIMARY KEY (name_id, sub_folder_int, base_name, collapse_groups, image_count)
+	PRIMARY KEY (name_id, sub_folder, base_name, collapse_groups, image_count)
 );
-CREATE INDEX sub_folder_int_idx on image_counts (sub_folder_int);
+CREATE INDEX sub_folder_idx on image_counts (sub_folder);
 SHOW COLUMNS FROM image_counts;
 SHOW INDEX FROM image_counts;
 
@@ -76,8 +76,69 @@ CREATE INDEX last_update_idx on image_diffs (last_update);
 SHOW COLUMNS FROM image_diffs;
 SHOW INDEX FROM image_diffs;
 
+/*
 -- -----------------------------------------------------------------------------
-/* testing
+-- ADDING COLUMN TO TABLE (1)
+-- step 1: create new table images_tmp
+-- step 2: copy data from images to images_tmp
+INSERT INTO images_tmp (name_id, insert_date, sub_folder, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3)
+				 SELECT name_id, insert_date, char(sub_folder_int+96 using utf8) as sub_folder, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3
+				 FROM images
+-- step 3: drop table images
+-- step 4: create new table images
+-- step 5: copy data from images_tmp to images
+INSERT INTO images (name_id, insert_date, sub_folder, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3)
+			   SELECT name_id, insert_date, sub_folder, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3
+				 FROM images_tmp
+-- step 6: drop table images_tmp
+
+-- -----------------------------------------------------------------------------
+-- ADDING COLUMN TO TABLE (2)
+-- step 1: create new table image_diffs_tmp
+-- step 2: copy data from image_diffs to image_diffs_tmp
+INSERT INTO image_diffs_tmp (name_id_1, name_id_2, avg_diff, count, source, last_update)
+				              SELECT name_id_1, name_id_2, avg_diff, count, source, last_update
+				              FROM image_diffs
+-- step 3: drop table image_diffs
+-- step 4: create new table image_diffs
+-- step 5: copy data from image_diffs_tmp to image_diffs
+INSERT INTO image_diffs (name_id_1, name_id_2, avg_diff, std_dev, source, count, last_update)
+                  SELECT name_id_1, name_id_2, avg_diff, 35, source, count, last_update
+                  FROM image_diffs_tmp
+-- step 6: drop table image_diffs_tmp
+
+-- -----------------------------------------------------------------------------
+-- ADDING COLUMN TO TABLE (3)
+-- step 1: create new table image_folder_tmp
+-- step 2: copy data from image_folder to image_folder_tmp
+INSERT INTO image_folder_tmp (sub_folder, last_update)
+				              SELECT char(sub_folder_int+96 using utf8) as sub_folder, last_update
+				              FROM image_folder
+-- step 3: drop table image_folder
+-- step 4: create new table image_folder
+-- step 5: copy data from image_folder_tmp to image_folder
+INSERT INTO image_folder (sub_folder, last_update)
+                  SELECT sub_folder, last_update
+                  FROM image_folder_tmp
+-- step 6: drop table image_folder_tmp
+
+-- -----------------------------------------------------------------------------
+-- ADDING COLUMN TO TABLE (4)
+-- step 1: create new table image_counts_tmp
+-- step 2: copy data from image_counts to image_counts_tmp
+INSERT INTO image_counts_tmp (name_id, sub_folder, base_name, collapse_groups, image_count)
+				              SELECT name_id, char(sub_folder_int+96 using utf8) as sub_folder, base_name, collapse_groups, image_count
+				              FROM image_counts
+-- step 3: drop table image_counts
+-- step 4: create new table image_counts
+-- step 5: copy data from image_counts_tmp to image_counts
+INSERT INTO image_counts (name_id, sub_folder, base_name, collapse_groups, image_count)
+                  SELECT name_id, sub_folder, base_name, collapse_groups, image_count
+                  FROM image_counts_tmp
+-- step 6: drop table image_counts_tmp
+
+-- -----------------------------------------------------------------------------
+-- testing
 mysql -u root -proot albumimages
 
 -- size of all databases
@@ -94,7 +155,6 @@ delete from image_counts where image_count = 0;
 select * from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$' order by base_name;
 -- delete from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$';
 
-
 delete from image_counts where base_name like 'Ho%Fu%';
 -- delete from images where name_no_ext like 'xbf%';
 
@@ -106,20 +166,20 @@ select sub_folder_int, char(sub_folder_int+96 using utf8) from image_counts;
 -- -----------------------------------------------------------------------------
 -- mismatched entries in image_counts
 -- find image files that are in wrong subfolders
-select *, lower(substring(base_name,1,1)) as a1, char(sub_folder_int+96 using utf8) as a2 from image_counts having a1 != a2;
-select * from image_counts having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8);
+select *, lower(substring(base_name,1,LENGTH(sub_folder))) as a1, sub_folder as a2 from image_counts having a1 != a2;
+select * from image_counts having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder;
 -- OR --
-select sub_folder_int, char(sub_folder_int+96 using utf8) as sub_folder, t.base_name, t.image_count
+select sub_folder, t.base_name, t.image_count
 from (
-select base_name, image_count, sub_folder_int from image_counts having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8)
+select base_name, image_count, sub_folder from image_counts having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder
 ) as t
 --
 delete image_counts.*
 from image_counts 
 inner join (
-  select name_id, base_name, sub_folder_int
+  select name_id, base_name, sub_folder
   from image_counts
-  having lower(substring(base_name,1,1)) != char(sub_folder_int+96 using utf8)
+  having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder
 ) as todelete on todelete.name_id = image_counts.name_id
 
 -- table sizes (number of rows) and max indexes
@@ -138,22 +198,24 @@ select * from images where name_no_ext like 'Faa%';
 select * from images where insert_date = (select max(insert_date) from images);
 
 -- validate last_update and insert_date handling
-select 'image_folder' as name, sub_folder_int, last_update as latest_entry from image_folder where last_update = (select max(last_update) from image_folder)
+select 'image_folder' as name, sub_folder, last_update as latest_entry from image_folder where last_update = (select max(last_update) from image_folder)
 union all
-select 'images' as name, sub_folder_int, insert_date as latest_entry from images where insert_date = (select max(insert_date) from images) group by sub_folder_int
+select 'images' as name, sub_folder, insert_date as latest_entry from images where insert_date = (select max(insert_date) from images) group by sub_folder
 
 -- inserts
--- insert into images (name_no_ext, sub_folder_int, bytes, width, height, modified, rgb_data) values ('foo', 'f', 347621, 1064, 1600, 1393631218042, 'ff191919ff191919ff1a1a1aff1a1a1aff1c1c1c');
+-- insert into images (name_no_ext, sub_folder, bytes, width, height, modified, rgb_data) values ('foo', 'f', 347621, 1064, 1600, 1393631218042, 'ff191919ff191919ff1a1a1aff1a1a1aff1c1c1c');
 
-select count(*) as "total" from images order by sub_folder_int;
-select count(*) as "total" from images_tmp order by sub_folder_int;
-select sub_folder_int, count(*) from images group by sub_folder_int order by sub_folder_int;
+select count(*) as "total" from images order by sub_folder;
+select count(*) as "total" from images_tmp order by sub_folder;
+select sub_folder, count(*) from images group by sub_folder 
+order by count(*)
+-- order by sub_folder;
 
 -- select CAST((sub_folder_int+CONVERT('a'),UNSIGNED,INTEGER)) as CHAR(1)), count(*) from images group by sub_folder_int order by sub_folder_int;
 -- select CONVERT('a',UNSIGNED,INTEGER), count(*) from images group by sub_folder_int order by sub_folder_int;
 
 -- image/folder distribution
-select sub_folder_int, count(*) as count from images group by sub_folder_int order by count
+select sub_folder, count(*) as count from images group by sub_folder order by count
 
 -- exifDate distribution
 select 'exifDate0' as name, count(*) as rows from images where exifDate0 > 0
@@ -174,36 +236,6 @@ update images set exifDate3 = 0 where exifDate3 is null;
 
 -- mysql equivalent of select 1 from dual
 select 1
-
--- -----------------------------------------------------------------------------
--- ADDING COLUMN TO TABLE (1)
--- step 1: create new table images_tmp
--- step 2: copy data from images to images_tmp
-INSERT INTO images_tmp (name_id, insert_date, sub_folder_int, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3)
-				 SELECT name_id, now(),       sub_folder_int, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3
-				 FROM images
--- step 3: drop table images
--- step 4: create new table images
--- step 5: copy data from images_tmp to images
-INSERT INTO images (name_id, insert_date, sub_folder_int, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3)
-			 SELECT name_id, insert_date, sub_folder_int, name_no_ext, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3
-				 FROM images_tmp
--- step 6: drop table images_tmp
-
--- -----------------------------------------------------------------------------
--- ADDING COLUMN TO TABLE (2)
--- step 1: create new table image_diffs_tmp
--- step 2: copy data from image_diffs to image_diffs_tmp
-INSERT INTO image_diffs_tmp (name_id_1, name_id_2, avg_diff, count, source, last_update)
-				              SELECT name_id_1, name_id_2, avg_diff, count, source, last_update
-				              FROM image_diffs
--- step 3: drop table image_diffs
--- step 4: create new table image_diffs
--- step 5: copy data from image_diffs_tmp to image_diffs
-INSERT INTO image_diffs (name_id_1, name_id_2, avg_diff, std_dev, source, count, last_update)
-                  SELECT name_id_1, name_id_2, avg_diff, 35, source, count, last_update
-                  FROM image_diffs_tmp
--- step 6: drop table image_diffs_tmp
 
 -- -----------------------------------------------------------------------------
 -- select random rows from images table

@@ -49,7 +49,7 @@ public class AlbumImageData implements Comparator<AlbumImageData>
 	///////////////////////////////////////////////////////////////////////////
 	public String getSubFolder ()
 	{
-		return getName ().substring (0, 1).toLowerCase ();
+		return getName ().substring (0, AlbumImage.SubFolderLength).toLowerCase ();
 	}
 
 	@Override

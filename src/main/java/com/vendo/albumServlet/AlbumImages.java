@@ -189,7 +189,7 @@ public class AlbumImages
 			}
 
 			//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
-			if ((paramName.startsWith (AlbumFormInfo._DeleteParam1) || paramName.startsWith (AlbumFormInfo._DeleteParam2)) && _previousRequestTimestamp != currentTimestamp) {
+			if ((paramName.startsWith (AlbumFormInfo._DeleteParam1) || paramName.startsWith (AlbumFormInfo._DeleteParam2)) && !_previousRequestTimestamps.contains (currentTimestamp)) {
 				String[] paramValues = request.getParameterValues (paramName);
 				if (paramValues[0].equalsIgnoreCase ("on")) {
 					if (paramName.startsWith (AlbumFormInfo._DeleteParam1)) {
@@ -202,14 +202,13 @@ public class AlbumImages
 				}
 			}
 		}
+		_previousRequestTimestamps.add (currentTimestamp);
 
 		if (imagesRemoved > 0) {
 			int sleepMillis = 150 + imagesRemoved * 10;
 			VendoUtils.sleepMillis (sleepMillis); //HACK - try to give AlbumImageDao some time to complete its file processing
 			_log.debug ("AlbumImages.processParams: slept " + sleepMillis + " ms");
 		}
-
-		_previousRequestTimestamp = currentTimestamp;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -280,7 +279,7 @@ public class AlbumImages
 
 		int imagesRemoved = 0;
 		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
-		String subFolder = wildName.substring (0, 1).toLowerCase ();
+		String subFolder = wildName.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
 
 		List<String> fileList = new VFileList (rootPath + subFolder, wildName, /*recurseSubdirs*/ false).getFileList (ListMode.FileOnly);
 		if (AlbumFormInfo._logLevel >= 7) {
@@ -305,7 +304,7 @@ public class AlbumImages
 
 		int imagesRemoved = 0;
 		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
-		String subFolder = origName.substring (0, 1).toLowerCase ();
+		String subFolder = origName.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
 		String origPath = rootPath + subFolder + "/" + origName;
 		String newPath = origPath + AlbumFormInfo._DeleteSuffix;
 		if (AlbumFormInfo._logLevel >= 7) {
@@ -1692,7 +1691,7 @@ public class AlbumImages
 		if (form.getMode () == AlbumMode.DoDir && form.getSortType () == AlbumSortType.ByExif && hasOneFilter && numImages > 0 && numImages < 24) {
 			String baseNameDest = form.getFilters (/*index*/ 1)[0]; //only uses the first filter
 			String dash = (baseNameDest.contains ("-") ? "" : "-"); //add dash unless already there
-			Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), baseNameDest.substring (0, 1).toLowerCase ());
+			Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), baseNameDest.substring (0, AlbumImage.SubFolderLength).toLowerCase ());
 			final String whiteList = "[0-9A-Za-z\\-_]"; //all valid characters for basenames (disallow wildcards)
 
 			//skip if list is already sorted by name
@@ -1739,7 +1738,7 @@ public class AlbumImages
 		long modified = Long.MAX_VALUE;
 
 		try {
-			AlbumXml database = _databaseMap.get (name.substring (0, 1).toLowerCase ());
+			AlbumXml database = _databaseMap.get (name.substring (0, AlbumImage.SubFolderLength).toLowerCase ());
 
 			AlbumImage image = database.getImage (name);
 
@@ -1892,8 +1891,6 @@ public class AlbumImages
 	//members
 	private AlbumFormInfo _form = null;
 
-	private long _previousRequestTimestamp = 0;
-
 	private Collection<AlbumImage> _imageDisplayList = null; //list of images to display
 
 	private int _tableBorderPixels = 0; //set to 0 normally, set to 1 for debugging
@@ -1905,6 +1902,8 @@ public class AlbumImages
 	public static final int _looseCompareMapMaxSize = 24 * 1000 * 1000;
 	private static Map<String, ByteBuffer> _nameScaledImageMap = null;
 	private static Map<String, AlbumImagePair> _looseCompareMap = null;
+
+	private static Set<Long> _previousRequestTimestamps = new HashSet<Long> ();
 
 	private static final String _break = "<BR>";
 	private static final String _spacing = "&nbsp";

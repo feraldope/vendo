@@ -120,8 +120,8 @@ public class AlbumFileFilter implements FilenameFilter
 
 			} else if (_includePatterns != null) {
 				for (Pattern includePattern : _includePatterns) {
-					String firstChar = includePattern.pattern ().substring (0, 1);
-					if (folder.compareToIgnoreCase (firstChar) == 0) {
+					String firstChars = includePattern.pattern ().substring (0, AlbumImage.SubFolderLength);
+					if (folder.compareToIgnoreCase (firstChars) == 0) {
 						status = true;
 						break;
 					}

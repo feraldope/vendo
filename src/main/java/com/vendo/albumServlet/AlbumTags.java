@@ -34,6 +34,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -570,8 +572,8 @@ public class AlbumTags
 				final List<String> outFilterList = new ArrayList<String> ();
 				for (String inFilter : inFilterSet) {
 					if (inFilter.length () > 0) {
-						String firstLower = inFilter.substring (0, 1).toLowerCase ();
-						if (subFolder.compareTo (firstLower) == 0 || "*".compareTo (firstLower) == 0) {
+						String firstCharsLower = inFilter.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
+						if (subFolder.compareTo (firstCharsLower) == 0 || "*".compareTo (firstCharsLower) == 0) {
 							outFilterList.add (inFilter);
 						}
 					}
@@ -978,7 +980,7 @@ public class AlbumTags
 					int minExpectedMatches = filter.getMinItemCount ();
 
 					int foundMatches = 0;
-					Set<String> remainingFiles = new HashSet<String> (); //use set to eliminate dups
+					SortedSet<String> remainingFiles = new TreeSet<String> (); //use set to eliminate dups
 					for (String base1Name : allBase1Names) {
 						if (filter.accept (null, base1Name)) {
 							foundMatches++;
@@ -999,8 +1001,8 @@ public class AlbumTags
 							}
 
 							orphanMap.put (tagFilter._filter.toString (), value);
-							printWithColor (_warningColor, "orphan filter: " + tagFilter._filter.toString () + ", tag: " + value +
-												", remaining files: " + Arrays.toString (remainingFiles.toArray ()));
+							printWithColor (_warningColor, "orphan filter: " + tagFilter._filter.toString () + " - tag: " + value +
+												", remaining files: " + remainingFiles.toString ());
 						}
 					}
 				}

@@ -120,8 +120,15 @@ select 'base2_names_tags' as name, count(*) as rows from base2_names_tags
 union all
 select 'raw_names_tags' as name, count(*) as rows from raw_names_tags
 union all
-select 'tags_filters' as name, count(*) as rows from tags_filters
+select 'tags_filters' as name, count(*) as rows from tags_filters;
 
+-- distribution of tags in file (i.e., raw_names_tags)
+select t.tag, count(*) count
+from raw_names_tags rnt
+join tags t on rnt.tag_id = t.tag_id
+group by rnt.tag_id
+order by count desc, tag asc
+ 
 -- inserts
 insert into tags (tag) values ('red'), ('dry'), ('hot'), ('blue'), ('wet'), ('cold'), ('pink'), ('high'), ('tall');
 insert into names (name, name_type) values ('Foo03', 1), ('Bar01', 1), ('Foo01', 1), ('Boo03', 1), ('Bar05', 1), ('Tob02', 1), ('Tob01', 1);

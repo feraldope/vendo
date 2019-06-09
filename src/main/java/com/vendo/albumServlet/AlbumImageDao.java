@@ -80,6 +80,9 @@ public class AlbumImageDao
 
 //		AlbumFormInfo._profileLevel = 5; //enable profiling just before calling run()
 
+		//call this again after parsing args
+		albumImageDao.getAlbumSubFolders ();
+
 		try {
 			albumImageDao.run ();
 
@@ -104,6 +107,14 @@ public class AlbumImageDao
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_Debug = true;
+
+				} else if (arg.equalsIgnoreCase ("subFolders") || arg.equalsIgnoreCase ("sub")) {
+					try {
+						_subFolders = null; //force this to be recalculated
+						_subFoldersOverride = args[++ii];
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					}
 
 				} else if (arg.equalsIgnoreCase ("syncOnly") || arg.equalsIgnoreCase ("sync")) {
 					_syncOnly = true;
@@ -260,14 +271,22 @@ public class AlbumImageDao
 		if (_subFolders == null) {
 			List<File> list = Arrays.asList (new File (_rootPath).listFiles (File::isDirectory));
 			_subFolders = list.stream ()
-							  .map (v -> v.getName ())
+							  .map (v -> v.getName ().toLowerCase ())
 							  .collect (Collectors.toList ());
-		}
 
-//		_subFolders = Arrays.asList (new String[] {"f", "q", "u", "w"}); //override for testing
-//		_subFolders = Arrays.asList (new String[] {"f", "q", "u"}); //override for testing
-//		_subFolders = Arrays.asList (new String[] {"q", "u"}); //override for testing
-//		_subFolders = Arrays.asList (new String[] {"q"}); //override for testing
+			//intersect override with actual folders to filter out any non-existent ones
+			if (_subFoldersOverride != null) {
+				_subFolders = Arrays.asList (_subFoldersOverride.toLowerCase ().split ("\\s*,\\s*"))
+																			   .stream ()
+																			   .distinct()
+																			   .filter(_subFolders::contains)
+																			   .collect(Collectors.toList ());
+			}
+
+			if (_subFolders.size () != 26) {
+				_log.debug ("AlbumImageDao.getAlbumSubFolders: subFolders: " + _subFolders);
+			}
+		}
 
 		return _subFolders;
 	}
@@ -795,7 +814,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			rowsAffected = mapper.insertImageCountsIntoImageCounts (AlbumImage.subFolderToByte (subFolder), baseName, collapseGroupsInt, value);
+			rowsAffected = mapper.insertImageCountsIntoImageCounts (subFolder, baseName, collapseGroupsInt, value);
 			session.commit ();
 
 		} catch (Exception ee) {
@@ -819,7 +838,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			count = mapper.selectImageCountFromImages (AlbumImage.subFolderToByte (subFolder), wildName);
+			count = mapper.selectImageCountFromImages (subFolder, wildName);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDao.getImageCountFromImages(\"" + wildName + "\"): ", ee);
@@ -841,11 +860,11 @@ public class AlbumImageDao
 		int numMatchingImages = 0;
 
 //TODO - this does not work when image is in wrong subfolder (can happen when image is renamed prior to move)
-		String subFolder = baseName.substring (0, 1).toLowerCase ();
+		String subFolder = baseName.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			numMatchingImages = mapper.selectImageCountFromImageCounts (AlbumImage.subFolderToByte (subFolder), baseName);
+			numMatchingImages = mapper.selectImageCountFromImageCounts (subFolder, baseName);
 
 		} catch (Exception ee) {
 //			if (ee instanceof org.apache.ibatis.binding.BindingException) {
@@ -872,7 +891,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			list = mapper.selectImageCountsFromImageCounts (AlbumImage.subFolderToByte (subFolder));
+			list = mapper.selectImageCountsFromImageCounts (subFolder);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDao.getImageCountsFromImageCounts(\"" + subFolder + "\"): ", ee);
@@ -981,7 +1000,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			list = mapper.selectImagesFromImages (AlbumImage.subFolderToByte (subFolder));
+			list = mapper.selectImagesFromImages (subFolder);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDao.getImagesFromImages(\"" + subFolder + "\"): ", ee);
@@ -1006,7 +1025,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			int rowsAffected = mapper.insertLastUpdateIntoImageFolder (AlbumImage.subFolderToByte (subFolder), new Timestamp (updateTimeInMillis));
+			int rowsAffected = mapper.insertLastUpdateIntoImageFolder (subFolder, new Timestamp (updateTimeInMillis));
 			session.commit ();
 
 			status = rowsAffected > 0;
@@ -1035,7 +1054,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			Timestamp maxInsertDate = mapper.selectMaxInsertDateFromImages (AlbumImage.subFolderToByte (subFolder));
+			Timestamp maxInsertDate = mapper.selectMaxInsertDateFromImages (subFolder);
 			maxInsertMillis = maxInsertDate.getTime ();
 
 		} catch (Exception ee) {
@@ -1084,7 +1103,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			Timestamp lastUpdateDate = mapper.selectLastUpdateFromImageFolder (AlbumImage.subFolderToByte (subFolder));
+			Timestamp lastUpdateDate = mapper.selectLastUpdateFromImageFolder (subFolder);
 			lastUpdateMillis = lastUpdateDate.getTime ();
 
 		} catch (Exception ee) {
@@ -1108,7 +1127,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			list = mapper.selectImageFileDetailsFromImages (AlbumImage.subFolderToByte (subFolder));
+			list = mapper.selectImageFileDetailsFromImages (subFolder);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDao.getImageFileDetailsFromImages(\"" + subFolder + "\"): ", ee);
@@ -1220,7 +1239,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			int rowsAffected = mapper.deleteImageFromImages (AlbumImage.subFolderToByte (subFolder), nameNoExt);
+			int rowsAffected = mapper.deleteImageFromImages (subFolder, nameNoExt);
 			session.commit ();
 
 			status = rowsAffected > 0;
@@ -1246,7 +1265,7 @@ public class AlbumImageDao
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			rowsAffected = mapper.deleteImageCountsFromImageCounts (AlbumImage.subFolderToByte (subFolder), baseName);
+			rowsAffected = mapper.deleteImageCountsFromImageCounts (subFolder, baseName);
 			session.commit ();
 
 		} catch (Exception ee) {
@@ -1429,6 +1448,7 @@ public class AlbumImageDao
 	private String _rootPath = null;
 
 	private Collection<String> _subFolders = null;
+	private String _subFoldersOverride = null;
 
 	private static AlbumImageDao _instance = null;
 

@@ -41,10 +41,9 @@ import com.vendo.vendoUtils.VendoUtils;
 public class AlbumImage
 {
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImage (String name, int subFolderInt, long numBytes, int width, int height, long modified, String rgbData,
+	public AlbumImage (String name, String subFolder, long numBytes, int width, int height, long modified, String rgbData,
 					   long exifDate0, long exifDate1, long exifDate2, long exifDate3)
 	{
-		String subFolder = subFolderFromByte (subFolderInt);
 		String imagePath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false) + subFolder;
 		long[] exifDates = new long[] {exifDate0, exifDate1, exifDate2, exifDate3, 0, 0};
 
@@ -66,7 +65,7 @@ public class AlbumImage
 		_file = null;
 		_pixels = -1;
 //		_count = -1;
-		_hash = -1;
+		_hash = 0;
 		_random = -1;
 		_modifiedString = null;
 		_orientation = AlbumOrientation.ShowAny;
@@ -289,7 +288,7 @@ public class AlbumImage
 	public synchronized String getNameFirstLetterLower ()
 	{
 		if (_nameFirstLetterLower == null) {
-			_nameFirstLetterLower = getName ().substring (0, 1).toLowerCase ();
+			_nameFirstLetterLower = getName ().substring (0, AlbumImage.SubFolderLength).toLowerCase ();
 		}
 
 		return _nameFirstLetterLower;
@@ -299,11 +298,6 @@ public class AlbumImage
 	public String getSubFolder ()
 	{
 		return _subFolder;
-	}
-	///////////////////////////////////////////////////////////////////////////
-	public int getSubFolderInt ()
-	{
-		return subFolderToByte (_subFolder);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -435,37 +429,12 @@ public class AlbumImage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used for de-dup'ing
 	//calculated on demand and cached
+	//currently only used by AlbumImageComparator#compare, for sorting for doDup
 	public synchronized long getHash ()
 	{
-		//Note: looseCompare should not be a factor here since AlbumImageComparator does not sort by hash in that case
-//		boolean looseCompare = AlbumFormInfo.getInstance ().getLooseCompare ();
-
-		if (_hash < 0) {
-//			if (false) { //"loose" hash
-//				_hash = (getNumBytes () * 10000) ^ (getWidth () * 100) ^ getHeight ();
-//
-//			} else { // perfect hash?
-				_hash = Math.abs (getRgbData ().hashCode ());
-
-//				final long maxWidth  = 1 << 12; // 4K
-//				final long maxHeight = 1 << 12; // 4K
-//				final long maxBytes  = 1 << 22; // 4M
-//
-//				_hash = getWidth ();
-//				_hash = _hash * maxHeight + getHeight ();
-//				_hash = _hash * maxBytes + getNumBytes ();
-//			}
-
-//TODO - include getOrientation ()
-
-//			if (_hash < 0)
-//				throw new RuntimeException ("AlbumImage.getHash: hash overflowed long");
-
-//			if (AlbumFormInfo._logLevel >= 10)
-			if (_hash < 0)
-				_log.debug ("AlbumImage.getHash: " + _hash + ", " + getName ());
+		if (_hash == 0) {
+			_hash = getRgbData ().hashCode ();
 		}
 
 		return _hash;
@@ -1001,26 +970,6 @@ public class AlbumImage
 		return exifDates;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	//the subFolder column is stored as an TINYINT value instead of a string, (ostensibly) to improve database indexing performance
-	//used by CLI and servlet
-	public static byte subFolderToByte (String subFolderStr)
-	{
-		char subFolderChar = subFolderStr.charAt (0);
-		byte subFolderByte = (byte) (subFolderChar - 'a' + 1); //1-based: 'a'=1, 'b'=2, etc.
-
-		return subFolderByte;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//the subFolder column is stored as an TINYINT value instead of a string, (ostensibly) to improve database indexing performance
-	//used by CLI and servlet
-	public static String subFolderFromByte (int subFolderInt)
-	{
-		char buf[] = {(char) (subFolderInt + 'a' - 1)}; //1-based: 'a'=1, 'b'=2, etc.
-		return new String (buf);
-	}
-
 
 	//members
 
@@ -1046,7 +995,7 @@ public class AlbumImage
 	private int _scale = -1;
 	private int _random = -1;
 //	private int _count = -1;
-	private long _hash = -1;
+	private long _hash = 0;
 	private boolean _hasExifDateChecked = false;
 	private boolean _hasExifDate = false;
 	private String[] _exifDateStrings = null;
@@ -1062,6 +1011,8 @@ public class AlbumImage
 
 	public static final int NumExifDates = 6;		//4 exif dates read from database + 2 calculated
 	public static final int NumFileExifDates = 4;	//4 exif dates read from database + 2 calculated
+
+	public static final int SubFolderLength = 1;	//expected length of sub_folder column in various database tables
 
 	public static final String HtmlNewline = "&#13;";
 

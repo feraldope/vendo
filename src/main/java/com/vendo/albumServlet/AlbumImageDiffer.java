@@ -916,7 +916,7 @@ public class AlbumImageDiffer
 
 		Collection<String> files = new ArrayList<String> ();
 
-		String subFolder = baseName.substring (0, 1).toLowerCase();
+		String subFolder = baseName.substring (0, AlbumImage.SubFolderLength).toLowerCase();
 		Collection<String> filenames = getDirectoryCache (subFolder);
 		for (String filename : filenames) {
 			if (filename.startsWith (baseName)) {// && filename.endsWith (".jpg")) {

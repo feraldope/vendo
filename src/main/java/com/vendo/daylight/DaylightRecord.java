@@ -71,8 +71,8 @@ public class DaylightRecord
 	private static boolean isDst (LocalDate localDate)
 	{
 //TODO - calculate DST dates instead of hardcoding
-		final LocalDate _dstStart = LocalDate.of (2018, 03, 11); //hardcoded to actual value for 2018
-		final LocalDate _dstEnd   = LocalDate.of (2018, 11, 04); //hardcoded to actual value for 2018
+		final LocalDate _dstStart = LocalDate.of (2019, 03, 10); //hardcoded to actual value for 2019
+		final LocalDate _dstEnd   = LocalDate.of (2019, 11, 03); //hardcoded to actual value for 2019
 
 		return localDate.isAfter (_dstStart) && localDate.isBefore (_dstEnd);
 	}
