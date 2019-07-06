@@ -120,21 +120,31 @@ public class AlbumFileFilter implements FilenameFilter
 
 			} else if (_includePatterns != null) {
 				for (Pattern includePattern : _includePatterns) {
-					String firstChars = includePattern.pattern ().substring (0, AlbumImage.SubFolderLength);
-					if (folder.compareToIgnoreCase (firstChars) == 0) {
-						status = true;
-						break;
+					int leadingNonNumericChars = includePattern.pattern ().replaceFirst ("[0-9\\[\\.\\*].*", "").length ();
+//					_log.debug ("AlbumFileFilter.folderNeedsChecking: folder = " + folder + ", includePattern.pattern() = " + includePattern.pattern () + ", leadingNonNumericChars = " + leadingNonNumericChars);
+
+					if (leadingNonNumericChars == 1) {
+						if (folder.substring (0, 1).equalsIgnoreCase (includePattern.pattern().substring (0, 1).toLowerCase ())) {
+							status = true;
+							break;
+						}
+					} else  if (leadingNonNumericChars >= 2) { //AlbumImage.SubFolderLength
+						if (folder./*substring (0, 2).*/equalsIgnoreCase (includePattern.pattern().substring (0, 2).toLowerCase ())) {
+							status = true;
+							break;
+						}
 					}
 				}
 
 				//handle regular expression ranges (e.g., "[a-d]")
+				//TODO - note if you pass in e.g., "[a-d]a", this ignores everything after the []; i.e., it will include folders aa, ab, ad, af, etc.
 				for (Pattern includePattern : _includePatterns) {
 					String regexRange = includePattern.pattern ();
 					if (regexRange.startsWith ("[")) {
-						//strip everything after closing ']' (pattern must evaluate to one character to match folder, which is one character)
+						//strip everything after closing ']' (pattern must evaluate to one character to match folder, which is clipped to one character)
 						int close = regexRange.indexOf (']');
 						regexRange = regexRange.substring (0, close + 1);
-						if (Pattern.matches (regexRange, folder)) {
+						if (Pattern.matches (regexRange, folder.substring (0, 1))) {
 							status = true;
 							break;
 						}
@@ -143,8 +153,9 @@ public class AlbumFileFilter implements FilenameFilter
 			}
 		} while (false);
 
-		if (status && AlbumFormInfo._logLevel >= 5)
-			_log.debug ("AlbumFileFilter.folderNeedsChecking: folder = " + folder + ", return = " + new Boolean (status));
+//		if (status && AlbumFormInfo._logLevel >= 5) {
+//			_log.debug ("AlbumFileFilter.folderNeedsChecking: folder = " + folder + ", return = " + new Boolean (status));
+//		}
 
 		return status;
 	}

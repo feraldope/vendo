@@ -7,10 +7,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumProfiling
@@ -30,16 +35,26 @@ public class AlbumProfiling
 	///////////////////////////////////////////////////////////////////////////
 	private AlbumProfiling ()
 	{
-		_fieldWidths = new Integer [6];
-		_fieldWidths[0] = 20;	//method, default value - actual width calculated in print()
-		_fieldWidths[1] = 6;	//count
-		_fieldWidths[2] = 9;	//total
-		_fieldWidths[3] = 8;	//average
-		_fieldWidths[4] = 7;	//min
-		_fieldWidths[5] = 7;	//max
+		_fieldWidths = new Integer [] {
+				20,	//method, default value - actual width calculated in print()
+				6,	//count
+				9,	//total
+				8,	//average
+				7,	//min
+				7	//max
+				};
 
 		_records = new HashMap<String, ProfileRecord> (32);
+		_ignoreableRecords = new HashSet<ProfileIgnoreableRecord> ();
+		_recordsIgnoredCount = 0;
 		_currentIndex = 0;
+
+		//TODO - these should be set by caller, not hardcoded
+		_minRecordCountToStifleIgnoreables = 60;
+		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*doDir.*accept.*loop.*", 200));
+		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*getImagesFromCache.*", 200));
+		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*getImagesFromImages.*", 200));
+		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*getLastUpdateFromImageFolder.*", 200));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -241,7 +256,15 @@ public class AlbumProfiling
 
 		int numRecords = _records.size ();
 		List<ProfileRecord> records = new ArrayList<ProfileRecord> (numRecords);
-		records.addAll (_records.values ());
+		boolean tooFewRecordsToIgnore = (_records.values ().size () < _minRecordCountToStifleIgnoreables);
+		for (ProfileRecord record : _records.values ()) {
+			if (tooFewRecordsToIgnore || !ProfileIgnoreableRecord.shouldBeIgnored (record)) {
+				records.add (record);
+			} else {
+				_recordsIgnoredCount++;
+//				_log.debug ("AlbumProfiling.print: record will be ignored: " + record);
+			}
+		}
 		Collections.sort (records, new ProfileRecordComparator ());
 
 		int longestMethodName = 10; //min width
@@ -270,6 +293,10 @@ public class AlbumProfiling
 
 				printRecord (record._method, record._count, total, average, min, max);
 			}
+		}
+
+		if (_recordsIgnoredCount > 0) {
+			_log.debug ("AlbumProfiling.print: " + _recordsIgnoredCount + " of " + numRecords + " records ignored");
 		}
 
 		if (showMemoryUsage) {
@@ -345,13 +372,35 @@ public class AlbumProfiling
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class ProfileRecord
+	private class ProfileRecord
 	{
 		ProfileRecord (String method, int index, long startNano)
 		{
 			_method = method;
 			_index = index;
 			_startNano = startNano;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public String getMethod ()
+		{
+			return _method;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public long getElapsedMillis ()
+		{
+			return (long) ((double) _elapsedNano / 1000000);
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		@Override
+		public String toString ()
+		{
+			StringBuffer sb = new StringBuffer (getClass ().getSimpleName ());
+			sb.append (": ").append (VendoUtils.quoteString(getMethod ()));
+			sb.append (", ").append (getElapsedMillis ());
+			return sb.toString ();
 		}
 
 		private String _method = "<???>";
@@ -374,9 +423,55 @@ public class AlbumProfiling
 		}
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	private static class ProfileIgnoreableRecord
+	{
+		ProfileIgnoreableRecord (String methodRegex, long thresholdMillis)
+		{
+			//TODO - Pattern.compile can throw exception
+			_methodPattern = Pattern.compile (methodRegex);
+			_thresholdMillis = thresholdMillis;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public Pattern getMethodPattern ()
+		{
+			return _methodPattern;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public Long getThresholdMillis ()
+		{
+			return _thresholdMillis;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public static boolean shouldBeIgnored (ProfileRecord record)
+		{
+			boolean shouldBeIgnored = false;
+			for (ProfileIgnoreableRecord ignoreableRecord : _ignoreableRecords) {
+				Matcher matcher = ignoreableRecord.getMethodPattern ().matcher (record.getMethod ());
+				if (matcher.matches ()) {
+					if (record.getElapsedMillis () < ignoreableRecord.getThresholdMillis ()) {
+						shouldBeIgnored = true;
+					}
+				}
+			}
+
+			return shouldBeIgnored;
+		}
+
+		private final Pattern _methodPattern;
+		private final long _thresholdMillis;
+	}
+
+
 	//members
 	private final Integer _fieldWidths[];
 	private final HashMap<String, ProfileRecord> _records;
+	private static HashSet<ProfileIgnoreableRecord> _ignoreableRecords;
+	private static int _minRecordCountToStifleIgnoreables;
+	private static int _recordsIgnoredCount;
 	private static int _currentIndex = 0;
 	private static AlbumProfiling _instance = null;
 

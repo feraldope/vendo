@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -359,11 +360,13 @@ public class AlbumImages
 		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
 
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<String> ();
+		final Set<String> debugCacheMiss = new ConcurrentSkipListSet<String> ();
 
 		AlbumProfiling.getInstance ().enter (5, "dao.doDir");
 		for (final String subFolder : subFolders) {
 			new Thread (() -> {
-				final Collection<AlbumImage> imageDisplayList = AlbumImageDao.getInstance ().doDir (subFolder, filter);
+				final Collection<AlbumImage> imageDisplayList = AlbumImageDao.getInstance ().doDir (subFolder, filter, debugNeedsChecking, debugCacheMiss);
 				if (imageDisplayList.size () > 0) {
 					synchronized (_imageDisplayList) {
 						_imageDisplayList.addAll (imageDisplayList);
@@ -390,8 +393,11 @@ public class AlbumImages
 			generateExifSortCommands ();
 		}
 
-		if (AlbumFormInfo._logLevel >= 5)
+		if (AlbumFormInfo._logLevel >= 5) {
+			_log.debug ("AlbumImages.doDir: folderNeedsChecking: folders(" + debugNeedsChecking.size () + ") = " + debugNeedsChecking);
+			_log.debug ("AlbumImages.doDir: cacheMiss: folders(" + debugCacheMiss.size () + ") = " + debugCacheMiss);
 			_log.debug ("AlbumImages.doDir: _imageDisplayList.size = " + _decimalFormat2.format (_imageDisplayList.size ()));
+		}
 
 		AlbumProfiling.getInstance ().exit (1);
 

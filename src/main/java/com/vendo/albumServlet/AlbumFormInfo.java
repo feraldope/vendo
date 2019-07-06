@@ -66,7 +66,7 @@ public class AlbumFormInfo
 	private AlbumFormInfo ()
 	{
 		_mode = AlbumMode.DoDir;
-		_subFolders = "";
+//		_subFolders = "";
 		_filter1 = "";
 		_filter2 = "";
 		_filter3 = "";
@@ -914,10 +914,10 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSubFolders ()
-	{
-		return _subFolders;
-	}
+//	public String getSubFolders ()
+//	{
+//		return _subFolders;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getServer ()
@@ -1119,7 +1119,7 @@ public class AlbumFormInfo
 	//private members
 	private boolean _isServlet = false;
 	private String _defaultRootFolder = "jroot";
-	private String _subFolders = "";
+//	private String _subFolders = "";
 	private int _highlightMinPixels = _defaultHighlightMinPixels;
 	private int _highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 	private int _maxColumns = 32;

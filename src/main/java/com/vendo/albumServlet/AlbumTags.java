@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.regex.Matcher;
@@ -421,9 +422,11 @@ public class AlbumTags
 		//create map of subFolders and image baseNames for that subFolder
 		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+		final Set<String> debugCacheMiss = new ConcurrentSkipListSet<String> ();
+
 		for (final String subFolder : subFolders) {
 			new Thread (() -> {
-				final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder);
+				final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder, debugCacheMiss);
 				Set<String> base1NameSet = new HashSet<String> (); //use Set to eliminate duplicates
 				for (AlbumImage image : images) {
 					base1NameSet.add (image.getBaseName (/*collapseGroups*/ false));
@@ -438,6 +441,10 @@ public class AlbumTags
 			endGate.await ();
 		} catch (Exception ee) {
 			_log.error ("AlbumTags.generateAlbumBase1NameMap: endGate:", ee);
+		}
+
+		if (AlbumFormInfo._logLevel >= 5) {
+			_log.debug ("AlbumImages.doDir: cacheMiss: folders(" + debugCacheMiss.size () + ") = " + debugCacheMiss);
 		}
 
 		AlbumProfiling.getInstance ().exit (5);

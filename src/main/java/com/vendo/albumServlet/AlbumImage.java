@@ -1012,7 +1012,7 @@ public class AlbumImage
 	public static final int NumExifDates = 6;		//4 exif dates read from database + 2 calculated
 	public static final int NumFileExifDates = 4;	//4 exif dates read from database + 2 calculated
 
-	public static final int SubFolderLength = 1;	//expected length of sub_folder column in various database tables
+	public static final int SubFolderLength = 2;	//expected length of sub_folder column in various database tables
 
 	public static final String HtmlNewline = "&#13;";
 

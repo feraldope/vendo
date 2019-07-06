@@ -46,6 +46,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import com.vendo.albumServlet.AlbumImage;
 import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
@@ -1367,7 +1368,6 @@ public class GetUrl
 
 			if (_classDebug) {
 				System.out.println ("GetUrl.ImageBaseNames: outputPrefix @1 = " + outputPrefix);
-				System.out.println ("GetUrl.ImageBaseNames: outputPrefix @1 = " + outputPrefix);
 			}
 
 			outputPrefix = outputPrefix.replaceAll ("\\d+.*", ""); //regex: digits and anything after
@@ -1379,7 +1379,7 @@ public class GetUrl
 				System.out.println ("GetUrl.ImageBaseNames: outputPrefix @2 = " + outputPrefix);
 			}
 
-			String subdir = "/jroot/" + outputPrefix.toLowerCase ().charAt (0);
+			String subdir = "/jroot/" + outputPrefix.toLowerCase ().substring (0, AlbumImage.SubFolderLength);
 
 			_filenameList.addAll (getFileList (_destDir, outputPrefix));
 			_filenameList.addAll (getFileList (_destDir + subdir, outputPrefix));
@@ -1469,8 +1469,9 @@ public class GetUrl
 
 			String lastFileName = _filenameList.get (_filenameList.size () - 1);
 
-			if (_classDebug)
+			if (_classDebug) {
 				System.out.println ("GetUrl.getNextName: lastFileName = " + lastFileName);
+			}
 
 			String[] parts1 = splitLeaf (lastFileName, /*blockNumber*/ 0);
 
@@ -1493,6 +1494,10 @@ public class GetUrl
 			//digits in following pattern prevent e.g. "Foo01" from matching "FooBar01"
 			Pattern pattern = Pattern.compile (nameWild + "[0-9][0-9].*" + "\\" + _tailUsed, Pattern.CASE_INSENSITIVE);
 
+			if (_classDebug) {
+				System.out.println ("GetUrl.getFileList: dirName = " + dirName + ", nameWild = " + nameWild + ", pattern = " + pattern.pattern ());
+			}
+
 			//for simple dir listings, it looks like java.io package is faster than java.nio
 			FilenameFilter filenameFilter = new FilenameFilter () {
 				@Override
@@ -1502,7 +1507,11 @@ public class GetUrl
 			};
 
 			File dir = new File (dirName);
-			return Arrays.asList (dir.list (filenameFilter));
+			String[] files = dir.list (filenameFilter);
+//			if (_classDebug) {
+//				System.out.println ("GetUrl.getFileList: files = " + files);
+//			}
+			return (files != null ? Arrays.asList (dir.list (filenameFilter)) : new ArrayList<String> ());
 		}
 
 		private final boolean _classDebug = false;

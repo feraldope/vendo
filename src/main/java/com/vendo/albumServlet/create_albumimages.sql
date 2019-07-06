@@ -138,6 +138,30 @@ INSERT INTO image_counts (name_id, sub_folder, base_name, collapse_groups, image
 -- step 6: drop table image_counts_tmp
 
 -- -----------------------------------------------------------------------------
+-- update image folders with new subfolder length
+update images set sub_folder = lower(substring(name_no_ext,1,2)) 
+where lower(name_no_ext) like 'a%' 
+OR lower(name_no_ext) like 'b%'
+OR lower(name_no_ext) like 'c%'
+
+-- look for any stragglers
+select * from images 
+where char_length(sub_folder) != 2
+
+-- update image_counts folders with new subfolder length
+update image_counts set sub_folder = lower(substring(base_name,1,2)) 
+
+-- look for any stragglers
+delete from image_counts 
+-- select * from image_counts 
+where char_length(sub_folder) != 2
+
+-- look for any stragglers
+delete from image_folder
+-- select * from image_counts 
+where char_length(sub_folder) != 2
+
+-- -----------------------------------------------------------------------------
 -- testing
 mysql -u root -proot albumimages
 
@@ -145,6 +169,12 @@ mysql -u root -proot albumimages
 SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) "DB Size in MB" 
 FROM information_schema.tables 
 GROUP BY table_schema; 
+
+-- distribution of images in subfolders
+-- single-char subfolder
+select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count desc
+-- two-char subfolder
+select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from images group by sub_folder2 order by count desc
 
 -- manual cleanup of image_counts (1)
 select * from image_counts where image_count < 1 order by lower(base_name);
@@ -213,9 +243,6 @@ order by count(*)
 
 -- select CAST((sub_folder_int+CONVERT('a'),UNSIGNED,INTEGER)) as CHAR(1)), count(*) from images group by sub_folder_int order by sub_folder_int;
 -- select CONVERT('a',UNSIGNED,INTEGER), count(*) from images group by sub_folder_int order by sub_folder_int;
-
--- image/folder distribution
-select sub_folder, count(*) as count from images group by sub_folder order by count
 
 -- exifDate distribution
 select 'exifDate0' as name, count(*) as rows from images where exifDate0 > 0

@@ -28,6 +28,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -244,16 +246,19 @@ public class AlbumImageDao
 		}
 
 		//run continuously watching for folder modifications
+		final SortedSet<String> debugWatchingSubfolders = new TreeSet<String> ();
 		for (String subFolder : getAlbumSubFolders ()) {
 			Thread watcherThread = createWatcherThreadsForFolder (subFolder);
+			debugWatchingSubfolders.add (subFolder);
 			_watcherThreadMap.put (watcherThread, subFolder);
 		}
+		_log.debug ("AlbumImageDao.run: createWatcherThreadsForFolders(" + debugWatchingSubfolders.size () + "): " + debugWatchingSubfolders);
 
-		//should never get here
-		//wait for all threads to exit
 		for (Thread watcherThread : _watcherThreadMap.keySet ()) {
 			try {
+				//wait for all threads to exit
 				watcherThread.join ();
+				//should never get here
 				_log.debug ("AlbumImageDao.run: thread.join completed for thread: " + watcherThread);
 
 			} catch (Exception ee) {
@@ -283,9 +288,7 @@ public class AlbumImageDao
 																			   .collect(Collectors.toList ());
 			}
 
-			if (_subFolders.size () != 26) {
-				_log.debug ("AlbumImageDao.getAlbumSubFolders: subFolders: " + _subFolders);
-			}
+//			_log.debug ("AlbumImageDao.getAlbumSubFolders: subFolders: " + _subFolders);
 		}
 
 		return _subFolders;
@@ -484,7 +487,11 @@ public class AlbumImageDao
 
 			for (AlbumImage image : imagesMissingOrBadDatFiles) {
 				_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", creating .dat file: " + image.getName () + ".dat");
-				image.createRgbDataFile ();
+				try {
+					image.createRgbDataFile ();
+				} catch (Exception ee) {
+					_log.error ("AlbumImageDao.syncFolder(\"" + subFolder + "\"): exception calling createRgbDataFile()", ee);
+				}
 			}
 		}
 
@@ -559,7 +566,7 @@ public class AlbumImageDao
 		try {
 			final Path dir = FileSystems.getDefault ().getPath (_rootPath, subFolder1);
 
-			_log.debug ("AlbumImageDao.createWatcherThreadsForFolder: watching folder: " + dir.normalize ().toString ());
+//			_log.debug ("AlbumImageDao.createWatcherThreadsForFolder: watching folder: " + dir.normalize ().toString ());
 
 			final Pattern pattern = Pattern.compile (".*\\" + AlbumFormInfo._ImageExtension, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
@@ -604,7 +611,7 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public Collection<AlbumImage> doDir (String subFolder, AlbumFileFilter filter)
+	public Collection<AlbumImage> doDir (String subFolder, AlbumFileFilter filter, Set<String> debugNeedsChecking, Set<String> debugCacheMiss)
 	{
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
 		AlbumOrientation orientation = form.getOrientation ();
@@ -613,7 +620,8 @@ public class AlbumImageDao
 		Collection<AlbumImage> imageDisplayList = new LinkedList<AlbumImage> ();
 
 		if (filter.folderNeedsChecking (subFolder)) {
-			Collection<AlbumImage> imageList = getImagesFromCache (subFolder);
+			debugNeedsChecking.add (subFolder);
+			Collection<AlbumImage> imageList = getImagesFromCache (subFolder, debugCacheMiss);
 
 			AlbumProfiling.getInstance ().enter (7, subFolder, "accept loop");
 
@@ -672,10 +680,15 @@ public class AlbumImageDao
 			_log.error ("AlbumImageDao.handleFileCreate: invalid image name \"" + nameNoExt + "\"");
 		}
 
-		AlbumImage image = new AlbumImage (nameNoExt, subFolder, true); //this AlbumImage ctor reads image from disk
-		image.createRgbDataFile ();
-
-		boolean status = insertImageIntoImages (image);
+		AlbumImage image = null;
+		boolean status = false;
+		try {
+			image = new AlbumImage (nameNoExt, subFolder, true); //this AlbumImage ctor reads image from disk
+			image.createRgbDataFile ();
+			status = insertImageIntoImages (image);
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDao.handleFileCreate(\"" + subFolder + "\", \"" + nameNoExt + "\"): ", ee);
+		}
 
 	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, /*collapseGroups*/ false));
 
@@ -746,7 +759,7 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet and AlbumTags CLI
-	public Collection<AlbumImage> getImagesFromCache (String subFolder)
+	public Collection<AlbumImage> getImagesFromCache (String subFolder, Set<String> debugCacheMiss)
 	{
 		AlbumProfiling.getInstance ().enter (7, subFolder);
 
@@ -761,7 +774,8 @@ public class AlbumImageDao
 			images = imagesData.getImages ();
 
 		} else {
-			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache miss for subFolder: " + subFolder);
+//			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache miss for subFolder: " + subFolder);
+			debugCacheMiss.add (subFolder);
 			images = getImagesFromImages (subFolder);
 			long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
 			imagesData = new AlbumImagesData (images, nowInMillis);
@@ -1428,6 +1442,7 @@ public class AlbumImageDao
 				if (subFolder != null) {
 					Thread watcherThread = AlbumImageDao.getInstance ().createWatcherThreadsForFolder (subFolder);
 					_watcherThreadMap.put (watcherThread, subFolder);
+					_log.debug ("AlbumImageDaoUncaughtExceptionHandler: createWatcherThreadsForFolder: " + subFolder);
 
 				} else {
 					_log.error ("AlbumImageDaoUncaughtExceptionHandler: thread not found in map: " + thread.getName ());

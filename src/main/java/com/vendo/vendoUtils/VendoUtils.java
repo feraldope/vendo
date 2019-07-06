@@ -928,6 +928,21 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static String quoteString (String string)
+	{
+		return quoteString (string, true);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String quoteString (String string, boolean always)
+	{
+		if (always || string.contains (" "))
+			return "\"" + string + "\"";
+		else
+			return string;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static String getRealPathString (Path file)
 	{
 		String realPath = new String ();
@@ -1067,7 +1082,7 @@ public class VendoUtils
 	//strip leading 'www.', collapse multiple slashes (after protocol) into single slash
 	public static String normalizeUrl (String url)
 	{
-		url = url.replaceFirst ("://www.", "://");
+		url = url.replaceFirst ("://www\\.", "://");
 
 		while (url.contains ("//")) {
 			url = url.replaceAll ("//", "/");

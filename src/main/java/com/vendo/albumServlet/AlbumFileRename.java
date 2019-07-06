@@ -4,7 +4,20 @@ package com.vendo.albumServlet;
 
 import java.io.File;
 import java.io.FilenameFilter;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,6 +55,13 @@ public class AlbumFileRename
 				} else if (arg.equalsIgnoreCase ("dir")) {
 					try {
 						_dir = args[++ii];
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("migrate")) {
+					try {
+						_migrate = true;
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
@@ -138,19 +158,13 @@ public class AlbumFileRename
 		}
 
 		//check for required args and handle defaults
-		if (_inPattern == null)
-			displayUsage ("<inPattern> not specified", true);
+		if (!_migrate) {
+			if (_inPattern == null)
+				displayUsage ("<inPattern> not specified", true);
 
-		if (_outPattern == null)
-			displayUsage ("<outPattern> not specified", true);
-
-/*
-		if (!_queryMode) {
-			if (_scalePercent < 0 && _desiredWidth < 0 && _desiredHeight < 0)
-				displayUsage ("must specify width, height, or scale", true);
+			if (_outPattern == null)
+				displayUsage ("<outPattern> not specified", true);
 		}
-
-*/
 
 //TODO - verify _destDir exists, and is writable??
 		if (_dir == null)
@@ -184,6 +198,10 @@ public class AlbumFileRename
 	{
 //		if (_Debug)
 //			_log.debug ("AlbumFileRename.run");
+
+		if (_migrate) {
+			return doMigrate ();
+		}
 
 		_log.debug ("_inPattern = " + _inPattern);
 		_log.debug ("_outPattern = " + _outPattern);
@@ -265,6 +283,203 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private boolean doMigrate () {
+		//CLI overrides
+		AlbumFormInfo._Debug = true;
+		AlbumFormInfo._logLevel = 5;
+		AlbumFormInfo._profileLevel = 5;
+
+		AlbumProfiling.getInstance ().enterAndTrace (1);
+
+		List<AlbumImage> imageDisplayList = getImageDisplayList ();
+
+		int oldSubFolderLength = 1;
+		int newSubFolderLength = 2;
+		Map<String, String> subFolderMap = getSubFolderMap (imageDisplayList, oldSubFolderLength, newSubFolderLength);
+
+		moveImages1 (subFolderMap, imageDisplayList);
+
+		AlbumProfiling.getInstance ().exit (1);
+
+		if (_Debug) {
+			AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
+			_log.debug ("--------------- AlbumFileRename.doMigrate - done ---------------");
+		}
+
+		return true;
+}
+
+	///////////////////////////////////////////////////////////////////////////
+	//note: not sorted
+	private List<AlbumImage> getImageDisplayList () {
+		AlbumProfiling.getInstance ().enterAndTrace (1);
+
+		final String[] filters = new String[] {"*"};
+		final AlbumFileFilter filter = new AlbumFileFilter (filters, null, /*useCase*/ false, /*sinceInMillis*/ 0);
+
+		List<AlbumImage> imageDisplayList = new LinkedList<AlbumImage> ();
+
+		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
+		//debug override
+//		subFolders = Arrays.asList ("u", "w", "o"); //smallest folders
+//		subFolders = Arrays.asList ("u");
+
+		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<String> ();
+		final Set<String> debugCacheMiss = new ConcurrentSkipListSet<String> ();
+
+		AlbumProfiling.getInstance ().enter (5, "getImageDisplayList.doDir");
+		for (final String subFolder : subFolders) {
+			new Thread (() -> {
+				final Collection<AlbumImage> imageDisplayList1 = AlbumImageDao.getInstance ().doDir (subFolder, filter, debugNeedsChecking, debugCacheMiss);
+				if (imageDisplayList1.size () > 0) {
+					synchronized (imageDisplayList) {
+						imageDisplayList.addAll (imageDisplayList1);
+					}
+				}
+				endGate.countDown ();
+			}).start ();
+		}
+		try {
+			endGate.await ();
+		} catch (Exception ee) {
+			_log.error ("AlbumFileRename.getImageDisplayList: endGate:", ee);
+		}
+		AlbumProfiling.getInstance ().exit (5, "getImageDisplayList.doDir");
+
+		_log.debug ("AlbumFileRename.getImageDisplayList: _imageDisplayList.size = " + _decimalFormat2.format (imageDisplayList.size ()));
+
+		AlbumProfiling.getInstance ().exit (1);
+
+		return imageDisplayList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns a map of {newSubfolderName -> oldSubfolderName}
+	private Map<String, String> getSubFolderMap (List<AlbumImage> imageDisplayList, int oldSubFolderLength, int newSubFolderLength) {
+		AlbumProfiling.getInstance ().enterAndTrace (1);
+
+		Set<String> subFolderSet = //use set to eliminate duplicates
+				imageDisplayList.stream ()
+								.map (i -> i.getName ().substring (0, newSubFolderLength).toLowerCase ())
+								.collect (Collectors.toSet ());
+
+		Map<String, String> subFolderMap =
+				subFolderSet.stream ()
+							.collect (Collectors.toMap (j -> j, j -> j.substring (0, oldSubFolderLength)));
+
+		_log.debug ("AlbumFileRename.getSubFolderMap: subFolderMap = " + subFolderMap);
+		_log.debug ("AlbumFileRename.getSubFolderMap: subFolderMap.size = " + subFolderMap.size ());
+
+		AlbumProfiling.getInstance ().exit (1);
+
+		return subFolderMap;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean moveImages1 (final Map<String, String> subFolderMap, final List<AlbumImage> imageDisplayList) {
+		AlbumProfiling.getInstance ().enterAndTrace (1);
+
+		final CountDownLatch endGate = new CountDownLatch (subFolderMap.keySet ().size ());
+
+		for (final String newSubFolder : subFolderMap.keySet ()) {
+			new Thread (() -> {
+				final List<String> imageNames =
+						imageDisplayList.stream ()
+//										.map (i -> i.getBaseName(/*collapseGroups*/ false))
+										.map (i -> i.getName())
+										.filter (i -> i.substring (0, newSubFolder.length ()).equalsIgnoreCase (newSubFolder))
+										.collect (Collectors.toList ());
+
+				String oldSubFolder = subFolderMap.get (newSubFolder);
+				moveImages2 (oldSubFolder, newSubFolder, imageNames);
+				endGate.countDown ();
+			}).start ();
+		}
+		try {
+			endGate.await ();
+		} catch (Exception ee) {
+			_log.error ("AlbumFileRename.moveImages1: endGate:", ee);
+		}
+
+		AlbumProfiling.getInstance ().exit (1);
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean moveImages2 (String oldSubFolder, String newSubFolder, List<String> imageNames) {
+//		AlbumProfiling.getInstance ().enterAndTrace (1);
+
+		_log.debug ("AlbumFileRename.moveImages2: oldSubFolder = " + oldSubFolder + ", newSubFolder = " + newSubFolder);// + ", imageNames = " + imageNames);
+
+		final String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);// + subFolder;
+
+		Path newSubfolderPath = FileSystems.getDefault ().getPath (rootPath, newSubFolder);
+		if (!createSubfolder (newSubfolderPath.toString ())) {
+			return false;
+		}
+
+		for (String imageName : imageNames) {
+			Path srcPath = FileSystems.getDefault ().getPath (rootPath, oldSubFolder, imageName);
+			Path destPath = FileSystems.getDefault ().getPath (rootPath, newSubFolder, imageName);
+
+			_log.debug ("AlbumFileRename.moveImages2: srcPath = " + srcPath + ", destPath = " + destPath);// + ", imageNames = " + imageNames);
+
+//			if (imageName.contains("UmaA01-0")) {
+				moveFile (srcPath + ".jpg", destPath + ".jpg");
+				moveFile (srcPath + ".dat", destPath + ".dat");
+//			}
+		}
+
+//		AlbumProfiling.getInstance ().exit (1);
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static boolean moveFile (String srcName, String destName)
+	{
+		Path src = FileSystems.getDefault ().getPath (srcName);
+		Path dest = FileSystems.getDefault ().getPath (destName);
+
+		if (Files.exists (dest)) {
+			_log.error ("AlbumFileRename.moveFile: destination file already exists: " + dest.toString ());
+			return false;
+		}
+
+		try {
+			Files.move (src, dest);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumFileRename.moveFile: error moving file (" + src.toString () + " to " + dest.toString () + ")", ee);
+			return false;
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private synchronized static boolean createSubfolder (String fullPath)
+	{
+		Path path = Paths.get(fullPath);
+
+		if (Files.exists (path)) {
+			return true;
+		}
+
+		try {
+		    Files.createDirectories(path);
+
+		} catch (Exception ee) {
+			_log.error ("AlbumFileRename.createSubfolder: error creating subFolder: " + fullPath, ee);
+			return false;
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 //	public VPair<String, String>[] moveFiles (String inPattern, String outPattern)
 	public ArrayList<VPair<String, String>> moveFiles (String inPattern, String outPattern)
 	{
@@ -276,10 +491,8 @@ public class AlbumFileRename
 //		VPair<?, ?>[] results = new VPair<String, String>[] {};
 		ArrayList<VPair<String, String>> results = new ArrayList<VPair<String, String>> ();
 
-
 //see:
 //http://stackoverflow.com/questions/7131652/generic-array-creation-error
-
 
 /*
 		String[] infilenames = getFileList (_dir, _inPattern);
@@ -301,6 +514,7 @@ public class AlbumFileRename
 	{
 		//for simple dir listings, it looks like java.io package is faster than java.nio
 		FilenameFilter filenameFilter = new FilenameFilter () {
+			@Override
 			public boolean accept (File dir, String name) {
 				return VendoUtils.matchPattern (name, nameWild);
 			}
@@ -340,11 +554,15 @@ public class AlbumFileRename
 	private String _outPattern = null;
 	private String _dir = null;
 
+	private boolean _migrate = false;
+
 	public static boolean _Debug = false;
 
 	public static final String _AppName = "AlbumFileRename";
 	public static final String _slash = System.getProperty ("file.separator");
 	public static final String NL = System.getProperty ("line.separator");
+
+	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
 
 	private static Logger _log = LogManager.getLogger ();
 }
