@@ -18,21 +18,15 @@ package com.vendo.albumServlet;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.GregorianCalendar;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.BooleanUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -328,14 +322,23 @@ public class AlbumFormInfo
 			URI uri = new URI (filter);
 
 			filter = uri.getPath ().toLowerCase ();
-			filter = filter.replaceAll ("\\.jpg$", ""); //regex
-			filter = filter.replaceAll ("[0-9]", ","); //regex
-			filter = filter.replaceAll ("\\.", ","); //regex
-			filter = filter.replaceAll ("/", ","); //regex
-			filter = filter.replaceAll ("-", ""); //regex
-			filter = filter.replaceAll ("_", ""); //regex
-			filter = filter.replaceAll ("\\+", "\\*"); //regex
-			filter = filter.replaceAll ("\\,.\\,", ","); //regex
+
+			filter = filter.replaceAll ("\\.jpg$", ""); //regex - remove trailing extension
+			filter = filter.replaceAll ("[0-9]+", "/"); //regex - replace all digits
+			filter = filter.replaceAll ("\\.", "/"); //regex - replace all dots "."
+			filter = filter.replaceAll ("-", ""); //regex - remove all dashes
+			filter = filter.replaceAll ("_", ""); //regex - remove all underscores
+			filter = filter.replaceAll ("\\+", "\\*"); //regex - replace all pluses "+"
+			filter = filter.replaceAll ("/[a-zA-z]{1,2}/", "/"); //regex - replace all single-char components
+			filter = filter.replaceAll ("/", ","); //regex - replace all slashes
+
+			//sort and de-dup the list
+			filter = VendoUtils.collectionToString (
+					Arrays.stream (StringUtils.split (filter, ','))
+							.sorted (VendoUtils.caseInsensitiveStringComparator)
+							.distinct ()
+							.filter (s -> !s.equalsIgnoreCase ("thumb") && !s.equalsIgnoreCase ("thumbs"))
+							.collect (Collectors.toList ()), ",");
 
 			//drop through to continue processing
 
@@ -343,7 +346,7 @@ public class AlbumFormInfo
 			//not URL; ignore exception and drop through to continue processing
 		}
 
-		//convert " and " and " & " into a comma
+		//convert strings " and " and " & " into a comma
 		filter = filter.replaceAll (" and ", ","); //regex
 		filter = filter.replaceAll ("\\*and\\*", ","); //regex
 		filter = filter.replaceAll (" & ", ","); //regex
@@ -1189,7 +1192,7 @@ public class AlbumFormInfo
 
 	private final boolean _debugProperties = false;
 
-	private static final String _basePath = "E:/Netscape/Program/"; //need trailing slash
+	private static final String _basePath = "D:/Netscape/Program/"; //need trailing slash
 	private static final String _albumRoot = "/albumRoot/"; //should match tomcat's server.xml
 	private static final String _server = "/AlbumServlet/AlbumServlet";
 

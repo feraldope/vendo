@@ -2,7 +2,7 @@
 @echo off
 setlocal
 
-if exist %PR_ROOT%\. set PR_ROOT=E:/Netscape/Program
+if exist %PR_ROOT%\. set PR_ROOT=D:/Netscape/Program
 
 set DEBUG=/debug
 

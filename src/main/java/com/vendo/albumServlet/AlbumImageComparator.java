@@ -59,24 +59,29 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 
 		case BySizePixels: //descending
 		{
-			long w1 = image1.getWidth ();
-			long h1 = image1.getHeight ();
-			long w2 = image2.getWidth ();
-			long h2 = image2.getHeight ();
-
-			//ignore differences in orientation only
-			if (!(w1 == w2 && h1 == h2) && !(w1 == h2 && h1 == w2)) {
+//			long w1 = image1.getWidth ();
+//			long h1 = image1.getHeight ();
+//			long w2 = image2.getWidth ();
+//			long h2 = image2.getHeight ();
+//
+//			//ignore differences in orientation only
+//			if (!(w1 == w2 && h1 == h2) && !(w1 == h2 && h1 == w2)) {
 				value1 = image1.getPixels ();
 				value2 = image2.getPixels ();
-			}
+//			}
 		}
 			break;
 
-//		case ByCount: //descending
-//TODO - fix this
-//			value1 = image1.getCount ();
-//			value2 = image2.getCount ();
-//			break;
+		case ByCount: //descending
+		{
+			boolean collapseGroups = AlbumFormInfo.getInstance ().getCollapseGroups ();
+			String imageName1 = image1.getBaseName (collapseGroups);
+			String imageName2 = image2.getBaseName (collapseGroups);
+
+			value1 = AlbumImageDao.getInstance().getImagesCount (imageName1);
+			value2 = AlbumImageDao.getInstance().getImagesCount (imageName2);
+		}
+			break;
 
 		case ByHash:
 			value1 = image1.getHash ();

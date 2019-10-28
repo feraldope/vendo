@@ -2,20 +2,20 @@
 
 package com.vendo.getUrl;
 
+import com.vendo.albumServlet.AlbumImage;
+import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.AlphanumComparator;
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.win32.ProcessUtils;
+import com.vendo.win32.Win32;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.net.ssl.*;
 import java.awt.image.BufferedImage;
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.FileReader;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.net.ConnectException;
-import java.net.HttpURLConnection;
-import java.net.SocketException;
-import java.net.SocketTimeoutException;
-import java.net.URL;
+import java.io.*;
+import java.net.*;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,38 +24,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.TreeSet;
-import java.util.Vector;
+import java.util.*;
 import java.util.regex.Pattern;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.albumServlet.AlbumImage;
-import com.vendo.jpgUtils.JpgUtils;
-import com.vendo.vendoUtils.AlphanumComparator;
-import com.vendo.vendoUtils.VendoUtils;
-import com.vendo.win32.Win32;
 
 
 public class GetUrl
 {
-	public enum FileType {JPG, MPG, WMV, MP4, AVI, Other};
+	public enum FileType {JPG, MPG, WMV, MP4, AVI, Other}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String args[])
@@ -92,8 +67,9 @@ public class GetUrl
 				} else if (arg.equalsIgnoreCase ("digits") || arg.equalsIgnoreCase ("d")) {
 					try {
 						_overrideDigits = Integer.parseInt (args[++ii]);
-						if (_overrideDigits < 0)
+						if (_overrideDigits < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -104,8 +80,9 @@ public class GetUrl
 				} else if (arg.equalsIgnoreCase ("block") || arg.equalsIgnoreCase ("b")) {
 					try {
 						_blockNumber = Integer.parseInt (args[++ii]);
-						if (_blockNumber < 0)
+						if (_blockNumber < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -123,8 +100,9 @@ public class GetUrl
 				} else if (arg.equalsIgnoreCase ("maxMissedFiles") || arg.equalsIgnoreCase ("max") || arg.equalsIgnoreCase ("m")) {
 					try {
 						_maxMissedFiles = Integer.parseInt (args[++ii]);
-						if (_maxMissedFiles < 0)
+						if (_maxMissedFiles < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -135,8 +113,9 @@ public class GetUrl
 				} else if (arg.equalsIgnoreCase ("pad")) { // || arg.equalsIgnoreCase ("p")) {
 					try {
 						_pad = Integer.parseInt (args[++ii]);
-						if (_pad < 0)
+						if (_pad < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -155,8 +134,9 @@ public class GetUrl
 				} else if (arg.equalsIgnoreCase ("start") || arg.equalsIgnoreCase ("s")) {
 					try {
 						_startIndex = Long.parseLong (args[++ii]);
-						if (_startIndex < 0)
+						if (_startIndex < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -168,8 +148,9 @@ public class GetUrl
 				} else if (arg.equalsIgnoreCase ("sleep") || arg.equalsIgnoreCase ("sl")) {
 					try {
 						_sleepMillis = Integer.parseInt (args[++ii]);
-						if (_sleepMillis < 0)
+						if (_sleepMillis < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -265,7 +246,7 @@ public class GetUrl
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/sleep(millis)] [/strip] [/ignore] [/checkHistoryOnly] [/fromFile <file>] [/dest <dest dir>] [/start <start index>] [/block <block number>] [/maxMissedFiles <count>] [/digits <number>] [/pad <number>] [/prefix <numberPrefix>] <URL> <output prefix>";
+		msg += "Usage: " + _AppName + " [/debug] [/sleep <millis>] [/strip] [/ignore] [/checkHistoryOnly] [/fromFile <file>] [/dest <dest dir>] [/start <start index>] [/block <block number>] [/maxMissedFiles <count>] [/digits <number>] [/pad <number>] [/prefix <numberPrefix>] <URL> <output prefix>";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -412,10 +393,11 @@ public class GetUrl
 
 		if (_TestMode) {
 			_log.debug ("                ----> Debug mode: skip download of file <----");
-			if (_index < _maxMissedFiles)
+			if (_index < _maxMissedFiles) {
 				return true;
-			else
+			} else {
 				return false;
+			}
 		}
 
 		_log.debug ("downloading: " + _urlStr);
@@ -481,6 +463,7 @@ public class GetUrl
 				boolean retryableCondition = ee instanceof ConnectException ||
 											 ee instanceof SocketException ||
 											 ee instanceof SocketTimeoutException ||
+											 ee instanceof UnknownHostException ||
 //											(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
 //											(ee instanceof IOException && responseCode == errorGatewayTimeout);
 											(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
@@ -738,8 +721,9 @@ public class GetUrl
 			isValid = compareBytes (bytes, signatureWMV);
 
 			//try again with other signature
-			if (!isValid)
+			if (!isValid) {
 				isValid = compareBytes (bytes, signatureMPG);
+			}
 
 		} else {
 			_log.error ("validVideo: unhandled file type in file '" + filename + "'");
@@ -864,8 +848,9 @@ public class GetUrl
 	private static String appendSlash (String dir) //append slash if necessary
 	{
 		int lastChar = dir.charAt (dir.length () - 1);
-		if (lastChar != '/' && lastChar != '\\')
+		if (lastChar != '/' && lastChar != '\\') {
 			dir += _slash;
+		}
 
 		return dir;
 	}
@@ -873,6 +858,7 @@ public class GetUrl
 	///////////////////////////////////////////////////////////////////////////
 	private boolean parseModel ()
 	{
+		_model = _model.replaceAll("\\.thumb\\.jpg", ".jpg");
 		_model = _model.replaceAll("\\/thumbs\\/", "/");
 		_model = _model.replaceAll("\\/tn\\/", "/");
 		_model = _model.replaceAll("\\/tn_/", "/");
@@ -901,8 +887,9 @@ public class GetUrl
 		//process tail
 		_tailUsed = _tailOrig = parts1[1];
 		String parts2[] = _tailOrig.toLowerCase ().split ("\\."); //regex
-		if (parts2.length == 2)
+		if (parts2.length == 2) {
 			_tailUsed = "." + parts2[1];
+		}
 
 		if (_tailUsed.equals (".jpeg")) {
 			_tailUsed = ".jpg";
@@ -927,8 +914,12 @@ public class GetUrl
 		if (_Debug) {
 			_log.debug ("_base = " + _base);
 			_log.debug ("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
-//			_log.debug ("_tailOrig = " + _tailOrig);
-//			_log.debug ("_tailUsed = " + _tailUsed);
+			if (!".jpg".equalsIgnoreCase (_tailOrig)) {
+				_log.debug ("_tailOrig = " + _tailOrig);
+			}
+			if (!".jpg".equalsIgnoreCase (_tailUsed)) {
+				_log.debug ("_tailUsed = " + _tailUsed);
+			}
 			_log.debug ("_digits = " + _digits);
 		}
 
@@ -1002,8 +993,7 @@ public class GetUrl
 	///////////////////////////////////////////////////////////////////////////
 	private void buildTempString ()
 	{
-		String uniqStr = Long.toString (new Date ().getTime ());
-		_tempFilename = _destDir + "000000." + uniqStr + ".tmp";
+		_tempFilename = _destDir + "000000." + new Date ().getTime () + "." + _pid + ".tmp";
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1023,8 +1013,9 @@ public class GetUrl
 		if (_historyFileContents.size () == 0) {
 			try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
 				String line = new String ();
-				while ((line = reader.readLine ()) != null)
+				while ((line = reader.readLine ()) != null) {
 					_historyFileContents.add (line);
+				}
 
 			} catch (IOException ee) {
 				_log.error ("findInHistory: error reading history file \"" + _historyFilename + "\"");
@@ -1053,8 +1044,8 @@ public class GetUrl
 				if (printResults) {
 					System.out.print ("  ");
 					VendoUtils.printWithColor (_alertColor, baseLine, /*includeNewLine*/ false);
-					System.out.println (" (" + (ii + 1) + "/" + numLines + ")");
-
+//					System.out.println (" (" + (ii + 1) + "/" + numLines + ")");
+					System.out.println (" (" + (ii + 1 - numLines) + ")");
 					if (--maxLines == 0) {	//TODO - come up with better solution??
 						System.out.println (" ... omitting rest");
 						break;
@@ -1063,8 +1054,9 @@ public class GetUrl
 			}
 		}
 
-		if (found && printResults)
+		if (found && printResults) {
 			System.out.println ("");
+		}
 
 		return (_ignoreHistory ? false : found);
 	}
@@ -1075,8 +1067,9 @@ public class GetUrl
 		Vector<String> fromFileContents = new Vector<String> ();
 		try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _fromFilename))) {
 			String line = new String ();
-			while ((line = reader.readLine ()) != null)
+			while ((line = reader.readLine ()) != null) {
 				fromFileContents.add (line);
+			}
 
 		} catch (IOException ee) {
 			_log.error ("findInHistoryFromFile: error reading from file \"" + _fromFilename + "\"");
@@ -1088,11 +1081,13 @@ public class GetUrl
 		for (int ii = 0; ii < numLines; ii++) {
 			_model = fromFileContents.get (ii);
 
-			if (!parseModel ())
+			if (!parseModel ()) {
 				continue; //parseModel prints error
+			}
 
-			if (!findInHistory (_base + _headOrig, false))
+			if (!findInHistory (_base + _headOrig, false)) {
 				System.out.println (VendoUtils.normalizeUrl (_model)); //print all lines not found in history
+			}
 		}
 
 		return true;
@@ -1105,18 +1100,15 @@ public class GetUrl
 			return true;
 		}
 
-		Collections.sort (_switches, new Comparator<String> () {
-			@Override
-			public int compare (String s1, String s2) {
-				return s1.compareToIgnoreCase (s2);
-			}
-		});
+		Collections.sort (_switches, VendoUtils.caseInsensitiveStringComparator);
 
 		String command = "gu " + _model;
-		if (!_outputPrefix.isEmpty ())
+		if (!_outputPrefix.isEmpty ()) {
 			command += " " + _outputPrefix;
-		for (String str : _switches)
+		}
+		for (String str : _switches) {
 			command += " " + str;
+		}
 		command += NL;
 
 		FileOutputStream outputStream;
@@ -1150,18 +1142,19 @@ public class GetUrl
 	{
 		String extension = _model.toLowerCase ();
 
-		if (extension.endsWith (".jpg") || extension.endsWith (".jpeg"))
+		if (extension.endsWith (".jpg") || extension.endsWith (".jpeg")) {
 			_fileType = FileType.JPG;
-		else if (extension.endsWith (".mpg"))
+		} else if (extension.endsWith (".mpg")) {
 			_fileType = FileType.MPG;
-		else if (extension.endsWith (".wmv"))
+		} else if (extension.endsWith (".wmv")) {
 			_fileType = FileType.WMV;
-		else if (extension.endsWith (".mp4"))
+		} else if (extension.endsWith (".mp4")) {
 			_fileType = FileType.MP4;
-		else if (extension.endsWith (".avi"))
+		} else if (extension.endsWith (".avi")) {
 			_fileType = FileType.AVI;
-		else
+		} else {
 			_fileType = FileType.Other;
+		}
 
 		return _fileType;
 	}
@@ -1379,7 +1372,7 @@ public class GetUrl
 				System.out.println ("GetUrl.ImageBaseNames: outputPrefix @2 = " + outputPrefix);
 			}
 
-			String subdir = "/jroot/" + outputPrefix.toLowerCase ().substring (0, AlbumImage.SubFolderLength);
+			String subdir = "/jroot/" + AlbumImage.getSubFolderFromName (outputPrefix);
 
 			_filenameList.addAll (getFileList (_destDir, outputPrefix));
 			_filenameList.addAll (getFileList (_destDir + subdir, outputPrefix));
@@ -1429,6 +1422,7 @@ public class GetUrl
 
 			return _sortedBaseNameSet.size () > 1;
 		}
+
 
 		///////////////////////////////////////////////////////////////////////////
 		public boolean hasNoMatches ()
@@ -1615,6 +1609,7 @@ public class GetUrl
 	private HttpURLConnection _httpURLConnection = null;
 	private static final String _historyFilename = "gu.history.txt";
 	private static final String _slash = System.getProperty ("file.separator");
+	private static final Integer _pid = ProcessUtils.getWin32ProcessId ();
 	private static Logger _log = LogManager.getLogger (GetUrl.class);
 
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm:ss"); //note this wraps values >= 100 minutes

@@ -53,6 +53,7 @@ import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import com.vendo.win32.ProcessUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jsoup.Jsoup;
@@ -790,10 +791,7 @@ public class GetUri
 	///////////////////////////////////////////////////////////////////////////
 	private void buildTempString ()
 	{
-		String uniqStr = Long.toString (new Date ().getTime ());
-		_tempFilename = _destDir + "000000." + uniqStr + ".tmp";
-//		if (_Debug)
-//			_log.debug ("_tempFilename = " + _tempFilename);
+		_tempFilename = _destDir + "000000." + new Date ().getTime () + "." + _pid + ".tmp";
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -934,11 +932,7 @@ public class GetUri
 			return false;
 		}
 
-		Collections.sort (_switches, new Comparator<String> () {
-			public int compare (String s1, String s2) {
-				return s1.compareToIgnoreCase (s2);
-			}
-		});
+		Collections.sort (_switches, VendoUtils.caseInsensitiveStringComparator);
 
 		String args = new String ();
 		for (String str : _switches)
@@ -1212,6 +1206,7 @@ public class GetUri
 
 //	private static final String _historyFilename = "gi.history.txt";
 	private static final String _slash = System.getProperty ("file.separator");
+	private static final Integer _pid = ProcessUtils.getWin32ProcessId ();
 	private static Logger _log = LogManager.getLogger (GetUri.class);
 
 	//global members

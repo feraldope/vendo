@@ -16,6 +16,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -353,7 +354,7 @@ public class JpgUtils
 			ImageAttributes outImageAttributes = getImageAttributes (outfilePath);
 			double compression = (double) inImageAttributes._bytes / (double) outImageAttributes._bytes;
 
-			System.out.println (outImageAttributes + ", compression = " + _decimalFormat.format (compression) + ":1");
+			System.out.println (outImageAttributes + ", compression = " + _decimalFormat.get ().format (compression) + ":1");
 		}
 
 		return status;
@@ -720,7 +721,8 @@ public class JpgUtils
 	private String _nameSuffix = new String ();
 
 	private static final String _formatName = "jpg";
-	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0.0");
+//	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0.0");
+	private static ThreadLocal<NumberFormat> _decimalFormat = ThreadLocal.withInitial(() -> new DecimalFormat("###,##0.0")); //DecimalFormat is not thread safe
 
 	private static final String _slash = System.getProperty ("file.separator");
 	private static Logger _log = LogManager.getLogger (JpgUtils.class);

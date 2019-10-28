@@ -757,7 +757,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//note this always returns a List
-	public static <T> Collection<T> shuffleAndTruncate (Collection<T> items, int newSize)
+	public static <T> Collection<T> shuffleAndTruncate (Collection<T> items, int newSize, boolean sort)
 	{
 		List<T> list;
 		if (items instanceof List) {
@@ -772,6 +772,10 @@ public class VendoUtils
 
 		if (newSize > 0 && newSize < list.size ()) {
 			list = list.subList (0, newSize);
+		}
+
+		if (sort) {
+			Collections.sort (list, (o1, o2) -> o1.toString ().compareToIgnoreCase (o2.toString ()));
 		}
 
 		return list;

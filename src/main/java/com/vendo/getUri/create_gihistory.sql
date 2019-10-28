@@ -16,13 +16,13 @@ select * from history where step > 0 order by url
 select * from history where start_index > 0 order by url
 select * from history where end_index > 0 order by url
 
-select count(*) from history
+select count(*) from gihistory.history
 
 REM cleanup after testing
 mysql -u root -proot gihistory -e "delete from history where url like 'http%://google.com%'"
 
 REM restore table from .sql backup file
-mysql -u root -proot gihistory < E:\Netscape\Program\gihistory_backup.sql
+mysql -u root -proot gihistory < D:\Netscape\Program\gihistory.backup.sql
 */
 
 CREATE TABLE history

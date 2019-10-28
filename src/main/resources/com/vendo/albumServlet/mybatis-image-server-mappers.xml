@@ -138,6 +138,14 @@ mysql -u root -proot albumimages -e "describe images"
 		and base_name = #{base_name}
 	</select>
 
+	<select id="selectAlbumCountFromImageCounts" resultType="int">
+		select count(name_id)
+		from image_counts
+		where collapse_groups = 0
+		and sub_folder = #{sub_folder}
+		and base_name rlike #{base_name}
+	</select>
+
 	<select id="selectImageCountsFromImageCounts" resultMap="AlbumImageCountResultMap">
 		select base_name, image_count
 		from image_counts

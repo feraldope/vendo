@@ -215,7 +215,7 @@ public class JpgRgbData
 
 		//note this only gets the subfolders in this folder (it does not recurse)
 		Collection<Path> subFolders = getSubFolders (_folder);
-		subFolders = VendoUtils.shuffleAndTruncate (subFolders, 0);
+		subFolders = VendoUtils.shuffleAndTruncate (subFolders, 0, true);
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
 
 		for (final Path folder : subFolders) {

@@ -2,38 +2,9 @@
 
 package com.vendo.albumServlet;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.file.DirectoryStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
+import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
+import com.vendo.vendoUtils.VPair;
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -42,14 +13,29 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
-import com.vendo.vendoUtils.VPair;
-import com.vendo.vendoUtils.VendoUtils;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.*;
+import java.text.DecimalFormat;
+import java.util.Date;
+import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 public class AlbumImageDiffer
 {
-	private enum Mode {NotSet, Names, Tags};
+	private enum Mode {NotSet, Names, Tags}
 
 	///////////////////////////////////////////////////////////////////////////
 	static
@@ -71,8 +57,9 @@ public class AlbumImageDiffer
 
 		AlbumImageDiffer albumImageDiffer = AlbumImageDiffer.getInstance ();
 
-		if (!albumImageDiffer.processArgs (args))
+		if (!albumImageDiffer.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		try {
 			albumImageDiffer.run ();
@@ -119,8 +106,9 @@ public class AlbumImageDiffer
 				} else if (arg.equalsIgnoreCase ("maxRgbDiffs")) {
 					try {
 						_maxRgbDiffs = Integer.parseInt (args[++ii]);
-						if (_maxRgbDiffs < 0)
+						if (_maxRgbDiffs < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -130,8 +118,9 @@ public class AlbumImageDiffer
 				} else if (arg.equalsIgnoreCase ("maxStdDev")) {
 					try {
 						_maxStdDev = Integer.parseInt (args[++ii]);
-						if (_maxStdDev < 0)
+						if (_maxStdDev < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -141,8 +130,9 @@ public class AlbumImageDiffer
 				} else if (arg.equalsIgnoreCase ("maxRows")) {
 					try {
 						_maxRows = Integer.parseInt (args[++ii]);
-						if (_maxRows < 0)
+						if (_maxRows < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -174,8 +164,9 @@ public class AlbumImageDiffer
 				} else if (arg.equalsIgnoreCase ("numThreads") || arg.equalsIgnoreCase ("threads")) {
 					try {
 						_numThreads = Integer.parseInt (args[++ii]);
-						if (_numThreads < 0)
+						if (_numThreads < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -251,22 +242,25 @@ public class AlbumImageDiffer
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxStdDev=<n>] [/maxRows=<n>] /modeA={names|tags} /modeB={names|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
 	public synchronized static AlbumImageDiffer getInstance ()
 	{
-		if (_instance == null)
+		if (_instance == null) {
 			_instance = new AlbumImageDiffer ();
+		}
 
 		return _instance;
 	}
@@ -602,7 +596,7 @@ public class AlbumImageDiffer
 		}
 
 		_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size () + " (original)");
-		items = VendoUtils.shuffleAndTruncate (items, _maxRows);
+		items = VendoUtils.shuffleAndTruncate (items, _maxRows, false);
 		_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size () + " (truncated)");
 
 		AlbumProfiling.getInstance ().exit (5, profileTag);
@@ -687,7 +681,9 @@ public class AlbumImageDiffer
 			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: sql:" + NL + sql);
 
 		} finally {
-			if (rs != null) try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			if (rs != null) {
+				try { rs.close (); } catch (SQLException ex) { _log.error (ex); ex.printStackTrace (); }
+			}
 		}
 
 		if (items.size () == 0) {
@@ -896,7 +892,7 @@ public class AlbumImageDiffer
 
 		for (String baseName : baseNames) {
 			Collection<String> files = getMatchingImageNamesFromFileSystem (baseName);
-			files = VendoUtils.shuffleAndTruncate (files, files.size () / divisor);
+			files = VendoUtils.shuffleAndTruncate (files, files.size () / divisor, false);
 			names.addAll (files);
 
 			if (names.size () >= maxRows) {
@@ -916,7 +912,7 @@ public class AlbumImageDiffer
 
 		Collection<String> files = new ArrayList<String> ();
 
-		String subFolder = baseName.substring (0, AlbumImage.SubFolderLength).toLowerCase();
+		String subFolder = AlbumImage.getSubFolderFromName (baseName);
 		Collection<String> filenames = getDirectoryCache (subFolder);
 		for (String filename : filenames) {
 			if (filename.startsWith (baseName)) {// && filename.endsWith (".jpg")) {
@@ -1069,7 +1065,7 @@ public class AlbumImageDiffer
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //as int
-	private static final String _basePath = "E:/Netscape/Program/"; //need trailing slash
+	private static final String _basePath = "D:/Netscape/Program/"; //need trailing slash
 
 	private static boolean _Debug = false;
 	private static Logger _log = LogManager.getLogger ();

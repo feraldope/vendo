@@ -17,7 +17,7 @@ public enum AlbumSortType
 	ByExif ("EXIF", true),
 	BySizeBytes ("Size (bytes)", true),
 	BySizePixels ("Size (pixels)", true),
-//	ByCount ("Count", true),
+	ByCount ("Count", true),
 	ByHash ("Hash", true),
 	ByRgb ("RGB", true),
 	ByRandom ("Random", true);

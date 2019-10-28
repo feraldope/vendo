@@ -5,37 +5,27 @@
 
 package com.vendo.jHistory;
 
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.vendoUtils.WatchDir;
+import com.vendo.win32.Win32;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
+import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VendoUtils;
-import com.vendo.vendoUtils.WatchDir;
-import com.vendo.win32.Win32;
 
 
 public final class JHistory
@@ -58,8 +48,9 @@ public final class JHistory
 	{
 		JHistory app = new JHistory ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -117,14 +108,16 @@ public final class JHistory
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/dest <dest dir>]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -356,8 +349,16 @@ public final class JHistory
 			String path = url.getPath ();
 
 			int lastSlash = path.lastIndexOf ('/');
-			String pathBase = path.substring (0, lastSlash + 1);
-			String fileName = path.substring (lastSlash + 1);
+
+			String pathBase = path.substring (0, lastSlash + 1)
+								  .replaceAll("\\/\\/", "/")
+								  .replaceAll("\\/thumbs\\/", "/")
+								  .replaceAll("\\/tn\\/", "/")
+								  .replaceAll("\\/tn_/", "/")
+								  .replaceAll("\\/tn-/", "/");
+
+			String fileName = path.substring (lastSlash + 1)
+								  .replaceAll("\\.thumb\\.jpg", ".jpg");
 
 			return new UrlData (line, url, pathBase, fileName);
 
@@ -605,7 +606,7 @@ public final class JHistory
 	private FileTime _historyFileModified = FileTime.from (Instant.MIN);
 
 	private boolean _printTiming = true; //for performance timing
-	private Instant _startInstant = Instant.EPOCH; //for performance timing
+//	private Instant _startInstant = Instant.EPOCH; //for performance timing
 
 	private static final String _historyFilename = "gu.history.txt";
 	private static Logger _log = LogManager.getLogger ();

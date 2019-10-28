@@ -8,6 +8,9 @@ describe tags;
 describe names;
 describe names_tags;
 
+echo show variables | mysql -u root -proot albumimages
+echo show variables | mysql -u root -proot albumimages | grep -i innodb | grep -i size
+
 REM testing
 mysql -u root -proot albumtags
 select * from tags order by lower(tag);
@@ -99,10 +102,16 @@ CREATE TABLE IF NOT EXISTS tags_filters
 	PRIMARY KEY (id)
 );
 
+/*
 
-/* testing
-mysql -u root -proot albumtags
+-- -----------------------------------------------------------------------------
+-- engine and status data for each table
+select * 
+from information_schema.tables 
+where table_schema in ('albumtags', 'albumimages')
+order by table_schema, table_name
 
+-- -----------------------------------------------------------------------------
 -- table sizes (number of rows)
 select 'config' as name, count(*) as rows from config
 union all
@@ -122,6 +131,7 @@ select 'raw_names_tags' as name, count(*) as rows from raw_names_tags
 union all
 select 'tags_filters' as name, count(*) as rows from tags_filters;
 
+-- -----------------------------------------------------------------------------
 -- distribution of tags in file (i.e., raw_names_tags)
 select t.tag, count(*) count
 from raw_names_tags rnt
@@ -129,6 +139,7 @@ join tags t on rnt.tag_id = t.tag_id
 group by rnt.tag_id
 order by count desc, tag asc
  
+-- -----------------------------------------------------------------------------
 -- inserts
 insert into tags (tag) values ('red'), ('dry'), ('hot'), ('blue'), ('wet'), ('cold'), ('pink'), ('high'), ('tall');
 insert into names (name, name_type) values ('Foo03', 1), ('Bar01', 1), ('Foo01', 1), ('Boo03', 1), ('Bar05', 1), ('Tob02', 1), ('Tob01', 1);
@@ -140,6 +151,7 @@ insert into names_tags (name_id, tag_id) values ((select name_id from names wher
 insert into names_tags (name_id, tag_id) values ((select name_id from names where name = 'Tob02'), (select tag_id from tags where tag = 'dry'));
 insert into names_tags (name_id, tag_id) values ((select name_id from names where name = 'Tob02'), (select tag_id from tags where tag = 'pink'));
 
+-- -----------------------------------------------------------------------------
 -- queries
 select * from tags order by lower (tag);
 select * from base_names order by lower (name);
@@ -154,7 +166,7 @@ select count(*) from tags;
 select name_type, count(*) from names group by name_type;
 select name_type, count(*) from names_tags group by name_type;
 
-
+-- -----------------------------------------------------------------------------
 REM compare all base name entries vs. raw
 mysql -u root -proot albumtags -e "select * from names where name_type = 1 order by lower (name)" > r1
 mysql -u root -proot albumtags -e "select * from names where name_type = 2 order by lower (name)" > r2
@@ -163,7 +175,7 @@ mysql -u root -proot albumtags -e "select * from names where name_type = 2 order
 select name_type, count(*) from names where lower(name) like '%' group by name_type;
 select name_type, count(*) from names where lower(name) like 'b%' group by name_type;
 
-
+-- -----------------------------------------------------------------------------
 -- find potentially malformed/incomplete names in raw (e.g., don't end in "+"/"*" or don't have number or two uppercase letters)
 -- implemented in Java here: AlbumTags.checkForMalformedFilters();
 select name from raw_names
@@ -175,7 +187,7 @@ select name from raw_names
  name not regexp 'xbf_.*'
  order by lower(name);
 
-
+-- -----------------------------------------------------------------------------
 -- show all tags for base names; note does not like space between 'group_concat' and '('
 select n.name, n.name_type, group_concat(distinct t.tag order by lower(t.tag) separator ', ') as tags
 from names n
@@ -192,17 +204,13 @@ join tags t on nt.tag_id = t.tag_id
 where n.name_type = 2
 group by n.name;
 
-*/
-
-/*
+-- -----------------------------------------------------------------------------
 -- find all names for a tag
 select * from base1_names where name_id in (select distinct name_id from base1_names_tags where tag_id in (select tag_id from tags where tag like 'star%'));
 select * from base1_names where name_id in (select distinct name_id from base1_names_tags where tag_id in (select tag_id from tags where tag like 'spider%'));
 select * from base1_names where name_id in (select distinct name_id from base1_names_tags where tag_id in (select tag_id from tags where tag like 'snake%')) order by name;
-*/
 
-
-/*
+-- -----------------------------------------------------------------------------
 -- query (no intersect) on 1 tag
 select distinct name from raw_names where name_id in (
                 (select name_id from raw_names_tags
@@ -265,7 +273,7 @@ select * from (
 ) as tbl group by tbl.name_id having count(*)=2;
 -- original from: http://stackoverflow.com/questions/2300322/intersect-in-mysql
 
-
+-- -----------------------------------------------------------------------------
 -- enhancing getTagsForBaseName() (unfortunately slow when large number of items match)
 select group_concat(distinct t.tag order by lower(t.tag) separator ', ') as tags
  from base_names bn
@@ -273,8 +281,7 @@ select group_concat(distinct t.tag order by lower(t.tag) separator ', ') as tags
  join tags t on bnt.tag_id = t.tag_id
  where bn.name rlike 'Pau.*e.*[0-9]'
 
---
-
+-- -----------------------------------------------------------------------------
 select bn.name, group_concat(distinct t.tag order by lower(t.tag) separator ', ') as tags
  from base_names bn
  join base_names_tags bnt on bn.name_id = bnt.name_id
@@ -283,10 +290,39 @@ select bn.name, group_concat(distinct t.tag order by lower(t.tag) separator ', '
  where bn.name in ('name01', 'name02')
  group by bn.name
 
---
-
-select * from tags_filters where tag like 't%' order by tag
+-- -----------------------------------------------------------------------------
+select * from albumtags.tags_filters where tag like 'B%' order by tag
 select * from tags_filters where filters != ''
 select count(*) from tags_filters
+
+-- -----------------------------------------------------------------------------
+-- find albums that have 0 tags
+-- uses function albumimages.alphas
+-- OLD and SLOW
+select distinct albumimages.alphas(i.name_no_ext) as name, c.image_count as count, i.sub_folder 
+  from albumimages.images i 
+join albumimages.image_counts c on c.sub_folder = i.sub_folder and albumimages.alphas(i.name_no_ext) = c.base_name
+  where i.sub_folder = 'cl' and c.collapse_groups = 1 
+  and albumimages.alphas(i.name_no_ext) not in (
+    select distinct albumimages.alphas(t.name) as name 
+    from albumtags.base2_names t 
+    where lower(t.name) like 'cl%'
+  )
+
+-- find albums that have 0 tags
+-- NEW and FASTER
+-- AlbumTags.getAlbumsWithNoTags
+with temp_table as (
+select ic.base_name as name, ic.image_count as count
+ from albumimages.image_counts ic
+ where ic.collapse_groups = 1
+ and ic.sub_folder not in ('q-', 'qb', 'qd', 'qf', 'qg', 'qh', 'qj', 'qm', 'qt', 'xx', 'xb')
+-- and ic.image_count >= 10
+ and ic.base_name not in (
+  select bn.name
+  from albumtags.base2_names bn
+ )
+) select count(*) from temp_table
+
 
 */

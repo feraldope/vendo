@@ -128,8 +128,8 @@ public class AlbumFileFilter implements FilenameFilter
 							status = true;
 							break;
 						}
-					} else  if (leadingNonNumericChars >= 2) { //AlbumImage.SubFolderLength
-						if (folder./*substring (0, 2).*/equalsIgnoreCase (includePattern.pattern().substring (0, 2).toLowerCase ())) {
+					} else  if (leadingNonNumericChars >= AlbumImage.SubFolderLength) {
+						if (folder.equalsIgnoreCase (AlbumImage.getSubFolderFromName (includePattern.pattern ()))) {
 							status = true;
 							break;
 						}

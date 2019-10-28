@@ -2,6 +2,16 @@
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.VFileList;
+import com.vendo.vendoUtils.VFileList.ListMode;
+import com.vendo.vendoUtils.VPair;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.math.util.MathUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -11,39 +21,10 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.GregorianCalendar;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-
-import javax.servlet.http.HttpServletRequest;
-
-import org.apache.commons.collections4.ListUtils;
-import org.apache.commons.math.util.MathUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VFileList;
-import com.vendo.vendoUtils.VFileList.ListMode;
-import com.vendo.vendoUtils.VPair;
-import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumImages
@@ -110,8 +91,9 @@ public class AlbumImages
 		}
 
 		if (!rootPath.equals (_prevRootPath)) {
-			if (!_prevRootPath.equals (""))
+			if (!_prevRootPath.equals ("")) {
 				_log.debug ("AlbumImages.getInstance: rootPath has changed to " + rootPath);
+			}
 			_instance = null;
 			_prevRootPath = rootPath;
 		}
@@ -130,8 +112,9 @@ public class AlbumImages
 			_log.debug ("AlbumImages ctor");
 
 		final String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
-		if (AlbumFormInfo._logLevel >= 7)
+		if (AlbumFormInfo._logLevel >= 7) {
 			_log.debug ("AlbumImages ctor: rootPath = " + rootPath);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -157,8 +140,9 @@ public class AlbumImages
 	{
 		path = path.replace ('\\', '/');
 
-		if (!path.endsWith ("/"))
+		if (!path.endsWith ("/")) {
 			path += '/';
+		}
 
 		String parts[] = path.split ("/");
 
@@ -186,7 +170,11 @@ public class AlbumImages
 
 			if (paramName.equalsIgnoreCase ("timestamp")) {
 				String[] paramValues = request.getParameterValues (paramName);
-				currentTimestamp = Long.valueOf (paramValues[0]);
+				try {
+					currentTimestamp = Long.valueOf (paramValues[0]);
+				} catch (NumberFormatException exception) {
+					currentTimestamp = 0;
+				}
 			}
 
 			//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
@@ -280,7 +268,7 @@ public class AlbumImages
 
 		int imagesRemoved = 0;
 		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
-		String subFolder = wildName.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
+		String subFolder = AlbumImage.getSubFolderFromName (wildName);
 
 		List<String> fileList = new VFileList (rootPath + subFolder, wildName, /*recurseSubdirs*/ false).getFileList (ListMode.FileOnly);
 		if (AlbumFormInfo._logLevel >= 7) {
@@ -305,7 +293,7 @@ public class AlbumImages
 
 		int imagesRemoved = 0;
 		String rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
-		String subFolder = origName.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
+		String subFolder = AlbumImage.getSubFolderFromName (origName);
 		String origPath = rootPath + subFolder + "/" + origName;
 		String newPath = origPath + AlbumFormInfo._DeleteSuffix;
 		if (AlbumFormInfo._logLevel >= 7) {
@@ -347,8 +335,9 @@ public class AlbumImages
 	{
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
-		if (AlbumFormInfo._logLevel >= 5)
+		if (AlbumFormInfo._logLevel >= 5) {
 			_log.debug ("AlbumImages.doDir: exifDateIndex = " + AlbumFormInfo.getInstance ().getExifDateIndex ());
+		}
 
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
 		boolean useCase = form.getUseCase ();
@@ -946,8 +935,9 @@ public class AlbumImages
 	{
 		int cols = _form.getColumns ();
 		int rows = _form.getPanels () / cols;
-		if ((rows * cols) != _form.getPanels ())
+		if ((rows * cols) != _form.getPanels ()) {
 			rows++; //handle case where columns is not evenly divisible by panels
+		}
 
 		return rows;
 	}
@@ -956,16 +946,18 @@ public class AlbumImages
 	public int getNumSlices ()
 	{
 		int numImages = _imageDisplayList.size ();
-		if (numImages == 0)
+		if (numImages == 0) {
 			return 1;
+		}
 
 		int cols = _form.getColumns ();
 		int rows = getNumRows ();
 
 		int imagesPerSlice = rows * cols;
 		int numSlices = numImages / imagesPerSlice;
-		if ((numSlices * imagesPerSlice) != numImages)
+		if ((numSlices * imagesPerSlice) != numImages) {
 			numSlices++; //handle case where numImages is not evenly divisible by imagesPerSlice
+		}
 
 		return numSlices;
 	}
@@ -996,15 +988,16 @@ public class AlbumImages
 		final int MaxSliceLinks = 40; //limit number of slice link shown
 
 		int numSlices = getNumSlices ();
-		if (numSlices == 1)
+		if (numSlices == 1) {
 			return new String ();
+		}
 
 		int currentSlice = _form.getSlice ();
 
 		int firstSlice = 0;
 		int lastSlice = numSlices;// - 1;
 		if (numSlices < MaxSliceLinks) {
-			;//done - defaults set above are correct
+			//done - defaults set above are correct
 
 		} else if (currentSlice < MaxSliceLinks / 2) {
 			//root first slice at 0
@@ -1031,14 +1024,18 @@ public class AlbumImages
 		}
 
 		//add other navigation links
-		if (firstSlice > 1)
+		if (firstSlice > 1) {
 			sb.append (generatePageLinksHelper (1, "[First]"));
-		if (currentSlice > 1)
+		}
+		if (currentSlice > 1) {
 			sb.append (generatePageLinksHelper (currentSlice - 1, "[Previous]"));
-		if (currentSlice < numSlices)
+		}
+		if (currentSlice < numSlices) {
 			sb.append (generatePageLinksHelper (currentSlice + 1, "[Next]"));
-		if (lastSlice < numSlices)
+		}
+		if (lastSlice < numSlices) {
 			sb.append (generatePageLinksHelper (numSlices, "[Last]"));
+		}
 
 		return sb.toString ();
 	}
@@ -1160,8 +1157,9 @@ public class AlbumImages
 		String title = "Album";
 
 		int numImages = _imageDisplayList.size ();
-		if (numImages > 0)
+		if (numImages > 0) {
 			title += " (" + numImages + ")";
+		}
 
 		if (_form.getMode () == AlbumMode.DoDup) {
 			title += " - " + AlbumMode.DoDup.getSymbol ();
@@ -1172,7 +1170,9 @@ public class AlbumImages
 			String[] filters = _form.getFilters ();
 			for (String filter : filters) {
 				if (filter.length () > 1 && filter.endsWith ("*")) //strip trailing "*", unless "*" is the entire filter
+				{
 					filter = filter.substring (0, filter.length () - 1);
+				}
 
 				if (filter.length () > 0) {
 					sb.append (",").append (filter);
@@ -1187,11 +1187,13 @@ public class AlbumImages
 			int startIndex = (sb.length () > 1 ? 1 : 0); //skip initial comma, if there
 			String filterTitle = sb.substring (startIndex);
 
-			if (filterTitle.length () == 0 && numImages > 0)
+			if (filterTitle.length () == 0 && numImages > 0) {
 				filterTitle = "*";
+			}
 
-			if (filterTitle.length () > 0)
+			if (filterTitle.length () > 0) {
 				title += " - " + filterTitle;
+			}
 		}
 
 		return title;
@@ -1203,8 +1205,9 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
 		int numImages = _imageDisplayList.size ();
-		if (AlbumFormInfo._Debug)
+		if (AlbumFormInfo._Debug) {
 			_log.debug ("AlbumImages.generateHtml: numImages = " + numImages);
+		}
 
 		boolean isAndroidDevice = _form.isAndroidDevice ();
 		boolean isNexus7Device = _form.isNexus7Device ();
@@ -1256,8 +1259,9 @@ public class AlbumImages
 		boolean collapseGroupsForTags = mode == AlbumMode.DoDup ? false : collapseGroups;
 
 		//reduce number of columns when it is greater than number of images
-		if (cols > numImages)
+		if (cols > numImages) {
 			cols = numImages;
+		}
 
 		int start = (slice - 1) * (rows * cols);
 		int end = start + (rows * cols);
@@ -1274,15 +1278,17 @@ public class AlbumImages
 		double sinceDays = _form.getSinceDays ();
 		long sinceInMillis = _form.getSinceInMillis (/*truncateToMidnightBoundary*/ true);
 		String sinceStr = new String ();
-		if (sinceInMillis > 0)
+		if (sinceInMillis > 0) {
 			sinceStr = " (since " + _dateFormat.format (new Date (sinceInMillis)) + ")";
+		}
 
 		int highlightMinPixels = _form.getHighlightMinPixels ();
 		int highlightMaxKilobytes = _form.getHighlightMaxKilobytes ();
 		long highlightInMillis = _form.getHighlightInMillis (/*truncateToMidnightBoundary*/ true);
 		String highlightStr = new String ();
-		if (highlightInMillis > 0)
+		if (highlightInMillis > 0) {
 			highlightStr = " (highlight " + _dateFormat.format (new Date (highlightInMillis)) + ")";
+		}
 
 		String pageLinksHtml = generatePageLinks () + _spacing;
 
@@ -1410,8 +1416,12 @@ public class AlbumImages
 					imageName = image.getBaseName (collapseGroups);
 					String imageName1 = imageName + (collapseGroups ? "+" : ""); //plus sign here means digit
 					href = generateImageLink (imageName1, imageName1, newMode, newCols, sinceDays);
-					details.append ("(")
-						   .append (getNumMatchingImages (imageName, sinceInMillis))
+					details.append ("(");
+					if (collapseGroups) {
+						details.append(getNumMatchingAlbums(imageName, sinceInMillis))
+							   .append(":");
+					}
+					details.append (getNumMatchingImages (imageName, sinceInMillis))
 						   .append (")");
 
 					imagesInSlice.add (imageName);
@@ -1456,8 +1466,9 @@ public class AlbumImages
 					int newCols = (imageName.compareToIgnoreCase (partner.getName ()) < 0 ? imageCols : partnerCols);
 
 					//but prevent using columns = 1
-					if (newCols == 1)
+					if (newCols == 1) {
 						newCols = (imageCols + partnerCols) / 2;
+					}
 
 					href = generateImageLink (imageNonUniqueString, partnerNonUniqueString, newMode, newCols, /*sinceDays*/0);
 					details.append ("(")
@@ -1514,10 +1525,14 @@ public class AlbumImages
 				if (image.getNumBytes() > highlightMaxKilobytes * 1024) {
 					fontColor = "magenta";
 				}
+				if (image.getTagString (collapseGroups).isEmpty ()) {
+					fontColor = "darkred";
+				}
 
 				String fontWeight = "normal";
-				if (highlightInMillis > 0 && image.getModified () >= highlightInMillis) //0 means disabled
+				if (highlightInMillis > 0 && image.getModified () >= highlightInMillis) { //0 means disabled
 					fontWeight = "bold";
+				}
 
 				String fontStyle = "style=\"font-weight:" + fontWeight + ";color:" + fontColor + "\"";
 
@@ -1578,14 +1593,16 @@ public class AlbumImages
 
 				imageCount++;
 
-				if ((start + imageCount) >= numImages)
+				if ((start + imageCount) >= numImages) {
 					break;
+				}
 			}
 
 			sb.append ("</TR>").append (NL);
 
-			if ((start + imageCount) >= numImages)
+			if ((start + imageCount) >= numImages) {
 				break;
+			}
 		}
 
 		sb.append ("</TABLE>").append (NL);
@@ -1617,8 +1634,9 @@ public class AlbumImages
 		//replace servletErrorsMarker with any servlet errors
 		htmlString = htmlString.replace (servletErrorsMarker, getServletErrorsHtml ());
 
-		if (AlbumFormInfo._Debug)
+		if (AlbumFormInfo._Debug) {
 			_log.debug ("AlbumImages.generateHtml: imageCount = " + imageCount);
+		}
 
 		AlbumProfiling.getInstance ().exit (1);
 
@@ -1682,6 +1700,20 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public int getNumMatchingAlbums (final String baseName, final long sinceInMillis)
+	{
+		AlbumProfiling.getInstance ().enter (8);
+
+		int num = AlbumImageDao.getInstance ().getNumMatchingAlbums (baseName, sinceInMillis);
+
+//		_log.debug ("AlbumImages.getNumMatchingAlbums(\"" + baseName + "\"): " + num);
+
+		AlbumProfiling.getInstance ().exit (8);
+
+		return num;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//creates .BAT file with move commands
 	public void generateExifSortCommands ()
 	{
@@ -1697,7 +1729,7 @@ public class AlbumImages
 		if (form.getMode () == AlbumMode.DoDir && form.getSortType () == AlbumSortType.ByExif && hasOneFilter && numImages > 0 && numImages < 24) {
 			String baseNameDest = form.getFilters (/*index*/ 1)[0]; //only uses the first filter
 			String dash = (baseNameDest.contains ("-") ? "" : "-"); //add dash unless already there
-			Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), baseNameDest.substring (0, AlbumImage.SubFolderLength).toLowerCase ());
+			Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), AlbumImage.getSubFolderFromName (baseNameDest));
 			final String whiteList = "[0-9A-Za-z\\-_]"; //all valid characters for basenames (disallow wildcards)
 
 			//skip if list is already sorted by name

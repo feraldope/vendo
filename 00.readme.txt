@@ -7,7 +7,7 @@ Tomcat Configuration Instructions
 NEW VERSION OF JAVA JRE:
 
 Java Control Panel->Java tab->update "Java Virtual Machine" setting
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8w.exe"
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8w.exe"
 
 google: windows tomcat how to specify java folder
 
@@ -28,10 +28,12 @@ any other files ???
 NEW JARS: see step 5 below
 
 -------------------------------------------------------------------------------
+10/06/19
 06/09/17
 01/21/17
 
-Reinstall Tomcat 8.0.39
+--Reinstall Tomcat 8.0.39 (old)
+Install Tomcat 8.5
 
 Tomcat Administrator Login:
 tcuser/tcuser
@@ -40,18 +42,25 @@ tcuser/tcuser
 
 After installation:
 
+0) Set env var and update scripts with new service name
+cmsSetEnv /sys CATALINA_HOME "C:\Program Files\Apache Software Foundation\Tomcat 8.5"
+
+REM update service name in:
+C:\users\bin\jbs.bat
+C:\utils\cata.bat
+
 0) Create these webapp folders
-md "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\classes"
-md "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\lib"
+md "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\classes"
+md "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\lib"
 
-md "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\classes"
-md "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\lib"
+md "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\classes"
+md "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\lib"
 
-md "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\classes"
-md "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\lib"
+md "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\classes"
+md "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\lib"
 
-1) Update server.xml
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\conf\server.xml"
+1a) Update server.xml
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\conf\server.xml"
 
 REM Reset default tomcat port from 8080 to 80
     <Connector port="80" protocol="HTTP/1.1"
@@ -61,20 +70,40 @@ REM Reset default tomcat port from 8080 to 80
 REM Add docBase
 	<Host name="localhost"  appBase="webapps" ...
 		[...]
-		<!-- drich 01/21/17 -->
-        <Context path="/albumRoot" docBase="E:/Netscape/Program/" debug="0" reloadable="false"/>
+		<!-- drich 10/06/19 -->
+        <Context path="/albumRoot" docBase="D:/Netscape/Program/" debug="0" reloadable="false"/>
 
-REM Note: album root folder (i.e., "albumRoot") are also define in these files (in case it needs to be changed):
+REM Note: album root folder (i.e., "albumRoot") is also defined/hardcoded in these files (in case it needs to be changed):
 C:\users\bin\pr.bat
-C:\users\java\AlbumServlet\AlbumFormInfo.java
+C:\Users\java\vendo\src\main\java\com\vendo\albumServlet\AlbumFormInfo.java
+C:\Users\java\vendo\src\main\java\com\vendo\albumServlet\AlbumImageDiffer.java
+C:\Users\java\vendo\src\main\java\com\vendo\albumServlet\AlbumTagServer.java
+
+-
+
+1b) Update context.xml
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\conf\context.xml"
+
+REM Increase cache size
+	<Context>
+		[...]
+		<!-- drich 10/26/19 - set to 50 times larger than the default value, which is 10240 KB = 10 MB -->
+		<Resources cacheMaxSize="512000" />
+
+To avoid these errors in tomcat8-stderr.*.log:
+ org.apache.catalina.webresources.Cache.backgroundProcess The background cache eviction process was unable to free [10] percent of the cache for Context [/albumRoot] - consider increasing the maximum size of the cache. 
+ After eviction approximately [202,411] KB of data remained in the cache.
+
+"Tomcat 8 throwing - org.apache.catalina.webresources.Cache.getResource Unable to add the resource"
+https://stackoverflow.com/questions/26893297/tomcat-8-throwing-org-apache-catalina-webresources-cache-getresource-unable-to
 
 -
 
 2) Increase Tomcat/Java memory
-REM "C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 30720
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 24576
-REM "C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 12288
-REM "C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 8192
+REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 30720
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 24576
+REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 12288
+REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 8192
 
 REM Tomcat parameters in Registry
 reg query "HKLM\SOFTWARE\Wow6432Node\Apache Software Foundation\Procrun 2.0\Tomcat8\Parameters" /s
@@ -83,15 +112,15 @@ reg query "HKLM\SOFTWARE\Wow6432Node\Apache Software Foundation\Procrun 2.0\Tomc
 
 3) Set Tomcat8 Properties as necessary (legacy: search todo.txt for Tomcat8w)
 
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8w.exe" //ES//Tomcat8
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8w.exe" //ES//Tomcat8
 
 Default value for Java->Java Options:
--Dcatalina.home=C:\Program Files\Apache Software Foundation\Tomcat 8.0
--Dcatalina.base=C:\Program Files\Apache Software Foundation\Tomcat 8.0
--Djava.endorsed.dirs=C:\Program Files\Apache Software Foundation\Tomcat 8.0\endorsed
--Djava.io.tmpdir=C:\Program Files\Apache Software Foundation\Tomcat 8.0\temp
+-Dcatalina.home=C:\Program Files\Apache Software Foundation\Tomcat 8.5
+-Dcatalina.base=C:\Program Files\Apache Software Foundation\Tomcat 8.5
+-Djava.endorsed.dirs=C:\Program Files\Apache Software Foundation\Tomcat 8.5\endorsed
+-Djava.io.tmpdir=C:\Program Files\Apache Software Foundation\Tomcat 8.5\temp
 -Djava.util.logging.manager=org.apache.juli.ClassLoaderLogManager
--Djava.util.logging.config.file=C:\Program Files\Apache Software Foundation\Tomcat 8.0\conf\logging.properties
+-Djava.util.logging.config.file=C:\Program Files\Apache Software Foundation\Tomcat 8.5\conf\logging.properties
 
 REM added for "Java Mission Control" and "Java Flight Recorder"
 -XX:+UnlockCommercialFeatures
@@ -108,59 +137,61 @@ REM added
 
 -
 
-5) Copy all 3rd party jars to DropBox and all webapps (actually only need to copy jars used by servlets):
-C:\Users\java\lib\
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\lib\"
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\lib\"
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\lib\"
-C:\Users\feral\Dropbox\java\
+OLD: this should now be done by C:\users\bin\jbs.bat
+	5) Copy all 3rd party jars to DropBox and all webapps (actually only need to copy jars used by servlets):
+	C:\Users\java\lib\
+	"C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\lib\"
+	"C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\lib\"
+	"C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\lib\"
+	C:\Users\feral\Dropbox\java\
 
-wd C:\Users\java\lib\ "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\lib\"
-wd C:\Users\java\lib\ "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\lib\"
-wd C:\Users\java\lib\ "C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\lib\"
-wd C:\Users\java\lib\ C:\Users\feral\Dropbox\java\
+	wd C:\Users\java\lib\ "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\lib\"
+	wd C:\Users\java\lib\ "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\lib\"
+	wd C:\Users\java\lib\ "C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\lib\"
+	wd C:\Users\java\lib\ C:\Users\feral\Dropbox\java\
 
 -
 
-6) Other files: these are copied by C:\users\bin\jbs.bat
-vendo.jar
-album.properties
+OLD: this should now be done by C:\users\bin\jbs.bat
+	6) Other files: these are copied by C:\users\bin\jbs.bat
+	vendo.jar
+	album.properties
 
-log4j2-image-server.xml
-log4j2-servlet.xml
-log4j2-tag-server.xml
-web-image-server.xml
-web-servlet.xml
-web-tag-server.xml
+	log4j2-image-server.xml
+	log4j2-servlet.xml
+	log4j2-tag-server.xml
+	web-image-server.xml
+	web-servlet.xml
+	web-tag-server.xml
 
 -
 
 7) Open firewall to allow access from other computers/tablets on LAN
 From Windows Control Panel->Windows Defender Firewall->Allow an app or feature...
 Add tomcat binary:
-"C:\Program Files\Apache Software Foundation\Tomcat 8.0\bin\Tomcat8.exe"
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe"
 
 ---
 
 RESULTS
 
-C:\> dsin/s /on /e*.log,*txt /nod "C:\Program Files\Apache Software Foundation\Tomcat 8.0"
+C:\> dsin/s /on /e*.log,*txt /nod "C:\Program Files\Apache Software Foundation\Tomcat 8.5"
 cutoff time: Thu Jul 20 00:00:00 2017
 
  Volume in drive C is dopeWin10
  Volume Serial Number is B041-9B64
 
- Directory of C:\Program Files\Apache Software Foundation\Tomcat 8.0
+ Directory of C:\Program Files\Apache Software Foundation\Tomcat 8.5
 
-07/20/17  08:44:07.223           1,154 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\classes\log4j2.xml
-07/20/17  13:31:17.016         679,612 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\lib\vendo.jar
-07/20/17  08:48:39.797             413 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumImageServer\WEB-INF\web.xml
-07/20/17  15:58:04.000           1,006 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\classes\log4j2.xml
-07/20/17  13:31:17.016         679,612 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\lib\vendo.jar
-07/20/17  15:58:19.000             582 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumServlet\WEB-INF\web.xml
-07/20/17  08:44:07.233           1,150 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\classes\log4j2.xml
-07/20/17  13:31:17.016         679,612 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\lib\vendo.jar
-07/20/17  08:50:47.543             411 C:\Program Files\Apache Software Foundation\Tomcat 8.0\webapps\AlbumTagServer\WEB-INF\web.xml
+07/20/17  08:44:07.223           1,154 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\classes\log4j2.xml
+07/20/17  13:31:17.016         679,612 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\lib\vendo.jar
+07/20/17  08:48:39.797             413 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumImageServer\WEB-INF\web.xml
+07/20/17  15:58:04.000           1,006 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\classes\log4j2.xml
+07/20/17  13:31:17.016         679,612 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\lib\vendo.jar
+07/20/17  15:58:19.000             582 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumServlet\WEB-INF\web.xml
+07/20/17  08:44:07.233           1,150 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\classes\log4j2.xml
+07/20/17  13:31:17.016         679,612 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\lib\vendo.jar
+07/20/17  08:50:47.543             411 C:\Program Files\Apache Software Foundation\Tomcat 8.5\webapps\AlbumTagServer\WEB-INF\web.xml
               11 File(s)      2,238,112 bytes
                         120,096,468,992 bytes free
 

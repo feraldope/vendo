@@ -4,12 +4,15 @@
 
 package com.vendo.jHistory;
 
-import com.vendo.vendoUtils.*;
-
-import java.util.*;
+import com.vendo.vendoUtils.VendoUtils;
 
 import java.awt.*;
-import java.awt.datatransfer.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.ClipboardOwner;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.util.LinkedList;
+import java.util.Queue;
 
 class ClipboardListener extends Thread implements ClipboardOwner
 {

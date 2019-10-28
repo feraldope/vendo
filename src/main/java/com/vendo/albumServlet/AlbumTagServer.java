@@ -33,7 +33,7 @@ public class AlbumTagServer implements ServletContextListener
 
 		new Thread (() -> {
 			AlbumTags.main (new String[] {
-								"/tagFile", "E:/Netscape/Program/todo.dat",
+								"/tagFile", "D:/Netscape/Program/todo.dat",
 								"/continuous",
 //								"/checkForOrphans",
 //								"/resetTables",

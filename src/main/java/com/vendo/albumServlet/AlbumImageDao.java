@@ -2,41 +2,8 @@
 
 package com.vendo.albumServlet;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.lang.Thread.UncaughtExceptionHandler;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardWatchEventKinds;
-import java.nio.file.WatchEvent;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedSet;
-import java.util.TreeSet;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.vendoUtils.WatchDir;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -44,8 +11,20 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.vendo.vendoUtils.VendoUtils;
-import com.vendo.vendoUtils.WatchDir;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.Thread.UncaughtExceptionHandler;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.sql.Timestamp;
+import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 
 public class AlbumImageDao
@@ -140,14 +119,16 @@ public class AlbumImageDao
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/syncOnly]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -164,8 +145,9 @@ public class AlbumImageDao
 	///////////////////////////////////////////////////////////////////////////
 	private AlbumImageDao () //singleton
 	{
-		if (AlbumFormInfo._logLevel >= 9)
+		if (AlbumFormInfo._logLevel >= 9) {
 			_log.debug ("AlbumImageDao ctor");
+		}
 
 		String resource = "com/vendo/albumServlet/mybatis-image-server-config.xml";
 
@@ -197,6 +179,7 @@ public class AlbumImageDao
 	public void cacheMaintenance ()
 	{
 		_albumImagesDataCache.clear ();
+		_albumImagesCountCache.clear( );
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -766,6 +749,7 @@ public class AlbumImageDao
 		Collection<AlbumImage> images = null;
 
 		AlbumImagesData imagesData = _albumImagesDataCache.get (subFolder);
+		Map<String, Integer> imagesCountMap = _albumImagesCountCache.get (subFolder);
 
 		long databaseLastUpdateMillis = getLastUpdateFromImageFolder (subFolder);
 
@@ -781,10 +765,13 @@ public class AlbumImageDao
 			imagesData = new AlbumImagesData (images, nowInMillis);
 			_albumImagesDataCache.put (subFolder, imagesData);
 
+			imagesCountMap = getImageCountsFromImageCounts (subFolder);
+			_albumImagesCountCache.put (subFolder, imagesCountMap);
+
 //			AlbumProfiling.getInstance ().enter (5, subFolder + ".misFiled");
 			_servletErrorsMap.remove (subFolder);
 			Set<String> misFiled = images.stream ()
-										 .filter (s -> !subFolder.equalsIgnoreCase (s.getNameFirstLetterLower ()))
+										 .filter (s -> !subFolder.equalsIgnoreCase (s.getNameFirstLettersLower ()))
 										 .map (s -> s.getBaseName (true))
 										 .collect (Collectors.toSet ());
 //			AlbumProfiling.getInstance ().exit (5, subFolder + ".misFiled");
@@ -798,6 +785,15 @@ public class AlbumImageDao
 		AlbumProfiling.getInstance ().exit (7, subFolder);
 
 		return images;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by servlet
+	public Integer getImagesCount (String baseName)
+	{
+		String subFolder = AlbumImage.getSubFolderFromName (baseName);
+		Map<String, Integer> imagesCountMap = _albumImagesCountCache.get(subFolder);
+		return imagesCountMap.get (baseName);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -874,7 +870,7 @@ public class AlbumImageDao
 		int numMatchingImages = 0;
 
 //TODO - this does not work when image is in wrong subfolder (can happen when image is renamed prior to move)
-		String subFolder = baseName.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
+		String subFolder = AlbumImage.getSubFolderFromName (baseName);
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
@@ -896,7 +892,37 @@ public class AlbumImageDao
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
+	//used by servlet
+	public int getNumMatchingAlbums (String baseName, long unused /*sinceInMillis*/)
+	{
+		AlbumProfiling.getInstance ().enter (7);
+
+		int numMatchingAlbums = 0;
+
+//TODO - this does not work when image is in wrong subfolder (can happen when image is renamed prior to move)
+		String subFolder = AlbumImage.getSubFolderFromName (baseName);
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			numMatchingAlbums = mapper.selectAlbumCountFromImageCounts (subFolder, baseName + "[0-9]+$");
+
+		} catch (Exception ee) {
+//			if (ee instanceof org.apache.ibatis.binding.BindingException) {
+//				//most likely cause
+//				AlbumFormInfo.getInstance ().addServletError ("Error: found image files (" + baseName + ") in wrong folder");
+//			}
+			_log.error ("AlbumImageDao.getNumMatchingAlbums(\"" + baseName + "\"): ", ee);
+		}
+
+		AlbumProfiling.getInstance ().exit (7);
+
+//		_log.debug ("AlbumImageDao.getAlbumCountFromImageCounts(\"" + wildName + "\"): count = " + count);
+
+		return numMatchingAlbums;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by CLI and servlet
 	private Map<String, Integer> getImageCountsFromImageCounts (String subFolder)
 	{
 		AlbumProfiling.getInstance ().enter (7, subFolder);
@@ -1467,19 +1493,16 @@ public class AlbumImageDao
 
 	private static AlbumImageDao _instance = null;
 
-	private static final Map<Thread, String> _watcherThreadMap = new HashMap<Thread, String> (26);
+	private static final Map<Thread, String> _watcherThreadMap = new HashMap<Thread, String> (275);
 
-	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<String, AlbumImagesData> (26);
+	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<String, AlbumImagesData> (275);
+	private static final Map<String, Map<String, Integer>> _albumImagesCountCache = new HashMap<String, Map<String, Integer>> (275);
 
-    private static final ThreadLocal<Set<String>> _imagesNeedingCountUpdate = new ThreadLocal<Set<String>>(){
-        @Override
-        protected Set<String> initialValue()
-        {
-            return new HashSet<String> ();
-        }
-    };
+//	private Map<String, Integer> getImageCountsFromImageCounts (String subFolder)
 
-	private static final Map<String, String> _servletErrorsMap = new HashMap<String, String> (26);
+	private static final ThreadLocal<Set<String>> _imagesNeedingCountUpdate = ThreadLocal.withInitial(() -> new HashSet<String> ());
+
+	private static final Map<String, String> _servletErrorsMap = new HashMap<String, String> (275);
 
 	private static final String NL = System.getProperty ("line.separator");
 //	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int

@@ -213,11 +213,11 @@ inner join (
 ) as todelete on todelete.name_id = image_counts.name_id
 
 -- table sizes (number of rows) and max indexes
-select 'images' as name, count(*) as rows, max(name_id) as max from images
+select 'images' as name, count(*) as rows1, max(name_id) as max from images
 union all
-select 'image_folder' as name, count(*) as rows, '--' as max from image_folder
+select 'image_folder' as name, count(*) as rows1, '--' as max from image_folder
 union all
-select 'image_counts' as name, count(*) as rows, max(name_id) as max from image_counts;
+select 'image_counts' as name, count(*) as rows1, max(name_id) as max from image_counts;
 
 -- collapse_groups distribution (note the results will include obsolete entries where image_count = 0)
 select collapse_groups, count(*) from image_counts group by collapse_groups;
@@ -371,6 +371,7 @@ order by d.last_update
 union all
 select count(*) from image_diffs
 
+-- -----------------------------------------------------------------------------
 -- count distribution (includes rows that no longer have existing images)
 select 'Total' as count, count(count) as rows from image_diffs
 union all 
@@ -385,5 +386,63 @@ select avg_diff as diff, count(avg_diff) as rows from image_diffs group by avg_d
 select 'Min' as name, min(last_update) as last_update from image_diffs
 union all 
 select 'Max' as name, max(last_update) as last_update from image_diffs
+
+-- -----------------------------------------------------------------------------
+-- find albums that have a high number of images and a large byte size (and optionally EXIF date)
+select i.base_name, 
+ round(sum(i.mbytes), 1) as total_mbytes, 
+ ic.image_count, 
+ round(sum(i.mbytes) / ic.image_count, 1) as avg_mbytes,
+ count(i.mbytes) as number_over_size_threshold, 
+ round(100 * count(i.mbytes) / ic.image_count, 1) as percent_over_size_threshold,
+ i.exif
+from (
+ select left(name_no_ext, locate('-', name_no_ext) - 1) as base_name, bytes / (1024 * 1024) as mbytes, 
+  ((exifDate0 + exifDate1 + exifDate2 + exifDate3) > 0) as has_exif
+ from images
+ -- where (exifDate0 > 0 or exifDate1 > 0 or exifDate2 > 0 or exifDate3 > 0)
+) as i
+join image_counts ic on ic.base_name = i.base_name
+where ic.image_count > 70
+and ic.base_name not like 'ama%'
+and ic.base_name not like 'q%'
+-- and ic.base_name not like 's%'
+and ic.base_name not like 'x%'
+group by base_name
+-- order by base_name
+-- order by total_mbytes desc
+order by total_mbytes desc, number_over_size_threshold desc, image_count desc
+
+-- -----------------------------------------------------------------------------
+-- "remove all numeric characters from column mysql"
+-- original from https://stackoverflow.com/questions/11431831/remove-all-numeric-characters-from-column-mysql
+DROP FUNCTION IF EXISTS alphas; 
+DELIMITER | 
+CREATE FUNCTION alphas( str CHAR(64) ) RETURNS CHAR(64) 
+BEGIN 
+  DECLARE i, len SMALLINT DEFAULT 1; 
+  DECLARE ret CHAR(64) DEFAULT ''; 
+  DECLARE c CHAR(1); 
+  SET len = CHAR_LENGTH( str ); 
+  REPEAT 
+    BEGIN 
+      SET c = MID( str, i, 1 ); 
+      IF c REGEXP '[[:alpha:]]' THEN 
+        SET ret=CONCAT(ret,c); 
+      END IF; 
+      SET i = i + 1; 
+    END; 
+  UNTIL i > len END REPEAT; 
+  RETURN ret; 
+-- END | 
+END;
+DELIMITER ; 
+
+SELECT alphas('123ab45cde6789fg0000000000000000000000000000'); 
++----------------------------+ 
+| alphas('123ab45cde6789fg') | 
++----------------------------+ 
+| abcdefg                    | 
++----------------------------+ 
 
 */

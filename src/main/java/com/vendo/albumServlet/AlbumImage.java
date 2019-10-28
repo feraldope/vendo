@@ -2,8 +2,22 @@
 
 package com.vendo.albumServlet;
 
-import java.awt.Graphics2D;
-import java.awt.Image;
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.drew.metadata.iptc.IptcDirectory;
+import com.drew.metadata.xmp.XmpDirectory;
+import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.VPair;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.commons.lang3.time.FastDateFormat;
+import org.apache.commons.math3.stat.StatUtils;
+import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,28 +28,8 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Date;
-import java.util.Formatter;
-import java.util.GregorianCalendar;
-import java.util.Locale;
-import java.util.Random;
+import java.util.*;
 import java.util.regex.Pattern;
-
-import org.apache.commons.lang3.time.FastDateFormat;
-import org.apache.commons.math3.stat.StatUtils;
-import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.exif.ExifIFD0Directory;
-import com.drew.metadata.exif.ExifSubIFDDirectory;
-import com.drew.metadata.iptc.IptcDirectory;
-import com.drew.metadata.xmp.XmpDirectory;
-import com.vendo.jpgUtils.JpgUtils;
-import com.vendo.vendoUtils.VPair;
-import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumImage
@@ -59,9 +53,11 @@ public class AlbumImage
 		_imagePath = VendoUtils.appendSlash (imagePath);
 
 		_namePlus = null;
-		_nameFirstLetterLower = null;
+		_nameFirstLettersLower = null;
 		_baseName1 = null;
 		_baseName2 = null;
+		_tagString1 = null;
+		_tagString2 = null;
 		_file = null;
 		_pixels = -1;
 //		_count = -1;
@@ -77,7 +73,7 @@ public class AlbumImage
 	{
 		_name = image.getName ();
 		_namePlus = image.getNamePlus ();
-		_nameFirstLetterLower = image.getNameFirstLetterLower ();
+		_nameFirstLettersLower = image.getNameFirstLettersLower ();
 		_numBytes = image.getNumBytes ();
 		_width = image.getWidth ();
 		_height = image.getHeight ();
@@ -91,6 +87,8 @@ public class AlbumImage
 
 		_baseName1 = image.getBaseName (/*collapseGroups*/ false);
 		_baseName2 = image.getBaseName (/*collapseGroups*/ true);
+		_tagString1 = image.getTagString (/*collapseGroups*/ false);
+		_tagString2 = image.getTagString (/*collapseGroups*/ true);
 		_file = image.getFile ();
 		_pixels = image.getPixels ();
 //		_count = image.getCount ();
@@ -144,8 +142,9 @@ public class AlbumImage
 			//convert exact RGB data to String
 			StringBuilder sb = new StringBuilder ();
 			Formatter formatter = new Formatter (sb, Locale.US);
-			for (int ii = 0; ii < rgbIntArray.length; ii++)
+			for (int ii = 0; ii < rgbIntArray.length; ii++) {
 				formatter.format ("%08x", rgbIntArray[ii]); //note: writing integers
+			}
 			_rgbData = sb.toString ();
 			formatter.close ();
 
@@ -188,7 +187,8 @@ public class AlbumImage
 				  .append (exifDateString);
 			}
 
-			String tagStr = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
+//			String tagStr = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
+			String tagStr = getTagString (collapseGroups);
 			if (tagStr.length () != 0) {
 				sb.append (HtmlNewline)
 				  .append (tagStr);
@@ -226,10 +226,11 @@ public class AlbumImage
 	///////////////////////////////////////////////////////////////////////////
 	public boolean equalBase (AlbumImage image, boolean collapseGroups)
 	{
-		if (image.getBaseName (collapseGroups).equals (getBaseName (collapseGroups)))
+		if (image.getBaseName (collapseGroups).equals (getBaseName (collapseGroups))) {
 			return true;
-		else
+		} else {
 			return false;
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -285,19 +286,43 @@ public class AlbumImage
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized String getNameFirstLetterLower ()
+	public synchronized String getNameFirstLettersLower ()
 	{
-		if (_nameFirstLetterLower == null) {
-			_nameFirstLetterLower = getName ().substring (0, AlbumImage.SubFolderLength).toLowerCase ();
+		if (_nameFirstLettersLower == null) {
+			_nameFirstLettersLower = getSubFolderFromName (getName ());
 		}
 
-		return _nameFirstLetterLower;
+		return _nameFirstLettersLower;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//calculated on demand and cached
+	public synchronized String getTagString (boolean collapseGroups)
+	{
+		if (!collapseGroups) {
+			if (_tagString1 == null) {
+				_tagString1 = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
+			}
+			return _tagString1;
+
+		} else { //collapseGroups
+			if (_tagString2 == null) {
+				_tagString2 = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
+			}
+			return _tagString2;
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getSubFolder ()
 	{
 		return _subFolder;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String getSubFolderFromName (String name)
+	{
+		return name.substring (0, AlbumImage.SubFolderLength).toLowerCase ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -491,8 +516,12 @@ public class AlbumImage
 			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
 
 		} finally {
-			if (fileChannel != null) try { fileChannel.close (); } catch (Exception ex) { _log.error (ex); ex.printStackTrace (); }
-			if (inputStream != null) try { inputStream.close (); } catch (Exception ex) { _log.error (ex); ex.printStackTrace (); }
+			if (fileChannel != null) {
+				try { fileChannel.close (); } catch (Exception ex) { _log.error (ex); ex.printStackTrace (); }
+			}
+			if (inputStream != null) {
+				try { inputStream.close (); } catch (Exception ex) { _log.error (ex); ex.printStackTrace (); }
+			}
 		}
 
 // old way - thread hangs in some cases when file does not exist
@@ -552,8 +581,9 @@ public class AlbumImage
 	{
 		String rgbDataFilePath = imagePath.replace (AlbumFormInfo._ImageExtension, AlbumFormInfo._RgbDataExtension);
 
-		if (AlbumFormInfo._logLevel >= 8)
+		if (AlbumFormInfo._logLevel >= 8) {
 			_log.debug ("AlbumImage.removeRgbDataFileFromFileSystem: rgbDataFilePath = " + rgbDataFilePath);
+		}
 
 		Path file = FileSystems.getDefault ().getPath (rgbDataFilePath);
 		if (Files.exists (file)) { //rgbDataFile might not exist: e.g., if it was already renamed with the .jpg file by mov.exe
@@ -830,22 +860,18 @@ public class AlbumImage
 	}
 
 	//following methods are used by mybatis/AlbumImageResultMap
-	@SuppressWarnings("unused")
 	private long getExifDate0 ()
 	{
 		return _exifDates[0];
 	}
-	@SuppressWarnings("unused")
 	private long getExifDate1 ()
 	{
 		return _exifDates[1];
 	}
-	@SuppressWarnings("unused")
 	private long getExifDate2 ()
 	{
 		return _exifDates[2];
 	}
-	@SuppressWarnings("unused")
 	private long getExifDate3 ()
 	{
 		return _exifDates[3];
@@ -988,7 +1014,9 @@ public class AlbumImage
 	private String _namePlus = null;
 	private String _baseName1 = null; //for collapseGroups = false
 	private String _baseName2 = null; //for collapseGroups = true
-	private String _nameFirstLetterLower = null;
+	private String _tagString1 = null; //for collapseGroups = false
+	private String _tagString2 = null; //for collapseGroups = true
+	private String _nameFirstLettersLower = null;
 	private long _pixels = -1;
 	private int _scaledWidth = -1;
 	private int _scaledHeight = -1;
@@ -1021,7 +1049,6 @@ public class AlbumImage
 //	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //format as integer
 
 //	private static final String NL = System.getProperty ("line.separator");
-//	private static final String _marker = ":::";
 	private static final Random _randomGenerator = new Random ();
 
 	private static Logger _log = LogManager.getLogger ();

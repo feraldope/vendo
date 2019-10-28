@@ -27,6 +27,8 @@ public interface AlbumImageMapper {
 
 	public int selectImageCountFromImageCounts (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
 
+	public int selectAlbumCountFromImageCounts (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
+
 	public List<AlbumImageCount> selectImageCountsFromImageCounts (@Param("sub_folder") String subFolder);
 
 	public List<AlbumImageCount> selectMismatchedEntriesFromImageCounts ();
