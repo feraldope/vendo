@@ -1049,8 +1049,36 @@ public class AlbumTags
 		Collection<NameCount> items = getAlbumsWithNoTags (minImageCount);
 
 		Set<String> baseNamesLower = items.stream ()
-				                          .map (s -> s._name.toLowerCase ())
-				                          .collect (Collectors.toSet ());
+										  .map (s -> s._name.toLowerCase ())
+										  .collect (Collectors.toSet ());
+
+		Collection<String> baseNames = new ArrayList<String> ();
+
+//TODO - add support for regexp
+		for (String baseNameLower : baseNamesLower) {
+			for (String filter : filters) {
+				if (baseNameLower.startsWith (filter.toLowerCase ())) {
+					baseNames.add (baseNameLower + "+");
+				}
+			}
+		}
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return baseNames;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//find all albums that have 0 tattoo-based tags
+	private Collection<String> getAlbumsWithNoTattoos (String[] filters)
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		Collection<String> items = getAlbumsWithNoTattoos ();
+
+		Set<String> baseNamesLower = items.stream ()
+										  .map (s -> s/*._name*/.toLowerCase ())
+										  .collect (Collectors.toSet ());
 
 		Collection<String> baseNames = new ArrayList<String> ();
 
@@ -1075,14 +1103,14 @@ public class AlbumTags
 //		AlbumProfiling.getInstance ().enter (5);
 
 		String sql = "select ic.base_name as name, ic.image_count as count" + NL +
-					 "  from albumimages.image_counts ic" + NL +
-					 "  where ic.collapse_groups = 1" + NL +
-					 "    and ic.sub_folder not in ('q-', 'qb', 'qd', 'qf', 'qg', 'qh', 'qj', 'qm', 'qt', 'xx', 'xb')" + NL + //hardcoded values
-					 "    and ic.image_count >= ?" + NL +
-					 "    and ic.base_name not in (" + NL +
-					 "	    select bn.name" + NL +
-					 "	      from albumtags.base2_names bn" + NL +
-					 "	  )" + NL;
+				"  from albumimages.image_counts ic" + NL +
+				"  where ic.collapse_groups = 1" + NL +
+				"    and ic.sub_folder not in ('q-', 'qb', 'qd', 'qf', 'qg', 'qh', 'qj', 'qm', 'qt', 'xx', 'xb')" + NL + //hardcoded values
+				"    and ic.image_count >= ?" + NL +
+				"    and ic.base_name not in (" + NL +
+				"	    select bn.name" + NL +
+				"	      from albumtags.base2_names bn" + NL +
+				"	  )" + NL;
 
 		Collection<NameCount> items = new ArrayList<NameCount> ();
 		ResultSet rs = null;
@@ -1112,6 +1140,50 @@ public class AlbumTags
 		}
 
 		_log.debug ("AlbumTags.getAlbumsWithNoTags: items.size(): " + items.size ());
+
+//		AlbumProfiling.getInstance ().exit (5);
+
+		return items;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//find all albums that have 0 tattoo-based tags
+	private Collection<String> getAlbumsWithNoTattoos ()
+	{
+//		AlbumProfiling.getInstance ().enter (5);
+
+		String sql = "select name from base2_names" + NL +
+					 "  where base2_names.name_id not in (" + NL +
+					 "    select base2_names_tags.name_id" + NL +
+					 "      from base2_names_tags" + NL +
+					 "      inner join tags on base2_names_tags.tag_id = tags.tag_id" + NL +
+					 "        where tags.is_tattoo = 1" + NL +
+					 "  )" + NL;
+
+		Collection<String> items = new ArrayList<String> ();
+		ResultSet rs = null;
+		try (Connection connection = getConnection ();
+			 PreparedStatement ps = connection.prepareStatement (sql)) {
+
+			rs = ps.executeQuery ();
+
+			while (rs.next ()) {
+				String name = rs.getString ("name");
+				items.add (name);
+//				_log.debug ("AlbumTags.getAlbumsWithNoTags: name: " + name);
+			}
+
+		} catch (Exception ee) {
+			_log.error ("AlbumTags.getAlbumsWithNoTattoos()", ee);
+			_log.error ("AlbumTags.getAlbumsWithNoTattoos: sql:" + NL + sql);
+
+		} finally {
+			if (rs != null) {
+				try { rs.close (); } catch (SQLException ex) { _log.error ("Error", ex); }
+			}
+		}
+
+		_log.debug ("AlbumTags.getAlbumsWithNoTattoos: items.size(): " + items.size ());
 
 //		AlbumProfiling.getInstance ().exit (5);
 
@@ -1202,10 +1274,57 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//insert _batchInsertSize rows at a time; query should use 'insert ignore' to avoid any problems with duplicates
 	private int insertTags (Collection<String> tags)
 	{
-		String sql = "insert ignore into tags (tag) values";
-		return insertStringsIntoTable (sql, "(?)", /*numColumns*/ 1, VendoUtils.dedupCollection (tags));
+//		AlbumProfiling.getInstance ().enter (5);
+
+		Collection<String> items = VendoUtils.dedupCollection (tags);
+
+		String sql = "insert ignore into tags (tag, is_tattoo) values (?, ?)";
+//		_log.debug ("AlbumTags.insertTags: sql: " + sql);
+
+		int rowsInserted = 0;
+		try (Connection connection = getConnection ();
+			 PreparedStatement statement = connection.prepareStatement (sql)) {
+//			_log.debug ("AlbumTags.insertTags: connection: " + connection);
+
+			connection.setAutoCommit (false);
+
+			int batchCount = 0;
+ 			Iterator<String> iter = items.iterator ();
+			while (iter.hasNext ()) {
+				String tag = iter.next ();
+				statement.setString (1, tag);
+				statement.setInt (2, tag.toLowerCase ().contains ("tattoo") ? 1 : 0);
+	        	statement.addBatch ();
+	        	batchCount++;
+
+	        	if (batchCount % _batchInsertSize == 0 || !iter.hasNext ()) {
+	        		int [] updateCounts = statement.executeBatch ();
+	        		rowsInserted += Arrays.stream (updateCounts).sum ();
+
+//        			AlbumProfiling.getInstance ().enter (5, "commit");
+	       			connection.commit ();
+//	       			AlbumProfiling.getInstance ().exit (5, "commit");
+	        	}
+	        }
+
+	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
+
+		} catch (MySQLIntegrityConstraintViolationException ee) {
+			//ignore as this will catch any duplicate insertions
+
+		} catch (Exception ee) {
+			_log.error ("AlbumTags.insertTags:", ee);
+			_log.error ("AlbumTags.insertTags: sql:" + NL + sql);
+		}
+
+//		_log.debug ("AlbumTags.insertTags: rowsInserted: " + rowsInserted);
+
+//		AlbumProfiling.getInstance ().exit (5);
+
+		return rowsInserted;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1423,6 +1542,7 @@ public class AlbumTags
 	{
 		Collection<String> items = new LinkedList<String> ();
 		items.add (_noTagsTag);
+		items.add (_noTattoosTag);
 
 		String sql = "select tag from tags order by lower(tag)";
 		items.addAll (getObjectsFromDatabase (sql, new String ()));
@@ -1572,7 +1692,7 @@ public class AlbumTags
 		}
 
 		//truncate the list
-		int maxTagsShown = 30;
+		int maxTagsShown = 60;
 		VendoUtils.truncateList (tags, maxTagsShown);
 		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}));
 
@@ -1602,9 +1722,15 @@ public class AlbumTags
 
 		Collection<String> baseNames = new ArrayList<String> ();
 
-		//short circuit for notags tag
+		//short circuit for noTags tag
 		if (VendoUtils.arrayToString (tagsIn).contains (_noTagsTag)) {
 			baseNames = getAlbumsWithNoTags (filters);
+			return baseNames;
+		}
+
+		//short circuit for noTattoos tag
+		if (VendoUtils.arrayToString (tagsIn).contains (_noTattoosTag)) {
+			baseNames = getAlbumsWithNoTattoos (filters);
 			return baseNames;
 		}
 
@@ -2016,13 +2142,14 @@ public class AlbumTags
 	private static final String _tagMarker1 = " := ";
 	private static final String _tagMarker2 = " == ";
 	private static final String _noTagsTag = "[no tags]";
+	private static final String _noTattoosTag = "[no tattoos]";
 	private static final String _wildTagsTag = "*";
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+###,##0;-###,##0"); //format integer with +/- sign
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
 	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
-	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 100 minutes)
+	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	private static boolean _Debug = false;
 	private static Logger _log = LogManager.getLogger ();

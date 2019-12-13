@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
 
 public class AlbumImageDiffer
 {
-	private enum Mode {NotSet, Names, Tags}
+	private enum Mode {NotSet, Names, Tags, Folders}
 
 	///////////////////////////////////////////////////////////////////////////
 	static
@@ -141,9 +141,11 @@ public class AlbumImageDiffer
 
 				} else if (arg.equalsIgnoreCase ("modeA")) {
 					String modeStr = args[++ii];
-					if (modeStr.compareTo("names") == 0) {
+					if (modeStr.compareTo ("names") == 0) {
 						_modeA = Mode.Names;
-					} else if (modeStr.compareTo("tags") == 0) {
+					} else if (modeStr.compareTo ("folders") == 0) {
+						_modeA = Mode.Folders;
+					} else if (modeStr.compareTo ("tags") == 0) {
 						_modeA = Mode.Tags;
 					}
 					if (_modeA == Mode.NotSet) {
@@ -152,9 +154,11 @@ public class AlbumImageDiffer
 
 				} else if (arg.equalsIgnoreCase ("modeB")) {
 					String modeStr = args[++ii];
-					if (modeStr.compareTo("names") == 0) {
+					if (modeStr.compareTo ("names") == 0) {
 						_modeB = Mode.Names;
-					} else if (modeStr.compareTo("tags") == 0) {
+					} else if (modeStr.compareTo ("folders") == 0) {
+						_modeB = Mode.Folders;
+					} else if (modeStr.compareTo ("tags") == 0) {
 						_modeB = Mode.Tags;
 					}
 					if (_modeB == Mode.NotSet) {
@@ -246,7 +250,7 @@ public class AlbumImageDiffer
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxStdDev=<n>] [/maxRows=<n>] /modeA={names|tags} /modeB={names|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
+		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxStdDev=<n>] [/maxRows=<n>] /modeA={names|subFolders|tags} /modeB={names|subFolders|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -414,7 +418,7 @@ public class AlbumImageDiffer
 		final CountDownLatch endGate = new CountDownLatch (2);
 
 		Runnable taskA = () -> {
-			if (_modeA == Mode.Names) {
+			if (_modeA == Mode.Names || _modeA == Mode.Folders) {
 				_idListA = queryImageIdsNames(_whereClauseA);
 			} else {
 				_idListA = queryImageIdsTags(_whereClauseA, _filtersA);
@@ -424,7 +428,7 @@ public class AlbumImageDiffer
 		getExecutor ().execute (taskA);
 
 		Runnable taskB = () -> {
-			if (_modeB == Mode.Names) {
+			if (_modeB == Mode.Names || _modeB == Mode.Folders) {
 				_idListB = queryImageIdsNames(_whereClauseB);
 			} else {
 				_idListB = queryImageIdsTags(_whereClauseB, _filtersB);

@@ -4,16 +4,6 @@
 
 package com.vendo.daylight;
 
-import java.awt.Color;
-import java.awt.Paint;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
-import java.util.Date;
-
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.annotations.XYLineAnnotation;
@@ -25,17 +15,22 @@ import org.jfree.chart.labels.StandardXYToolTipGenerator;
 import org.jfree.chart.plot.ValueMarker;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYItemRenderer;
-import org.jfree.data.time.Day;
-import org.jfree.data.time.Minute;
-import org.jfree.data.time.RegularTimePeriod;
-import org.jfree.data.time.TimeSeries;
-import org.jfree.data.time.TimeSeriesCollection;
+import org.jfree.data.time.*;
 import org.jfree.data.xy.XYDataset;
+
+import java.awt.*;
+import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
+import java.util.Date;
 
 
 public class DaylightChart //extends JFreeChart
 {
-	private enum AnnotationStyle {Day, Sunrise, Sunset};
+	private enum AnnotationStyle {Day, Sunrise, Sunset}
 
 	///////////////////////////////////////////////////////////////////////////
 	public JFreeChart getChart (String chartTitle, DaylightData daylightData)
@@ -134,6 +129,7 @@ public class DaylightChart //extends JFreeChart
 		XYItemRenderer renderer = plot.getRenderer ();
 		renderer.setBaseToolTipGenerator (new StandardXYToolTipGenerator () {
 			private static final long serialVersionUID = 1L;
+			@Override
 			public String generateToolTip (XYDataset dataset, int series, int index)
 			{
 				TimeSeries timeSeries = asTimeSeriesCollection (dataset).getSeries (0);
@@ -210,8 +206,8 @@ public class DaylightChart //extends JFreeChart
 	private static final SimpleDateFormat _dateFormatMonth = new SimpleDateFormat ("MMM"); //format date for domain axis
 	private static final SimpleDateFormat _dateFormatMonthDay = new SimpleDateFormat ("MMM dd"); //format date fior tooltip
 	private static final SimpleDateFormat _timeFormat = new SimpleDateFormat ("h:mm a"); //format time for tooltip
-//	private static final DateTimeFormatter _lengthOfDayFormatter = DateTimeFormatter.ofPattern("HH'h':mm'm'"); //for example: 09h:13m
-	private static final DateTimeFormatter _lengthOfDayFormatter = DateTimeFormatter.ofPattern("HH:mm"); //for example: 09:13
+//	private static final DateTimeFormatter _lengthOfDayFormatter = DateTimeFormatter.ofPattern ("HH'h':mm'm'"); //for example: 09h:13m
+	private static final DateTimeFormatter _lengthOfDayFormatter = DateTimeFormatter.ofPattern ("HH:mm"); //for example: 09:13
 
 //	private static final Logger _log = LogManager.getLogger ();
 

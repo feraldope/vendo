@@ -15,6 +15,12 @@ http://ehcache.org/ehcache.xml
 
 package com.vendo.cacheTest;
 
+import net.sf.ehcache.Cache;
+import net.sf.ehcache.CacheManager;
+import net.sf.ehcache.Element;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.File;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
@@ -24,13 +30,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 // ehcache v2
-import net.sf.ehcache.Cache;
-import net.sf.ehcache.CacheManager;
-import net.sf.ehcache.Element;
 
 
 public class Cache2Test
@@ -109,7 +109,7 @@ public class Cache2Test
 	public static boolean _Debug = false;
 
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME;
-//	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 100 minutes)
+//	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
 

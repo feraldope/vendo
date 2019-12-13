@@ -2,6 +2,12 @@
 
 package com.vendo.vendoUtils;
 
+import com.vendo.win32.ConsoleUtil;
+import com.vendo.win32.Win32;
+import org.apache.commons.lang.ArrayUtils;
+
+import javax.servlet.http.Cookie;
+import javax.servlet.http.HttpServletRequest;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -16,29 +22,10 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.Enumeration;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-
-import org.apache.commons.lang.ArrayUtils;
-
-import com.vendo.win32.ConsoleUtil;
-import com.vendo.win32.Win32;
 
 //import org.apache.logging.log4j.*;
 
@@ -331,7 +318,6 @@ public class VendoUtils
 	private static class ReflectionMethod extends GetCallerClassNameMethod
 	{
 		@Override
-		@SuppressWarnings ({ "deprecation", "restriction" })
 		public String getCallerClassName (int callStackDepth)
 		{
 			return sun.reflect.Reflection.getCallerClass (callStackDepth).getName ();
@@ -393,7 +379,6 @@ public class VendoUtils
 		}
 		private final static MySecurityManager _mySecurityManager = new MySecurityManager ();
 	}
-	@SuppressWarnings("unused")
 	private static void testMethod (GetCallerClassNameMethod method)
 	{
 		long startTime = System.nanoTime ();
@@ -499,35 +484,42 @@ public class VendoUtils
 	public static boolean matchPattern (String path, String pattern)
 	{
 		while (true) {
-			if (pattern.compareTo (_asterisk) == 0)
+			if (pattern.compareTo (_asterisk) == 0) {
 				return true;
+			}
 
-			if (pattern.length () == 0 && path.length () == 0)
+			if (pattern.length () == 0 && path.length () == 0) {
 				return true;
-			else if (pattern.length () != 0 ^ path.length () != 0)
+			} else if (pattern.length () != 0 ^ path.length () != 0) {
 				return false;
+			}
 
 			String pattChar = pattern.substring (0, 1);
 			pattern = pattern.substring (1, pattern.length ());
 
 			if (pattChar.compareTo (_asterisk) == 0) {
 				while (true) {
-					if (matchPattern (path, pattern))
+					if (matchPattern (path, pattern)) {
 						return true;
-					if (path.length () == 0)
+					}
+					if (path.length () == 0) {
 						return false;
+					}
 					path = path.substring (1, path.length ());
 				}
 
 			} else if ((pattChar.compareTo (_question) != 0) /*&&
 					   (pattChar.compareTo (_percent) != 0)*/) {
-				if (path.length () == 0)
+				if (path.length () == 0) {
 					return false;
+				}
 				String pathChar = path.substring (0, 1);
 //NOTE - this should match the file system of the server (case-insensitive on Windows; case-sensitive on unix)
 				if (pathChar.compareToIgnoreCase (pattChar) != 0)
 //				if (pathChar.compareTo (pattChar) != 0)
+				{
 					return false;
+				}
 			}
 
 			path = path.substring (1, path.length ());
@@ -541,8 +533,9 @@ public class VendoUtils
 		VPair<Integer, Integer> pair = findPattern (string, patternString, matchCount);
 
 		//numbered match not found - return original string
-		if (pair.equals (VPair.of (0, 0)))
+		if (pair.equals (VPair.of (0, 0))) {
 			return string;
+		}
 
 		int i1 = pair.getFirst ();
 		int i2 = pair.getSecond ();
@@ -569,11 +562,11 @@ public class VendoUtils
 			ii++;
 		}
 
-		if (ii == matchCount)
+		if (ii == matchCount) {
 			return pair;
-
-		else
+		} else {
 			return VPair.of (0, 0);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -632,8 +625,9 @@ public class VendoUtils
 	public static boolean isDigits (String string)
 	{
 		for (int ii = 0; ii < string.length (); ii++) {
-			if (!isDigit (string.charAt (ii)))
+			if (!isDigit (string.charAt (ii))) {
 				return false;
+			}
 		}
 
 		return true;
@@ -644,8 +638,9 @@ public class VendoUtils
 	public static boolean isHexDigits (String string)
 	{
 		for (int ii = 0; ii < string.length (); ii++) {
-			if (!isHexDigit (string.charAt (ii)))
+			if (!isHexDigit (string.charAt (ii))) {
 				return false;
+			}
 		}
 
 		return true;
@@ -940,10 +935,11 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String quoteString (String string, boolean always)
 	{
-		if (always || string.contains (" "))
+		if (always || string.contains (" ")) {
 			return "\"" + string + "\"";
-		else
+		} else {
 			return string;
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1119,7 +1115,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//in0 and in1 must be sorted, out0 and out1 should be empty or null
-	public static <T> void removeAll (Collection<T> in0, Collection<T> in1, Collection<T> out0, Collection<T> out1)
+	public static <T extends Comparable> void removeAll (Collection<T> in0, Collection<T> in1, Collection<T> out0, Collection<T> out1)
 	{
 		Iterator<T> iter0 = in0.iterator ();
 		Iterator<T> iter1 = in1.iterator ();
@@ -1147,19 +1143,19 @@ public class VendoUtils
 
 			T item0 = iter0.next ();
 			T item1 = iter1.next ();
-			while (item0.toString ().compareToIgnoreCase (item1.toString ()) == 0 && iter0.hasNext () && iter1.hasNext ()) {
+			while (item0.compareTo (item1) == 0 && iter0.hasNext () && iter1.hasNext ()) {
 //				System.out.println ("item0 = item1 -> " + item0 + ", " + item1);
 				item0 = iter0.next ();
 				item1 = iter1.next ();
 			}
-			while (item0.toString ().compareToIgnoreCase (item1.toString ()) < 0 && iter0.hasNext ()) { //item0 < item1
+			while (item0.compareTo (item1) < 0 && iter0.hasNext ()) { //item0 < item1
 //				System.out.println ("item0 < item1 -> " + item0 + ", " + item1);
 				if (out0 != null) {
 					out0.add (item0);
 				}
 				item0 = iter0.next ();
 			}
-			while (item1.toString ().compareToIgnoreCase (item0.toString ()) < 0 && iter1.hasNext ()) { //item1 < item0
+			while (item1.compareTo (item0) < 0 && iter1.hasNext ()) { //item1 < item0
 //				System.out.println ("item0 > item1 -> " + item0 + ", " + item1);
 				if (out1 != null) {
 					out1.add (item1);
@@ -1193,10 +1189,11 @@ public class VendoUtils
 	public static void printWithColor (Short bg, Short fg, String line, boolean includeNewLine)
 	{
 		try {
-			if (includeNewLine)
+			if (includeNewLine) {
 				ConsoleUtil.static_color_println (System.out, line, bg, fg);
-			else
+			} else {
 				ConsoleUtil.static_color_print (System.out, line, bg, fg);
+			}
 
 		} catch (Exception ee) {
 			ee.printStackTrace ();

@@ -2,18 +2,22 @@
 
 package com.vendo.fillDisk;
 
-import com.vendo.vendoUtils.*;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import java.io.*;
-import java.nio.*;
-import java.nio.channels.*;
-import java.nio.file.*;
-import java.text.*;
-import java.time.*;
-import java.time.format.*;
-import java.util.*;
-
-import org.apache.logging.log4j.*;
+import java.io.FileOutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.DecimalFormat;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 
 
 public class FillDisk
@@ -23,8 +27,9 @@ public class FillDisk
 	{
 		FillDisk app = new FillDisk ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -52,8 +57,9 @@ public class FillDisk
 				} else if (arg.equalsIgnoreCase ("thresholdPct") || arg.equalsIgnoreCase ("t")) {
 					try {
 						_thresholdPercent = Double.parseDouble (args[++ii]);
-						if (_thresholdPercent < 0)
+						if (_thresholdPercent < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -106,14 +112,16 @@ public class FillDisk
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [TBD]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -223,8 +231,8 @@ public class FillDisk
 //	private static final String _slash = System.getProperty ("file.separator");
 	private static Logger _log = LogManager.getLogger ();
 
-//	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern("HH'h':mm'm'"); //for example: 09h:13m
-	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss"); //for example: 09:13:15
+//	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("HH'h':mm'm'"); //for example: 09h:13m
+	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("HH:mm:ss"); //for example: 09:13:15
 
     private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("###,##0"); //int
     private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0.00"); //float/double

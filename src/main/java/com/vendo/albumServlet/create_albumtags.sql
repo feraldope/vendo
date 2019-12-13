@@ -49,8 +49,10 @@ CREATE TABLE IF NOT EXISTS tags
 (
 	tag_id		INT UNSIGNED NOT NULL AUTO_INCREMENT,
 	tag			VARCHAR(32) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL UNIQUE,
+	is_tattoo	TINYINT UNSIGNED NOT NULL,
 	PRIMARY KEY (tag_id)
 );
+CREATE INDEX is_tattoo_idx on tags (is_tattoo);
 
 CREATE TABLE IF NOT EXISTS base1_names
 (
@@ -104,8 +106,18 @@ CREATE TABLE IF NOT EXISTS tags_filters
 
 /*
 
+drop table config;
+drop table tags;
+drop table base1_names;
+drop table base2_names;
+drop table raw_names;
+drop table base1_names_tags;
+drop table base2_names_tags;
+drop table raw_names_tags;
+drop table tags_filters;
+
 -- -----------------------------------------------------------------------------
--- engine and status data for each table
+-- database engine and status data for each table
 select * 
 from information_schema.tables 
 where table_schema in ('albumtags', 'albumimages')
@@ -323,6 +335,26 @@ select ic.base_name as name, ic.image_count as count
   from albumtags.base2_names bn
  )
 ) select count(*) from temp_table
+
+
+-- -----------------------------------------------------------------------------
+-- calculated no-tattoos
+select name from base2_names
+where base2_names.name_id not in (
+    select base2_names_tags.name_id
+    from base2_names_tags 
+    inner join tags on base2_names_tags.tag_id = tags.tag_id
+    where tags.is_tattoo = 1
+)
+order by base2_names.name
+
+select * from tags where is_tattoo = 0
+order by lower(tag)
+
+
+
+
+
 
 
 */

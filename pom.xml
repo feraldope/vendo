@@ -115,11 +115,13 @@
 			<version>1.8.3</version>
 		</dependency>
 
+<!--
 		<dependency>
 			<groupId>org.apache.activemq</groupId>
 			<artifactId>activemq-all</artifactId>
 			<version>5.15.8</version>
 		</dependency>
+-->
 
 		<dependency>
 			<groupId>org.apache.commons</groupId>

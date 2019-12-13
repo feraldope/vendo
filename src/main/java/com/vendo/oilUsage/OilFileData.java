@@ -2,10 +2,13 @@
 
 package com.vendo.oilUsage;
 
-import java.time.*;
-import java.time.format.*;
-import java.time.temporal.*;
-import java.util.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
+import java.util.NoSuchElementException;
+import java.util.Scanner;
 
 //import org.apache.logging.log4j.*;
 
@@ -78,6 +81,7 @@ public class OilFileData
 	///////////////////////////////////////////////////////////////////////////
 	public static final Comparator<OilFileData> oilFileDataComparator = new Comparator<OilFileData> ()
 	{
+		@Override
 		public int compare (OilFileData o1, OilFileData o2)
 		{
 			return o1.getEndDate ().compareTo (o2.getEndDate ());
@@ -91,7 +95,7 @@ public class OilFileData
 	private double _gallons;
 	private double _dollarsPerGallon;
 
-	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("MM/dd/yyyy");
 
 //	private static final Logger _log = LogManager.getLogger ();
 }

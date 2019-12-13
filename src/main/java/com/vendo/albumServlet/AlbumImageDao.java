@@ -61,6 +61,8 @@ public class AlbumImageDao
 
 //		AlbumFormInfo._profileLevel = 5; //enable profiling just before calling run()
 
+		AlbumImageFileDetails.setCompareType (AlbumImageFileDetails.CompareType.Partial); //hack
+
 		//call this again after parsing args
 		albumImageDao.getAlbumSubFolders ();
 
@@ -160,7 +162,7 @@ public class AlbumImageDao
 			_log.error (ee);
 		}
 
-		_rootPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false);
+		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
 
 		getAlbumSubFolders ();
 
@@ -220,7 +222,7 @@ public class AlbumImageDao
 		AlbumFormInfo._profileLevel = saveProfileLevel; //disable profiling during syncFolder
 
 		AlbumProfiling.getInstance ().exit (1);
-		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
+		AlbumProfiling.getInstance ().print (true);
 
 		_log.debug ("--------------- AlbumImageDao.run - syncFolders done ---------------");
 
@@ -373,8 +375,8 @@ public class AlbumImageDao
 		dbImageFileDetails.add (new AlbumImageFileDetails ("dummy", 0, 0)); //HACK - add dummy value to the end for loop processing
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
 			String nameNoExt = imageFileDetail.getName ();
-			String baseName1 = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ false);
-			String baseName2 = AlbumImage.getBaseName (nameNoExt, /*collapseGroups*/ true);
+			String baseName1 = AlbumImage.getBaseName (nameNoExt, false);
+			String baseName2 = AlbumImage.getBaseName (nameNoExt, true);
 
 			//skip some known offenders
 			if (nameNoExt.startsWith ("q") || nameNoExt.startsWith ("x")) {
@@ -489,9 +491,11 @@ public class AlbumImageDao
 
 		//start thread to watch queue and handle events
 		new Thread (() -> {
+			int numHandled = 0;
 			while (true) {
 				try {
 					AlbumImageEvent albumImageEvent = queue.take (); //will block if queue is empty
+					numHandled++;
 
 					Path dir = albumImageEvent.getDir ();
 					WatchEvent<Path> pathEvent = albumImageEvent.getPathEvent ();
@@ -533,9 +537,14 @@ public class AlbumImageDao
 						_log.warn ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size () + "): unhandled event: " + pathEvent.kind ().name () + " on file: " + path.normalize ().toString ());
 					}
 
-					if (queue.size () == 0) {
-						handleQueueEmpty (subFolder2);
-						_log.debug ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") empty -------------------------------------------------------------------");
+					if (queue.size () == 0 || numHandled > 250) {
+						numHandled = 0;
+						updateImageCounts(subFolder2);
+						if (queue.size () == 0) {
+							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") empty --------------------------------------------------------------------");
+						} else {
+							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") update image counts ------------------------------------------------------");
+						}
 					}
 
 				} catch (Exception ee) {
@@ -673,7 +682,7 @@ public class AlbumImageDao
 			_log.error ("AlbumImageDao.handleFileCreate(\"" + subFolder + "\", \"" + nameNoExt + "\"): ", ee);
 		}
 
-	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, /*collapseGroups*/ false));
+	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, false));
 
 		if (status) {
 			_log.debug ("AlbumImageDao.handleFileCreate(\"" + subFolder + "\"): created image: " + image);
@@ -699,7 +708,7 @@ public class AlbumImageDao
 		boolean status = deleteImageFromImages (subFolder, nameNoExt);
 		AlbumImage.removeRgbDataFileFromFileSystem (rgbDataFile.toString ());
 
-	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, /*collapseGroups*/ false));
+	    _imagesNeedingCountUpdate.get ().add (AlbumImage.getBaseName(nameNoExt, false));
 
 		if (status) {
 			_log.debug ("AlbumImageDao.handleFileDelete(\"" + subFolder + "\"): deleted image: " + nameNoExt);
@@ -710,7 +719,7 @@ public class AlbumImageDao
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
-	private boolean handleQueueEmpty (String subFolder)
+	private boolean updateImageCounts (String subFolder)
 	{
 		Set<String> baseNames1 = _imagesNeedingCountUpdate.get (); //baseNames with collapseGroups = false
 		Set<String> baseNames2 = new HashSet<String> ();		   //baseNames with collapseGroups = true
@@ -721,15 +730,15 @@ public class AlbumImageDao
 			baseNames2.add (AlbumImage.getBaseName(baseName + "-01", true)); //HACK - add extra for getBaseName()
 
 			int count = getImageCountFromImages (subFolder, baseName + ".*"); //regex (e.g., Foo01 -> Foo01.*)
-			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, /*collapseGroups*/ false, count);
-			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
+			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, false, count);
+			_log.debug ("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 		baseNames1.clear ();
 
 		for (String baseName : baseNames2) {
 			int count = getImageCountFromImages (subFolder, baseName + "[0-9].*"); //regex  (e.g., Foo -> Foo[0-9].*)
-			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, /*collapseGroups*/ true, count);
-			_log.debug ("AlbumImageDao.handleQueueEmpty(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
+			rowsAffected += updateImageCountsInImageCounts (subFolder, baseName, true, count);
+			_log.debug ("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 
 		if (rowsAffected > 0) {
@@ -986,8 +995,8 @@ public class AlbumImageDao
 		int imageCount1 = 0;
 		int imageCount2 = 0;
 		for (AlbumImageFileDetails imageFileDetail : imageFileDetails) {
-			String baseName1 = AlbumImage.getBaseName (imageFileDetail.getName (), /*collapseGroups*/ false);
-			String baseName2 = AlbumImage.getBaseName (imageFileDetail.getName (), /*collapseGroups*/ true);
+			String baseName1 = AlbumImage.getBaseName (imageFileDetail.getName (), false);
+			String baseName2 = AlbumImage.getBaseName (imageFileDetail.getName (), true);
 
 			if (baseName1.compareTo (prevBaseName1) == 0) {
 				imageCount1++;
@@ -1213,7 +1222,7 @@ public class AlbumImageDao
 				public FileVisitResult visitFileFailed (Path file, IOException ex)
 				{
 					if (ex != null) {
-						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("visitFileFailed"), ex);
+						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("visitFileFailed", ex));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1223,7 +1232,7 @@ public class AlbumImageDao
 				public FileVisitResult postVisitDirectory (Path dir, IOException ex)
 				{
 					if (ex != null) {
-						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("postVisitDirectory"), ex);
+						_log.error ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception ("postVisitDirectory", ex));
 					}
 
 					return FileVisitResult.CONTINUE;

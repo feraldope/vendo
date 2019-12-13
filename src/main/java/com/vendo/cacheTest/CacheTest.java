@@ -15,17 +15,16 @@ http://ehcache.org/ehcache.xml
 
 package com.vendo.cacheTest;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /* ehcache v3
@@ -40,21 +39,20 @@ import org.ehcache.config.units.*;
 import net.sf.ehcache.*;
 import net.sf.ehcache.store.*;
 */
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 
 public class CacheTest
 {
-	private enum Mode {NotSet, Read, Write};
+	private enum Mode {NotSet, Read, Write}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String args[])
 	{
 		CacheTest app = new CacheTest ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -76,14 +74,16 @@ public class CacheTest
 
 					//dump all args
 					System.err.println ("args.length = " + args.length);
-					for (int jj = 0; jj < args.length; jj++)
+					for (int jj = 0; jj < args.length; jj++) {
 						System.err.println ("args[" + jj + "] = '" + args[jj] + "'");
+					}
 
 				} else if (arg.equalsIgnoreCase ("numItems") || arg.equalsIgnoreCase ("n")) {
 					try {
 						numItems = Integer.parseInt (args[++ii]);
-						if (numItems < 0)
+						if (numItems < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -120,8 +120,9 @@ public class CacheTest
 		}
 
 		//check for required args and handle defaults
-		if (_mode == Mode.NotSet)
+		if (_mode == Mode.NotSet) {
 			displayUsage ("No action specified", true);
+		}
 
 		if (numItems > 0) {
 			_numItems = numItems * 1000;// * 1000;
@@ -134,14 +135,16 @@ public class CacheTest
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/numItems <number of items in millions>] {/read | /write}";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -354,7 +357,7 @@ if (true) {
 	public static boolean _Debug = false;
 
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME;
-//	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 100 minutes)
+//	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
 

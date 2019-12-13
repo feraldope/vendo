@@ -6,6 +6,11 @@
 
 package com.vendo.diskUsage;
 
+import com.vendo.vendoUtils.VUncaughtExceptionHandler;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,12 +24,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VUncaughtExceptionHandler;
-import com.vendo.vendoUtils.VendoUtils;
-
 
 public class DiskUsage
 {
@@ -33,8 +32,9 @@ public class DiskUsage
 	{
 		DiskUsage app = new DiskUsage ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -60,8 +60,9 @@ public class DiskUsage
 				} else if (arg.equalsIgnoreCase ("queueSize") || arg.equalsIgnoreCase ("qs")) {
 					try {
 						_queueSize = Integer.parseInt (args[++ii]);
-						if (_queueSize <= 0)
+						if (_queueSize <= 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -71,8 +72,9 @@ public class DiskUsage
 				} else if (arg.equalsIgnoreCase ("threads") || arg.equalsIgnoreCase ("th")) {
 					try {
 						_numUsageThreads = Integer.parseInt (args[++ii]);
-						if (_numUsageThreads <= 0)
+						if (_numUsageThreads <= 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -82,8 +84,9 @@ public class DiskUsage
 				} else if (arg.equalsIgnoreCase ("threshold") || arg.equalsIgnoreCase ("t")) {
 					try {
 						thresholdGB = Double.parseDouble (args[++ii]);
-						if (thresholdGB < 0)
+						if (thresholdGB < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -140,8 +143,9 @@ public class DiskUsage
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/quiet] [/threshold <threshold in gigabytes>] <folder> [/threads <number>] [/queueSize <number>]";
 		System.err.println ("Error: " + msg + NL);
@@ -208,7 +212,7 @@ public class DiskUsage
 	private int _numUsageThreads = 50; //note there is also one enumerate thread
 
 //	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME;
-	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 100 minutes)
+	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	private static final Logger _log = LogManager.getLogger ();
 

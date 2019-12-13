@@ -405,7 +405,7 @@ public class GetUrl
 		int totalBytesRead = 0;
 		double elapsedSeconds = 0;
 
-		int retryCount = 100;
+		int retryCount = 250;
 		int retrySleepStepMillis = 250; //increase sleep time on each failure
 		int retrySleepMillis = retrySleepStepMillis;
 
@@ -1612,7 +1612,7 @@ public class GetUrl
 	private static final Integer _pid = ProcessUtils.getWin32ProcessId ();
 	private static Logger _log = LogManager.getLogger (GetUrl.class);
 
-	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm:ss"); //note this wraps values >= 100 minutes
+	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm:ss"); //note this wraps values >= 60 minutes
 
 	private static final int _alertPixels = 640;
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;

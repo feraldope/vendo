@@ -182,8 +182,8 @@ public class AlbumImages
 				String[] paramValues = request.getParameterValues (paramName);
 				if (paramValues[0].equalsIgnoreCase ("on")) {
 					if (paramName.startsWith (AlbumFormInfo._DeleteParam1)) {
-						String fileName = paramName.substring (AlbumFormInfo._DeleteParam1.length ());
-						imagesRemoved += renameImageFile (fileName);
+						String filename = paramName.substring (AlbumFormInfo._DeleteParam1.length ());
+						imagesRemoved += renameImageFile (filename);
 					} else {
 						String wildName = paramName.substring (AlbumFormInfo._DeleteParam2.length ());
 						imagesRemoved += renameImageFiles (wildName);
@@ -1726,7 +1726,7 @@ public class AlbumImages
 		Path rootPath = FileSystems.getDefault ().getPath (AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false));
 		boolean hasOneFilter = form.getFilters (/*index*/ 1).length == 1;
 
-		if (form.getMode () == AlbumMode.DoDir && form.getSortType () == AlbumSortType.ByExif && hasOneFilter && numImages > 0 && numImages < 24) {
+		if (form.getMode () == AlbumMode.DoDir && form.getSortType () == AlbumSortType.ByExif && hasOneFilter && numImages > 0) {// && numImages < 24) {
 			String baseNameDest = form.getFilters (/*index*/ 1)[0]; //only uses the first filter
 			String dash = (baseNameDest.contains ("-") ? "" : "-"); //add dash unless already there
 			Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), AlbumImage.getSubFolderFromName (baseNameDest));
@@ -1746,7 +1746,7 @@ public class AlbumImages
 				sb.append ("setlocal").append (NL);
 				sb.append ("cd /d ").append (imagePath.toString ()).append (NL);
 				for (AlbumImage image : _imageDisplayList) {
-					String nexIndex = String.format ("%03d", ++index);
+					String nexIndex = String.format ("%04d", ++index);
 					sb.append ("move ").append (image.getName ()).append (".jpg ").append (baseNameDest).append (dash).append (nexIndex).append (".jpg").append (NL);
 				}
 				sb.append ("sleep 1").append (NL);
@@ -1862,16 +1862,16 @@ public class AlbumImages
 		}
 
 		if (clearAll) {
-			AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
+			AlbumProfiling.getInstance ().enter (5);
 
 			AlbumImageDao.getInstance ().cacheMaintenance ();
 
 			long totalMem = Runtime.getRuntime ().totalMemory ();
 			long maxMem   = Runtime.getRuntime ().maxMemory ();
 			double memoryUsedPercent = 100 * (double) totalMem / maxMem;
-			_log.debug ("AlbumImage.cacheMaintenance: memoryUsedPercent: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
-													", _nameScaledImageMap: " + _decimalFormat2.format (_nameScaledImageMap.size ()) +
-													", _looseCompareMap: " + _decimalFormat2.format (_looseCompareMap.size ()));
+			_log.debug ("AlbumImage.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
+					", _nameScaledImageMap: " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize) +
+					", _looseCompareMap: " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
 
 //			_nameScaledImageMap.clear ();
 //			_looseCompareMap.clear ();
@@ -1885,20 +1885,23 @@ public class AlbumImages
 
 			numItemsRemoved = cacheMaintenance (_nameScaledImageMap, _nameScaledImageMapMaxSize);
 			if (numItemsRemoved > 0) {
-				_log.debug ("AlbumImage.cacheMaintenance: _nameScaledImageMap: " + _decimalFormat2.format (numItemsRemoved) + " items removed, new size = " + _decimalFormat2.format (_nameScaledImageMap.size ()));
+				_log.debug ("AlbumImage.cacheMaintenance: _nameScaledImageMap: " + VendoUtils.unitSuffixScale (numItemsRemoved) +
+						" items removed, new size = " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize));
 			}
 
 			numItemsRemoved = cacheMaintenance (_looseCompareMap, _looseCompareMapMaxSize);
 			if (numItemsRemoved > 0) {
-				_log.debug ("AlbumImage.cacheMaintenance: _looseCompareMap: " + _decimalFormat2.format (numItemsRemoved) + " items removed, new size = " + _decimalFormat2.format (_looseCompareMap.size ()));
+				_log.debug ("AlbumImage.cacheMaintenance: _looseCompareMap: " + VendoUtils.unitSuffixScale (numItemsRemoved) +
+						" items removed, new size = " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
 			}
 
 			long totalMem = Runtime.getRuntime ().totalMemory ();
 			long maxMem   = Runtime.getRuntime ().maxMemory ();
 			double memoryUsedPercent = 100 * (double) totalMem / maxMem;
-			_log.debug ("AlbumImage.cacheMaintenance: memoryUsedPercent: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
-													", _nameScaledImageMap: " + _decimalFormat2.format (_nameScaledImageMap.size ()) +
-													", _looseCompareMap: " + _decimalFormat2.format (_looseCompareMap.size ()));
+			_log.debug ("AlbumImage.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
+					", _nameScaledImageMap: " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize) +
+					", _looseCompareMap: " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
+
 		}
 	}
 
@@ -1936,8 +1939,8 @@ public class AlbumImages
 	private long _allCombosNumImages = 0;
 	private List<VPair<Integer, Integer>> _allCombos = null;
 
-	public static final int _nameScaledImageMapMaxSize = 24 * 1000;
-	public static final int _looseCompareMapMaxSize = 24 * 1000 * 1000;
+	public static final int _nameScaledImageMapMaxSize = 24 * 1024;
+	public static final int _looseCompareMapMaxSize = 24 * 1024 * 1024;
 	private static Map<String, ByteBuffer> _nameScaledImageMap = null;
 	private static Map<String, AlbumImagePair> _looseCompareMap = null;
 

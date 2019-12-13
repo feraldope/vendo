@@ -1,4 +1,4 @@
-//AlbumImageFileDetails.java
+//AlbumImageDiffDetails.java
 
 package com.vendo.albumServlet;
 
