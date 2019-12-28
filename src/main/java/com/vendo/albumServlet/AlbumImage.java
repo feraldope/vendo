@@ -441,6 +441,12 @@ public class AlbumImage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public boolean matchOrientation (AlbumOrientation orientation)
+	{
+		return orientation == AlbumOrientation.ShowAny || orientation == getOrientation ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public boolean isRgbDatExpectedSize (int size)
 	{
 		if (getOrientation () == AlbumOrientation.ShowAny) {

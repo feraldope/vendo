@@ -2,17 +2,16 @@
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.File;
 import java.io.FilenameFilter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumFileFilter implements FilenameFilter
@@ -26,13 +25,17 @@ public class AlbumFileFilter implements FilenameFilter
 
 		if (debugCtor && AlbumFormInfo._Debug) {
 			String inc = new String ();
-			if (includeFilters != null)
-				for (String includeFilter : includeFilters)
+			if (includeFilters != null) {
+				for (String includeFilter : includeFilters) {
 					inc += " \"" + includeFilter + "\"";
+				}
+			}
 			String exc = new String ();
-			if (excludeFilters != null)
-				for (String excludeFilter : excludeFilters)
+			if (excludeFilters != null) {
+				for (String excludeFilter : excludeFilters) {
 					exc += " \"" + excludeFilter + "\"";
+				}
+			}
 
 			_log.debug ("AlbumFileFilter ctor: includeFilters =" + inc);
 			_log.debug ("AlbumFileFilter ctor: excludeFilters =" + exc);
@@ -58,8 +61,9 @@ public class AlbumFileFilter implements FilenameFilter
 
 					includeFilter = AlbumFormInfo.convertWildcardsToRegex (includeFilter);
 
-					if (debugCtor && AlbumFormInfo._Debug)
+					if (debugCtor && AlbumFormInfo._Debug) {
 						_log.debug ("AlbumFileFilter ctor: includeFilter = " + includeFilter);
+					}
 
 					try {
 						Pattern pattern = Pattern.compile (includeFilter, patternFlags);
@@ -85,8 +89,9 @@ public class AlbumFileFilter implements FilenameFilter
 
 					excludeFilter = AlbumFormInfo.convertWildcardsToRegex (excludeFilter);
 
-					if (debugCtor && AlbumFormInfo._Debug)
+					if (debugCtor && AlbumFormInfo._Debug) {
 						_log.debug ("AlbumFileFilter ctor: excludeFilter = " + excludeFilter);
+					}
 
 					try {
 						Pattern pattern = Pattern.compile (excludeFilter, patternFlags);
@@ -166,15 +171,17 @@ public class AlbumFileFilter implements FilenameFilter
 	{
 //		_log.debug ("AlbumFileFilter.accept: name = " + name + ", pattern = " + _includePatterns + _extension);
 
-		if (_profileAccept)
+		if (_profileAccept) {
 			AlbumProfiling.getInstance ().enter (7);
+		}
 
 		//optimization: AlbumXml.doDir calls this with null dir and names with no extensions
 		//for other callers, reject any file without an image extension
 		if (dir != null) {
 			if (!name.toLowerCase ().endsWith (AlbumFormInfo._ImageExtension)) {
-				if (AlbumFormInfo._logLevel >= 10)
+				if (AlbumFormInfo._logLevel >= 10) {
 					_log.debug ("AlbumFileFilter.accept: rejecting non-image, name = " + name);
+				}
 
 				return false; //not an image file
 			}
@@ -197,8 +204,9 @@ public class AlbumFileFilter implements FilenameFilter
 					}
 				}
 			}
-			if (!status)
+			if (!status) {
 				break;
+			}
 
 			if (_excludePatterns != null) {
 				for (Pattern excludePattern : _excludePatterns) {
@@ -209,12 +217,9 @@ public class AlbumFileFilter implements FilenameFilter
 					}
 				}
 			}
-			if (!status)
+			if (!status) {
 				break;
-
-//			status = _albumImages.getImageFileExists (name);
-//			if (!status)
-//				break;
+			}
 
 /*TODO - fix this
 			if (_sinceInMillis > 0) { //0 means disabled
@@ -228,8 +233,9 @@ public class AlbumFileFilter implements FilenameFilter
 */
 		} while (false);
 
-		if (_profileAccept)
+		if (_profileAccept) {
 			AlbumProfiling.getInstance ().exit (7);
+		}
 
 		return status;
 	}

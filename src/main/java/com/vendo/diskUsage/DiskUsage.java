@@ -193,9 +193,8 @@ public class DiskUsage
 
 		System.out.println (NL + "Found " + numMatchingFolders.get () + " folders that exceed the threshold");
 
-		Instant endInstant = Instant.now ();
-//		System.out.println (Duration.between (startInstant, endInstant)); //default ISO-8601 seconds-based representation
-		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, endInstant).toNanos ()).format(_dateTimeFormatter));
+//		System.out.println (Duration.between (startInstant, Instant.now ())); //default ISO-8601 seconds-based representation
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format(_dateTimeFormatter));
 
 		if (_Debug) {
 			_log.debug ("DiskUsage.run: exiting");

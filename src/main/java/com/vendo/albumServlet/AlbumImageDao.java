@@ -61,8 +61,6 @@ public class AlbumImageDao
 
 //		AlbumFormInfo._profileLevel = 5; //enable profiling just before calling run()
 
-		AlbumImageFileDetails.setCompareType (AlbumImageFileDetails.CompareType.Partial); //hack
-
 		//call this again after parsing args
 		albumImageDao.getAlbumSubFolders ();
 
@@ -286,33 +284,32 @@ public class AlbumImageDao
 		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImages (subFolder); //result is sorted
 		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".jpg"); //result is sorted
 
-		Set<AlbumImageFileDetails> dbDiff = new HashSet<AlbumImageFileDetails> ();
-		Set<AlbumImageFileDetails> fsDiff = new HashSet<AlbumImageFileDetails> ();
+		Set<AlbumImageFileDetails> missingFromFs = new HashSet<AlbumImageFileDetails> (dbImageFileDetails);
+		Set<AlbumImageFileDetails> missingFromDb = new HashSet<AlbumImageFileDetails> (fsImageFileDetails);
 
-		//sync image files ----------------------------------------------------
+		missingFromFs.removeAll (new HashSet<AlbumImageFileDetails> (fsImageFileDetails));
+		missingFromDb.removeAll (new HashSet<AlbumImageFileDetails> (dbImageFileDetails));
 
-		VendoUtils.removeAll (dbImageFileDetails, fsImageFileDetails, dbDiff, fsDiff);
+		if (missingFromFs.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingFromFs.size() = " + missingFromFs.size () + " (to be removed from database)");
 
-		if (dbDiff.size () > 0) {
-			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", dbDiff.size() = " + dbDiff.size () + " (to be removed from database)");
-
-			List<String> sorted = dbDiff.stream ()
-										.map (v -> v.getName ())
-										.sorted (VendoUtils.caseInsensitiveStringComparator)
-										.collect (Collectors.toList ());
+			List<String> sorted = missingFromFs.stream ()
+											   .map (AlbumImageFileDetails::getName)
+											   .sorted (VendoUtils.caseInsensitiveStringComparator)
+											   .collect (Collectors.toList ());
 			for (String str : sorted) {
 //				_log.debug ("AlbumImageDao.syncFolder: to be removed from database: " + str);
 				handleFileDelete (subFolder, str);
 			}
 		}
 
-		if (fsDiff.size () > 0) {
-			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsDiff.size() = " + fsDiff.size () + " (to be added to database)");
+		if (missingFromDb.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingFromDb.size() = " + missingFromDb.size () + " (to be added to database)");
 
-			List<String> sorted = fsDiff.stream ()
-										.map (v -> v.getName ())
-										.sorted (VendoUtils.caseInsensitiveStringComparator)
-										.collect (Collectors.toList ());
+			List<String> sorted = missingFromDb.stream ()
+											   .map (AlbumImageFileDetails::getName)
+											   .sorted (VendoUtils.caseInsensitiveStringComparator)
+											   .collect (Collectors.toList ());
 			for (String str : sorted) {
 //				_log.debug ("AlbumImageDao.syncFolder: to be added to database: " + str);
 				handleFileCreate (subFolder, str);
@@ -419,22 +416,25 @@ public class AlbumImageDao
 
 		//validate every dat has jpg and vice versa ---------------------------
 
-		Set<AlbumImageFileDetails> fsJpgDiff = new HashSet<AlbumImageFileDetails> ();
-		Set<AlbumImageFileDetails> fsDatDiff = new HashSet<AlbumImageFileDetails> ();
-
 		Collection<AlbumImageFileDetails> fsDatFileDetails = getImageFileDetailsFromFileSystem (subFolder, ".dat"); //result is sorted
 
-		VendoUtils.removeAll (fsImageFileDetails, fsDatFileDetails, fsJpgDiff, fsDatDiff);
+		Set<String> missingDatFiles = fsImageFileDetails.stream ().map (AlbumImageFileDetails::getName).collect (Collectors.toSet ());
+		Set<String> missingJpgFiles = fsDatFileDetails.stream ().map (AlbumImageFileDetails::getName).collect (Collectors.toSet ());
+
+		missingDatFiles.removeAll (new HashSet<String> (fsDatFileDetails.stream () //note comparison is done on filenames WITHOUT extensions
+																  		.map (AlbumImageFileDetails::getName).collect (Collectors.toSet ())));
+
+		missingJpgFiles.removeAll (new HashSet<String> (fsImageFileDetails.stream () //note comparison is done on filenames WITHOUT extensions
+																		  .map (AlbumImageFileDetails::getName).collect (Collectors.toSet ())));
 
 		Collection<AlbumImage> imagesMissingOrBadDatFiles = new HashSet<AlbumImage> ();
 
-		if (fsJpgDiff.size () > 0) {
-			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsJpgDiff.size() = " + fsJpgDiff.size () + " (mismatched jpg/dat pairs)");
+		if (missingDatFiles.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingDatFiles.size() = " + missingDatFiles.size () + " (mismatched jpg/dat pairs)");
 
-			List<String> sorted = fsJpgDiff.stream ()
-										   .map (v -> v.getName ())
-										   .sorted (VendoUtils.caseInsensitiveStringComparator)
-										   .collect (Collectors.toList ());
+			List<String> sorted = missingDatFiles.stream ()
+												 .sorted (VendoUtils.caseInsensitiveStringComparator)
+												 .collect (Collectors.toList ());
 			for (String str : sorted) {
 				String filePath = Paths.get (_rootPath, subFolder, str + ".jpg").toString ();
 				_log.debug ("AlbumImageDao.syncFolder: warning: missing .dat for: " + filePath);
@@ -442,13 +442,12 @@ public class AlbumImageDao
 			}
 		}
 
-		if (fsDatDiff.size () > 0) {
-			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", fsDatDiff.size() = " + fsDatDiff.size () + " (mismatched jpg/dat pairs)");
+		if (missingJpgFiles.size () > 0) {
+			_log.debug ("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingJpgFiles.size() = " + missingJpgFiles.size () + " (mismatched jpg/dat pairs)");
 
-			List<String> sorted = fsDatDiff.stream ()
-										   .map (v -> v.getName ())
-										   .sorted (VendoUtils.caseInsensitiveStringComparator)
-										   .collect (Collectors.toList ());
+			List<String> sorted = missingJpgFiles.stream ()
+												 .sorted (VendoUtils.caseInsensitiveStringComparator)
+												 .collect (Collectors.toList ());
 			for (String str : sorted) {
 				String filePath = Paths.get (_rootPath, subFolder, str + ".dat").toString ();
 				_log.warn ("AlbumImageDao.syncFolder: warning: missing .jpg for: " + filePath);
@@ -537,13 +536,13 @@ public class AlbumImageDao
 						_log.warn ("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size () + "): unhandled event: " + pathEvent.kind ().name () + " on file: " + path.normalize ().toString ());
 					}
 
-					if (queue.size () == 0 || numHandled > 250) {
+					if (queue.size () == 0 || numHandled > 500) {
 						numHandled = 0;
 						updateImageCounts(subFolder2);
-						if (queue.size () == 0) {
-							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") empty --------------------------------------------------------------------");
+						if (queue.size () > 0) {
+							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") update image counts: intermediate -----------------------------------------");
 						} else {
-							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") update image counts ------------------------------------------------------");
+							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") update image counts: queue empty ------------------------------------------");
 						}
 					}
 
@@ -617,16 +616,14 @@ public class AlbumImageDao
 
 			AlbumProfiling.getInstance ().enter (7, subFolder, "accept loop");
 
-			Iterator<AlbumImage> iter = imageList.iterator ();
-			while (iter.hasNext ()) {
-				AlbumImage image = iter.next ();
-				String name = image.getName ();
+			for (AlbumImage image : imageList) {
+				String name = image.getName();
 
-				if (filter.accept (null, name)) {
+				if (filter.accept(null, name)) {
 					//if sorting by exifDate, only include images that have at least one valid exifDate
-					if (!sortByExifDate || (sortByExifDate && image.hasExifDate ())) {
-						if (orientation == AlbumOrientation.ShowAny || orientation == image.getOrientation ()) {
-							imageDisplayList.add (image);
+					if (!sortByExifDate || image.hasExifDate()) {
+						if (image.matchOrientation (orientation)) {
+							imageDisplayList.add(image);
 						}
 					}
 				}
@@ -1055,7 +1052,7 @@ public class AlbumImageDao
 			_log.error ("AlbumImageDao.getImagesFromImages(\"" + subFolder + "\"): ", ee);
 		}
 
-		Collections.sort (list, new AlbumImageComparator (AlbumSortType.ByName));
+		list.sort (new AlbumImageComparator(AlbumSortType.ByName));
 
 		AlbumProfiling.getInstance ().exit (7, subFolder);
 
@@ -1380,9 +1377,7 @@ public class AlbumImageDao
 	public Collection<String> getServletErrors ()
 	{
 //		_log.trace ("AlbumImageDao.getServletErrors: " + _servletErrorsMap);
-		return _servletErrorsMap.values ()
-								.stream ()
-								.collect (Collectors.toList ());
+		return new ArrayList<String> (_servletErrorsMap.values ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1392,7 +1387,7 @@ public class AlbumImageDao
 	{
 		//note array index is 0-based, but pattern string is 1-based
 		return IntStream.range (0, hasMatches.size ())
-						.filter(i -> hasMatches.get(i) == true)
+						.filter(hasMatches::get)
 						.mapToObj (i -> String.valueOf (i + 1))
 						.collect (Collectors.joining (","));
 	}

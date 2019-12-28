@@ -15,22 +15,19 @@
 
 package com.vendo.albumServlet;
 
-import java.io.InputStream;
-import java.net.URI;
-import java.net.URL;
-import java.util.*;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
-import javax.servlet.ServletContext;
-import javax.servlet.http.HttpServletRequest;
-
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.vendo.vendoUtils.VendoUtils;
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
+import java.util.*;
+import java.util.stream.Collectors;
 
 
 public class AlbumFormInfo
@@ -89,6 +86,7 @@ public class AlbumFormInfo
 		_looseCompare = false;
 		_ignoreBytes = false;
 		_useExifDates = false;
+		_duplicateHandling = AlbumDuplicateHandling.SelectNone;
 		_orientation = AlbumOrientation.ShowAny;
 		_useCase = false;
 		_clearCache = false;
@@ -134,6 +132,12 @@ public class AlbumFormInfo
 					_log.debug ("AlbumFormInfo.processRequest: got rootFolder = " + request.getParameterValues (paramName)[0]);
 				}
 				_rootFolder = request.getParameterValues (paramName)[0];
+
+			} else if (paramName.equals ("duplicateHandling")) {
+				if (_debugProperties) {
+					_log.debug ("AlbumFormInfo.processRequest: got duplicateHandling = " + request.getParameterValues (paramName)[0]);
+				}
+				setDuplicateHandling (request.getParameterValues (paramName)[0]);
 
 			} else if (paramName.equals ("orientation")) {
 				if (_debugProperties) {
@@ -874,6 +878,17 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public void setDuplicateHandling (String symbol)
+	{
+		_duplicateHandling = AlbumDuplicateHandling.getValue (symbol);
+	}
+
+	public AlbumDuplicateHandling getDuplicateHandling ()
+	{
+		return _duplicateHandling;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public void setOrientation (String symbol)
 	{
 		_orientation = AlbumOrientation.getValue (symbol);
@@ -1159,6 +1174,7 @@ public class AlbumFormInfo
 	private boolean _useCase = false;
 	private boolean _clearCache = false;
 	private boolean _reverseSort = false;
+	private AlbumDuplicateHandling _duplicateHandling = AlbumDuplicateHandling.SelectNone;
 	private AlbumOrientation _orientation = AlbumOrientation.ShowAny;
 	private AlbumSortType _sortType = AlbumSortType.ByName;
 	private String _userAgent = "";

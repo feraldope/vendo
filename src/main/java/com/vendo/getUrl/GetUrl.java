@@ -33,7 +33,7 @@ public class GetUrl
 	public enum FileType {JPG, MPG, WMV, MP4, AVI, Other}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String args[])
+	public static void main (String[] args)
 	{
 		GetUrl app = new GetUrl ();
 
@@ -45,7 +45,7 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
+	private Boolean processArgs (String[] args)
 	{
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
@@ -418,7 +418,7 @@ public class GetUrl
 				FileOutputStream out = new FileOutputStream (_tempFilename);
 
 				final int size = 64 * 1024;
-				byte bytes[] = new byte [size];
+				byte[] bytes = new byte [size];
 
 				long startNano = System.nanoTime ();
 				while (true) {
@@ -873,7 +873,7 @@ public class GetUrl
 		_base = _model.substring (0, lastSlash + 1);
 		String remainder = _model.substring (lastSlash + 1);
 
-		String parts1[] = splitLeaf (remainder, _blockNumber);
+		String[] parts1 = splitLeaf (remainder, _blockNumber);
 
 		if (_Debug) {
 			_log.debug ("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString (parts1));
@@ -886,7 +886,7 @@ public class GetUrl
 
 		//process tail
 		_tailUsed = _tailOrig = parts1[1];
-		String parts2[] = _tailOrig.toLowerCase ().split ("\\."); //regex
+		String[] parts2 = _tailOrig.toLowerCase ().split ("\\."); //regex
 		if (parts2.length == 2) {
 			_tailUsed = "." + parts2[1];
 		}
@@ -985,7 +985,7 @@ public class GetUrl
 		String s1 = VendoUtils.reverse (leaf);
 		String s2 = VendoUtils.replacePattern (s1, pattern, marker, blockNumber);
 		String s3 = VendoUtils.reverse (s2);
-		String parts[] = s3.split (marker);
+		String[] parts = s3.split (marker);
 
 		return parts;
 	}
@@ -1100,7 +1100,7 @@ public class GetUrl
 			return true;
 		}
 
-		Collections.sort (_switches, VendoUtils.caseInsensitiveStringComparator);
+		_switches.sort (VendoUtils.caseInsensitiveStringComparator);
 
 		String command = "gu " + _model;
 		if (!_outputPrefix.isEmpty ()) {
@@ -1251,11 +1251,10 @@ public class GetUrl
 		///////////////////////////////////////////////////////////////////////////
 		public void print () //print ends timing
 		{
-			Instant endInstant = Instant.now ();
-//			String elapsedTimeString = Duration.between (_startInstant, endInstant).toString (); //default ISO-8601 seconds-based representation
-			String elapsedTimeString = LocalTime.ofNanoOfDay (Duration.between (_startInstant, endInstant).toNanos ()).format (_dateTimeFormatter);
+//			String elapsedTimeString = Duration.between (_startInstant, Instant.now ()).toString (); //default ISO-8601 seconds-based representation
+			String elapsedTimeString = LocalTime.ofNanoOfDay (Duration.between (_startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter);
 
-			Collections.sort (_records, new AlphanumComparator ());
+			_records.sort (new AlphanumComparator ());
 
 			double totalBytes = 0;
 			double totalSeconds = 0;
@@ -1376,7 +1375,7 @@ public class GetUrl
 
 			_filenameList.addAll (getFileList (_destDir, outputPrefix));
 			_filenameList.addAll (getFileList (_destDir + subdir, outputPrefix));
-			Collections.sort (_filenameList, VendoUtils.caseInsensitiveStringComparator);
+			_filenameList.sort (VendoUtils.caseInsensitiveStringComparator);
 
 //			if (_classDebug) {
 //				System.out.println ("GetUrl.ImageBaseNames: filenameList = " + _filenameList);

@@ -2,27 +2,27 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="97c7c55e-57f6-4d7b-90e4-4ee351afb03b" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/dbnavigator.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/uiDesigner.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumDuplicateHandling.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/00.readme.txt" beforeDir="false" afterPath="$PROJECT_DIR$/00.readme.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/activeMqTest/ActiveMqTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/activeMqTest/ActiveMqTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffDetails.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffDetails.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageFileDetails.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageFileDetails.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumProfiling.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumProfiling.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumtags.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumtags.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/Cache2Test.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/Cache2Test.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/Cache3Test.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/Cache3Test.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/CacheTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/CacheTest.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/daylight/DaylightChart.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/daylight/DaylightChart.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/diskUsage/DiskUsage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/diskUsage/DiskUsage.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/fillDisk/FillDisk.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/fillDisk/FillDisk.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/oilUsage/OilFileData.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/oilUsage/OilFileData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jpgRgbData/JpgRgbData.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jpgRgbData/JpgRgbData.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -30,6 +30,13 @@
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="JUnit5 Test Class" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -44,12 +51,20 @@
   <component name="ProjectId" id="1RqF2NHYgeEtKDiFPkCICHoruT4" />
   <component name="PropertiesComponent">
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
+    <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary" value="JUnit5" />
+    <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5" value="" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/.." />
     <property name="settings.editor.selected.configurable" value="preferences.sourceCode.Java" />
   </component>
   <component name="RecentsManager">
+    <key name="CreateTestDialog.RecentsKey">
+      <recent name="com.vendo.albumServlet" />
+    </key>
     <key name="CopyClassDialog.RECENTS_KEY">
       <recent name="com.vendo.albumServlet" />
+    </key>
+    <key name="CreateTestDialog.Recents.Supers">
+      <recent name="" />
     </key>
   </component>
   <component name="RunDashboard">
@@ -63,6 +78,22 @@
         </RuleState>
       </list>
     </option>
+  </component>
+  <component name="RunManager">
+    <configuration name="AlbumServlet" type="Remote">
+      <module name="vendo" />
+      <option name="USE_SOCKET_TRANSPORT" value="true" />
+      <option name="SERVER_MODE" value="false" />
+      <option name="SHMEM_ADDRESS" />
+      <option name="HOST" value="localhost" />
+      <option name="PORT" value="5005" />
+      <option name="AUTO_RESTART" value="false" />
+      <RunnerSettings RunnerId="Debug">
+        <option name="DEBUG_PORT" value="5005" />
+        <option name="LOCAL" value="false" />
+      </RunnerSettings>
+      <method v="2" />
+    </configuration>
   </component>
   <component name="ServiceViewManager">
     <option name="showServicesTree" value="false" />
@@ -96,5 +127,12 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="XDebuggerManager">
+    <watches-manager>
+      <configuration name="Remote">
+        <watch expression="_recordMap" language="JAVA" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

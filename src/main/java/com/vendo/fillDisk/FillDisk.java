@@ -148,9 +148,8 @@ public class FillDisk
 				writeFile (filePath, buffer, _count);
 				filesWritten++;
 
-				Instant endInstant = Instant.now ();
-//				String elapsedTimeString = Duration.between (_startInstant, endInstant).toString (); //default ISO-8601 seconds-based representation
-				String elapsedTimeString = LocalTime.ofNanoOfDay (Duration.between (startInstant, endInstant).toNanos ()).format(_dateTimeFormatter);
+//				String elapsedTimeString = Duration.between (_startInstant, Instant.now ()).toString (); //default ISO-8601 seconds-based representation
+				String elapsedTimeString = LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format(_dateTimeFormatter);
 
 				System.out.print ("Percent full: " + _decimalFormat2.format (VendoUtils.getDiskPercentFull (_destDir)));
 				System.out.print (", elapsed time: " + elapsedTimeString);

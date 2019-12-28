@@ -4,6 +4,17 @@
 
 package com.vendo.jpgRgbData;
 
+import com.vendo.albumServlet.AlbumImage;
+import com.vendo.albumServlet.AlbumOrientation;
+import com.vendo.jpgInfo.FilenamePatternFilter;
+import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.VUncaughtExceptionHandler;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
@@ -18,12 +29,7 @@ import java.nio.file.Path;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -31,19 +37,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-
-import javax.imageio.ImageIO;
-
-import org.apache.commons.io.FilenameUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.albumServlet.AlbumImage;
-import com.vendo.albumServlet.AlbumOrientation;
-import com.vendo.jpgInfo.FilenamePatternFilter;
-import com.vendo.jpgUtils.JpgUtils;
-import com.vendo.vendoUtils.VUncaughtExceptionHandler;
-import com.vendo.vendoUtils.VendoUtils;
 
 
 public class JpgRgbData
@@ -59,8 +52,9 @@ public class JpgRgbData
 	{
 		JpgRgbData app = new JpgRgbData ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -144,14 +138,16 @@ public class JpgRgbData
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/subdirs] [/folder <folder>] [/file <filename pattern>] [/dateOnly]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -315,7 +311,6 @@ public class JpgRgbData
 		String imageFilename = imageFile.toAbsolutePath ().normalize ().toString ();
 
 		Instant startInstant = Instant.now ();
-		Instant endInstant = null;
 
 		BufferedImage image = JpgUtils.readImage (imageFile.toFile ());
 
@@ -341,8 +336,7 @@ public class JpgRgbData
 			//get a subset of pixels from center of image
 			int[] rawScaledImageData = scaledImage.getRGB (scaledWidth / 4, scaledHeight / 4, scaledWidth / 2, scaledHeight / 2, null, 0, scaledWidth / 2);
 
-			endInstant = Instant.now ();
-			_readImageElapsedNanos.addAndGet(Duration.between (startInstant, endInstant).toNanos ());
+			_readImageElapsedNanos.addAndGet(Duration.between (startInstant, Instant.now ()).toNanos ());
 
 //System.out.println ("JpgRgbData.readImageFile: " + imageFilename + ": " + rawScaledImageData.length + " ints");
 
@@ -398,7 +392,6 @@ public class JpgRgbData
 		scaledImageData.rewind ();
 
 		Instant startInstant = Instant.now ();
-		Instant endInstant = null;
 
 		String dataFilename = imageFilename.replace (".jpg", ".dat");
 
@@ -410,8 +403,7 @@ public class JpgRgbData
 			_log.error (ee);
 		}
 
-		endInstant = Instant.now ();
-		_writeScaledImageDataElapsedNanos.addAndGet (Duration.between (startInstant, endInstant).toNanos ());
+		_writeScaledImageDataElapsedNanos.addAndGet (Duration.between (startInstant, Instant.now ()).toNanos ());
 
 		System.out.println ("JpgRgbData.writeScaledImageData: created file: " + dataFilename);
 
@@ -425,7 +417,6 @@ public class JpgRgbData
 		String dataFilename = imageFilename.replace (".jpg", ".dat");
 
 		Instant startInstant = Instant.now ();
-		Instant endInstant = null;
 
 		ByteBuffer buffer = null;
 
@@ -441,8 +432,7 @@ public class JpgRgbData
 			_log.error (ee);
 		}
 
-		endInstant = Instant.now ();
-		_readScaledImageDataElapsedNanos.addAndGet (Duration.between (startInstant, endInstant).toNanos ());
+		_readScaledImageDataElapsedNanos.addAndGet (Duration.between (startInstant, Instant.now ()).toNanos ());
 
 		return buffer;
 	}
@@ -548,35 +538,11 @@ public class JpgRgbData
 			String folderName = folder.getName (folder.getNameCount () - 1).toString (); //folder is last leaf
 			System.out.println ("JpgRgbData.checkForOrphanedFiles: found diffs in folder: " + folderName);
 
-/* too slow
 			Set<String> datDiff = new HashSet<String> (datBaseNames);
-			datDiff.removeAll (jpgBaseNames);
 			Set<String> jpgDiff = new HashSet<String> (jpgBaseNames);
-			jpgDiff.removeAll (datBaseNames);
-*/
-/* too slow
-			Set<String> datDiff = new HashSet<String> ();
-			for (String jpgBaseName : jpgBaseNames) {
-				if (!datBaseNames.contains (jpgBaseName)) {
-					datDiff.add (jpgBaseName);
-				}
-			}
-			Set<String> jpgDiff = new HashSet<String> ();
-			for (String datBaseName : datBaseNames) {
-				if (!jpgBaseNames.contains (datBaseName)) {
-					jpgDiff.add (datBaseName);
-				}
-			}
-*/
-/* too slow
-			Set<String> datDiff = datBaseNames.stream ().filter (s -> !jpgBaseNames.contains (s)).collect (Collectors.toSet ());
-			Set<String> jpgDiff = jpgBaseNames.stream ().filter (s -> !datBaseNames.contains (s)).collect (Collectors.toSet ());
-*/
 
-			Set<String> datDiff = new HashSet<String> ();
-			Set<String> jpgDiff = new HashSet<String> ();
-
-			VendoUtils.removeAll (datBaseNames, jpgBaseNames, datDiff, jpgDiff);
+			datDiff.removeAll (new HashSet<String> (jpgBaseNames));
+			jpgDiff.removeAll (new HashSet<String> (datBaseNames));
 
 			if (datDiff.size () > 0) {
 				List<String> sorted = datDiff.stream ().sorted (VendoUtils.caseInsensitiveStringComparator)

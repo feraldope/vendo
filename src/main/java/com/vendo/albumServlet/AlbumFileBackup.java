@@ -35,17 +35,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-//	static {
-//		Runtime.getRuntime ().addShutdownHook (new Thread (() -> {
-//			VendoUtils.sleepMillis (200);
-//			//System.out.println ("Shutting down ...");
-//			System.out.println ("*************************** Intercepted Ctrl+C ***************************");
-//			//some cleaning up code...
-//		}));
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//entry point for "update database" feature
+	//entry point for "image backup" feature
 	public static void main (String args[])
 	{
 //TODO - change CLI to read properties file, too
@@ -66,7 +56,7 @@ public class AlbumFileBackup
 
 //		AlbumFormInfo._profileLevel = 5; //enable profiling just before calling run()
 
-		AlbumImageFileDetails.setCompareType (AlbumImageFileDetails.CompareType.Full); //hack
+//		AlbumImageFileDetails.setCompareType (AlbumImageFileDetails.CompareType.Full); //hack
 
 		try {
 			albumFileBackup.run ();
@@ -108,7 +98,7 @@ public class AlbumFileBackup
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("pattern") || arg.equalsIgnoreCase ("ptn")) {
+				} else if (arg.equalsIgnoreCase ("pattern") || arg.equalsIgnoreCase ("pat")) {
 					try {
 						filenamePatternString = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -152,6 +142,9 @@ public class AlbumFileBackup
 		}
 
 		//check for required args and handle defaults
+		if (!filenamePatternString.toLowerCase ().endsWith ("jpg")) {
+			filenamePatternString += "jpg";
+		}
 		_filenamePattern = Pattern.compile ("^" + filenamePatternString.replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
 		_subFolderPattern = Pattern.compile ("^" + subFolderPatternString.replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
 
@@ -219,11 +212,11 @@ public class AlbumFileBackup
 //			_log.debug ("AlbumFileBackup.run: sourceSubFolders: " + sourceSubFolders);
 //		}
 
-		System.out.println ("sourceSubFolders = " + sourceSubFolders.stream ().sorted ().collect (Collectors.joining (",")));
+		System.out.println ("sourceSubFolders(" + sourceSubFolders.size () + ") = " + sourceSubFolders.stream ().sorted ().collect (Collectors.joining (",")));
 
 		Collection<String> didNotCreate = createDestinationFoldersIfNotExist (_destRootPath, sourceSubFolders);
 		if (didNotCreate.size () > 0) {
-			_log.error("AlbumFileBackup.run: failed to create the following folders: " + didNotCreate);
+			_log.error ("AlbumFileBackup.run: failed to create the following folders: " + didNotCreate);
 		}
 
 		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
@@ -234,10 +227,10 @@ public class AlbumFileBackup
 
 		if (_debug) {
 			for (String subFolder : sourceMap.keySet ()) {
-				_log.debug ("AlbumFileBackup.run: sourceSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (sourceMap.get(subFolder).size ()));
+				_log.debug ("AlbumFileBackup.run: sourceSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (sourceMap.get (subFolder).size ()));
 			}
 			for (String subFolder : destMap.keySet ()) {
-				_log.debug ("AlbumFileBackup.run: destSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (destMap.get(subFolder).size ()));
+				_log.debug ("AlbumFileBackup.run: destSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (destMap.get (subFolder).size ()));
 			}
 		}
 
@@ -254,28 +247,34 @@ public class AlbumFileBackup
 
 		getSourceDestFolderDiffs (sourceMap, destMap, diffMap);
 
-		System.out.println ("folders to backup: " + diffMap.keySet ().stream ().sorted ().collect (Collectors.joining (",")));
+		System.out.println ("folders to backup(" + diffMap.size () + ") = " + diffMap.keySet ().stream ().sorted ().collect (Collectors.joining (",")));
 
 		if (_debug) {
 			for (String subFolder : diffMap.keySet ()) {
 				Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
-				_log.debug("AlbumFileBackup.run: diffSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (diffColl.size ()));
+				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (diffColl.size ()));
 			}
 		}
 
 		long totalDiffFiles = diffMap.values ().stream ().mapToLong (Collection::size).sum ();
 		long totalDiffBytes = diffMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
-		System.out.println ("totalDiffFiles = " + _decimalFormat2.format (totalDiffFiles) + ", totalDiffBytes = " + VendoUtils.unitSuffixScale (totalDiffBytes));
+		long usableBytes = getUsableBytesOnDrive (_destRootPath);
 
-		//TODO - verify sufficient free disk space on dest
+		System.out.println ("totalDiffFiles = " + _decimalFormat2.format (totalDiffFiles) +
+							", totalDiffBytes = " + VendoUtils.unitSuffixScale (totalDiffBytes) +
+							", usableBytes on destination = " + VendoUtils.unitSuffixScale (usableBytes));
 
-		copyFiles (diffMap);
+		if (usableBytes > addPercentPadding (totalDiffBytes, 10)) {
+			copyFiles (diffMap);
+
+		} else {
+			System.out.println ("Error: not enough space on destination drive. Aborting.");
+		}
 
 		shutdownExecutor ();
 
-		Instant endInstant = Instant.now ();
-//		System.out.println (Duration.between (startInstant, endInstant)); //default ISO-8601 seconds-based representation
-		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, endInstant).toNanos ()).format(_dateTimeFormatter));
+//		System.out.println (Duration.between (startInstant, Instant.now ())); //default ISO-8601 seconds-based representation
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -287,10 +286,10 @@ public class AlbumFileBackup
 		List<File> list = Arrays.asList (new File (rootPath.toString ()).listFiles (File::isDirectory));
 
 		subFolders = list.stream ()
-				.map (v -> v.getName ().toLowerCase ())
-				.filter (subFolderPattern.asPredicate ())
-				.sorted ()
-				.collect (Collectors.toList ());
+						 .map (v -> v.getName ().toLowerCase ())
+						 .filter (subFolderPattern.asPredicate ())
+						 .sorted (VendoUtils.caseInsensitiveStringComparator)
+						 .collect (Collectors.toList ());
 
 		return subFolders;
 	}
@@ -309,13 +308,13 @@ public class AlbumFileBackup
 				}
 				endGate.countDown ();
 			};
-			getExecutor().execute(task);
+			getExecutor ().execute (task);
 		}
 
 		try {
 			endGate.await ();
 		} catch (Exception ex) {
-			_log.error ("AlbumFileBackup.createDestinationFoldersIfNotExist: endGate:", ex);
+			_log.error ("AlbumFileBackup.createDestinationFoldersIfNotExist: endGate: ", ex);
 		}
 
 		return new ArrayList<String> (didNotCreateMap.keySet ());
@@ -326,9 +325,9 @@ public class AlbumFileBackup
 	{
 		boolean status = true;
 
-		Path destPath = FileSystems.getDefault ().getPath (destRootPath.toString(), sourceSubFolder);
+		Path destPath = FileSystems.getDefault ().getPath (destRootPath.toString (), sourceSubFolder);
 
-		if (!Files.exists(destPath) || !Files.isDirectory (destPath)) {
+		if (!Files.exists (destPath) || !Files.isDirectory (destPath)) {
 			try {
 				Files.createDirectories (destPath);
 
@@ -359,7 +358,7 @@ public class AlbumFileBackup
 			getExecutor ().execute (sourceTask);
 
 			Runnable destTask = () -> {
-				Path destPath = FileSystems.getDefault ().getPath (_destRootPath.toString(), subFolder);
+				Path destPath = FileSystems.getDefault ().getPath (_destRootPath.toString (), subFolder);
 				Collection<AlbumImageFileDetails> imageFileDetailsColl = getImageFileDetailsFromFileSystem (destPath, _filenamePattern);
 				destMap.put (subFolder, imageFileDetailsColl);
 				endGate.countDown ();
@@ -370,7 +369,7 @@ public class AlbumFileBackup
 		try {
 			endGate.await ();
 		} catch (Exception ex) {
-			_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem: endGate:", ex);
+			_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem: endGate: ", ex);
 		}
 
 		return true;
@@ -381,10 +380,10 @@ public class AlbumFileBackup
 	{
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
-		List<AlbumImageFileDetails> list = new LinkedList<AlbumImageFileDetails>();
+		Set<AlbumImageFileDetails> coll = new HashSet<AlbumImageFileDetails> ();
 
 		try {
-			Files.walkFileTree (folder, new SimpleFileVisitor<Path>() {
+			Files.walkFileTree (folder, new SimpleFileVisitor<Path> () {
 				@Override
 				public FileVisitResult visitFile (Path file, BasicFileAttributes attrs)
 				{
@@ -393,7 +392,7 @@ public class AlbumFileBackup
 						long numBytes = attrs.size ();
 						long modified = attrs.lastModifiedTime ().toMillis ();
 
-						list.add (new AlbumImageFileDetails (filename, numBytes, modified));
+						coll.add (new AlbumImageFileDetails (filename, numBytes, modified));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -424,13 +423,11 @@ public class AlbumFileBackup
 			throw new AssertionError ("Files#walkFileTree will not throw IOException if the FileVisitor does not");
 		}
 
-//		Collections.sort (list);
-
-//		_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): list.size() = " + list.size ());
+//		_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem (\"" + folder + "\"): coll.size () = " + coll.size ());
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 
-		return list;
+		return coll;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -438,71 +435,42 @@ public class AlbumFileBackup
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap,
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap)
 	{
-//		final CountDownLatch endGate = new CountDownLatch ((_testMode ? 2 : 1) * sourceMap.keySet ().size ());
 		final CountDownLatch endGate = new CountDownLatch (sourceMap.keySet ().size ());
 
 		for (String subFolder : sourceMap.keySet ()) {
 			final Collection<AlbumImageFileDetails> sourceColl = sourceMap.get (subFolder);
 			final Collection<AlbumImageFileDetails> destColl = destMap.get (subFolder);
-/*
+
 			Runnable task = () -> {
 				final Instant startInstant = Instant.now ();
 				final Collection<AlbumImageFileDetails> diffColl = new HashSet<AlbumImageFileDetails> (sourceColl);
 				diffColl.removeAll (destColl);
 				if (diffColl.size () > 0) {
-					diffMap.put(subFolder, diffColl);
+					diffMap.put (subFolder, diffColl);
 				}
-				Instant endInstant = Instant.now ();
-				_log.debug("AlbumFileBackup.getSourceDestFolderDiffs: diffColl.size = " + diffColl.size ());
-				_log.debug("AlbumFileBackup.getSourceDestFolderDiffs: elapsed@1: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, endInstant).toNanos ()).format(_dateTimeFormatter));
+				Duration duration = Duration.between (startInstant, Instant.now ());
+
+				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
+					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + subFolder + ": diffColl.size: " + diffColl.size () +
+								   ", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
+				}
+
 				endGate.countDown ();
 			};
 			getExecutor ().execute (task);
-*/
-//			if (_testMode) {
-				Runnable task2 = () -> {
-//					final Instant startInstant = Instant.now ();
-
-					final List<AlbumImageFileDetails> sourceList = new LinkedList<AlbumImageFileDetails> (sourceColl);
-					final List<AlbumImageFileDetails> destList = new LinkedList<AlbumImageFileDetails> (destColl);
-					sourceList.sort (AlbumImageFileDetails::compareTo);
-					destList.sort (AlbumImageFileDetails::compareTo);
-
-					final List<AlbumImageFileDetails> diffList = new LinkedList<AlbumImageFileDetails> ();
-
-					VendoUtils.removeAll (sourceList, destList, diffList, null);
-
-					final Collection<AlbumImageFileDetails> diffColl = new HashSet<AlbumImageFileDetails> (diffList);
-					if (diffColl.size () > 0) {
-						diffMap.put(subFolder, diffColl);
-					}
-
-//	public static <T extends Comparable> void removeAll (Collection<T> in0, Collection<T> in1, Collection<T> out0, Collection<T> out1)
-//					final Collection<AlbumImageFileDetails> diffColl = new LinkedList<AlbumImageFileDetails> (sourceColl);
-//					diffColl.removeAll (destColl);
-//					if (diffColl.size () > 0) {
-//						diffMap.put(subFolder, diffColl);
-//					}
-//					Instant endInstant = Instant.now ();
-//					_log.debug("AlbumFileBackup.getSourceDestFolderDiffs: diffColl.size = " + diffList.size ());
-//					_log.debug("AlbumFileBackup.getSourceDestFolderDiffs: elapsed@2: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, endInstant).toNanos ()).format(_dateTimeFormatter));
-					endGate.countDown ();
-				};
-				getExecutor ().execute (task2);
-			}
-//		}
+		}
 
 		try {
 			endGate.await ();
 		} catch (Exception ex) {
-			_log.error ("AlbumFileBackup.getSourceDestFolderDiffs: endGate:", ex);
+			_log.error ("AlbumFileBackup.getSourceDestFolderDiffs: endGate: ", ex);
 		}
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private long copyFiles (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap)//, Collection<AlbumImageFileDetails>> failedMap)
+	private long copyFiles (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap)
 	{
 		final CountDownLatch endGate = new CountDownLatch (diffMap.keySet ().size ());
 
@@ -513,40 +481,40 @@ public class AlbumFileBackup
 			final Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
 			Runnable task = () -> {
 				if (_debug) {
-					_log.debug("AlbumFileBackup.copyFiles: " + subFolder + ": files to copy: " + _decimalFormat2.format (diffColl.size ()));
+					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": files to copy: " + _decimalFormat2.format (diffColl.size ()));
 				}
 
 				long numSubfolderFilesCopied = 0;
 				for (AlbumImageFileDetails imageFileDetails : diffColl) {
-					Path sourcePath = FileSystems.getDefault().getPath(_sourceRootPath.toString(), subFolder, imageFileDetails.getName());
-					Path destPath = FileSystems.getDefault().getPath(_destRootPath.toString(), subFolder, imageFileDetails.getName());
+					Path sourcePath = FileSystems.getDefault ().getPath (_sourceRootPath.toString (), subFolder, imageFileDetails.getName ());
+					Path destPath = FileSystems.getDefault ().getPath (_destRootPath.toString (), subFolder, imageFileDetails.getName ());
 
 					if (_testMode) {
 
 					} else {
 						try {
-							Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
+							Files.copy (sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
 
-							if (!setFileDateTime(sourcePath, destPath)) {
-								_log.error("AlbumFileBackup.copyFiles: File.setLastModified failed for: " + destPath);
+							if (!setFileDateTime (sourcePath, destPath)) {
+								_log.error ("AlbumFileBackup.copyFiles: File.setLastModified failed for: " + destPath);
 							}
 
 							++numSubfolderFilesCopied;
-							numTotalFilesCopied.getAndIncrement();
+							numTotalFilesCopied.getAndIncrement ();
 
 							if (_verbose) {
-								String stats = "(" + _decimalFormat2.format(numTotalFilesCopied.get()) + " of " + _decimalFormat2.format(numTotalFilesToCopy) + ")";
-								_log.debug("AlbumFileBackup.copyFiles: " + stats + " copied file: " + destPath);
+								String stats = "(" + _decimalFormat2.format (numTotalFilesCopied.get ()) + " of " + _decimalFormat2.format (numTotalFilesToCopy) + ")";
+								_log.debug ("AlbumFileBackup.copyFiles: " + stats + " copied file: " + destPath);
 							}
 
 						} catch (Exception ex) {
-							_log.error("AlbumFileBackup.copyFiles: Files.copy failed to write to '" + destPath + "'. " + ex.toString());
+							_log.error ("AlbumFileBackup.copyFiles: Files.copy failed to write to '" + destPath + "'. " + ex.toString ());
 						}
 					}
 				}
 
-				if(_debug) {
-					_log.debug("AlbumFileBackup.copyFiles: " + subFolder + ": filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied));
+				if (_debug) {
+					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied));
 				}
 
 				endGate.countDown ();
@@ -557,10 +525,32 @@ public class AlbumFileBackup
 		try {
 			endGate.await ();
 		} catch (Exception ex) {
-			_log.error ("AlbumFileBackup.copyFiles: endGate:", ex);
+			_log.error ("AlbumFileBackup.copyFiles: endGate: ", ex);
 		}
 
 		return numTotalFilesCopied.get ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private long getUsableBytesOnDrive (Path path)
+	{
+		long usableBytes = 0;
+
+		try {
+			FileStore store = Files.getFileStore (path);
+			usableBytes = store.getUsableSpace ();
+
+		} catch (Exception ex) {
+			_log.error ("AlbumFileBackup.getUsableBytesOnDrive: ", ex);
+		}
+
+		return usableBytes;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	long addPercentPadding (double value, double percentPadding)
+	{
+		return (long) Math.ceil (value * (1 + percentPadding / 100));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -571,10 +561,6 @@ public class AlbumFileBackup
 
 		long lastModified = sourceFile.lastModified ();
 		boolean status = destFile.setLastModified (lastModified);
-
-//		if (!status) {
-//			_log.warn ("AlbumFileBackup.setFileDateTime: File.setLastModified failed for: " + destPath);
-//		}
 
 		return status;
 	}
@@ -598,8 +584,6 @@ public class AlbumFileBackup
 
 
 	//members
-//	private static boolean _isCLI = false; //true if running as CLI, false for servlet
-
 	private int _numThreads = 4;
 	private boolean _verbose = false;
 	private boolean _debug = false;

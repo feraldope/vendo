@@ -894,12 +894,16 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String unitSuffixScale (double value)
 	{
-		return unitSuffixScale (value, /*fieldWidth*/ 0);
+		return unitSuffixScale (value, 0);
 	}
 	public static String unitSuffixScale (double value, int fieldWidth)
 	{
 		final String[] unitSuffixArray = new String[] { "B ", "KB", "MB", "GB", "TB", "PB" };
 		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0.00");
+
+		if (value == 0) {
+			return "0";
+		}
 
 		int digitGroups = 0;
 		if (value > 0) {
@@ -1112,58 +1116,6 @@ public class VendoUtils
 			return s1.compareTo (s2);
 		}
 	};
-
-	///////////////////////////////////////////////////////////////////////////
-	//in0 and in1 must be sorted, out0 and out1 should be empty or null
-	public static <T extends Comparable> void removeAll (Collection<T> in0, Collection<T> in1, Collection<T> out0, Collection<T> out1)
-	{
-		Iterator<T> iter0 = in0.iterator ();
-		Iterator<T> iter1 = in1.iterator ();
-		while (true) {
-			if (!iter0.hasNext ()) {
-//				System.out.println ("iter0 done");
-				while (iter1.hasNext ()) {
-					T item1 = iter1.next ();
-					if (out1 != null) {
-						out1.add (item1);
-					}
-				}
-				break;
-			}
-			if (!iter1.hasNext ()) {
-//				System.out.println ("iter1 done");
-				while (iter0.hasNext ()) {
-					T item0 = iter0.next ();
-					if (out0 != null) {
-						out0.add (item0);
-					}
-				}
-				break;
-			}
-
-			T item0 = iter0.next ();
-			T item1 = iter1.next ();
-			while (item0.compareTo (item1) == 0 && iter0.hasNext () && iter1.hasNext ()) {
-//				System.out.println ("item0 = item1 -> " + item0 + ", " + item1);
-				item0 = iter0.next ();
-				item1 = iter1.next ();
-			}
-			while (item0.compareTo (item1) < 0 && iter0.hasNext ()) { //item0 < item1
-//				System.out.println ("item0 < item1 -> " + item0 + ", " + item1);
-				if (out0 != null) {
-					out0.add (item0);
-				}
-				item0 = iter0.next ();
-			}
-			while (item1.compareTo (item0) < 0 && iter1.hasNext ()) { //item1 < item0
-//				System.out.println ("item0 > item1 -> " + item0 + ", " + item1);
-				if (out1 != null) {
-					out1.add (item1);
-				}
-				item1 = iter1.next ();
-			}
-		}
-	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean hasConsole ()

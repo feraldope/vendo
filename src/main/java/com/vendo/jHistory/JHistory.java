@@ -12,9 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -71,6 +69,13 @@ public final class JHistory
 				} else if (arg.equalsIgnoreCase ("destDir") || arg.equalsIgnoreCase ("dest")) {
 					try {
 						_destDir = args[++ii];
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("outFile") || arg.equalsIgnoreCase ("out")) {
+					try {
+						_outFileName = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
@@ -156,13 +161,15 @@ public final class JHistory
 
 				UrlData urlData = parseLine (string);
 				if (urlData != null && urlData.isImage ()) {
+					String urlNormalizedString = urlData.getNormalizedLine ();
+					writeOutFile (urlNormalizedString + NL);
+
 					System.out.println ("");
 
 					List<MatchData> matchList = findInHistory (urlData.getPathBase ());
-
 					if (matchList.size () > 0) {
 						System.out.println ("Duplicate entry(s) found in history file: " + matchList.size ());
-						System.out.println ("---- " + urlData.getNormalizedLine ());
+						System.out.println ("---- " + urlNormalizedString);
 
 						int maxLines = (_Debug ? 20 : 6);
 						int lineCount = Math.min (matchList.size (), maxLines);
@@ -176,7 +183,7 @@ public final class JHistory
 
 					} else {
 						System.out.print ("Not found: ");
-						VendoUtils.printWithColor (_highlightColor, urlData.getNormalizedLine ());
+						VendoUtils.printWithColor (_highlightColor, urlNormalizedString);
 					}
 				}
 
@@ -489,6 +496,28 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private boolean writeOutFile (String urlString)
+	{
+		if (_outFileName == null || _outFileSet.contains (urlString)) {
+	 		return false;
+		}
+
+		try (FileOutputStream outputStream = new FileOutputStream (new File(_destDir + _outFileName), /*append*/ true)) {
+			outputStream.write (urlString.getBytes ());
+			outputStream.flush ();
+
+			_outFileSet.add (urlString);
+
+		} catch (IOException ee) {
+			_log.error ("JHistory.writeOutFile: error writing output file \"" + _destDir + _outFileName + "\"");
+			_log.error (ee); //print exception, but no stack trace
+			return false;
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private void printTiming (Instant startInstant, String message)
 	{
 		if (!_printTiming) {
@@ -602,8 +631,10 @@ public final class JHistory
 
 	//private members
 	private String _destDir = null;
+	private String _outFileName = null;
 	private List<UrlData> _historyFileContents = new ArrayList<UrlData> ();
 	private FileTime _historyFileModified = FileTime.from (Instant.MIN);
+	private Set<String> _outFileSet = new HashSet<String> ();
 
 	private boolean _printTiming = true; //for performance timing
 //	private Instant _startInstant = Instant.EPOCH; //for performance timing

@@ -1,6 +1,16 @@
 Tomcat Configuration Instructions
 
 -------------------------------------------------------------------------------
+12/20/19
+
+Remoe debug tomcat from IntelliJ
+
+https://blog.trifork.com/2014/07/14/how-to-remotely-debug-application-running-on-tomcat-from-within-intellij-idea/
+
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8w.exe" //ES//Tomcat8
+-agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n
+
+-------------------------------------------------------------------------------
 04/21/18
 07/18/17
 

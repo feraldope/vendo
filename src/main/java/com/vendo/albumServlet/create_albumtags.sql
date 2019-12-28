@@ -123,6 +123,12 @@ from information_schema.tables
 where table_schema in ('albumtags', 'albumimages')
 order by table_schema, table_name
 
+-- database table sizes
+select table_schema as 'Schema', table_name as 'Table', ROUND((data_length + index_length) / 1024 / 1024) as 'Size in MB'
+from information_schema.tables 
+where table_schema in ('albumtags', 'albumimages', 'gihistory')
+order by table_schema, table_name
+
 -- -----------------------------------------------------------------------------
 -- table sizes (number of rows)
 select 'config' as name, count(*) as rows from config

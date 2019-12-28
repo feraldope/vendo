@@ -38,7 +38,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//entry point for "update tags database" feature
-	public static void main (String args[])
+	public static void main (String[] args)
 	{
 //TODO - change CLI to read properties file, too
 
@@ -79,7 +79,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
+	private Boolean processArgs (String[] args)
 	{
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
@@ -292,7 +292,7 @@ public class AlbumTags
 		}
 
 		List<String> tagFileKeys = new ArrayList<String> (tagFileMap.keySet ());
-		Collections.sort (tagFileKeys, VendoUtils.caseInsensitiveStringComparator);
+		tagFileKeys.sort (VendoUtils.caseInsensitiveStringComparator);
 
 		for (String tag : tagFileKeys) {
 //			_log.debug ("AlbumTags.run1: processing tag = \"" + tag + "\"");
@@ -476,7 +476,7 @@ public class AlbumTags
 			matchingTagLines.add (_wildTagsTag + _tagMarker1 + processWildTag (wildTagBuffer.toString ()));
 		}
 
-		Collections.sort (matchingTagLines, VendoUtils.caseInsensitiveStringComparator);
+		matchingTagLines.sort (VendoUtils.caseInsensitiveStringComparator);
 		int numMatchingLines = matchingTagLines.size ();
 		_log.debug ("AlbumTags.readTagFile: found " + numMatchingLines + " matching lines");
 
@@ -572,7 +572,7 @@ public class AlbumTags
 //				_log.debug ("AlbumTags.generateTagData: " + subFolder + ": outFilterList.size() = " + outFilterList.size ());
 
 				if (outFilterList.size () > 0) {
-					Collections.sort (outFilterList, VendoUtils.caseInsensitiveStringComparator);
+					outFilterList.sort (VendoUtils.caseInsensitiveStringComparator);
 
 					synchronized (filterStringMap) {
 						filterStringMap.put (subFolder, outFilterList);
@@ -602,7 +602,7 @@ public class AlbumTags
 
 			if (filterStrings != null) {
 				new Thread (() -> {
-					final String filters[] = filterStrings.toArray (new String[] {});
+					final String[] filters = filterStrings.toArray (new String[] {});
 					final AlbumFileFilter filter = new AlbumFileFilter (filters, null, /*useCase*/ false, /*sinceInMillis*/ 0);
 
 					checkForMalformedFilters (filters); //prints any malformed filters
@@ -766,7 +766,7 @@ public class AlbumTags
 				                           .replaceAll (",,", ",").trim ();
 		String[] wildTags = VendoUtils.trimArrayItems (wildTagRawString.split (","));
 		List<String> wildTagList = Arrays.asList (wildTags);
-		wildTagList.sort ((s1, s2) -> s1.compareToIgnoreCase(s2));
+		wildTagList.sort (String::compareToIgnoreCase);
 		String wildTagString = VendoUtils.arrayToString (wildTagList.toArray (new String[] {}), ", "); //caller requires comma+space as separator
 
 //		_log.debug ("AlbumTags.processWildTag: wildTag: " + wildTagString);
@@ -813,13 +813,12 @@ public class AlbumTags
 
 		//complete list
 		List<String> firstList = new ArrayList<String> (Arrays.asList (filterArray));
-		Collections.sort (firstList, VendoUtils.caseInsensitiveStringComparator);
+		firstList.sort (VendoUtils.caseInsensitiveStringComparator);
 
 		//pass through set to deduplicate
 		Set<String> set = new HashSet<String> (Arrays.asList (filterArray));
-		List<String> secondList = new ArrayList<String> ();
-		secondList.addAll (set);
-		Collections.sort (secondList, VendoUtils.caseInsensitiveStringComparator);
+		List<String> secondList = new ArrayList<String> (set);
+		secondList.sort (VendoUtils.caseInsensitiveStringComparator);
 
 //		firstList.removeAll (secondList); //can't use this because it removes dups, so do it by hand
 		for (String item : secondList) {
@@ -1023,17 +1022,15 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//remove everything in collection2 from collection1
+	//returns a new Set with everything in collection2 removed from collection1 (use of Sets is virtually required for removeAll)
 	public static <T> Collection<T> subtractCollections (Collection<T> collection1, Collection<T> collection2)
 	{
-		Collection<T> newItems = new ArrayList<T> ();
+		Collection<T> newItems = new HashSet<T> (collection1);
 
-		try { //handle case where collection is null
-			newItems = new ArrayList<T> (collection1.size ());
-			newItems.addAll (collection1); //copy values so we don't modify source collection
+		if (collection2 instanceof Set) {
 			newItems.removeAll (collection2);
-
-		} catch (Exception ee) {
+		} else {
+			newItems.removeAll (new HashSet<T> (collection2));
 		}
 
 		return newItems;
@@ -1508,7 +1505,7 @@ public class AlbumTags
 
 		for (String tag : tagMap.keySet ()) {
 			List<String> filterList = new ArrayList<String> (tagMap.get (tag));
-			Collections.sort (filterList, VendoUtils.caseInsensitiveStringComparator);
+			filterList.sort (VendoUtils.caseInsensitiveStringComparator);
 			String filterStr = VendoUtils.arrayToString (filterList.toArray (new String[] {}));
 			tagFilters.add (new TagFilter2 (tag, filterStr));
 		}
@@ -1886,7 +1883,7 @@ public class AlbumTags
 //			errorCount++;
 //		}
 
-		return (errorCount > 0 ? false : true);
+		return (errorCount == 0);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1923,7 +1920,7 @@ public class AlbumTags
 			connection = getDataSource ().getConnection ();
 
 		} catch (Exception ee) {
-			connection = null;
+//			connection = null;
 			_log.error ("AlbumTags.getConnection: error connecting to database", ee);
 		}
 

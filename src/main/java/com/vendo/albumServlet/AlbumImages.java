@@ -402,6 +402,7 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
+		AlbumOrientation orientation = form.getOrientation ();
 		boolean collapseGroups = form.getCollapseGroups ();
 		boolean limitedCompare = form.getLimitedCompare ();
 		boolean dbCompare = form.getDbCompare ();
@@ -507,13 +508,13 @@ public class AlbumImages
 							continue;
 						}
 
-						if (image1.getOrientation () != image2.getOrientation ()) {
+						if (!image1.matchOrientation (image2.getOrientation ()) || !image1.matchOrientation (orientation)) {
 							continue;
 						}
 
 						boolean sameBaseName = image1.equalBase (image2, collapseGroups);
-						if (!limitedCompare || (limitedCompare && (!reverseSort && !sameBaseName) ||
-																  ( reverseSort &&  sameBaseName))) {
+						if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
+												( reverseSort &&  sameBaseName))) {
 							//proceed with next test
 						} else {
 							continue;
@@ -694,13 +695,17 @@ public class AlbumImages
 					AlbumImage image1 = map.get (item.getName1 ());
 					AlbumImage image2 = map.get (item.getName2 ());
 					//images can be null if excludes was used
-					if (image1 != null && image2 != null && image1.getOrientation () == image2.getOrientation ()) {
+					if (image1 != null && image2 != null && image1.matchOrientation (image2.getOrientation ()) && image1.matchOrientation (orientation)) {
 						//at least one of each pair must be accepted by filter1
 						if (filter1.accept (null, image1.getName ()) || filter1.accept (null, image2.getName ())) {
-							AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff (), item.getStdDev (), item.getSource (), item.getLastUpdate());
-							dups.add (pair);
-							String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
-							_looseCompareMap.put (joinedNames, pair);
+								boolean sameBaseName = image1.equalBase (image2, collapseGroups);
+								if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
+														( reverseSort &&  sameBaseName))) {
+								AlbumImagePair pair = new AlbumImagePair (image1, image2, item.getAverageDiff (), item.getStdDev (), item.getSource (), item.getLastUpdate());
+								dups.add (pair);
+								String joinedNames = AlbumImagePair.getJoinedNames (image1, image2);
+								_looseCompareMap.put (joinedNames, pair);
+							}
 						}
 					}
 				}
@@ -719,7 +724,7 @@ public class AlbumImages
 					//get a new list, sorted for each exifDateIndex
 					List<AlbumImage> list1 = new ArrayList<AlbumImage> (numImages);
 					list1.addAll (_imageDisplayList);
-					Collections.sort (list1, new AlbumImageComparator (sortType, ii /*exifDateIndex*/));
+					list1.sort (new AlbumImageComparator (sortType, /*exifDateIndex*/ ii));
 					AlbumImage[] images1 = list1.toArray (new AlbumImage[] {});
 
 					AlbumImage prevImage = null;
@@ -729,8 +734,8 @@ public class AlbumImages
 							if (filter1.accept (null, image.getName ()) || filter1.accept (null, prevImage.getName ())) {
 								if (image.equalAttrs (prevImage, looseCompare, ignoreBytes, useExifDates, ii /*exifDateIndex*/)) {
 									boolean sameBaseName = image.equalBase (prevImage, collapseGroups);
-									if (!limitedCompare || (limitedCompare && (!reverseSort && !sameBaseName) ||
-																			  ( reverseSort &&  sameBaseName))) {
+									if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
+															( reverseSort &&  sameBaseName))) {
 										dupSet.add (new AlbumImagePair (image, prevImage));
 									}
 								}
@@ -751,8 +756,8 @@ public class AlbumImages
 						if (filter1.accept (null, image.getName ()) || filter1.accept (null, prevImage.getName ())) {
 							if (image.equalAttrs (prevImage, looseCompare, ignoreBytes, useExifDates, exifDateIndex)) {
 								boolean sameBaseName = image.equalBase (prevImage, collapseGroups);
-								if (!limitedCompare || (limitedCompare && (!reverseSort && !sameBaseName) ||
-																		  ( reverseSort &&  sameBaseName))) {
+								if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
+														( reverseSort &&  sameBaseName))) {
 									dups.add (new AlbumImagePair (image, prevImage));
 								}
 							}
@@ -1257,6 +1262,7 @@ public class AlbumImages
 		boolean collapseGroups = _form.getCollapseGroups ();
 		//for mode = AlbumMode.DoDup, disable collapseGroups for tags
 		boolean collapseGroupsForTags = mode == AlbumMode.DoDup ? false : collapseGroups;
+		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling ();
 
 		//reduce number of columns when it is greater than number of images
 		if (cols > numImages) {
@@ -1396,6 +1402,8 @@ public class AlbumImages
 				String extraDiffString = new String ();
 				StringBuilder details = new StringBuilder ();
 
+				boolean selectThisDuplicateImage = false;
+
 				if (mode == AlbumMode.DoSampler) {
 					//if collapseGroups is enabled, disable it in the drilldown when there is only one group
 					AlbumMode newMode = AlbumMode.DoDir;
@@ -1460,6 +1468,44 @@ public class AlbumImages
 						imageBorderStyle = "dashed";
 					}
 
+					if (duplicateHandling != AlbumDuplicateHandling.SelectNone) {
+						switch (duplicateHandling) {
+						default:
+							throw new RuntimeException ("AlbumImages.generateHtml: invalid duplicateHandling \"" + duplicateHandling + "\"");
+						case SelectFirst:
+							if (isEven) {
+								selectThisDuplicateImage = true;
+							}
+							break;
+
+						case SelectSecond:
+							if (!isEven) {
+								selectThisDuplicateImage = true;
+							}
+							break;
+
+						case SelectSmallerFirst:
+							if (pixelDiff == 0) {
+								if (isEven) {
+									selectThisDuplicateImage = true;
+								}
+							} else if (pixelDiff < 0) {
+								selectThisDuplicateImage = true;
+							}
+							break;
+
+						case SelectSmallerSecond:
+							if (pixelDiff == 0) {
+								if (!isEven) {
+									selectThisDuplicateImage = true;
+								}
+							} else if (pixelDiff < 0) {
+								selectThisDuplicateImage = true;
+							}
+							break;
+						}
+					}
+
 					//set columns from image/partner that comes first alphabetically
 					int imageCols = getNumMatchingImages (imageNonUniqueString, 0);
 					int partnerCols = getNumMatchingImages (partnerNonUniqueString, 0);
@@ -1521,11 +1567,9 @@ public class AlbumImages
 				String fontColor = "black";
 				if (image.getWidth () < highlightMinPixels || image.getHeight () < highlightMinPixels) {
 					fontColor = "red";
-				}
-				if (image.getNumBytes() > highlightMaxKilobytes * 1024) {
+				} else if (image.getNumBytes() > highlightMaxKilobytes * 1024) {
 					fontColor = "magenta";
-				}
-				if (image.getTagString (collapseGroups).isEmpty ()) {
+				} else if (image.getTagString (collapseGroups).isEmpty ()) {
 					fontColor = "darkred";
 				}
 
@@ -1586,7 +1630,9 @@ public class AlbumImages
 					  .append ("<FORM>Delete<INPUT TYPE=\"CHECKBOX\" NAME=\"")
 					  .append (deleteParam)
 //don't close form	  .append ("\"></FORM>").append (NL);
-					  .append ("\">").append (NL);
+					  .append ("\"")
+					  .append (selectThisDuplicateImage ? " CHECKED" : "")
+					  .append (">").append (NL);
 				}
 
 				sb.append ("</TD>").append (NL);
@@ -1878,6 +1924,8 @@ public class AlbumImages
 			_nameScaledImageMap = new ConcurrentHashMap<String, ByteBuffer> (_nameScaledImageMapMaxSize); //hack
 			_looseCompareMap = new ConcurrentHashMap<String, AlbumImagePair> (_looseCompareMapMaxSize); //hack
 
+			_allCombos = null;
+
 			AlbumProfiling.getInstance ().exit (5);
 
 		} else {
@@ -1901,7 +1949,6 @@ public class AlbumImages
 			_log.debug ("AlbumImage.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
 					", _nameScaledImageMap: " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize) +
 					", _looseCompareMap: " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
-
 		}
 	}
 
@@ -1936,8 +1983,8 @@ public class AlbumImages
 
 	private int _tableBorderPixels = 0; //set to 0 normally, set to 1 for debugging
 
-	private long _allCombosNumImages = 0;
-	private List<VPair<Integer, Integer>> _allCombos = null;
+	private static long _allCombosNumImages = 0;
+	private static List<VPair<Integer, Integer>> _allCombos = null;
 
 	public static final int _nameScaledImageMapMaxSize = 24 * 1024;
 	public static final int _looseCompareMapMaxSize = 24 * 1024 * 1024;

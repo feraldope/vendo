@@ -9,21 +9,20 @@ http://localhost/servlet/AlbumServlet.AlbumServlet
 
 package com.vendo.albumServlet;
 
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 
 
 public class AlbumServlet extends HttpServlet
@@ -253,9 +252,11 @@ public class AlbumServlet extends HttpServlet
 
 //		   .append (inputElement ("Extension", "extension", form.getExtension (), 10)) //could make this hidden??
 		   .append (radioButtons ("Columns", "columns", form.getColumns (), 1, form.getMaxColumns (), 4)).append (_break).append (NL)
+
 		   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (/*visibleInUi*/ true), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
 		   .append (checkbox ("Reverse Sort", "reverseSort", form.getReverseSort ())).append (_spacing).append (NL)
-		   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_break).append (NL)
+		   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_spacing).append (NL)
+		   .append (dropDown ("Duplicate Handling", "duplicateHandling", AlbumDuplicateHandling.getValues (), AlbumDuplicateHandling.SelectNone.toString ())).append (_break).append (NL)
 
 		   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth)).append (_spacing).append (NL)
 //		   .append (inputElement ("Since Days", "sinceDays", form.getSinceDays (), numberFieldWidth)).append (_spacing).append (NL)
@@ -344,8 +345,9 @@ public class AlbumServlet extends HttpServlet
 	private String inputElement (String prompt, String name, int value, int size)
 	{
 		String num = "";
-		if (value != 0)
+		if (value != 0) {
 			num = String.valueOf (value);
+		}
 
 		return (inputElement (prompt, name, num, size));
 	}
@@ -354,14 +356,17 @@ public class AlbumServlet extends HttpServlet
 	private String inputElement (String prompt, String name, double value, int size)
 	{
 		String num = "";
-		if (value != 0)
+		if (value != 0) {
 			num = String.valueOf (value);
+		}
 
 		//strip trailing zeros (assumes decimal point is always included)
-		while (num.endsWith ("0"))
+		while (num.endsWith ("0")) {
 			num = num.substring (0, num.length () - 1);
-		if (num.endsWith ("."))
+		}
+		if (num.endsWith (".")) {
 			num = num.substring (0, num.length () - 1);
+		}
 
 		return (inputElement (prompt, name, num, size));
 	}
