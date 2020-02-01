@@ -225,14 +225,14 @@ public class AlbumFileBackup
 
 		getImageFileDetailsFromFileSystem (sourceSubFolders, sourceMap, destMap);
 
-		if (_debug) {
-			for (String subFolder : sourceMap.keySet ()) {
-				_log.debug ("AlbumFileBackup.run: sourceSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (sourceMap.get (subFolder).size ()));
-			}
-			for (String subFolder : destMap.keySet ()) {
-				_log.debug ("AlbumFileBackup.run: destSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (destMap.get (subFolder).size ()));
-			}
-		}
+//		if (_debug) {
+//			for (String subFolder : sourceMap.keySet ()) {
+//				_log.debug ("AlbumFileBackup.run: sourceSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (sourceMap.get (subFolder).size ()));
+//			}
+//			for (String subFolder : destMap.keySet ()) {
+//				_log.debug ("AlbumFileBackup.run: destSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (destMap.get (subFolder).size ()));
+//			}
+//		}
 
 		long totalSourceFiles = sourceMap.values ().stream ().mapToLong (Collection::size).sum ();
 		long totalDestFiles = destMap.values ().stream ().mapToLong (Collection::size).sum ();

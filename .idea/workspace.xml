@@ -2,27 +2,16 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="97c7c55e-57f6-4d7b-90e4-4ee351afb03b" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/uiDesigner.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumDuplicateHandling.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/00.readme.txt" beforeDir="false" afterPath="$PROJECT_DIR$/00.readme.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageFileDetails.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageFileDetails.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDifferGen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDifferGen.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumProfiling.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumProfiling.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumtags.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumtags.sql" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/diskUsage/DiskUsage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/diskUsage/DiskUsage.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/fillDisk/FillDisk.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/fillDisk/FillDisk.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jpgRgbData/JpgRgbData.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jpgRgbData/JpgRgbData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/testImageDiffer.bat" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/testImageDiffer.bat" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -129,10 +118,40 @@
     </option>
   </component>
   <component name="XDebuggerManager">
-    <watches-manager>
-      <configuration name="Remote">
-        <watch expression="_recordMap" language="JAVA" />
-      </configuration>
-    </watches-manager>
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java</url>
+          <line>494</line>
+          <option name="timeStamp" value="22" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java</url>
+          <line>462</line>
+          <option name="timeStamp" value="23" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java</url>
+          <line>915</line>
+          <option name="timeStamp" value="24" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java</url>
+          <line>1078</line>
+          <option name="timeStamp" value="27" />
+        </line-breakpoint>
+        <line-breakpoint type="java-line">
+          <condition expression="baseNameLower.startsWith(&quot;kathyc&quot;)" language="JAVA" />
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java</url>
+          <line>1088</line>
+          <option name="timeStamp" value="28" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java</url>
+          <line>1094</line>
+          <option name="timeStamp" value="29" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

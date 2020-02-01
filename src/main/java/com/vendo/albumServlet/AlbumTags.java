@@ -1042,16 +1042,18 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
+//TODO - add support for regexp
+		_log.warn ("AlbumTags.getAlbumsWithNoTags: DOES NOT SUPPORT WILDCARDS OR SPECIAL CHARACTERS ****************");
+
 		final int minImageCount = 30;
 		Collection<NameCount> items = getAlbumsWithNoTags (minImageCount);
 
 		Set<String> baseNamesLower = items.stream ()
-										  .map (s -> s._name.toLowerCase ())
+										  .map (s -> s._name.toLowerCase () + "+")
 										  .collect (Collectors.toSet ());
 
 		Collection<String> baseNames = new ArrayList<String> ();
 
-//TODO - add support for regexp
 		for (String baseNameLower : baseNamesLower) {
 			for (String filter : filters) {
 				if (baseNameLower.startsWith (filter.toLowerCase ())) {
@@ -1071,15 +1073,17 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
+//TODO - add support for regexp
+		_log.warn ("AlbumTags.getAlbumsWithNoTattoos: DOES NOT SUPPORT WILDCARDS OR SPECIAL CHARACTERS ****************");
+
 		Collection<String> items = getAlbumsWithNoTattoos ();
 
 		Set<String> baseNamesLower = items.stream ()
-										  .map (s -> s/*._name*/.toLowerCase ())
+										  .map (s -> s/*._name*/.toLowerCase () + "+")
 										  .collect (Collectors.toSet ());
 
 		Collection<String> baseNames = new ArrayList<String> ();
 
-//TODO - add support for regexp
 		for (String baseNameLower : baseNamesLower) {
 			for (String filter : filters) {
 				if (baseNameLower.startsWith (filter.toLowerCase ())) {

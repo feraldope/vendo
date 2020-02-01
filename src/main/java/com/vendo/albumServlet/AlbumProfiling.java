@@ -2,20 +2,17 @@
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VendoUtils;
+import java.util.stream.Collectors;
 
 
 public class AlbumProfiling
@@ -44,17 +41,17 @@ public class AlbumProfiling
 				7	//max
 				};
 
-		_records = new HashMap<String, ProfileRecord> (32);
-		_ignoreableRecords = new HashSet<ProfileIgnoreableRecord> ();
+		_recordMap = new HashMap<String, ProfileRecord> (32);
+		_ignorableRecords = new HashSet<ProfileIgnorableRecord> ();
 		_recordsIgnoredCount = 0;
 		_currentIndex = 0;
 
 		//TODO - these should be set by caller, not hardcoded
-		_minRecordCountToStifleIgnoreables = 60;
-		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*doDir.*accept.*loop.*", 200));
-		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*getImagesFromCache.*", 200));
-		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*getImagesFromImages.*", 200));
-		_ignoreableRecords.add(new ProfileIgnoreableRecord (".*getLastUpdateFromImageFolder.*", 200));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*doDir.*accept.*loop.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImagesFromCache.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImagesFromImages.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImageCountsFromImageCounts.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getLastUpdateFromImageFolder.*", 10));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -118,8 +115,8 @@ public class AlbumProfiling
 			_log.trace (method.toString ());
 		}
 
-		synchronized (_records) {
-			ProfileRecord record = _records.get (method.toString ());
+		synchronized (_recordMap) {
+			ProfileRecord record = _recordMap.get (method.toString ());
 
 			if (record == null) {
 //				_log.debug ("AlbumProfiling.enter: adding record for \"" + method + "\"");
@@ -135,7 +132,7 @@ public class AlbumProfiling
 				record._inProcess = true;
 			}
 
-			_records.put (method.toString (), record);
+			_recordMap.put (method.toString (), record);
 		}
 	}
 
@@ -178,8 +175,8 @@ public class AlbumProfiling
 			method.append (".").append (tag);
 		}
 
-		synchronized (_records) {
-			ProfileRecord record = _records.get (method.toString ());
+		synchronized (_recordMap) {
+			ProfileRecord record = _recordMap.get (method.toString ());
 			if (record == null) {
 //				throw new RuntimeException ("AlbumProfiling.exit: entry does not exist for \"" + method + "\"");
 				_log.error ("AlbumProfiling.exit: entry does not exist for \"" + method.toString () + "\"");
@@ -200,7 +197,7 @@ public class AlbumProfiling
 			record._startNano = 0;
 			record._inProcess = false;
 
-			_records.put (method.toString (), record);
+			_recordMap.put (method.toString (), record);
 		}
 	}
 
@@ -246,7 +243,7 @@ public class AlbumProfiling
 //		if (!AlbumFormInfo._Profiling)
 //			return;
 
-		if (_records == null || _records.size () == 0) {
+		if (_recordMap == null || _recordMap.size () == 0) {
 			if (resetProfiling) {
 				_instance = null;
 			}
@@ -254,18 +251,10 @@ public class AlbumProfiling
 			return;
 		}
 
-		int numRecords = _records.size ();
-		List<ProfileRecord> records = new ArrayList<ProfileRecord> (numRecords);
-		boolean tooFewRecordsToIgnore = (_records.values ().size () < _minRecordCountToStifleIgnoreables);
-		for (ProfileRecord record : _records.values ()) {
-			if (tooFewRecordsToIgnore || !ProfileIgnoreableRecord.shouldBeIgnored (record)) {
-				records.add (record);
-			} else {
-				_recordsIgnoredCount++;
-//				_log.debug ("AlbumProfiling.print: record will be ignored: " + record);
-			}
-		}
-		Collections.sort (records, new ProfileRecordComparator ());
+		markIgnorableRecords ();
+
+		//sort by index for printing
+		List<ProfileRecord> records = _recordMap.values ().stream ().sorted (new ProfileRecordComparatorByIndex ()).collect (Collectors.toList ());
 
 		int longestMethodName = 10; //min width
 		for (ProfileRecord record : records) {
@@ -284,7 +273,7 @@ public class AlbumProfiling
 		printRecord ("Method", "Count", "Total", "Average", "Min", "Max");
 
 		for (ProfileRecord record : records) {
-			if (record._count > 0) {
+			if (record.getCount () > 0 && !record.getIgnore ()) {
 				//convert values from nanosecs to millisecs
 				double total = (double) record._elapsedNano / 1000000;
 				double average = total / record._count;
@@ -296,7 +285,7 @@ public class AlbumProfiling
 		}
 
 		if (_recordsIgnoredCount > 0) {
-			_log.debug ("AlbumProfiling.print: " + _recordsIgnoredCount + " of " + numRecords + " records ignored");
+			_log.debug ("AlbumProfiling.print: " + _recordsIgnoredCount + " of " + records.size () + " records ignored");
 		}
 
 		if (showMemoryUsage) {
@@ -309,12 +298,7 @@ public class AlbumProfiling
 			double usedMem  = totalMem - freeMem;
 			double util = 100 * totalMem / maxMem;
 
-			boolean useGiga = false;
-//			if (freeMem >= giga && totalMem >= giga && maxMem >= giga && usedMem >= giga) {
-			if (freeMem >= giga || totalMem >= giga || maxMem >= giga || usedMem >= giga) {
-				useGiga = true;
-			}
-
+			boolean useGiga = (freeMem >= giga || totalMem >= giga || maxMem >= giga || usedMem >= giga);
 			String unitSuffixStr = (useGiga ? "GB" : "MB");
 			double unitSuffix = (useGiga ? giga : mega);
 
@@ -323,11 +307,11 @@ public class AlbumProfiling
 			totalMem /= unitSuffix;
 			maxMem   /= unitSuffix;
 
-			_log.debug ("AlbumProfiling.print: used="  + _decimalFormat1.format (usedMem)  + unitSuffixStr +
-											 " free="  + _decimalFormat1.format (freeMem)  + unitSuffixStr +
-											 " total=" + _decimalFormat1.format (totalMem) + unitSuffixStr +
-											 " max="   + _decimalFormat1.format (maxMem)   + unitSuffixStr +
-											 " util="  + _decimalFormat1.format (util) + "%");
+			_log.debug ("AlbumProfiling.print: memory used="  + _decimalFormat1.format (usedMem)  + unitSuffixStr +
+													   " free="  + _decimalFormat1.format (freeMem)  + unitSuffixStr +
+													   " total=" + _decimalFormat1.format (totalMem) + unitSuffixStr +
+													   " max="   + _decimalFormat1.format (maxMem)   + unitSuffixStr +
+													   " util="  + _decimalFormat1.format (util) + "%");
 		}
 
 		//optionally delete this AlbumProfiling instance
@@ -372,6 +356,54 @@ public class AlbumProfiling
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private void markIgnorableRecords ()
+	{
+		for (ProfileIgnorableRecord ignorableRecord : _ignorableRecords) {
+			List<ProfileRecord> matchingRecords = _recordMap.keySet ().stream ()
+															.map (_recordMap::get)
+															.filter (v -> v.getCount () == 1)
+															.filter (v -> v.matchesPattern (ignorableRecord.getMethodPattern ()))
+															.collect (Collectors.toList ());
+
+			int numToBeIgnored = matchingRecords.size () - ignorableRecord.getMinCount ();
+			if (numToBeIgnored > 0) {
+				_recordsIgnoredCount += numToBeIgnored;
+				matchingRecords.stream () //will sort ascending, so first numToBeIgnored items will be set to ignore, leaving worst (slowest) offenders to be printed
+							   .sorted (new ProfileRecordComparatorByElapsedNanos ())
+							   .limit (numToBeIgnored)
+							   .forEach (v -> v.setIgnore (true));
+			}
+		}
+
+/* old way
+		for (ProfileIgnorableRecord ignorableRecord : _ignorableRecords) {
+//			_log.debug ("removeIgnorableRecords: ignorableRecord: " + ignorableRecord);
+			List<ProfileRecord> matchingRecords = new ArrayList<ProfileRecord> ();
+			for (String methodName : _recordMap.keySet ()) {
+				ProfileRecord record = _recordMap.get (methodName);
+				if (record.getCount () == 1) {
+					Matcher matcher = ignorableRecord.getMethodPattern ().matcher (record.getMethod ());
+					if (matcher.matches ()) {
+//						_log.debug("removeIgnorableRecords: found matching record: " + record);
+						matchingRecords.add (record);
+					}
+				}
+			}
+
+			int minCount = ignorableRecord.getMinCount ();
+			if (matchingRecords.size () >= minCount) {
+				matchingRecords.sort (new ProfileRecordComparatorByElapsedNanos ());
+				List<ProfileRecord> recordsToBeIgnored = matchingRecords.subList (minCount, matchingRecords.size ());
+				for (ProfileRecord recordToBeIgnored : recordsToBeIgnored) {
+					recordToBeIgnored.setIgnore (true);
+					_recordsIgnoredCount++;
+				}
+			}
+		}
+*/
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private class ProfileRecord
 	{
 		ProfileRecord (String method, int index, long startNano)
@@ -388,18 +420,53 @@ public class AlbumProfiling
 		}
 
 		///////////////////////////////////////////////////////////////////////
+		public int getIndex ()
+		{
+			return _index;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public long getElapsedNanos ()
+		{
+			return _elapsedNano;
+		}
+
+		///////////////////////////////////////////////////////////////////////
 		public long getElapsedMillis ()
 		{
 			return (long) ((double) _elapsedNano / 1000000);
 		}
 
 		///////////////////////////////////////////////////////////////////////
+		public int getCount ()
+		{
+			return _count;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public boolean getIgnore ()
+		{
+			return _ignore;
+		}
+		public void setIgnore (boolean ignore)
+		{
+			_ignore = ignore;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		boolean matchesPattern (Pattern pattern)
+		{
+			return pattern.matcher (getMethod ()).matches ();
+		}
+
+		///////////////////////////////////////////////////////////////////////
 		@Override
 		public String toString ()
 		{
-			StringBuffer sb = new StringBuffer (getClass ().getSimpleName ());
+			StringBuilder sb = new StringBuilder (getClass ().getSimpleName ());
 			sb.append (": ").append (VendoUtils.quoteString(getMethod ()));
 			sb.append (", ").append (getElapsedMillis ());
+			sb.append (", ").append (getIgnore ());
 			return sb.toString ();
 		}
 
@@ -411,26 +478,38 @@ public class AlbumProfiling
 		private long _maxNano = 0;
 		private int _count = 0;
 		private boolean _inProcess = true;
+		private boolean _ignore = false;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class ProfileRecordComparator implements Comparator<ProfileRecord>
+	private static class ProfileRecordComparatorByIndex implements Comparator<ProfileRecord>
 	{
 		@Override
 		public int compare (ProfileRecord record1, ProfileRecord record2)
 		{
-			return record1._index - record2._index;
+			return record1.getIndex () - record2.getIndex (); //sort in ascending order
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class ProfileIgnoreableRecord
+	private static class ProfileRecordComparatorByElapsedNanos implements Comparator<ProfileRecord>
 	{
-		ProfileIgnoreableRecord (String methodRegex, long thresholdMillis)
+		@Override
+		public int compare (ProfileRecord record1, ProfileRecord record2)
+		{
+			long diff = record1.getElapsedNanos () - record2.getElapsedNanos (); //sort in ascending order
+			return diff == 0 ? 0 : diff > 0 ? 1 : -1;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static class ProfileIgnorableRecord
+	{
+		ProfileIgnorableRecord (String methodRegex, int minCount)
 		{
 			//TODO - Pattern.compile can throw exception
 			_methodPattern = Pattern.compile (methodRegex);
-			_thresholdMillis = thresholdMillis;
+			_minCount = minCount;
 		}
 
 		///////////////////////////////////////////////////////////////////////
@@ -440,37 +519,30 @@ public class AlbumProfiling
 		}
 
 		///////////////////////////////////////////////////////////////////////
-		public Long getThresholdMillis ()
+		public int getMinCount ()
 		{
-			return _thresholdMillis;
+			return _minCount;
 		}
 
 		///////////////////////////////////////////////////////////////////////
-		public static boolean shouldBeIgnored (ProfileRecord record)
+		@Override
+		public String toString ()
 		{
-			boolean shouldBeIgnored = false;
-			for (ProfileIgnoreableRecord ignoreableRecord : _ignoreableRecords) {
-				Matcher matcher = ignoreableRecord.getMethodPattern ().matcher (record.getMethod ());
-				if (matcher.matches ()) {
-					if (record.getElapsedMillis () < ignoreableRecord.getThresholdMillis ()) {
-						shouldBeIgnored = true;
-					}
-				}
-			}
-
-			return shouldBeIgnored;
+			StringBuilder sb = new StringBuilder (getClass ().getSimpleName ());
+			sb.append (": ").append (VendoUtils.quoteString(getMethodPattern ().toString ()));
+			sb.append (", ").append (getMinCount ());
+			return sb.toString ();
 		}
 
 		private final Pattern _methodPattern;
-		private final long _thresholdMillis;
+		private final int _minCount;
 	}
 
 
 	//members
 	private final Integer _fieldWidths[];
-	private final HashMap<String, ProfileRecord> _records;
-	private static HashSet<ProfileIgnoreableRecord> _ignoreableRecords;
-	private static int _minRecordCountToStifleIgnoreables;
+	private final HashMap<String, ProfileRecord> _recordMap;
+	private static HashSet<ProfileIgnorableRecord> _ignorableRecords;
 	private static int _recordsIgnoredCount;
 	private static int _currentIndex = 0;
 	private static AlbumProfiling _instance = null;

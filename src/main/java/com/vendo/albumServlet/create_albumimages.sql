@@ -373,14 +373,14 @@ select count(*) from image_diffs
 
 -- -----------------------------------------------------------------------------
 -- count distribution (includes rows that no longer have existing images)
-select 'Total' as count, count(count) as rows from image_diffs
+select 'Total' as count, count(count) as rows1 from image_diffs
 union all 
-select count as count, count(count) as rows from image_diffs group by count 
+select count as count, count(count) as rows1 from image_diffs group by count desc
 
 -- avg_diff distribution (includes rows that no longer have existing images)
-select 'Total' as diff, count(avg_diff) as rows from image_diffs
+select 'Total' as diff, count(avg_diff) as rows1 from image_diffs
 union all 
-select avg_diff as diff, count(avg_diff) as rows from image_diffs group by avg_diff 
+select avg_diff as diff, count(avg_diff) as rows1 from image_diffs group by avg_diff 
 
 -- image_diffs date ranges
 select 'Min' as name, min(last_update) as last_update from image_diffs
@@ -394,8 +394,8 @@ select i.base_name,
  ic.image_count, 
  round(sum(i.mbytes) / ic.image_count, 1) as avg_mbytes,
  count(i.mbytes) as number_over_size_threshold, 
- round(100 * count(i.mbytes) / ic.image_count, 1) as percent_over_size_threshold,
- i.exif
+ round(100 * count(i.mbytes) / ic.image_count, 1) as percent_over_size_threshold
+ -- i.exif
 from (
  select left(name_no_ext, locate('-', name_no_ext) - 1) as base_name, bytes / (1024 * 1024) as mbytes, 
   ((exifDate0 + exifDate1 + exifDate2 + exifDate3) > 0) as has_exif
@@ -411,7 +411,8 @@ and ic.base_name not like 'x%'
 group by base_name
 -- order by base_name
 -- order by total_mbytes desc
-order by total_mbytes desc, number_over_size_threshold desc, image_count desc
+-- order by total_mbytes desc, number_over_size_threshold desc, image_count desc
+order by avg_mbytes desc, total_mbytes desc, number_over_size_threshold desc, image_count desc
 
 -- -----------------------------------------------------------------------------
 -- "remove all numeric characters from column mysql"

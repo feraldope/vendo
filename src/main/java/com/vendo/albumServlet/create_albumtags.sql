@@ -352,15 +352,17 @@ where base2_names.name_id not in (
     inner join tags on base2_names_tags.tag_id = tags.tag_id
     where tags.is_tattoo = 1
 )
-order by base2_names.name
+--and base2_names.name like 'K%'
+order by lower(base2_names.name)
 
-select * from tags where is_tattoo = 0
+select * from tags
+where is_tattoo = 0
+and not like '%tattoo%'
 order by lower(tag)
 
-
-
-
-
-
+select * from tags 
+where is_tattoo = 1 
+and tag not like '%tattoo%'
+order by lower(tag)
 
 */

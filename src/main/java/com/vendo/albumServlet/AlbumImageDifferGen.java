@@ -1,16 +1,15 @@
-//AlbumImageDifferGen.java
+//AlbumImageDifferGen.java - when passed two images, generate the difference between them
 
 package com.vendo.albumServlet;
 
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.File;
-
-import javax.imageio.ImageIO;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 
 
 public class AlbumImageDifferGen
@@ -29,16 +28,17 @@ public class AlbumImageDifferGen
 		AlbumFormInfo.getInstance (); //call ctor to load class defaults
 
 		//CLI overrides
-//		AlbumFormInfo._Debug = true;
+//		AlbumFormInfo._debug = true;
 		AlbumFormInfo._logLevel = 5;
 		AlbumFormInfo._profileLevel = 5;
 
 		AlbumProfiling.getInstance ().enter/*AndTrace*/ (1);
 
-		AlbumImageDifferGen albumImageDifferGen = AlbumImageDifferGen.getInstance ();
+		AlbumImageDifferGen albumImageDifferGen = new AlbumImageDifferGen ();
 
-		if (!albumImageDifferGen.processArgs (args))
+		if (!albumImageDifferGen.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		try {
 			albumImageDifferGen.run ();
@@ -54,6 +54,12 @@ public class AlbumImageDifferGen
 	///////////////////////////////////////////////////////////////////////////
 	private Boolean processArgs (String args[])
 	{
+		String destRootName = null;
+
+//		for (int ii = 0; ii < args.length; ii++) {
+//			_log.debug("AlbumImageDifferGen.processArgs: arg: " + args[ii]);
+//		}
+
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
@@ -62,7 +68,14 @@ public class AlbumImageDifferGen
 				arg = arg.substring (1, arg.length ());
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
-					_Debug = true;
+					_debug = true;
+
+				} else if (arg.equalsIgnoreCase ("dest") || arg.equalsIgnoreCase ("dst")) {
+					try {
+						destRootName = args[++ii];
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					}
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -70,14 +83,14 @@ public class AlbumImageDifferGen
 
 			} else {
 				//check for other args
-				if (_imageFilename1 == null) {
-					_imageFilename1 = arg;
+				if (_imageFilenameIn1 == null) {
+					_imageFilenameIn1 = arg;
 
-				} else if (_imageFilename2 == null) {
-					_imageFilename2 = arg;
+				} else if (_imageFilenameIn2 == null) {
+					_imageFilenameIn2 = arg;
 
-				} else if (_imageFilename3 == null) {
-					_imageFilename3 = arg;
+				} else if (_imageFilenameOut == null) {
+					_imageFilenameOut = arg;
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -86,8 +99,25 @@ public class AlbumImageDifferGen
 		}
 
 		//check for required args and handle defaults
-		if (_imageFilename1 == null || _imageFilename2 == null || _imageFilename3 == null) {
+		if (destRootName == null) {
+			_destRootPath = FileSystems.getDefault ().getPath ("");
+		} else {
+			_destRootPath = FileSystems.getDefault ().getPath (destRootName);
+		}
+
+		if (_imageFilenameIn1 == null || _imageFilenameIn2 == null || _imageFilenameOut == null) {
 			displayUsage ("Incorrect usage", true);
+		}
+
+		_imageFilenameIn1 = processImageFilename (_imageFilenameIn1);
+		_imageFilenameIn2 = processImageFilename (_imageFilenameIn2);
+		_imageFilenameOut = processImageFilename (_imageFilenameOut);
+
+		if (_debug) {
+			_log.debug("AlbumImageDifferGen.processArgs: _destRootPath: " + _destRootPath);
+			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameIn1: " + _imageFilenameIn1);
+			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameIn2: " + _imageFilenameIn2);
+			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameOut: " + _imageFilenameOut);
 		}
 
 		return true;
@@ -97,32 +127,16 @@ public class AlbumImageDifferGen
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
-		msg += "Usage: " + _AppName + " [/debug] <input image filename 1>  <input image filename 2>  <output image filename>";
+		msg += "Usage: " + _AppName + " [/debug] [/dest <source and destination dir> <input image filename 1>  <input image filename 2>  <output image filename>";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//create singleton instance
-	public synchronized static AlbumImageDifferGen getInstance ()
-	{
-		if (_instance == null)
-			_instance = new AlbumImageDifferGen ();
-
-		return _instance;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private AlbumImageDifferGen ()
-	{
-		_log.debug ("AlbumImageDifferGen ctor");
-
-//		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -131,14 +145,14 @@ public class AlbumImageDifferGen
 		BufferedImage image1Orig = null;
 		BufferedImage image2Orig = null;
 		try {
-			image1Orig = ImageIO.read (new File (_imageFilename1));
+			image1Orig = ImageIO.read (new File (_imageFilenameIn1));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilename1 + "\"");
+			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilenameIn1 + "\"");
 		}
 		try {
-			image2Orig = ImageIO.read (new File (_imageFilename2));
+			image2Orig = ImageIO.read (new File (_imageFilenameIn2));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilename2 + "\"");
+			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilenameIn2 + "\"");
 		}
 
 		int image1Width = image1Orig.getWidth ();
@@ -147,7 +161,7 @@ public class AlbumImageDifferGen
 		int image2Width = image2Orig.getWidth ();
 		int image2Height = image2Orig.getHeight ();
 
-		if (_Debug) {
+		if (_debug) {
 			_log.debug ("AlbumImageDifferGen.run: image1Orig: " + image1Width + " x " + image1Height);
 			_log.debug ("AlbumImageDifferGen.run: image2Orig: " + image2Width + " x " + image2Height);
 		}
@@ -156,19 +170,20 @@ public class AlbumImageDifferGen
 		BufferedImage image1Scaled = image1Orig;
 		BufferedImage image2Scaled = image2Orig;
 		if (image1Width < image2Width && image1Height < image2Height) {
-			image2Scaled = toBufferedImage (image2Orig.getScaledInstance (image1Width, image1Height, hints));
+			image2Scaled = AlbumImage.toBufferedImage (image2Orig.getScaledInstance (image1Width, image1Height, hints));
 		} else if (image2Width < image1Width && image2Height < image1Height) {
-			image1Scaled = toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
+			image1Scaled = AlbumImage.toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
 		}
 
-		if (_Debug) {
+		if (_debug) {
 			_log.debug ("AlbumImageDifferGen.run: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
 			_log.debug ("AlbumImageDifferGen.run: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
 		}
 
-		createImageDiff (image1Scaled, image2Scaled, new File (_imageFilename3));
+		createImageDiff (image1Scaled, image2Scaled, new File (_imageFilenameOut));
 	}
 
+/* currently unused
 	///////////////////////////////////////////////////////////////////////////
 	public static int createImageDiff (String filename1, String filename2)
 	{
@@ -196,7 +211,7 @@ public class AlbumImageDifferGen
 		int image2Width = image2Orig.getWidth ();
 		int image2Height = image2Orig.getHeight ();
 
-		if (_Debug) {
+		if (_debug) {
 			_log.debug ("AlbumImageDifferGen.createImageDiff: image1Orig: " + image1Width + " x " + image1Height);
 			_log.debug ("AlbumImageDifferGen.createImageDiff: image2Orig: " + image2Width + " x " + image2Height);
 		}
@@ -213,12 +228,12 @@ public class AlbumImageDifferGen
 		}
 		AlbumProfiling.getInstance ().exit (5, "scaling");
 
-		if (_Debug) {
+		if (_debug) {
 			_log.debug ("AlbumImageDifferGen.createImageDiff: image1Scaled: " + image1Scaled.getWidth () + " x " + image1Scaled.getHeight () );
 			_log.debug ("AlbumImageDifferGen.createImageDiff: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
 		}
 
-		int averageDiff = createImageDiff (image1Scaled, image2Scaled, null);//new File (_imageFilename3));
+		int averageDiff = createImageDiff (image1Scaled, image2Scaled, null);//new File (_imageFilenameOut));
 
 		_log.debug ("AlbumImageDifferGen.createImageDiff: " + averageDiff + " " + filename1 + " " + filename2);
 
@@ -226,6 +241,7 @@ public class AlbumImageDifferGen
 
 		return averageDiff;
 	}
+*/
 
 	///////////////////////////////////////////////////////////////////////////
 	public static int createImageDiff (BufferedImage image1, BufferedImage image2, File imageDiff)
@@ -237,12 +253,10 @@ public class AlbumImageDifferGen
 			image3 = new BufferedImage (image1.getWidth (), image1.getHeight (), image1.getType ());
 		}
 
-		int image1Width = image1.getWidth ();
 		if (image1.getWidth () != image2.getWidth ()) {
 			_log.error ("AlbumImageDifferGen.createImageDiff: widths not equal (" + image1.getWidth () + " != " + image2.getWidth () + ")");
 			return 10000;
 		}
-		int image1Height = image1.getHeight ();
 		if (image1.getHeight () != image2.getHeight ()) {
 			_log.error ("AlbumImageDifferGen.createImageDiff: heights not equal (" + image1.getHeight () + " != " + image2.getHeight () + ")");
 			return 10000;
@@ -292,8 +306,8 @@ public class AlbumImageDifferGen
 			_log.error ("AlbumImageDifferGen.createImageDiff: a0a1NotEqual: " + a0a1NotEqual);
 //		}
 
-		double averageDiff = (double) totalDiff / (image1Width * image1Height);
-		if (_Debug) {
+		double averageDiff = (double) totalDiff / (image1.getWidth () * image1.getHeight ());
+		if (_debug) {
 			_log.debug ("AlbumImageDifferGen.createImageDiff: image3: totalDiff: " + totalDiff);
 			_log.debug ("AlbumImageDifferGen.createImageDiff: image3: averageDiff: " + averageDiff);
 		}
@@ -301,7 +315,7 @@ public class AlbumImageDifferGen
 		if (imageDiff != null) {
 			int image3Width = image3.getWidth ();
 			int image3Height = image3.getHeight ();
-			if (_Debug) {
+			if (_debug) {
 				_log.debug ("AlbumImageDifferGen.createImageDiff: image3: " + image3Width + " x " + image3Height);
 			}
 
@@ -319,46 +333,36 @@ public class AlbumImageDifferGen
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//Creating a Buffered Image from an Image:
-	//original from: http://stackoverflow.com/questions/13605248/java-converting-image-to-bufferedimage
-	public static BufferedImage toBufferedImage (Image img)
+	private String processImageFilename (String imageFileName)
 	{
-		if (img instanceof BufferedImage)
-		{
-			return (BufferedImage) img;
+		imageFileName = imageFileName.trim ();
+		if (imageFileName.endsWith (",")) { //strip trailing ","
+			imageFileName = imageFileName.substring (0, imageFileName.length () - 1);
 		}
 
-		AlbumProfiling.getInstance ().enter (5);
+		if (!imageFileName.endsWith (".jpg")) {
+			imageFileName = imageFileName + ".jpg";
+		}
 
-		// Create a buffered image with transparency
-		BufferedImage bimage = new BufferedImage (img.getWidth (null), img.getHeight (null), BufferedImage.TYPE_INT_ARGB);
+		if (_destRootPath.toString ().toLowerCase ().contains ("netscape")) { //handle AlbumImage case
+			String subFolder = AlbumImage.getSubFolderFromName (imageFileName);
+			imageFileName = FileSystems.getDefault ().getPath (_destRootPath.toString (), "jroot", subFolder, imageFileName).toString ();
+		}
 
-		// Draw the image on to the buffered image
-		Graphics2D bGr = bimage.createGraphics ();
-		bGr.drawImage (img, 0, 0, null);
-		bGr.dispose ();
-
-		AlbumProfiling.getInstance ().exit (5);
-
-		// Return the buffered image
-		return bimage;
+		return imageFileName;
 	}
 
-
-	//members
-	private String _imageFilename1 = null;
-	private String _imageFilename2 = null;
-	private String _imageFilename3 = null;
-
-//	private String _rootPath = null;
-
-	private static AlbumImageDifferGen _instance = null;
+		//members
+	private Path _destRootPath = null;
+	private String _imageFilenameIn1 = null;
+	private String _imageFilenameIn2 = null;
+	private String _imageFilenameOut = null;
 
 	private static final String NL = System.getProperty ("line.separator");
 //	private static final DecimalFormat _decimalFormat = new DecimalFormat ("+#;-#"); //print integer with +/- sign
 //	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
 
-	private static boolean _Debug = false;
+	private static boolean _debug = false;
 	private static Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumImageDifferGen";
 }

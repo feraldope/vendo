@@ -1002,6 +1002,20 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static boolean fileExists (Path path)
+	{
+		boolean fileExists = false;
+		try {
+			fileExists = Files.exists (path);
+
+		} catch (Exception ee) {
+			ee.printStackTrace ();
+		}
+
+		return fileExists;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static double getDiskPercentFull (String filename)
 	{
 		long freeBytes = VendoUtils.getFreeDiskSpace (filename);

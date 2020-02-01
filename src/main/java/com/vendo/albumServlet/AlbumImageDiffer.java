@@ -5,6 +5,7 @@ package com.vendo.albumServlet;
 import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
 import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.vendoUtils.WatchDir;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
@@ -16,10 +17,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.DirectoryStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.file.*;
 import java.sql.*;
 import java.text.DecimalFormat;
 import java.util.Date;
@@ -27,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -290,6 +289,12 @@ public class AlbumImageDiffer
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
+		_shutdownThread = watchShutdownFile ();
+
+		if (_shutdownFlag.get ()) {
+			return;
+		}
+
 		getImageIds ();
 
 		_log.debug ("AlbumImageDiffer.run: _idListA.size: " + _decimalFormat.format (_idListA.size ()));
@@ -312,7 +317,7 @@ public class AlbumImageDiffer
 
 		final CountDownLatch endGate = new CountDownLatch (_idListA.size ());
 		final Iterator<AlbumImageData> iterA = _idListA.iterator();
-		while (iterA.hasNext ()) {
+		while (iterA.hasNext () && !_shutdownFlag.get ()) {
 			final AlbumImageData albumImageDataA = iterA.next ();
 			synchronized (toBeSkipped) {
 				if (toBeSkipped.contains (albumImageDataA.getName ())) {
@@ -332,7 +337,7 @@ public class AlbumImageDiffer
 				Collection<AlbumImageDiffDetails> imageDiffDetails = new ArrayList<AlbumImageDiffDetails> ();
 
 				Iterator<AlbumImageData> iterB = _idListB.iterator();
-				while (iterB.hasNext ()) {
+				while (iterB.hasNext ()  && !_shutdownFlag.get ()) {
 					AlbumImageData albumImageDataB = iterB.next ();
 					synchronized (toBeSkipped) {
 						if (toBeSkipped.contains (albumImageDataB.getName ())) {
@@ -376,9 +381,15 @@ public class AlbumImageDiffer
 					int averageDiff = diffPair.getFirst ();
 					int stdDev = diffPair.getSecond ();
 					if (AlbumImage.acceptDiff (averageDiff, stdDev, _maxRgbDiffs, _maxStdDev)) {
+						String goodMatchMarker = (averageDiff <= 10 || stdDev <= 10) ? " *" : "";
 						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId (), albumImageDataB.getNameId (), averageDiff, stdDev, 1, getMode ()));
-						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + ",");
+						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + "," + goodMatchMarker);
 					}
+
+//					if (_shutdownFlag.get ()) {
+//						System.err.println ("AlbumImageDiffer.run: got shutdown flag. Aborting.");
+//						break;
+//					}
 				}
 
 				if (imageDiffDetails.size () > 0) {
@@ -393,10 +404,22 @@ public class AlbumImageDiffer
 		}
 		_log.debug ("AlbumImageDiffer.run: queued " + _decimalFormat.format (_idListA.size ()) + " threads");
 
+		if (_shutdownFlag.get ()) {
+			_log.debug ("AlbumImageDiffer.run: endGate.getCount = " + endGate.getCount ());
+			while (endGate.getCount () > 0) {
+				endGate.countDown ();
+			}
+			_log.debug ("AlbumImageDiffer.run: endGate.getCount = " + endGate.getCount ());
+		}
+
 		try {
 			endGate.await ();
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDiffer.run: endGate:", ee);
+		}
+
+		if (_shutdownThread != null) {
+			_shutdownThread.interrupt (); //trigger thread termination
 		}
 
 		AlbumProfiling.getInstance ().exit (5, "diff");
@@ -405,7 +428,8 @@ public class AlbumImageDiffer
 		_log.debug ("AlbumImageDiffer.run: orientationMismatch = " + _decimalFormat.format (orientationMismatch.get ()));
 		_log.debug ("AlbumImageDiffer.run: sameBaseName        = " + _decimalFormat.format (sameBaseName.get ()));
 		_log.debug ("AlbumImageDiffer.run: duplicates          = " + _decimalFormat.format (duplicates.get ()));
-		_log.debug ("AlbumImageDiffer.run: rowsInserted        = " + _decimalFormat.format (rowsInserted.get ()));
+		_log.debug ("AlbumImageDiffer.run: rowsInserted (new)  = " + _decimalFormat.format (rowsInserted.get () - 2 * duplicates.get ()));
+		_log.debug ("AlbumImageDiffer.run: rowsInserted (all)  = " + _decimalFormat.format (rowsInserted.get () - duplicates.get ()));
 
 		AlbumProfiling.getInstance ().exit (5);
 	}
@@ -1037,10 +1061,78 @@ public class AlbumImageDiffer
 	///////////////////////////////////////////////////////////////////////////
 	public static void shutdownExecutor ()
 	{
-		_log.debug ("AlbumImages.shutdownExecutor: shutdown executor");
-		getExecutor ().shutdownNow ();
+		_log.debug ("AlbumImageDiffer.shutdownExecutor: shutdown executor");
+		/*List<Runnable> waitingThreads =*/ getExecutor ().shutdownNow ();
+		//_log.debug ("AlbumImageDiffer.shutdownExecutor: waitingThreads.size = " + waitingThreads.size ());
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	private Thread watchShutdownFile ()
+	{
+		Thread watchingThread = null;
+
+		final Path path = FileSystems.getDefault ().getPath (_basePath, _shutdownFilename);
+
+		if (VendoUtils.fileExists (path)) {
+			System.err.println ("AlbumImageDiffer.watchShutdownFile.notify: file already exists: " + path.normalize ().toString ());
+			_shutdownFlag.getAndSet (true);
+
+			if (watchingThread != null) {
+				watchingThread.interrupt (); //exit thread
+			}
+
+			return watchingThread;
+		}
+
+		try {
+			Path dir = path.getRoot ().resolve (path.getParent ());
+			String filename = path.getFileName ().toString ();
+
+			_log.info ("AlbumImageDiffer.watchShutdownFile: watching for shutdown file: " + path.normalize ().toString ());
+
+			Pattern pattern = Pattern.compile (filename, Pattern.CASE_INSENSITIVE);
+			boolean recurseSubdirs = false;
+
+			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
+			{
+				@Override
+				protected void notify (Path dir, WatchEvent<Path> pathEvent)
+				{
+					if (_Debug) {
+						Path file = pathEvent.context ();
+						Path path = dir.resolve (file);
+						_log.debug ("AlbumImageDiffer.watchShutdownFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+					}
+
+					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
+						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
+						System.err.println ("AlbumImageDiffer.watchShutdownFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+						_shutdownFlag.getAndSet (true);
+						Thread.currentThread ().interrupt (); //exit thread
+					}
+				}
+
+				@Override
+				protected void overflow (WatchEvent<?> event)
+				{
+					_log.error ("AlbumImageDiffer.watchShutdownFile.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
+					_log.error ("AlbumImageDiffer.watchShutdownFile.overflow: ", new Exception ("WatchDir overflow"));
+				}
+			};
+			watchingThread = new Thread (watchDir);
+			watchingThread.setName ("watchingThread");
+			watchingThread.start ();
+
+//			thread.join (); //wait for thread to complete
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.watchShutdownFile: exception watching shutdown file", ee);
+		}
+
+		return watchingThread;
+	}
+
+	
 	//members from command line
 	private static int _numThreads = 4;
 	private int _maxRows = 10;
@@ -1060,6 +1152,10 @@ public class AlbumImageDiffer
 
 	private Collection<AlbumImageData> _idListB = null;
 	private Collection<AlbumImageData> _idListA = null;
+
+	private Thread _shutdownThread = null;
+	private AtomicBoolean _shutdownFlag = new AtomicBoolean ();
+	private static final String _shutdownFilename = "shutdownImageDiffer.txt";
 
 	private Map<String, Collection<String>> _directoryCache = new HashMap<String, Collection<String>> ();
 

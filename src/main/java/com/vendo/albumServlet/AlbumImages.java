@@ -440,6 +440,7 @@ public class AlbumImages
 		list.addAll (_imageDisplayList);
 
 		//testing: debug code to find what is causing java.lang.IllegalArgumentException: Comparison method violates its general contract!
+//		_log.debug ("AlbumImages.doDup: calling VComparators.verifyTransitivity on Collection with " + list.size () + " items...");
 //		VComparators.verifyTransitivity (new AlbumImageComparator (sortType), list);
 
 		if (sortType != AlbumSortType.ByNone) {
@@ -1912,13 +1913,6 @@ public class AlbumImages
 
 			AlbumImageDao.getInstance ().cacheMaintenance ();
 
-			long totalMem = Runtime.getRuntime ().totalMemory ();
-			long maxMem   = Runtime.getRuntime ().maxMemory ();
-			double memoryUsedPercent = 100 * (double) totalMem / maxMem;
-			_log.debug ("AlbumImage.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
-					", _nameScaledImageMap: " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize) +
-					", _looseCompareMap: " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
-
 //			_nameScaledImageMap.clear ();
 //			_looseCompareMap.clear ();
 			_nameScaledImageMap = new ConcurrentHashMap<String, ByteBuffer> (_nameScaledImageMapMaxSize); //hack
@@ -1933,23 +1927,25 @@ public class AlbumImages
 
 			numItemsRemoved = cacheMaintenance (_nameScaledImageMap, _nameScaledImageMapMaxSize);
 			if (numItemsRemoved > 0) {
-				_log.debug ("AlbumImage.cacheMaintenance: _nameScaledImageMap: " + VendoUtils.unitSuffixScale (numItemsRemoved) +
-						" items removed, new size = " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize));
+				_log.debug ("AlbumImage.cacheMaintenance: _nameScaledImageMap: " + _decimalFormat2.format (numItemsRemoved) +
+						" items removed, new size = " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size (), 1) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize, 1));
 			}
 
 			numItemsRemoved = cacheMaintenance (_looseCompareMap, _looseCompareMapMaxSize);
 			if (numItemsRemoved > 0) {
-				_log.debug ("AlbumImage.cacheMaintenance: _looseCompareMap: " + VendoUtils.unitSuffixScale (numItemsRemoved) +
-						" items removed, new size = " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
+				_log.debug ("AlbumImage.cacheMaintenance: _looseCompareMap: " + _decimalFormat2.format (numItemsRemoved) +
+						" items removed, new size = " + VendoUtils.unitSuffixScale (_looseCompareMap.size (), 1) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize, 1));
 			}
-
-			long totalMem = Runtime.getRuntime ().totalMemory ();
-			long maxMem   = Runtime.getRuntime ().maxMemory ();
-			double memoryUsedPercent = 100 * (double) totalMem / maxMem;
-			_log.debug ("AlbumImage.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
-					", _nameScaledImageMap: " + VendoUtils.unitSuffixScale (_nameScaledImageMap.size ()) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize) +
-					", _looseCompareMap: " + VendoUtils.unitSuffixScale (_looseCompareMap.size ()) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize));
 		}
+
+		long totalMem = Runtime.getRuntime ().totalMemory ();
+		long maxMem   = Runtime.getRuntime ().maxMemory ();
+		double memoryUsedPercent = 100 * (double) totalMem / maxMem;
+		double nameScaledImageMapPercent = 100 * (double) _nameScaledImageMap.size () / _nameScaledImageMapMaxSize;
+		double looseCompareMapPercent = 100 * (double) _looseCompareMap.size () / _looseCompareMapMaxSize;
+		_log.debug ("AlbumImage.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
+				", _nameScaledImageMap: " + _decimalFormat2.format (nameScaledImageMapPercent) + "% of " + _decimalFormat2.format (_nameScaledImageMapMaxSize) + //VendoUtils.unitSuffixScale (_nameScaledImageMap.size (), 1) + " / " + VendoUtils.unitSuffixScale (_nameScaledImageMapMaxSize, 1) +
+				", _looseCompareMap: " + _decimalFormat2.format (looseCompareMapPercent) + "% of " + _decimalFormat2.format (_looseCompareMapMaxSize)); //VendoUtils.unitSuffixScale (_looseCompareMap.size (), 1) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize, 1));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
