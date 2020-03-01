@@ -86,7 +86,7 @@ public class AlbumFileBackup
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_debug = true;
 
-				} else if (arg.equalsIgnoreCase ("numThreads") || arg.equalsIgnoreCase ("threads")) {
+				} else if (arg.equalsIgnoreCase ("threads") || arg.equalsIgnoreCase ("th")) {
 					try {
 						_numThreads = Integer.parseInt (args[++ii]);
 						if (_numThreads < 0) {
@@ -184,7 +184,7 @@ public class AlbumFileBackup
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] /source <source folder> /dest <destination folder> [/subFolders <wildName>] [/pattern <wildName>]";
+		msg += "Usage: " + _AppName + " [/debug] /source <source folder> /dest <destination folder> [/subFolders <wildName>] [/pattern <wildName>] [/threads <num threads>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -202,7 +202,7 @@ public class AlbumFileBackup
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private void run ()
+	private boolean run ()
 	{
 		Instant startInstant = Instant.now ();
 
@@ -217,6 +217,7 @@ public class AlbumFileBackup
 		Collection<String> didNotCreate = createDestinationFoldersIfNotExist (_destRootPath, sourceSubFolders);
 		if (didNotCreate.size () > 0) {
 			_log.error ("AlbumFileBackup.run: failed to create the following folders: " + didNotCreate);
+			return false;
 		}
 
 		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
@@ -242,6 +243,8 @@ public class AlbumFileBackup
 
 		System.out.println ("totalSourceFiles = " + _decimalFormat2.format (totalSourceFiles) + ", totalSourceBytes = " + VendoUtils.unitSuffixScale (totalSourceBytes));
 		System.out.println ("totalDestFiles = " + _decimalFormat2.format (totalDestFiles) + ", totalDestBytes = " + VendoUtils.unitSuffixScale (totalDestBytes));
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+		System.out.println ("");
 
 		System.out.println ("determining folders to backup...");
 
@@ -252,9 +255,13 @@ public class AlbumFileBackup
 		if (_debug) {
 			for (String subFolder : diffMap.keySet ()) {
 				Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
-				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (diffColl.size ()));
+				long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
+				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (diffColl.size ()) + " (" + VendoUtils.unitSuffixScale (numBytesToCopy) + ")");
 			}
 		}
+
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+		System.out.println ("");
 
 		long totalDiffFiles = diffMap.values ().stream ().mapToLong (Collection::size).sum ();
 		long totalDiffBytes = diffMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
@@ -264,17 +271,19 @@ public class AlbumFileBackup
 							", totalDiffBytes = " + VendoUtils.unitSuffixScale (totalDiffBytes) +
 							", usableBytes on destination = " + VendoUtils.unitSuffixScale (usableBytes));
 
-		if (usableBytes > addPercentPadding (totalDiffBytes, 10)) {
-			copyFiles (diffMap);
-
-		} else {
+		if (usableBytes < addPercentPadding (totalDiffBytes, 10)) {
 			System.out.println ("Error: not enough space on destination drive. Aborting.");
+			return false;
 		}
+
+		copyFiles (diffMap);
 
 		shutdownExecutor ();
 
 //		System.out.println (Duration.between (startInstant, Instant.now ())); //default ISO-8601 seconds-based representation
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+
+		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -476,12 +485,29 @@ public class AlbumFileBackup
 
 		final long numTotalFilesToCopy = diffMap.values ().stream ().mapToLong (Collection::size).sum ();
 
-		AtomicLong numTotalFilesCopied = new AtomicLong ();
+		Map<String, Long> map1 = new HashMap<String, Long> ();
 		for (String subFolder : diffMap.keySet ()) {
+			final Collection<AlbumImageFileDetails> diffColl = diffMap.get(subFolder);
+			long diffCollBytes = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
+			map1.put (subFolder, diffCollBytes);
+		}
+
+		//NOTE this is the order we create the tasks, but not necessarily the order they start (or run)???
+		List<String> foldersSortedByNumBytes = map1.keySet ().stream ()
+						.sorted ((f1, f2) -> {
+							long diff = map1.get (f2) - map1.get (f1); //sort in descending order
+							return diff == 0 ? 0 : diff > 0 ? 1 : -1;
+						})
+						.collect (Collectors.toList ());
+
+		AtomicLong numTotalFilesCopied = new AtomicLong ();
+//		for (String subFolder : diffMap.keySet ()) {
+		for (String subFolder : foldersSortedByNumBytes) {
 			final Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
 			Runnable task = () -> {
 				if (_debug) {
-					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": files to copy: " + _decimalFormat2.format (diffColl.size ()));
+					long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
+					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": files to copy: " + _decimalFormat2.format (diffColl.size ()) + " (" + VendoUtils.unitSuffixScale (numBytesToCopy) + ")");
 				}
 
 				long numSubfolderFilesCopied = 0;
@@ -493,11 +519,11 @@ public class AlbumFileBackup
 
 					} else {
 						try {
-							Files.copy (sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
+							Files.copy (sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
-							if (!setFileDateTime (sourcePath, destPath)) {
-								_log.error ("AlbumFileBackup.copyFiles: File.setLastModified failed for: " + destPath);
-							}
+//							if (!setFileDateTime (sourcePath, destPath)) {
+//								_log.error ("AlbumFileBackup.copyFiles: File.setLastModified failed for: " + destPath);
+//							}
 
 							++numSubfolderFilesCopied;
 							numTotalFilesCopied.getAndIncrement ();
@@ -514,7 +540,7 @@ public class AlbumFileBackup
 				}
 
 				if (_debug) {
-					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied));
+					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ":  filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied));
 				}
 
 				endGate.countDown ();
@@ -553,17 +579,18 @@ public class AlbumFileBackup
 		return (long) Math.ceil (value * (1 + percentPadding / 100));
 	}
 
+//not necessary: functionality provided by StandardCopyOption.COPY_ATTRIBUTES
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean setFileDateTime (Path sourcePath, Path destPath)
-	{
-		File sourceFile = sourcePath.toFile ();
-		File destFile = destPath.toFile ();
-
-		long lastModified = sourceFile.lastModified ();
-		boolean status = destFile.setLastModified (lastModified);
-
-		return status;
-	}
+//	private static boolean setFileDateTime (Path sourcePath, Path destPath)
+//	{
+//		File sourceFile = sourcePath.toFile ();
+//		File destFile = destPath.toFile ();
+//
+//		long lastModified = sourceFile.lastModified ();
+//		boolean status = destFile.setLastModified (lastModified);
+//
+//		return status;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public synchronized ExecutorService getExecutor ()

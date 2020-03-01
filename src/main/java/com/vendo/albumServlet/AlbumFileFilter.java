@@ -47,7 +47,7 @@ public class AlbumFileFilter implements FilenameFilter
 			for (String includeFilter : includeFilters) {
 				if (includeFilter.length () != 0) {
 					String orinalIncludeFilter = includeFilter; //in case of error
-					if (includeFilter.startsWith ("*")) {
+					if (includeFilter.startsWith ("*") || includeFilter.startsWith ("[")) {
 						_includeAllFolders = true;
 					}
 					if (includeFilter.equals ("*")) {
@@ -108,8 +108,7 @@ public class AlbumFileFilter implements FilenameFilter
 //		_albumImages = AlbumImages.getInstance ();
 
 		if (debugCtor && AlbumFormInfo._Debug) {
-			_log.debug ("AlbumFileFilter ctor: _includeAllFolders = " + new Boolean (_includeAllFolders) +
-											", _includeAllFiles = " + new Boolean (_includeAllFiles));
+			_log.debug ("AlbumFileFilter ctor: _includeAllFolders = " + new Boolean (_includeAllFolders) + ", _includeAllFiles = " + new Boolean (_includeAllFiles));
 		}
 	}
 
@@ -125,22 +124,17 @@ public class AlbumFileFilter implements FilenameFilter
 
 			} else if (_includePatterns != null) {
 				for (Pattern includePattern : _includePatterns) {
-					int leadingNonNumericChars = includePattern.pattern ().replaceFirst ("[0-9\\[\\.\\*].*", "").length ();
-//					_log.debug ("AlbumFileFilter.folderNeedsChecking: folder = " + folder + ", includePattern.pattern() = " + includePattern.pattern () + ", leadingNonNumericChars = " + leadingNonNumericChars);
-
-					if (leadingNonNumericChars == 1) {
-						if (folder.substring (0, 1).equalsIgnoreCase (includePattern.pattern().substring (0, 1).toLowerCase ())) {
-							status = true;
-							break;
-						}
-					} else  if (leadingNonNumericChars >= AlbumImage.SubFolderLength) {
-						if (folder.equalsIgnoreCase (AlbumImage.getSubFolderFromName (includePattern.pattern ()))) {
-							status = true;
-							break;
-						}
+					String leadingNonNumericChars = includePattern.pattern ().replaceFirst ("[0-9\\[\\.\\*].*", "");
+					if (leadingNonNumericChars.startsWith(folder) || folder.startsWith(leadingNonNumericChars)) {
+//						_log.debug ("AlbumFileFilter folderNeedsChecking: folder \"" + folder + "\" matches pattern \"" + includePattern + "\"");
+						status = true;
+						break;
+//					} else {
+//						_log.debug ("AlbumFileFilter folderNeedsChecking: folder \"" + folder + "\" DOES NOT match pattern \"" + includePattern + "\"");
 					}
 				}
 
+/*
 				//handle regular expression ranges (e.g., "[a-d]")
 				//TODO - note if you pass in e.g., "[a-d]a", this ignores everything after the []; i.e., it will include folders aa, ab, ad, af, etc.
 				for (Pattern includePattern : _includePatterns) {
@@ -155,6 +149,7 @@ public class AlbumFileFilter implements FilenameFilter
 						}
 					}
 				}
+*/
 			}
 		} while (false);
 

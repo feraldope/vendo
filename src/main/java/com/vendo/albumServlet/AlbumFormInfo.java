@@ -368,6 +368,9 @@ public class AlbumFormInfo
 		//remove all exclamation points
 		filter = filter.replaceAll ("!", ""); //regex
 
+		//remove all single quotes
+		filter = filter.replaceAll ("'", ""); //regex
+
 		//convert equals signs to commas
 		filter = filter.replaceAll ("\\=", ","); //regex
 

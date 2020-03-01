@@ -28,151 +28,148 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 
-public class GetUrl
-{
+public class GetUrl {
 	public enum FileType {JPG, MPG, WMV, MP4, AVI, Other}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String[] args)
-	{
-		GetUrl app = new GetUrl ();
+	public static void main(String[] args) {
+		GetUrl app = new GetUrl();
 
-		if (!app.processArgs (args)) {
-			System.exit (1); //processArgs displays error
+		if (!app.processArgs(args)) {
+			System.exit(1); //processArgs displays error
 		}
 
-		app.run ();
+		app.run();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String[] args)
-	{
+	private Boolean processArgs(String[] args) {
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
 			//check for switches
-			if (arg.startsWith ("-") || arg.startsWith ("/")) {
-				arg = arg.substring (1, arg.length ());
+			if (arg.startsWith("-") || arg.startsWith("/")) {
+				arg = arg.substring(1, arg.length());
 
-				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
+				if (arg.equalsIgnoreCase("debug") || arg.equalsIgnoreCase("dbg")) {
 					_Debug = true;
 
-				} else if (arg.equalsIgnoreCase ("destDir") || arg.equalsIgnoreCase ("dest")) {
+				} else if (arg.equalsIgnoreCase("destDir") || arg.equalsIgnoreCase("dest")) {
 					try {
 						_destDir = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("digits") || arg.equalsIgnoreCase ("d")) {
+				} else if (arg.equalsIgnoreCase("digits") || arg.equalsIgnoreCase("d")) {
 					try {
-						_overrideDigits = Integer.parseInt (args[++ii]);
+						_overrideDigits = Integer.parseInt(args[++ii]);
 						if (_overrideDigits < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
-					_switches.add ("/digits " + _overrideDigits);
+					_switches.add("/digits " + _overrideDigits);
 
-				} else if (arg.equalsIgnoreCase ("block") || arg.equalsIgnoreCase ("b")) {
+				} else if (arg.equalsIgnoreCase("block") || arg.equalsIgnoreCase("b")) {
 					try {
-						_blockNumber = Integer.parseInt (args[++ii]);
+						_blockNumber = Integer.parseInt(args[++ii]);
 						if (_blockNumber < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
-					_switches.add ("/block " + _blockNumber);
+					_switches.add("/block " + _blockNumber);
 
-				} else if (arg.equalsIgnoreCase ("fromFile") || arg.equalsIgnoreCase ("from")) {
+				} else if (arg.equalsIgnoreCase("fromFile") || arg.equalsIgnoreCase("from")) {
 					try {
 						_fromFilename = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("maxMissedFiles") || arg.equalsIgnoreCase ("max") || arg.equalsIgnoreCase ("m")) {
+				} else if (arg.equalsIgnoreCase("maxMissedFiles") || arg.equalsIgnoreCase("max") || arg.equalsIgnoreCase("m")) {
 					try {
-						_maxMissedFiles = Integer.parseInt (args[++ii]);
+						_maxMissedFiles = Integer.parseInt(args[++ii]);
 						if (_maxMissedFiles < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
-					_switches.add ("/max " + _maxMissedFiles);
+					_switches.add("/max " + _maxMissedFiles);
 
-				} else if (arg.equalsIgnoreCase ("pad")) { // || arg.equalsIgnoreCase ("p")) {
+				} else if (arg.equalsIgnoreCase("pad")) { // || arg.equalsIgnoreCase ("p")) {
 					try {
-						_pad = Integer.parseInt (args[++ii]);
+						_pad = Integer.parseInt(args[++ii]);
 						if (_pad < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
-					_switches.add ("/pad " + _pad);
+					_switches.add("/pad " + _pad);
 
-				} else if (arg.equalsIgnoreCase ("prefix") || arg.equalsIgnoreCase ("pre")) {
+				} else if (arg.equalsIgnoreCase("prefix") || arg.equalsIgnoreCase("pre")) {
 					try {
 						_numberPrefix = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					}
-					_switches.add ("/prefix " + _numberPrefix);
+					_switches.add("/prefix " + _numberPrefix);
 
-				} else if (arg.equalsIgnoreCase ("start") || arg.equalsIgnoreCase ("s")) {
+				} else if (arg.equalsIgnoreCase("start") || arg.equalsIgnoreCase("s")) {
 					try {
-						_startIndex = Long.parseLong (args[++ii]);
+						_startIndex = Long.parseLong(args[++ii]);
 						if (_startIndex < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 					_overrideStartIndex = true;
-					_switches.add ("/start " + _startIndex);
+					_switches.add("/start " + _startIndex);
 
-				} else if (arg.equalsIgnoreCase ("sleep") || arg.equalsIgnoreCase ("sl")) {
+				} else if (arg.equalsIgnoreCase("sleep") || arg.equalsIgnoreCase("sl")) {
 					try {
-						_sleepMillis = Integer.parseInt (args[++ii]);
+						_sleepMillis = Integer.parseInt(args[++ii]);
 						if (_sleepMillis < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
-					_switches.add ("/sleep " + _sleepMillis);
+					_switches.add("/sleep " + _sleepMillis);
 
-				} else if (arg.equalsIgnoreCase ("strip")) { // || arg.equalsIgnoreCase ("strip")) {
+				} else if (arg.equalsIgnoreCase("strip")) { // || arg.equalsIgnoreCase ("strip")) {
 					_stripHead = true;
-					_switches.add ("/strip");
+					_switches.add("/strip");
 
-				} else if (arg.equalsIgnoreCase ("noAutoPrefix") || arg.equalsIgnoreCase ("noa")) {
+				} else if (arg.equalsIgnoreCase("noAutoPrefix") || arg.equalsIgnoreCase("noa")) {
 					_autoPrefix = false;
 
-				} else if (arg.equalsIgnoreCase ("ignoreHistory") || arg.equalsIgnoreCase ("i")) {
+				} else if (arg.equalsIgnoreCase("ignoreHistory") || arg.equalsIgnoreCase("i")) {
 					_ignoreHistory = true;
 
-				} else if (arg.equalsIgnoreCase ("checkHistoryOnly") || arg.equalsIgnoreCase ("co")) {
+				} else if (arg.equalsIgnoreCase("checkHistoryOnly") || arg.equalsIgnoreCase("co")) {
 					_checkHistoryOnly = true;
 
 				} else {
-					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
+					displayUsage("Unrecognized argument '" + args[ii] + "'", true);
 				}
 
 			} else {
@@ -184,7 +181,7 @@ public class GetUrl
 					_outputPrefix = arg;
 
 				} else {
-					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
+					displayUsage("Unrecognized argument '" + args[ii] + "'", true);
 				}
 			}
 		}
@@ -192,46 +189,46 @@ public class GetUrl
 		//check for required args and handle defaults
 //TODO - verify _destDir exists, and is writable??
 		if (_destDir == null) {
-			_destDir = getCurrentDirectory ();
+			_destDir = getCurrentDirectory();
 		}
-		_destDir = appendSlash (_destDir);
+		_destDir = appendSlash(_destDir);
 //		if (_Debug)
 //			_log.debug ("_destDir = " + _destDir);
 
 		if (_fromFilename != null) {
 			if (!_checkHistoryOnly) {
-				displayUsage ("Must specify check if specifying fromFile", true);
+				displayUsage("Must specify check if specifying fromFile", true);
 			}
 
-			if (!fileExists (_destDir + _fromFilename)) {
-				displayUsage ("fromFile not found: '" + _fromFilename + "'", true);
+			if (!fileExists(_destDir + _fromFilename)) {
+				displayUsage("fromFile not found: '" + _fromFilename + "'", true);
 			}
 
 		} else {
 			if (_model == null) {
-				displayUsage ("No URL specified", true);
+				displayUsage("No URL specified", true);
 			}
-			_model = VendoUtils.normalizeUrl (_model);
+			_model = VendoUtils.normalizeUrl(_model);
 
 			if (_outputPrefix == null) {
-				displayUsage ("No output file (prefix) specified", true);
+				displayUsage("No output file (prefix) specified", true);
 
 			} else {
 //				final String whiteList = "[0-9A-Za-z_\\-\\.]"; //all valid characters
 				final String whiteList = "[0-9A-Za-z_\\-\\.\\*]"; //all valid characters
-				if (_outputPrefix.replaceAll (whiteList, "").length () > 0) {
-					displayUsage ("Invalid value for <output prefix> '" + _outputPrefix + "'", true);
+				if (_outputPrefix.replaceAll(whiteList, "").length() > 0) {
+					displayUsage("Invalid value for <output prefix> '" + _outputPrefix + "'", true);
 				}
 
 				_stripHead = true; //automatically strip header when prefix is specified
-				_switches.add ("/strip");
+				_switches.add("/strip");
 			}
 
 			if (_numberPrefix == null) {
 				_numberPrefix = "";
 			}
 
-			setFileType ();
+			setFileType();
 
 		}
 
@@ -239,44 +236,43 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
-		String msg = new String ();
+	private void displayUsage(String message, Boolean exit) {
+		String msg = new String();
 		if (message != null) {
 			msg = message + NL;
 		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/sleep <millis>] [/strip] [/ignore] [/checkHistoryOnly] [/fromFile <file>] [/dest <dest dir>] [/start <start index>] [/block <block number>] [/maxMissedFiles <count>] [/digits <number>] [/pad <number>] [/prefix <numberPrefix>] <URL> <output prefix>";
-		System.err.println ("Error: " + msg + NL);
+		System.err.println("Error: " + msg + NL);
 
 		if (exit) {
-			System.exit (1);
+			System.exit(1);
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean run ()
-	{
-		_perfStats = new PerfStats (); //ctor starts stats timing
+	private boolean run() {
+		_globalStartInstant = Instant.now();
+		_perfStats = new PerfStats();
 
 		if (_Debug) {
-			_log.debug ("GetUrl.run");
+			_log.debug("GetUrl.run");
 		}
 
 		if (_checkHistoryOnly && _fromFilename != null) {
-			findInHistoryFromFile ();
+			findInHistoryFromFile();
 			return true;
 		}
 
-		if (!parseModel ()) {
+		if (!parseModel()) {
 			return false;
 		}
 
-		if (!parseOutputPrefix ()) {
+		if (!parseOutputPrefix()) {
 			return false;
 		}
 
-		if (findInHistory (_base + _headOrig, /*printResults*/ true)) {
+		if (findInHistory(_base + _headOrig, /*printResults*/ true)) {
 			return false;
 		}
 
@@ -288,10 +284,10 @@ public class GetUrl
 
 		long lastGoodIndex = _startIndex - 1;
 
-		buildTempString ();
+//		buildTempString();
 
 		boolean knowDigits = false;
-		int minDigits = String.valueOf (_startIndex).length ();
+		int minDigits = String.valueOf(_startIndex).length();
 		int maxDigits = (minDigits == 1 ? 4 : minDigits + 1);
 
 		if (_digits >= 4) {
@@ -306,12 +302,15 @@ public class GetUrl
 
 		int count = 0;
 		while (true) {
+			handlePauseAction();
+			buildTempString();
+
 			if (!knowDigits) {
 				for (int ii = minDigits; ii <= maxDigits; ii++) {
 					_digits = ii;
-					if (getUrl ()) {
+					if (getUrl()) {
 						if (_Debug) {
-							_log.debug ("_digits = " + _digits);
+							_log.debug("_digits = " + _digits);
 						}
 						knowDigits = true;
 						if (!_overrideStartIndex) {
@@ -331,7 +330,7 @@ public class GetUrl
 			}
 
 			if (!knowDigits) {
-				_log.error ("run: digit examination failed");
+				_log.error("run: digit examination failed");
 
 				if ((_index - _startIndex) > _maxMissedFiles) {
 					break;
@@ -341,11 +340,11 @@ public class GetUrl
 			}
 
 			if (count > 0 && !_TestMode) {
-				writeHistory ();
+				writeHistory();
 			}
 
 			if (knowDigits) {
-				if (getUrl ()) {
+				if (getUrl()) {
 					lastGoodIndex = _index;
 					count++;
 				}
@@ -361,7 +360,7 @@ public class GetUrl
 		}
 
 		if (count == 0 && !_TestMode) {
-			_log.error ("No items downloaded");
+			_log.error("No items downloaded");
 			return false;
 		}
 
@@ -369,74 +368,68 @@ public class GetUrl
 //			writeHistory ();
 //		}
 
-		_perfStats.print (); //print ends stats timing
+		_perfStats.print(Instant.now()); //end stats timing and print all records
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean getUrl ()
-	{
-		buildStrings ();
+	private boolean getUrl() {
+		buildStrings();
 
 		//if we have already attempted to get this URL, just return previous results
-		if (_resultsMap.contains (_urlStr)) {
+		if (_resultsMap.contains(_urlStr)) {
 //			if (_Debug)
 //				_log.debug ("found '" + _urlStr + "'");
-			return _resultsMap.getStatus (_urlStr);
+			return _resultsMap.getStatus(_urlStr);
 		}
 
-		if (fileExists (_filename)) {
-			VendoUtils.printWithColor (_alertColor, "File already exists: " + _filename);
+		if (fileExists(_filename)) {
+			VendoUtils.printWithColor(_alertColor, "File already exists: " + _filename);
 			return false;
 		}
 
 		if (_TestMode) {
-			_log.debug ("                ----> Debug mode: skip download of file <----");
-			if (_index < _maxMissedFiles) {
-				return true;
-			} else {
-				return false;
-			}
+			_log.debug("                ----> Debug mode: skip download of file <----");
+			return _index < _maxMissedFiles;
 		}
 
-		_log.debug ("downloading: " + _urlStr);
+		_log.debug("downloading: " + _urlStr);
 
 		int totalBytesRead = 0;
-		double elapsedSeconds = 0;
+		double imageElapsedNanos = 0;
 
 		int retryCount = 250;
 		int retrySleepStepMillis = 250; //increase sleep time on each failure
 		int retrySleepMillis = retrySleepStepMillis;
 
 		HttpURLConnection conn = null;
+		BufferedInputStream in = null;
+		FileOutputStream out = null;
 		while (true) {
 			try {
-				conn = getConnection (_urlStr);
+				conn = getConnection(_urlStr);
 
-				BufferedInputStream in = new BufferedInputStream (conn.getInputStream ());
-				FileOutputStream out = new FileOutputStream (_tempFilename);
+				in = new BufferedInputStream(conn.getInputStream());
+				out = new FileOutputStream(_tempFilename);
 
 				final int size = 64 * 1024;
-				byte[] bytes = new byte [size];
+				byte[] bytes = new byte[size];
 
-				long startNano = System.nanoTime ();
+				long startNano = System.nanoTime();
 				while (true) {
-					int bytesRead = in.read (bytes, 0, size);
-					if (bytesRead > 0) {
-						totalBytesRead += bytesRead;
-						out.write (bytes, 0, bytesRead);
-//testing force invalid image
-//						out.write (bytes, 0, bytesRead - 1);
+					int imageBytesRead = in.read(bytes, 0, size);
+					if (imageBytesRead > 0) {
+						totalBytesRead += imageBytesRead;
+						out.write(bytes, 0, imageBytesRead);
+//for testing: force invalid image
+//						out.write (bytes, 0, imageBytesRead - 1);
 
 					} else {
 						break;
 					}
 				}
-				elapsedSeconds = (System.nanoTime () - startNano) / 1e9;
-
-				in.close ();
-				out.close ();
+				imageElapsedNanos = System.nanoTime() - startNano;
 
 				break; //success
 
@@ -456,44 +449,50 @@ public class GetUrl
 //				final int errorServiceUnavailable = 503;
 //				final int errorGatewayTimeout = 504;
 
-				int responseCode = getResponseCode (conn);
-				_log.error ("getUrl: error (" + responseCode + ") reading url: " + _urlStr);
-				_log.error (ee); //print exception, but no stack trace
+				int responseCode = getResponseCode(conn);
+				_log.error("getUrl: error (" + responseCode + ") reading url: " + _urlStr);
+				_log.error(ee); //print exception, but no stack trace
 
 				boolean retryableCondition = ee instanceof ConnectException ||
-											 ee instanceof SocketException ||
-											 ee instanceof SocketTimeoutException ||
-											 ee instanceof UnknownHostException ||
+						ee instanceof SocketException ||
+						ee instanceof SocketTimeoutException ||
+						ee instanceof UnknownHostException ||
 //											(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
 //											(ee instanceof IOException && responseCode == errorGatewayTimeout);
-											(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
+						(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
 
 				if (retryableCondition && retryCount >= 0) {
-					_log.debug ("******** retries left = " + retryCount + ", sleepMillis = " + retrySleepMillis + " ********");
+					_log.debug("******** retries left = " + retryCount + ", sleepMillis = " + retrySleepMillis + " ********");
 
-					closeConnection (_urlStr); //force reconnection on next pass
+					closeConnection(_urlStr); //force reconnection on next pass
 
-					sleepMillis (retrySleepMillis);
+					sleepMillis(retrySleepMillis);
 
 					retryCount--;
 					retrySleepMillis += retrySleepStepMillis;
 
+					handlePauseAction();
+
 					continue; //retry
 				}
 
-				_resultsMap.add (_urlStr, false);
+				_resultsMap.add(_urlStr, false);
 				return false;
+
+			} finally {
+				if (in != null) { try { in.close (); } catch (Exception ex) { _log.error ("Error closing input stream", ex); } }
+				if (out != null) { try { out.close (); } catch (Exception ex) { _log.error ("Error closing output stream", ex); } }
 			}
 		}
 
-		ImageSize imageSize = new ImageSize ();
-		if (!validFile (_tempFilename, imageSize)) {
-			_resultsMap.add (_urlStr, false);
+		ImageSize imageSize = new ImageSize();
+		if (!validFile(_tempFilename, imageSize)) {
+			_resultsMap.add(_urlStr, false);
 			return false;
 		}
 
-		PerfStatsRecord record = new PerfStatsRecord (_filename, totalBytesRead , elapsedSeconds, imageSize._width, imageSize._height);
-		_perfStats.add (record);
+		PerfStatsRecord record = new PerfStatsRecord(_filename, totalBytesRead, imageElapsedNanos, imageSize._width, imageSize._height);
+		_perfStats.add(record);
 
 //TODO
 //		private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
@@ -504,56 +503,55 @@ public class GetUrl
 			color = _warningColor;
 		}
 
-		VendoUtils.printWithColor (color, "Downloaded: " + record.toString2 ());
+		VendoUtils.printWithColor(color, "Downloaded: " + record.generateRecordDetailString(true, Instant.now()));
 
-		int dist = _sizeDist.add (totalBytesRead);
+		int dist = _sizeDist.add(totalBytesRead);
 		if (dist >= 3) {
-			_log.warn ("*********************************************************");
-			_log.warn ("Possible problem: duplicate file sizes");
-			_log.warn ("*********************************************************");
+			_log.warn("*********************************************************");
+			_log.warn("Possible problem: duplicate file sizes");
+			_log.warn("*********************************************************");
 		}
 
-		boolean status = moveFile (_tempFilename, _filename);
+		boolean status = moveFile(_tempFilename, _filename);
 
 		if (!status) { //move failed, try copying file
-			status = copyFile (_tempFilename, _filename, true);
+			status = copyFile(_tempFilename, _filename, true);
 		}
 
 //		if (status)
 //			_log.debug ("downloaded file: " + _filename);
 
-		_resultsMap.add (_urlStr, status);
+		_resultsMap.add(_urlStr, status);
 
-		sleepMillis (_sleepMillis);
+		sleepMillis(_sleepMillis);
 
 		return status;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private HttpURLConnection getConnection (String urlStr)
-	{
-		if (_httpURLConnection == null || (_httpURLConnection.getURL ().toString ().compareTo (_urlStr) != 0)) {
+	private HttpURLConnection getConnection(String urlStr) {
+		if (_httpURLConnection == null || (_httpURLConnection.getURL().toString().compareTo(_urlStr) != 0)) {
 			_httpURLConnection = null;
 
 			try {
-				URL url = new URL (urlStr);
-				String protocol = url.getProtocol ();
+				URL url = new URL(urlStr);
+				String protocol = url.getProtocol();
 
-				if (protocol.compareToIgnoreCase ("https") == 0) {
-					allowAllCertificates ();
-					_httpURLConnection = (HttpsURLConnection) url.openConnection ();
+				if (protocol.compareToIgnoreCase("https") == 0) {
+					allowAllCertificates();
+					_httpURLConnection = (HttpsURLConnection) url.openConnection();
 
 				} else {
-					_httpURLConnection = (HttpURLConnection) url.openConnection ();
+					_httpURLConnection = (HttpURLConnection) url.openConnection();
 				}
 
-				String userAgent = VendoUtils.getUserAgent (true);
-				_httpURLConnection.setRequestProperty ("User-Agent", userAgent);
+				String userAgent = VendoUtils.getUserAgent(true);
+				_httpURLConnection.setRequestProperty("User-Agent", userAgent);
 //				_httpURLConnection.setConnectTimeout (30 * 1000); //milliseconds
 
 			} catch (Exception ee) {
-				_log.error ("getConnection: error opening url: " + urlStr);
-				_log.error (ee); //print exception, but no stack trace
+				_log.error("getConnection: error opening url: " + urlStr);
+				_log.error(ee); //print exception, but no stack trace
 			}
 		}
 
@@ -561,60 +559,59 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean closeConnection (String urlStr)
-	{
+	private boolean closeConnection(String urlStr) {
 		_httpURLConnection = null;
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//UNSAFE! allows all certificates and all hosts over https
-	private static void allowAllCertificates () throws Exception
-	{
+	private static void allowAllCertificates() throws Exception {
 		//Create a trust manager that does not validate certificate chains
-		TrustManager[] trustAllCerts = new TrustManager[] {
-			new X509TrustManager ()	{
-				@Override
-				public X509Certificate[] getAcceptedIssuers () {
-					return null;
+		TrustManager[] trustAllCerts = new TrustManager[]{
+				new X509TrustManager() {
+					@Override
+					public X509Certificate[] getAcceptedIssuers() {
+						return null;
+					}
+
+					@Override
+					public void checkClientTrusted(X509Certificate[] certs, String authType) {
+					}
+
+					@Override
+					public void checkServerTrusted(X509Certificate[] certs, String authType) {
+					}
 				}
-				@Override
-				public void checkClientTrusted (X509Certificate[] certs, String authType) {
-				}
-				@Override
-				public void checkServerTrusted (X509Certificate[] certs, String authType) {
-				}
-			}
 		};
 
 		//Install the all-trusting trust manager
 //		final SSLContext context = SSLContext.getInstance ("SSL");
-		final SSLContext context = SSLContext.getInstance ("TLS");
-		context.init (null, trustAllCerts, new java.security.SecureRandom ());
-		HttpsURLConnection.setDefaultSSLSocketFactory (context.getSocketFactory ());
+		final SSLContext context = SSLContext.getInstance("TLS");
+		context.init(null, trustAllCerts, new java.security.SecureRandom());
+		HttpsURLConnection.setDefaultSSLSocketFactory(context.getSocketFactory());
 
 		//Create all-trusting host name verifier
-		HostnameVerifier allHostsValid = new HostnameVerifier () {
+		HostnameVerifier allHostsValid = new HostnameVerifier() {
 			@Override
-			public boolean verify (String hostname, SSLSession session) {
+			public boolean verify(String hostname, SSLSession session) {
 				return true;
 			}
 		};
 
 		// Install the all-trusting host verifier
-		HttpsURLConnection.setDefaultHostnameVerifier (allHostsValid);
+		HttpsURLConnection.setDefaultHostnameVerifier(allHostsValid);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean buildStrings ()
-	{
+	private boolean buildStrings() {
 		String urlNumberFormat = "%0" + _digits + "d";
-		String urlNumber = String.format (urlNumberFormat, _index);
+		String urlNumber = String.format(urlNumberFormat, _index);
 
 		String filenameNumberFormat = "%0" + _pad + "d";
-		String filenameNumber = String.format (filenameNumberFormat, _index);
+		String filenameNumber = String.format(filenameNumberFormat, _index);
 
-		_urlStr = _base  + _headOrig + _numberPrefix + urlNumber + _tailOrig;
+		_urlStr = _base + _headOrig + _numberPrefix + urlNumber + _tailOrig;
 		_filename = _destDir + _outputPrefix + _headUsed + filenameNumber + _tailUsed;
 
 //		if (_Debug) {
@@ -626,39 +623,40 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean validFile (String filename, ImageSize imageSize)
-	{
+	private boolean validFile(String filename, ImageSize imageSize) {
 		switch (_fileType) {
 			default:
-			case Other:	return true;
-			case JPG:	return validImage (filename, imageSize);
+			case Other:
+				return true;
+			case JPG:
+				return validImage(filename, imageSize);
 			case MPG:
 			case WMV:
 			case MP4:
-			case AVI:	return validVideo (filename);
+			case AVI:
+				return validVideo(filename);
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean validImage (String filename, ImageSize imageSize)
-	{
+	private boolean validImage(String filename, ImageSize imageSize) {
 		try {
-			BufferedImage image = JpgUtils.readImage (new File (filename));
+			BufferedImage image = JpgUtils.readImage(new File(filename));
 
-			if (!JpgUtils.validateImageData (image)) {
-				VendoUtils.printWithColor (_alertColor, "Image corrupt");
+			if (!JpgUtils.validateImageData(image)) {
+				VendoUtils.printWithColor(_alertColor, "Image corrupt");
 				return false; //image corrupt
 			}
 
-			int width = image.getWidth ();
-			int height = image.getHeight ();
+			int width = image.getWidth();
+			int height = image.getHeight();
 //			if (_Debug)
 //				_log.debug ("w = " + width + ", h = " + height);
 			imageSize._width = width;
 			imageSize._height = height;
 
 			if (width <= 200 || height <= 200) {
-				VendoUtils.printWithColor (_warningColor, "Image too small (" + width + " x " + height + ")");
+				VendoUtils.printWithColor(_warningColor, "Image too small (" + width + " x " + height + ")");
 				return false; //not an image
 			}
 
@@ -669,8 +667,8 @@ public class GetUrl
 //			}
 
 		} catch (Exception ee) {
-			_log.error ("validImage: failed to read '" + filename + "'");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("validImage: failed to read '" + filename + "'");
+			_log.error(ee); //print exception, but no stack trace
 			return false; //not an image
 		}
 
@@ -681,52 +679,51 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean validVideo (String filename)
-	{
+	private boolean validVideo(String filename) {
 		final int compareLen = 8;
-		byte[] bytes = new byte [compareLen];
+		byte[] bytes = new byte[compareLen];
 
-		try (FileInputStream stream = new FileInputStream (new File (filename))) {
+		try (FileInputStream stream = new FileInputStream(new File(filename))) {
 			//TODO - does this always represent the number of bytes in the stream??
-			int available = stream.available ();
+			int available = stream.available();
 
 			if (available < 100 * 1024) {
-				_log.error ("Video too small (" + available + " bytes)");
+				_log.error("Video too small (" + available + " bytes)");
 				return false;
 			}
 
 			//signature test is not always correct, so accept any sufficiently large file
 			if (available > 1024 * 1024) {
-				stream.close ();
+				stream.close();
 				return true;
 			}
 
-			stream.read (bytes, 0, compareLen);
+			stream.read(bytes, 0, compareLen);
 
 		} catch (Exception ee) {
-			_log.error ("validVideo: failed to read '" + filename + "'");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("validVideo: failed to read '" + filename + "'");
+			_log.error(ee); //print exception, but no stack trace
 			return false;
 		}
 
 		boolean isValid = false;
 
-		final byte[] signatureMPG = { 0x00, 0x00, 0x01, (byte) 0xBA, 0x21, 0x00, 0x01, 0x00 };
-		final byte[] signatureWMV = { 0x30, 0x26, (byte) 0xB2, 0x75, (byte) 0x8E, 0x66, (byte) 0xCF, 0x11 };
+		final byte[] signatureMPG = {0x00, 0x00, 0x01, (byte) 0xBA, 0x21, 0x00, 0x01, 0x00};
+		final byte[] signatureWMV = {0x30, 0x26, (byte) 0xB2, 0x75, (byte) 0x8E, 0x66, (byte) 0xCF, 0x11};
 
 		if (_fileType == FileType.MPG) {
-			isValid = compareBytes (bytes, signatureMPG);
+			isValid = compareBytes(bytes, signatureMPG);
 
 		} else if (_fileType == FileType.WMV) {
-			isValid = compareBytes (bytes, signatureWMV);
+			isValid = compareBytes(bytes, signatureWMV);
 
 			//try again with other signature
 			if (!isValid) {
-				isValid = compareBytes (bytes, signatureMPG);
+				isValid = compareBytes(bytes, signatureMPG);
 			}
 
 		} else {
-			_log.error ("validVideo: unhandled file type in file '" + filename + "'");
+			_log.error("validVideo: unhandled file type in file '" + filename + "'");
 			return true; //unknown type, let it pass
 		}
 
@@ -737,9 +734,8 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean compareBytes (byte[] b0, byte[] b1)
-	{
-		int len = Math.min (b0.length, b1.length);
+	private static boolean compareBytes(byte[] b0, byte[] b1) {
+		int len = Math.min(b0.length, b1.length);
 
 		for (int ii = 0; ii < len; ii++) {
 			if (b0[ii] != b1[ii]) {
@@ -751,22 +747,21 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean moveFile (String srcName, String destName)
-	{
-		Path src = FileSystems.getDefault ().getPath (srcName);
-		Path dest = FileSystems.getDefault ().getPath (destName);
+	private static boolean moveFile(String srcName, String destName) {
+		Path src = FileSystems.getDefault().getPath(srcName);
+		Path dest = FileSystems.getDefault().getPath(destName);
 
-		if (Files.exists (dest)) {
-			_log.error ("moveFile: destination file already exists: " + dest.toString ());
+		if (Files.exists(dest)) {
+			_log.error("moveFile: destination file already exists: " + dest.toString());
 			return false;
 		}
 
 		try {
-			Files.move (src, dest);
+			Files.move(src, dest);
 
 		} catch (Exception ee) {
-			_log.error ("moveFile: error moving file (" + src.toString () + " to " + dest.toString () + ")");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("moveFile: error moving file (" + src.toString() + " to " + dest.toString() + ")");
+			_log.error(ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -774,32 +769,31 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean copyFile (String srcName, String destName, boolean deleteSrc)
-	{
-		Path src = FileSystems.getDefault ().getPath (srcName);
-		Path dest = FileSystems.getDefault ().getPath (destName);
+	private static boolean copyFile(String srcName, String destName, boolean deleteSrc) {
+		Path src = FileSystems.getDefault().getPath(srcName);
+		Path dest = FileSystems.getDefault().getPath(destName);
 
-		if (Files.exists (dest)) {
-			_log.error ("copyFile: destination file already exists: " + dest.toString ());
+		if (Files.exists(dest)) {
+			_log.error("copyFile: destination file already exists: " + dest.toString());
 			return false;
 		}
 
 		try {
-			Files.copy (src, dest);
+			Files.copy(src, dest);
 
 		} catch (Exception ee) {
-			_log.error ("copyFile: error copying file (" + src.toString () + " to " + dest.toString () + ")");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("copyFile: error copying file (" + src.toString() + " to " + dest.toString() + ")");
+			_log.error(ee); //print exception, but no stack trace
 			return false;
 		}
 
 		if (deleteSrc) {
 			try {
-				Files.delete (src);
+				Files.delete(src);
 
 			} catch (Exception ee) {
-				_log.error ("copyFile: error deleting '" + srcName + "'");
-				_log.error (ee); //print exception, but no stack trace
+				_log.error("copyFile: error deleting '" + srcName + "'");
+				_log.error(ee); //print exception, but no stack trace
 //				return false;
 			}
 		}
@@ -815,7 +809,8 @@ public class GetUrl
 //			while ((size = in.read (buf)) >= 0)
 //				out.write (buf, 0, size);
 //
-//			in.close ();
+//should be in finally block
+// 			in.close ();
 //			out.close ();
 //
 //		} catch (Exception ee) {
@@ -828,26 +823,23 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean fileExists (String filename)
-	{
-		Path file = FileSystems.getDefault ().getPath (filename);
+	private static boolean fileExists(String filename) {
+		Path file = FileSystems.getDefault().getPath(filename);
 
-		return Files.exists (file);
+		return Files.exists(file);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String getCurrentDirectory ()
-	{
-		Path file = FileSystems.getDefault ().getPath ("");
-		String dir = file.toAbsolutePath ().toString ();
+	private static String getCurrentDirectory() {
+		Path file = FileSystems.getDefault().getPath("");
 
-		return dir;
+		return file.toAbsolutePath().toString();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String appendSlash (String dir) //append slash if necessary
+	private static String appendSlash(String dir) //append slash if necessary
 	{
-		int lastChar = dir.charAt (dir.length () - 1);
+		int lastChar = dir.charAt(dir.length() - 1);
 		if (lastChar != '/' && lastChar != '\\') {
 			dir += _slash;
 		}
@@ -856,42 +848,41 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean parseModel ()
-	{
+	private boolean parseModel() {
 		_model = _model.replaceAll("\\.thumb\\.jpg", ".jpg");
 		_model = _model.replaceAll("\\/thumbs\\/", "/");
 		_model = _model.replaceAll("\\/tn\\/", "/");
 		_model = _model.replaceAll("\\/tn_/", "/");
 		_model = _model.replaceAll("\\/tn-/", "/");
 
-		int lastSlash = _model.lastIndexOf ('/');
+		int lastSlash = _model.lastIndexOf('/');
 		if (lastSlash < 0) {
-			_log.error ("parseModel: no slash found in '" + _model + "'");
+			_log.error("parseModel: no slash found in '" + _model + "'");
 			return false;
 		}
 
-		_base = _model.substring (0, lastSlash + 1);
-		String remainder = _model.substring (lastSlash + 1);
+		_base = _model.substring(0, lastSlash + 1);
+		String remainder = _model.substring(lastSlash + 1);
 
-		String[] parts1 = splitLeaf (remainder, _blockNumber);
+		String[] parts1 = splitLeaf(remainder, _blockNumber);
 
 		if (_Debug) {
-			_log.debug ("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString (parts1));
+			_log.debug("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString(parts1));
 		}
 
 		if (parts1.length != 2) {
-			_log.error ("parseModel: splitLeaf() failed for '" + remainder + "'");
+			_log.error("parseModel: splitLeaf() failed for '" + remainder + "'");
 			return false;
 		}
 
 		//process tail
 		_tailUsed = _tailOrig = parts1[1];
-		String[] parts2 = _tailOrig.toLowerCase ().split ("\\."); //regex
+		String[] parts2 = _tailOrig.toLowerCase().split("\\."); //regex
 		if (parts2.length == 2) {
 			_tailUsed = "." + parts2[1];
 		}
 
-		if (_tailUsed.equals (".jpeg")) {
+		if (_tailUsed.equals(".jpeg")) {
 			_tailUsed = ".jpg";
 		}
 
@@ -909,145 +900,142 @@ public class GetUrl
 		}
 
 		//how many digits did we remove? (subtract length of _numberPrefix)
-		_digits = remainder.length () - (_headOrig.length () + _tailOrig.length ()) - _numberPrefix.length ();
+		_digits = remainder.length() - (_headOrig.length() + _tailOrig.length()) - _numberPrefix.length();
 
 		if (_Debug) {
-			_log.debug ("_base = " + _base);
-			_log.debug ("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
-			if (!".jpg".equalsIgnoreCase (_tailOrig)) {
-				_log.debug ("_tailOrig = " + _tailOrig);
+			_log.debug("_base = " + _base);
+			_log.debug("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
+			if (!".jpg".equalsIgnoreCase(_tailOrig)) {
+				_log.debug("_tailOrig = " + _tailOrig);
 			}
-			if (!".jpg".equalsIgnoreCase (_tailUsed)) {
-				_log.debug ("_tailUsed = " + _tailUsed);
+			if (!".jpg".equalsIgnoreCase(_tailUsed)) {
+				_log.debug("_tailUsed = " + _tailUsed);
 			}
-			_log.debug ("_digits = " + _digits);
+			_log.debug("_digits = " + _digits);
 		}
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean parseOutputPrefix ()
-	{
-		if (!_model.toLowerCase ().endsWith (".jpg")) { //this processing only applies to specific file types
+	private boolean parseOutputPrefix() {
+		if (!_model.toLowerCase().endsWith(".jpg")) { //this processing only applies to specific file types
 			return true;
 		}
 
 		boolean gotNewName = false;
 		short color = _highlightColor;
 		if (_autoPrefix) {
-			ImageBaseNames imageBaseNames = new ImageBaseNames (_outputPrefix);
+			ImageBaseNames imageBaseNames = new ImageBaseNames(_outputPrefix);
 
-			if (imageBaseNames.hasInvalidMatch ()) {
-				VendoUtils.printWithColor (_alertColor, "Error: invalid basename: \"" + _outputPrefix + "\"");
+			if (imageBaseNames.hasInvalidMatch()) {
+				VendoUtils.printWithColor(_alertColor, "Error: invalid basename: \"" + _outputPrefix + "\"");
 				return false;
 
-			} else if (imageBaseNames.hasMultipleMatches ()) {
-				VendoUtils.printWithColor (_alertColor, "Error: multiple matching basenames found for \"" + _outputPrefix + "\": " + imageBaseNames.getMatchingNames ());
+			} else if (imageBaseNames.hasMultipleMatches()) {
+				VendoUtils.printWithColor(_alertColor, "Error: multiple matching basenames found for \"" + _outputPrefix + "\": " + imageBaseNames.getMatchingNames());
 				return false;
 
-			} else if (imageBaseNames.hasNoMatches ()) {
-				if (imageBaseNames.usingWildcards ()) {
-					VendoUtils.printWithColor (_alertColor, "Error: no matching basenames found for \"" + _outputPrefix + "\"");
+			} else if (imageBaseNames.hasNoMatches()) {
+				if (imageBaseNames.usingWildcards()) {
+					VendoUtils.printWithColor(_alertColor, "Error: no matching basenames found for \"" + _outputPrefix + "\"");
 					return false;
 				}
 
 				gotNewName = true;
 				color = _warningColor;
-				_outputPrefix = imageBaseNames.getNewName ();
+				_outputPrefix = imageBaseNames.getNewName();
 
 			} else {
 				color = _highlightColor;
-				_outputPrefix = imageBaseNames.getNextName ();
+				_outputPrefix = imageBaseNames.getNextName();
 			}
 		}
 
-		if (!_outputPrefix.contains ("-")) {
+		if (!_outputPrefix.contains("-")) {
 			_outputPrefix += "-"; //add trailing dash if none found
 		}
 
-		VendoUtils.printWithColor (color, "_outputPrefix = " + _outputPrefix);
+		VendoUtils.printWithColor(color, "_outputPrefix = " + _outputPrefix);
 
 		if (gotNewName) {
-			sleepMillis (1000); //pause here to allow user to react
+			sleepMillis(1000); //pause here to allow user to react
 		}
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String[] splitLeaf (String leaf, int blockNumber)
-	{
+	private static String[] splitLeaf(String leaf, int blockNumber) {
 		final String pattern = "[0-9]+"; //sequence of digits
 		final String marker = "::::";
 
 		//split string on nth group of digits (reverse string, find nth group, reverse back, split)
-		String s1 = VendoUtils.reverse (leaf);
-		String s2 = VendoUtils.replacePattern (s1, pattern, marker, blockNumber);
-		String s3 = VendoUtils.reverse (s2);
-		String[] parts = s3.split (marker);
+		String s1 = VendoUtils.reverse(leaf);
+		String s2 = VendoUtils.replacePattern(s1, pattern, marker, blockNumber);
+		String s3 = VendoUtils.reverse(s2);
+		String[] parts = s3.split(marker);
 
 		return parts;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void buildTempString ()
-	{
-		_tempFilename = _destDir + "000000." + new Date ().getTime () + "." + _pid + ".tmp";
+	private void buildTempString() {
+		_tempFilename = _destDir + "000000." + new Date().getTime() + "." + _pid + ".tmp";
+//		_log.debug("buildTempString: _tempFilename = " + _tempFilename);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean findInHistory (String basePattern, boolean printResults)
-	{
+	private boolean findInHistory(String basePattern, boolean printResults) {
 //		String pattern = stripHttpHeader (basePattern).toLowerCase ();
-		String pattern = VendoUtils.getUrlFileComponent (basePattern).toLowerCase ();
+		String pattern = VendoUtils.getUrlFileComponent(basePattern).toLowerCase();
 		if (_Debug) {
-			_log.debug ("findInHistory: basePattern = " + basePattern);
-			_log.debug ("findInHistory: pattern = " + pattern);
+			_log.debug("findInHistory: basePattern = " + basePattern);
+			_log.debug("findInHistory: pattern = " + pattern);
 		}
 
-		if (pattern.length () == 0 || pattern.equals ("/")) {
+		if (pattern.length() == 0 || pattern.equals("/")) {
 			return false;
 		}
 
-		if (_historyFileContents.size () == 0) {
-			try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
-				String line = new String ();
-				while ((line = reader.readLine ()) != null) {
-					_historyFileContents.add (line);
+		if (_historyFileContents.size() == 0) {
+			try (BufferedReader reader = new BufferedReader(new FileReader(_destDir + _historyFilename))) {
+				String line;
+				while ((line = reader.readLine()) != null) {
+					_historyFileContents.add(line);
 				}
 
 			} catch (IOException ee) {
-				_log.error ("findInHistory: error reading history file \"" + _historyFilename + "\"");
-				_log.error (ee); //print exception, but no stack trace
+				_log.error("findInHistory: error reading history file \"" + _historyFilename + "\"");
+				_log.error(ee); //print exception, but no stack trace
 				return false;
 			}
 		}
 
 		boolean found = false;
 
-		int maxLines = 6;	//TODO - come up with better solution??
-		int numLines = _historyFileContents.size ();
+		int maxLines = 6;    //TODO - come up with better solution??
+		int numLines = _historyFileContents.size();
 		for (int ii = 0; ii < numLines; ii++) {
-			String baseLine = _historyFileContents.get (ii);
-			String line = /*stripHttpHeader*/ (baseLine).toLowerCase ();
-			if (line.contains (pattern)) {
+			String baseLine = _historyFileContents.get(ii);
+			String line = /*stripHttpHeader*/ (baseLine).toLowerCase();
+			if (line.contains(pattern)) {
 				if (!found) { //print header
 					found = true;
 
 					if (printResults) { //print header
-						System.out.println ("Duplicate entry(s) found in history file:");
-						System.out.println ("---- " + basePattern);
+						System.out.println("Duplicate entry(s) found in history file:");
+						System.out.println("---- " + basePattern);
 					}
 				}
 
 				if (printResults) {
-					System.out.print ("  ");
-					VendoUtils.printWithColor (_alertColor, baseLine, /*includeNewLine*/ false);
+					System.out.print("  ");
+					VendoUtils.printWithColor(_alertColor, baseLine, /*includeNewLine*/ false);
 //					System.out.println (" (" + (ii + 1) + "/" + numLines + ")");
-					System.out.println (" (" + (ii + 1 - numLines) + ")");
-					if (--maxLines == 0) {	//TODO - come up with better solution??
-						System.out.println (" ... omitting rest");
+					System.out.println(" (" + (ii + 1 - numLines) + ")");
+					if (--maxLines == 0) {    //TODO - come up with better solution??
+						System.out.println(" ... omitting rest");
 						break;
 					}
 				}
@@ -1055,38 +1043,37 @@ public class GetUrl
 		}
 
 		if (found && printResults) {
-			System.out.println ("");
+			System.out.println("");
 		}
 
 		return (_ignoreHistory ? false : found);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean findInHistoryFromFile ()
-	{
-		Vector<String> fromFileContents = new Vector<String> ();
-		try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _fromFilename))) {
-			String line = new String ();
-			while ((line = reader.readLine ()) != null) {
-				fromFileContents.add (line);
+	private boolean findInHistoryFromFile() {
+		Vector<String> fromFileContents = new Vector<String>();
+		try (BufferedReader reader = new BufferedReader(new FileReader(_destDir + _fromFilename))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				fromFileContents.add(line);
 			}
 
 		} catch (IOException ee) {
-			_log.error ("findInHistoryFromFile: error reading from file \"" + _fromFilename + "\"");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("findInHistoryFromFile: error reading from file \"" + _fromFilename + "\"");
+			_log.error(ee); //print exception, but no stack trace
 			return false;
 		}
 
-		int numLines = fromFileContents.size ();
+		int numLines = fromFileContents.size();
 		for (int ii = 0; ii < numLines; ii++) {
-			_model = fromFileContents.get (ii);
+			_model = fromFileContents.get(ii);
 
-			if (!parseModel ()) {
+			if (!parseModel()) {
 				continue; //parseModel prints error
 			}
 
-			if (!findInHistory (_base + _headOrig, false)) {
-				System.out.println (VendoUtils.normalizeUrl (_model)); //print all lines not found in history
+			if (!findInHistory(_base + _headOrig, false)) {
+				System.out.println(VendoUtils.normalizeUrl(_model)); //print all lines not found in history
 			}
 		}
 
@@ -1094,16 +1081,15 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean writeHistory ()
-	{
+	private boolean writeHistory() {
 		if (_wroteHistory) {
 			return true;
 		}
 
-		_switches.sort (VendoUtils.caseInsensitiveStringComparator);
+		_switches.sort(VendoUtils.caseInsensitiveStringComparator);
 
 		String command = "gu " + _model;
-		if (!_outputPrefix.isEmpty ()) {
+		if (!_outputPrefix.isEmpty()) {
 			command += " " + _outputPrefix;
 		}
 		for (String str : _switches) {
@@ -1113,22 +1099,22 @@ public class GetUrl
 
 		FileOutputStream outputStream;
 		try {
-			outputStream = new FileOutputStream (new File (_destDir + _historyFilename), /*append*/ true);
+			outputStream = new FileOutputStream(new File(_destDir + _historyFilename), /*append*/ true);
 
 		} catch (IOException ee) {
-			_log.error ("writeHistory: error opening output file \"" + _historyFilename + "\"");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("writeHistory: error opening output file \"" + _historyFilename + "\"");
+			_log.error(ee); //print exception, but no stack trace
 			return false;
 		}
 
 		try {
-			outputStream.write (command.getBytes ());
-			outputStream.flush ();
-			outputStream.close ();
+			outputStream.write(command.getBytes());
+			outputStream.flush();
+			outputStream.close();
 
 		} catch (IOException ee) {
-			_log.error ("writeHistory: error writing to output file \"" + _historyFilename + "\"");
-			_log.error (ee); //print exception, but no stack trace
+			_log.error("writeHistory: error writing to output file \"" + _historyFilename + "\"");
+			_log.error(ee); //print exception, but no stack trace
 			return false;
 		}
 
@@ -1138,19 +1124,18 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private FileType setFileType ()
-	{
-		String extension = _model.toLowerCase ();
+	private FileType setFileType() {
+		String extension = _model.toLowerCase();
 
-		if (extension.endsWith (".jpg") || extension.endsWith (".jpeg")) {
+		if (extension.endsWith(".jpg") || extension.endsWith(".jpeg")) {
 			_fileType = FileType.JPG;
-		} else if (extension.endsWith (".mpg")) {
+		} else if (extension.endsWith(".mpg")) {
 			_fileType = FileType.MPG;
-		} else if (extension.endsWith (".wmv")) {
+		} else if (extension.endsWith(".wmv")) {
 			_fileType = FileType.WMV;
-		} else if (extension.endsWith (".mp4")) {
+		} else if (extension.endsWith(".mp4")) {
 			_fileType = FileType.MP4;
-		} else if (extension.endsWith (".avi")) {
+		} else if (extension.endsWith(".avi")) {
 			_fileType = FileType.AVI;
 		} else {
 			_fileType = FileType.Other;
@@ -1160,12 +1145,11 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int getResponseCode (HttpURLConnection conn)
-	{
+	public static int getResponseCode(HttpURLConnection conn) {
 		int responseCode = 0;
 
 		try {
-			responseCode = conn.getResponseCode ();
+			responseCode = conn.getResponseCode();
 
 		} catch (Exception ee) {
 //			_log.error ("getResponseCode: exception:");
@@ -1176,38 +1160,34 @@ public class GetUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void sleepMillis (int milliseconds)
-	{
+	public static void sleepMillis(int milliseconds) {
 		if (milliseconds > 0) {
 			try {
-				Thread.sleep (milliseconds);
+				Thread.sleep(milliseconds);
 
 			} catch (Exception ee) {
-				_log.debug ("Thread.sleep exception", ee);
-				_log.error (ee); //print exception, but no stack trace
+				_log.debug("Thread.sleep exception", ee);
+				_log.error(ee); //print exception, but no stack trace
 			}
 		}
 	}
 
-	private class ImageSize
-	{
+	private class ImageSize {
 		///////////////////////////////////////////////////////////////////////////
 		//holder for image size data
 		public int _width;
 		public int _height;
 	}
 
-	private class SizeDist
-	{
+	private class SizeDist {
 		///////////////////////////////////////////////////////////////////////////
 		//returns the number of times this value is in the hash (including the instance just added)
-		public int add (Integer bytes)
-		{
-			Integer value = _dist.get (bytes);
+		public int add(Integer bytes) {
+			Integer value = _dist.get(bytes);
 
-			int count = (value != null ? value.intValue () : 0);
+			int count = (value != null ? value : 0);
 
-			_dist.put (bytes, new Integer (++count));
+			_dist.put(bytes, ++count);
 
 //			if (false) { //debug
 //				_log.debug ("SizeDist.add - hash dump:");
@@ -1231,70 +1211,65 @@ public class GetUrl
 			return count;
 		}
 
-		private final HashMap<Integer, Integer> _dist = new HashMap<Integer, Integer> (32);
+		private final HashMap<Integer, Integer> _dist = new HashMap<Integer, Integer>(32);
 	}
 
-	private class PerfStats
-	{
+	private class PerfStats {
 		///////////////////////////////////////////////////////////////////////////
-//		public PerfStats () //ctor starts timing
+//		public PerfStats ()
 //		{
 //		}
 
 		///////////////////////////////////////////////////////////////////////////
 		//holds performance statistics
-		public void add (PerfStatsRecord record)
-		{
-			_records.add (record);
+		public void add(PerfStatsRecord record) {
+			_records.add(record);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public void print () //print ends timing
+		public void print(Instant endInstant)
 		{
-//			String elapsedTimeString = Duration.between (_startInstant, Instant.now ()).toString (); //default ISO-8601 seconds-based representation
-			String elapsedTimeString = LocalTime.ofNanoOfDay (Duration.between (_startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter);
+//			String elapsedTimeString = Duration.between (_globalStartInstant, endInstant).toString (); //default ISO-8601 seconds-based representation
+			String elapsedTimeString = LocalTime.ofNanoOfDay(Duration.between(_globalStartInstant, endInstant).toNanos()).format(_dateTimeFormatter);
 
-			_records.sort (new AlphanumComparator ());
+			_records.sort(new AlphanumComparator());
 
 			double totalBytes = 0;
 			double totalSeconds = 0;
 			for (PerfStatsRecord record : _records) {
-				totalBytes += record._bytesRead;
-				totalSeconds += record._elapsedSeconds;
+				totalBytes += record._imageBytesRead;
+				totalSeconds += record._imageElapsedNanos / 1e9;
 
 				short color = _highlightColor;
 				if (record._width < _alertPixels || record._height < _alertPixels) {
 					color = _warningColor;
 				}
 
-				VendoUtils.printWithColor (color, record.toString2 ());
+				VendoUtils.printWithColor(color, record.generateRecordDetailString(false, Instant.now()));
 			}
 
 			double totalBitsPerSec = 8 * totalBytes / totalSeconds;
 
-			System.out.println (_records.size () + " items downloaded, " +
-								elapsedTimeString + " elapsed, " +
-								VendoUtils.unitSuffixScale (totalBytes, 0) + ", " +
-								VendoUtils.unitSuffixScale (totalBitsPerSec, 0) + "ps average");
+			System.out.println(_records.size() + " items downloaded, " +
+					VendoUtils.unitSuffixScale(totalBytes, 0) + ", " +
+					VendoUtils.unitSuffixScale(totalBitsPerSec, 0) + "ps average, "+
+					elapsedTimeString + " elapsed");
 		}
 
-		private final Instant _startInstant = Instant.now (); //ctor starts timing
-		private final Vector<PerfStatsRecord> _records = new Vector<PerfStatsRecord> ();
+		private final Vector<PerfStatsRecord> _records = new Vector<PerfStatsRecord>();
 	}
 
-	private class PerfStatsRecord
-	{
+	private class PerfStatsRecord {
 		///////////////////////////////////////////////////////////////////////////
 		//helper for performance statistics
-		public PerfStatsRecord (String filename, double bytesRead, double elapsedSeconds, int width, int height)
-		{
-			File file = new File (filename);
-			_filename = file.getName ();
+		public PerfStatsRecord(String filename, double imageBytesRead, double imageElapsedNanos, int width, int height) {
+			File file = new File(filename);
+			_filename = file.getName();
 
-			_bytesRead = bytesRead;
-			_elapsedSeconds = elapsedSeconds;
+			_imageBytesRead = imageBytesRead;
+			_imageElapsedNanos = imageElapsedNanos;
 
-			_bitsPerSec = 8 * _bytesRead / _elapsedSeconds;
+			_imageBitsPerSec = _imageBytesRead * 8 * 1e9 / _imageElapsedNanos;
 
 			_width = width;
 			_height = height;
@@ -1303,215 +1278,218 @@ public class GetUrl
 		///////////////////////////////////////////////////////////////////////////
 		//required for AlphanumComparator
 		@Override
-		public String toString ()
-		{
+		public String toString() {
 			return _filename;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String toString2 ()
-		{
+		public String generateRecordDetailString(boolean printDetail, Instant endInstant) {
+			String elapsedTimeString = LocalTime.ofNanoOfDay(Duration.between(_globalStartInstant, endInstant).toNanos()).format(_dateTimeFormatter);
+
 			return _filename + ", " +
-				   _width + "x" + _height + ", " +
-				   VendoUtils.unitSuffixScale (_bytesRead, 0) + ", " +
-				   VendoUtils.unitSuffixScale (_bitsPerSec, 0) + "ps";
+					_width + "x" + _height + ", " +
+					VendoUtils.unitSuffixScale(_imageBytesRead, 0) + ", " +
+					VendoUtils.unitSuffixScale(_imageBitsPerSec, 0) + "ps" +
+					(printDetail ? ", " + elapsedTimeString + " elapsed" : "");
 		}
 
 		public final String _filename;
-		public final double _bytesRead;
-		public final double _bitsPerSec;
-		public final double _elapsedSeconds;
+		public final double _imageBytesRead;
+		public final double _imageBitsPerSec;
+		public final double _imageElapsedNanos;
 		public final int _width;
 		public final int _height;
 	}
 
-	private class ResultsMap
-	{
+	private class ResultsMap {
 		///////////////////////////////////////////////////////////////////////////
 		//holds attempts and results
-		public void add (String urlStr, Boolean status)
-		{
-			_results.put (urlStr, status);
+		public void add(String urlStr, Boolean status) {
+			_results.put(urlStr, status);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean contains (String urlStr)
-		{
-			return _results.containsKey (urlStr);
+		public boolean contains(String urlStr) {
+			return _results.containsKey(urlStr);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean getStatus (String urlStr)
-		{
-			return _results.get (urlStr);
+		public boolean getStatus(String urlStr) {
+			return _results.get(urlStr);
 		}
 
-		private final HashMap<String, Boolean> _results = new HashMap<String, Boolean> (64);
+		private final HashMap<String, Boolean> _results = new HashMap<String, Boolean>(64);
 	}
 
-	private class ImageBaseNames
-	{
+	private class ImageBaseNames {
 		///////////////////////////////////////////////////////////////////////////
-		public ImageBaseNames (String outputPrefixOrig)
-		{
+		public ImageBaseNames(String outputPrefixOrig) {
 			_outputPrefixOrig = outputPrefixOrig;
-			_outputPrefixBase = outputPrefixOrig.replaceAll ("[\\-\\._]", ""); //regex
+			_outputPrefixBase = outputPrefixOrig.replaceAll("[\\-\\._]", ""); //regex
 			String outputPrefix = _outputPrefixBase;
 
 			if (_classDebug) {
-				System.out.println ("GetUrl.ImageBaseNames: outputPrefix @1 = " + outputPrefix);
+				System.out.println("GetUrl.ImageBaseNames: outputPrefix @1 = " + outputPrefix);
 			}
 
-			outputPrefix = outputPrefix.replaceAll ("\\d+.*", ""); //regex: digits and anything after
-			if (outputPrefix.contains ("*")) {
-				outputPrefix = outputPrefix.replaceAll ("\\*", ".*"); //regex
+			outputPrefix = outputPrefix.replaceAll("\\d+.*", ""); //regex: digits and anything after
+			if (outputPrefix.contains("*")) {
+				outputPrefix = outputPrefix.replaceAll("\\*", ".*"); //regex
 			}
 
 			if (_classDebug) {
-				System.out.println ("GetUrl.ImageBaseNames: outputPrefix @2 = " + outputPrefix);
+				System.out.println("GetUrl.ImageBaseNames: outputPrefix @2 = " + outputPrefix);
 			}
 
-			String subdir = "/jroot/" + AlbumImage.getSubFolderFromName (outputPrefix);
+			String subdir = "/jroot/" + AlbumImage.getSubFolderFromName(outputPrefix);
 
-			_filenameList.addAll (getFileList (_destDir, outputPrefix));
-			_filenameList.addAll (getFileList (_destDir + subdir, outputPrefix));
-			_filenameList.sort (VendoUtils.caseInsensitiveStringComparator);
+			_filenameList.addAll(getFileList(_destDir, outputPrefix));
+			_filenameList.addAll(getFileList(_destDir + subdir, outputPrefix));
+			_filenameList.sort(new AlphanumComparator());
 
 //			if (_classDebug) {
 //				System.out.println ("GetUrl.ImageBaseNames: filenameList = " + _filenameList);
 //			}
 
 			for (String filename : _filenameList) {
-				_sortedBaseNameSet.add (filename.replaceAll ("\\d+.*", "")); //regex: digits and anything after
+				_sortedBaseNameSet.add(filename.replaceAll("\\d+.*", "")); //regex: digits and anything after
 			}
 
 			if (_classDebug) {
-				System.out.println ("GetUrl.ImageBaseNames: baseNames = " + StringUtils.join (_sortedBaseNameSet, ','));
+				System.out.println("GetUrl.ImageBaseNames: baseNames = " + StringUtils.join(_sortedBaseNameSet, ','));
 			}
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean usingWildcards ()
-		{
+		public boolean usingWildcards() {
 			if (_classDebug) {
-				System.out.println ("GetUrl.usingWildcards: " + _outputPrefixBase.contains ("*"));
+				System.out.println("GetUrl.usingWildcards: " + _outputPrefixBase.contains("*"));
 			}
 
-			return _outputPrefixBase.contains ("*");
+			return _outputPrefixBase.contains("*");
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean hasInvalidMatch ()
-		{
-			boolean invalidMatch = !usingWildcards () && fileExists (_destDir + _outputPrefixOrig) && !_outputPrefixOrig.toLowerCase ().endsWith (".jpg");
+		public boolean hasInvalidMatch() {
+			boolean invalidMatch = !usingWildcards() && fileExists(_destDir + _outputPrefixOrig) && !_outputPrefixOrig.toLowerCase().endsWith(".jpg");
 
 			if (_classDebug) {
-				System.out.println ("GetUrl.hasInvalidMatch: " + invalidMatch);
+				System.out.println("GetUrl.hasInvalidMatch: " + invalidMatch);
 			}
 
 			return invalidMatch;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean hasMultipleMatches ()
-		{
+		public boolean hasMultipleMatches() {
 			if (_classDebug) {
-				System.out.println ("GetUrl.hasMultipleMatches: " + (_sortedBaseNameSet.size () > 1));
+				System.out.println("GetUrl.hasMultipleMatches: " + (_sortedBaseNameSet.size() > 1));
 			}
 
-			return _sortedBaseNameSet.size () > 1;
+			return _sortedBaseNameSet.size() > 1;
 		}
 
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean hasNoMatches ()
-		{
+		public boolean hasNoMatches() {
 			if (_classDebug) {
-				System.out.println ("GetUrl.hasNoMatches: " + (_filenameList.size () == 0));
+				System.out.println("GetUrl.hasNoMatches: " + (_filenameList.size() == 0));
 			}
 
-			return _filenameList.size () == 0;
+			return _filenameList.size() == 0;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getMatchingNames ()
-		{
-			if (!hasMultipleMatches ()) {
-				throw new RuntimeException ("invalid call to getMatchingNames()");
+		public String getMatchingNames() {
+			if (!hasMultipleMatches()) {
+				throw new RuntimeException("invalid call to getMatchingNames()");
 			}
 
-			return StringUtils.join (_sortedBaseNameSet, ',');
+			return StringUtils.join(_sortedBaseNameSet, ',');
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getNewName ()
-		{
-			if (!hasNoMatches ()) {
-				throw new RuntimeException ("invalid call to getNewName()");
+		public String getNewName() {
+			if (!hasNoMatches()) {
+				throw new RuntimeException("invalid call to getNewName()");
 			}
 
-			return _outputPrefixBase.replaceAll ("\\d+", "").replaceAll ("-", "") + "01"; //remove any/all digits and dashes, then append "01"
+			return _outputPrefixBase.replaceAll("\\d+", "").replaceAll("-", "") + "01"; //remove any/all digits and dashes, then append "01"
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getNextName ()
-		{
-			if (hasNoMatches () || hasMultipleMatches ()) {
-				throw new RuntimeException ("invalid call to getNextName()");
+		public String getNextName() {
+			if (hasNoMatches() || hasMultipleMatches()) {
+				throw new RuntimeException("invalid call to getNextName()");
 			}
 
-			String lastFileName = _filenameList.get (_filenameList.size () - 1);
+			String lastFileName = _filenameList.get(_filenameList.size() - 1);
 
 			if (_classDebug) {
-				System.out.println ("GetUrl.getNextName: lastFileName = " + lastFileName);
+				System.out.println("GetUrl.getNextName: lastFileName = " + lastFileName);
 			}
 
-			String[] parts1 = splitLeaf (lastFileName, /*blockNumber*/ 0);
+			String[] parts1 = splitLeaf(lastFileName, /*blockNumber*/ 0);
 
-			String outputPrefix = parts1[0].replaceAll ("\\d+-", ""); //replace all digits and dashes (with empty string)
-			String numberStr = parts1[0].replaceAll ("\\D+", ""); //replace all non-digits (with empty string)
+			String outputPrefix = parts1[0].replaceAll("\\d+-", ""); //replace all digits and dashes (with empty string)
+			String numberStr = parts1[0].replaceAll("\\D+", ""); //replace all non-digits (with empty string)
 
-			int nextNumber = 1 + Integer.valueOf (numberStr);
+			int nextNumber = 1 + Integer.valueOf(numberStr);
 			if ((nextNumber % 10) == 0) {
 				nextNumber++;
 			}
 
-			String format = "%0" + numberStr.length () + "d";
+			String format = "%0" + numberStr.length() + "d";
 
-			return outputPrefix + String.format (format, nextNumber);
+			return outputPrefix + String.format(format, nextNumber);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		private List<String> getFileList (String dirName, final String nameWild)
-		{
+		private List<String> getFileList(String dirName, final String nameWild) {
 			//digits in following pattern prevent e.g. "Foo01" from matching "FooBar01"
-			Pattern pattern = Pattern.compile (nameWild + "[0-9][0-9].*" + "\\" + _tailUsed, Pattern.CASE_INSENSITIVE);
+//save old code until tested
+// 			Pattern pattern = Pattern.compile(nameWild + "[0-9][0-9].*" + "\\" + _tailUsed, Pattern.CASE_INSENSITIVE);
+			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\" + _tailUsed, Pattern.CASE_INSENSITIVE);
 
 			if (_classDebug) {
-				System.out.println ("GetUrl.getFileList: dirName = " + dirName + ", nameWild = " + nameWild + ", pattern = " + pattern.pattern ());
+				System.out.println("GetUrl.getFileList: dirName = " + dirName + ", nameWild = " + nameWild + ", pattern = " + pattern.pattern());
 			}
 
 			//for simple dir listings, it looks like java.io package is faster than java.nio
-			FilenameFilter filenameFilter = new FilenameFilter () {
+			FilenameFilter filenameFilter = new FilenameFilter() {
 				@Override
-				public boolean accept (File dir, String name) {
-					return pattern.matcher (name).matches ();
+				public boolean accept(File dir, String name) {
+					return pattern.matcher(name).matches();
 				}
 			};
 
-			File dir = new File (dirName);
-			String[] files = dir.list (filenameFilter);
+			File dir = new File(dirName);
+			String[] files = dir.list(filenameFilter);
 //			if (_classDebug) {
 //				System.out.println ("GetUrl.getFileList: files = " + files);
 //			}
-			return (files != null ? Arrays.asList (dir.list (filenameFilter)) : new ArrayList<String> ());
+//save old code until tested
+//			return (files != null ? Arrays.asList(dir.list(filenameFilter)) : new ArrayList<String>());
+			return (files != null ? Arrays.asList(files) : new ArrayList<String>());
 		}
 
 		private final boolean _classDebug = false;
 		private final String _outputPrefixOrig;
 		private final String _outputPrefixBase;
-		private final List<String> _filenameList = new ArrayList<String> ();
-		private final TreeSet<String> _sortedBaseNameSet = new TreeSet<String> (VendoUtils.caseInsensitiveStringComparator);
+		private final List<String> _filenameList = new ArrayList<String>();
+		private final TreeSet<String> _sortedBaseNameSet = new TreeSet<String>(VendoUtils.caseInsensitiveStringComparator);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private void handlePauseAction ()
+	{
+		if (fileExists (_pauseFilename)) {
+			_log.debug ("GetUrl.handlePauseAction: pause file found: entering pause mode...");
+			while (fileExists (_pauseFilename)) {
+				sleepMillis (_pauseSleepMillis);
+			}
+			_log.debug ("GetUrl.handlePauseAction: pause file not found: exiting pause mode");
+		}
 	}
 
 /*
@@ -1599,6 +1577,7 @@ public class GetUrl
 	private String _filename = null;
 	private String _destDir = null;
 	private String _tempFilename = null;
+	private Instant _globalStartInstant;
 	private FileType _fileType = FileType.Other;
 	private SizeDist _sizeDist = new SizeDist ();
 	private PerfStats _perfStats = null;
@@ -1617,6 +1596,9 @@ public class GetUrl
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
 	private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;
 	private static final short _highlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;
+
+	private static final int _pauseSleepMillis = 1000;
+	private static final String _pauseFilename = "getUrl.pause.txt";
 
 	//global members
 	public static boolean _Debug = false;

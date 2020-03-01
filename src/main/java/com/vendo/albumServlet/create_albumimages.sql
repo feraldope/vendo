@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS images
 );
 CREATE INDEX sub_folder_idx on images (sub_folder);
 CREATE INDEX name_no_ext_idx on images (name_no_ext);
+CREATE INDEX insert_date_idx on images (insert_date);
 SHOW COLUMNS FROM images;
 SHOW INDEX FROM images;
 
@@ -64,7 +65,7 @@ CREATE TABLE IF NOT EXISTS image_diffs
 	name_id_2		INTEGER UNSIGNED NOT NULL,
 	avg_diff		TINYINT UNSIGNED NOT NULL, -- max 255
 	std_dev 		TINYINT UNSIGNED NOT NULL, -- max 255
-	count	  		TINYINT UNSIGNED NOT NULL, -- max 255
+	count	  		SMALLINT UNSIGNED NOT NULL, -- max 65535
 	source			VARCHAR(20) CHARACTER SET utf8 COLLATE utf8_bin NOT NULL,
 	last_update	TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (name_id_1, name_id_2)
@@ -75,6 +76,7 @@ CREATE INDEX source_idx on image_diffs (source);
 CREATE INDEX last_update_idx on image_diffs (last_update);
 SHOW COLUMNS FROM image_diffs;
 SHOW INDEX FROM image_diffs;
+-- ALTER TABLE image_diffs MODIFY count SMALLINT UNSIGNED NOT NULL;
 
 /*
 -- -----------------------------------------------------------------------------
@@ -171,10 +173,35 @@ FROM information_schema.tables
 GROUP BY table_schema; 
 
 -- distribution of images in subfolders
--- single-char subfolder
-select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count desc
+-- single-char subfolder (NOTE SORT ASCENDING)
+select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count asc
 -- two-char subfolder
 select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from images group by sub_folder2 order by count desc
+-- three-char subfolder
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
+
+
+-- three-char subfolders for 'ka'
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ka%' group by sub_folder3 order by count desc
+
+--move to three-char subfoler
+update images set sub_folder = 'kat' where lower(name_no_ext) like 'kat%'
+update images set sub_folder = 'kar' where lower(name_no_ext) like 'kar%'
+update images set sub_folder = 'mar' where lower(name_no_ext) like 'mar%'
+update images set sub_folder = 'jen' where lower(name_no_ext) like 'jen%'
+update images set sub_folder = 'car' where lower(name_no_ext) like 'car%'
+--move to one-char subfoler
+update images set sub_folder = 'u' where lower(name_no_ext) like 'u%'
+update images set sub_folder = 'y' where lower(name_no_ext) like 'y%'
+update images set sub_folder = 'w' where lower(name_no_ext) like 'w%'
+update images set sub_folder = 'o' where lower(name_no_ext) like 'o%'
+-- should also do image_counts??
+--in CmdPrompt
+cd ma
+md ..\mar
+move Mar* ..\mar\
+THEN RUN "ud"
+
 
 -- manual cleanup of image_counts (1)
 select * from image_counts where image_count < 1 order by lower(base_name);
@@ -226,6 +253,20 @@ select collapse_groups, count(*) from image_counts group by collapse_groups;
 select * from image_counts where base_name like 'Faa%' order by lower(base_name), collapse_groups;
 select * from images where name_no_ext like 'Faa%';
 select * from images where insert_date = (select max(insert_date) from images);
+
+-- images size in GB
+select count(*), sum(bytes) / (1024 * 1024 * 1024) as GigaBytes
+, min(date(insert_date))
+, date(current_timestamp)
+from images
+where timestampdiff (day, date(insert_date), date(current_timestamp)) <= 1 -- use 0 for today (but less than 1 doesn't seem to work quite right)
+-- and sub_folder = 'li'
+
+-- images size distribution by folder
+select sub_folder, sum(bytes) / (1024 * 1024) as mega_bytes, count(*) as files
+from images
+group by sub_folder
+order by mega_bytes desc, files desc
 
 -- validate last_update and insert_date handling
 select 'image_folder' as name, sub_folder, last_update as latest_entry from image_folder where last_update = (select max(last_update) from image_folder)
@@ -281,10 +322,10 @@ select name_id, name_no_ext from images where name_id in
 -- queries for image_diffs table
 select count(*) from image_diffs
 
-select d.* from image_diffs d where d.count > 1
+-- count distribution
+select d.count as count, count(d.count) as rows1 from image_diffs d group by d.count order by d.count desc
 
-select d.count as count, count(d.count) as rows from image_diffs d group by d.count
-
+-- check for invalid state, should return 0 rows
 select * from image_diffs where name_id_2 < name_id_1
 
 -- query image_diffs table
@@ -311,6 +352,11 @@ order by count desc
 xx delete from image_diffs where avg_diff >= 19
 xx delete from image_diffs where timestampdiff (hour, last_update, current_timestamp) > 1
 
+-- avoid hitting 255 max for column
+select * from image_diffs where count > 250
+update image_diffs set count = 127 where count > 127
+
+--
 select distinct name from albumtags.base1_names where name_id in (
 select name_id from (
 (select name_id from albumtags.base1_names_tags
