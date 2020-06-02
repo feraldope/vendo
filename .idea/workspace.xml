@@ -2,16 +2,21 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="97c7c55e-57f6-4d7b-90e4-4ee351afb03b" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/jarRepositories.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageCount.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageCount.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/ClipboardListener.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/ClipboardListener.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test/java/com/vendo/albumServlet/AlbumImagesTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/java/com/vendo/albumServlet/AlbumImagesTest.java" afterDir="false" />
     </list>
-    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -27,20 +32,20 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="MavenImportPreferences">
-    <option name="importingSettings">
-      <MavenImportingSettings>
-        <option name="importAutomatically" value="true" />
-      </MavenImportingSettings>
-    </option>
-  </component>
   <component name="ProjectId" id="1RqF2NHYgeEtKDiFPkCICHoruT4" />
+  <component name="ProjectViewState">
+    <option name="autoscrollFromSource" value="true" />
+    <option name="autoscrollToSource" value="true" />
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
   <component name="PropertiesComponent">
+    <property name="ASKED_ADD_EXTERNAL_FILES" value="true" />
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary" value="JUnit5" />
     <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5" value="" />
     <property name="last_opened_file_path" value="$PROJECT_DIR$/.." />
-    <property name="settings.editor.selected.configurable" value="preferences.sourceCode.Java" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
   </component>
   <component name="RecentsManager">
     <key name="CreateTestDialog.RecentsKey">
@@ -52,18 +57,6 @@
     <key name="CreateTestDialog.Recents.Supers">
       <recent name="" />
     </key>
-  </component>
-  <component name="RunDashboard">
-    <option name="ruleStates">
-      <list>
-        <RuleState>
-          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
-        </RuleState>
-        <RuleState>
-          <option name="name" value="StatusDashboardGroupingRule" />
-        </RuleState>
-      </list>
-    </option>
   </component>
   <component name="RunManager">
     <configuration name="AlbumServlet" type="Remote">
@@ -80,9 +73,6 @@
       </RunnerSettings>
       <method v="2" />
     </configuration>
-  </component>
-  <component name="ServiceViewManager">
-    <option name="showServicesTree" value="false" />
   </component>
   <component name="StructureViewFactory">
     <option name="AUTOSCROLL_FROM_SOURCE" value="true" />
@@ -106,24 +96,44 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State>
-              <option name="COLUMN_ORDER" />
-            </State>
+            <State />
           </value>
         </entry>
       </map>
     </option>
+    <option name="oldMeFiltersMigrated" value="true" />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="900" y="101" width="2500" height="1930" key="DiffContextDialog" timestamp="1589718878779">
+      <screen x="0" y="0" width="3840" height="2130" />
+    </state>
+    <state x="900" y="101" width="2500" height="1930" key="DiffContextDialog/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1589718878779" />
+    <state x="1927" y="821" key="FileChooserDialogImpl" timestamp="1589647700325">
+      <screen x="0" y="0" width="3840" height="2130" />
+    </state>
+    <state x="1927" y="821" key="FileChooserDialogImpl/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1589647700325" />
+    <state x="1648" y="709" key="SettingsEditor" timestamp="1587736675198">
+      <screen x="0" y="0" width="3840" height="2130" />
+    </state>
+    <state x="1648" y="709" key="SettingsEditor/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1587736675198" />
+    <state x="1808" y="678" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1588440265493">
+      <screen x="0" y="0" width="3840" height="2130" />
+    </state>
+    <state x="1808" y="678" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1588440265493" />
+    <state x="1310" y="294" width="1826" height="1533" key="find.popup" timestamp="1589646087429">
+      <screen x="0" y="0" width="3840" height="2130" />
+    </state>
+    <state x="1310" y="294" width="1826" height="1533" key="find.popup/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1589646087429" />
+    <state x="1803" y="515" key="run.anything.popup" timestamp="1588514324719">
+      <screen x="0" y="0" width="3840" height="2130" />
+    </state>
+    <state x="1803" y="515" key="run.anything.popup/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1588514324719" />
   </component>
   <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="java-line">
-          <condition expression="leadingNonNumericChars.startsWith(&quot;li&quot;)" language="JAVA" />
-          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java</url>
-          <line>127</line>
-          <option name="timeStamp" value="33" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="Remote">
+        <watch expression="tagDatabaseMap.get (tag)" language="JAVA" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

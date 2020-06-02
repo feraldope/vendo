@@ -341,6 +341,7 @@ public class GetUrl {
 
 			if (count > 0 && !_TestMode) {
 				writeHistory();
+				sleepMillis(_sleepMillis);
 			}
 
 			if (knowDigits) {
@@ -457,8 +458,8 @@ public class GetUrl {
 						ee instanceof SocketException ||
 						ee instanceof SocketTimeoutException ||
 						ee instanceof UnknownHostException ||
-//											(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
-//											(ee instanceof IOException && responseCode == errorGatewayTimeout);
+//						(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
+//						(ee instanceof IOException && responseCode == errorGatewayTimeout);
 						(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
 
 				if (retryableCondition && retryCount >= 0) {
@@ -522,8 +523,6 @@ public class GetUrl {
 //			_log.debug ("downloaded file: " + _filename);
 
 		_resultsMap.add(_urlStr, status);
-
-		sleepMillis(_sleepMillis);
 
 		return status;
 	}
@@ -854,6 +853,7 @@ public class GetUrl {
 		_model = _model.replaceAll("\\/tn\\/", "/");
 		_model = _model.replaceAll("\\/tn_/", "/");
 		_model = _model.replaceAll("\\/tn-/", "/");
+		_model = _model.replaceAll("\\/p\\/\\d+x\\d+_", "/m");
 
 		int lastSlash = _model.lastIndexOf('/');
 		if (lastSlash < 0) {

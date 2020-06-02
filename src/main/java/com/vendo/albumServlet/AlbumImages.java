@@ -144,7 +144,7 @@ public class AlbumImages
 			path += '/';
 		}
 
-		String parts[] = path.split ("/");
+		String[] parts = path.split ("/");
 
 		return parts[parts.length - 1];
 	}
@@ -475,7 +475,7 @@ public class AlbumImages
 
 			final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
 			final int minPerThread = 100;
-			final int chunkSize = calculateChunk (maxThreads, minPerThread, allCombos.size ()).getFirst ();
+			final int chunkSize = calculateChunks (maxThreads, minPerThread, allCombos.size ()).getFirst ();
 			List<List<VPair<Integer, Integer>>> allComboChunks = ListUtils.partition (allCombos, chunkSize);
 			final int numChunks = allComboChunks.size ();
 			_log.debug ("AlbumImages.doDup: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
@@ -884,7 +884,7 @@ public class AlbumImages
 	///////////////////////////////////////////////////////////////////////////
 	//tries to honor minPerChunk, but never more than maxChunks
 	//returns <chunkSize, numChunks>
-	public static VPair<Integer, Integer> calculateChunk (int maxChunks, int minPerChunk, int numItems)
+	public static VPair<Integer, Integer> calculateChunks (int maxChunks, int minPerChunk, int numItems)
 	{
 		int numChunks = 0;
 		int chunkSize = 0;
@@ -906,6 +906,8 @@ public class AlbumImages
 			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
 		}
 
+		_log.debug ("AlbumImages.calculateChunks: numItems = " + _decimalFormat2.format (numItems) + ", numChunks = " + _decimalFormat2.format (numChunks) + ", chunkSize = " + _decimalFormat2.format (chunkSize));
+
 		return VPair.of (chunkSize, numChunks);
 	}
 
@@ -915,10 +917,11 @@ public class AlbumImages
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		if (numImages > _allCombosNumImages || _allCombos == null) {
-			numImages = (int) MathUtils.round ((double) numImages, -3, BigDecimal.ROUND_UP); //round up to next thousand
+//		if (numImages > _allCombosNumImages || _allCombos == null) {
+//			numImages = (int) MathUtils.round ((double) numImages, -3, BigDecimal.ROUND_UP); //round up to next thousand
+			numImages = (int) MathUtils.round ((double) numImages, -2, BigDecimal.ROUND_UP); //round up to next hundred
 
-			_log.debug ("AlbumImages.getAllCombos: cache miss: new numImages = " + _decimalFormat2.format (numImages));
+//			_log.debug ("AlbumImages.getAllCombos: cache miss: new numImages = " + _decimalFormat2.format (numImages));
 
 			int maxComparisons = getMaxComparisons (numImages);
 			_allCombos = new ArrayList<VPair<Integer, Integer>> (maxComparisons);
@@ -929,7 +932,9 @@ public class AlbumImages
 					_allCombos.add (VPair.of (i0, i1));
 				}
 			}
-		}
+
+			_log.debug ("AlbumImages.getAllCombos: numImages = " + _decimalFormat2.format (numImages) + ",  maxComparisons = " + _decimalFormat2.format (maxComparisons) + ", _allCombos.size() = " + _decimalFormat2.format (_allCombos.size ()));
+//		}
 
 		AlbumProfiling.getInstance ().exit (5);
 
@@ -1092,8 +1097,8 @@ public class AlbumImages
 		  .append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 		  .append ("&useCase=").append (_form.getUseCase ())
 		  .append ("&reverseSort=").append (_form.getReverseSort ())
-//		  .append ("&screenWidth=").append (_form.getScreenWidth ())
-//		  .append ("&screenHeight=").append (_form.getScreenHeight ())
+		  .append ("&screenWidth=").append (_form.getScreenWidth ())
+		  .append ("&screenHeight=").append (_form.getScreenHeight ())
 		  .append ("&windowWidth=").append (_form.getWindowWidth ())
 		  .append ("&windowHeight=").append (_form.getWindowHeight ())
 		  .append ("&timestamp=").append (timestamp)
@@ -1145,8 +1150,8 @@ public class AlbumImages
 //		  .append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 		  .append ("&useCase=").append (_form.getUseCase ())
 //		  .append ("&reverseSort=").append (_form.getReverseSort ())
-//		  .append ("&screenWidth=").append (_form.getScreenWidth ())
-//		  .append ("&screenHeight=").append (_form.getScreenHeight ())
+		  .append ("&screenWidth=").append (_form.getScreenWidth ())
+		  .append ("&screenHeight=").append (_form.getScreenHeight ())
 		  .append ("&windowWidth=").append (_form.getWindowWidth ())
 		  .append ("&windowHeight=").append (_form.getWindowHeight ())
 		  .append ("&slice=").append (1)
@@ -1216,19 +1221,18 @@ public class AlbumImages
 		}
 
 		boolean isAndroidDevice = _form.isAndroidDevice ();
-		boolean isNexus7Device = _form.isNexus7Device ();
 
-		String font1 = "fontsize10";
-		if (isAndroidDevice) {
-			font1 = "fontsize24";
-		}
+		String font1 = !isAndroidDevice ? "fontsize10" : "fontsize24";
+		String tableWidthString = !isAndroidDevice ? "100%" : "1600"; //TODO - hardcoded
 
 		String tagsMarker = "<tagsMarker>";
 		String servletErrorsMarker = "<servletErrorsMarker>";
 
 		if (numImages == 0) {
 			StringBuilder sb1 = new StringBuilder (200);
-			sb1.append ("<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0 BORDER=")
+			sb1.append ("<TABLE WIDTH=")
+			   .append (tableWidthString)
+			   .append (" CELLPADDING=0 CELLSPACING=0 BORDER=")
 			   .append (_tableBorderPixels)
 			   .append (">").append (NL)
 			   .append ("<TR>").append (NL)
@@ -1254,7 +1258,7 @@ public class AlbumImages
 		String imageUrlPath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ true);
 
 		AlbumMode mode = _form.getMode ();
-		int defaultCols = _form.getDefaultColumns ();
+		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : 1; //TODO - hardcoded
 		int cols = _form.getColumns ();
 		int rows = getNumRows ();
 		int numSlices = getNumSlices ();
@@ -1301,9 +1305,13 @@ public class AlbumImages
 
 		//header, slice links, and close link
 		StringBuilder sb = new StringBuilder (8 * 1024);
-		sb.append ("<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0 BORDER=")
+		sb.append ("<TABLE WIDTH=")
+		  .append (tableWidthString)
+		  .append (" CELLPADDING=0 CELLSPACING=0 BORDER=")
+//		sb.append ("<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0 BORDER=")
 		  .append (_tableBorderPixels)
 		  .append (">").append (NL);
+//		  .append ("<A NAME=\"AlbumTop\"></A>").append (NL);
 
 		sb.append (servletErrorsMarker);
 
@@ -1326,7 +1334,7 @@ public class AlbumImages
 		  .append ("</NOBR>")
 		  .append (tagsMarker)
 		  .append ("</TD>").append (NL)
-		  .append ("<a name=\"topAnchor\"></a>").append (NL)
+//		  .append ("<a name=\"topAnchor\"></a>").append (NL)
 		  .append ("<TD class=\"")
 		  .append (font1)
 		  .append ("\" ALIGN=RIGHT>")
@@ -1353,10 +1361,11 @@ public class AlbumImages
 		int imageWidth = 0;
 		int imageHeight = 0;
 
-		if (isNexus7Device) {
-			tableWidth = (_form.getWindowWidth () > _form.getWindowHeight () ? 1920 : 1200); //hack - hardcode
+		if (isAndroidDevice) {
+			//using _form.getScreenWidth () did not work
+			tableWidth = (_form.getWindowWidth () > _form.getWindowHeight () ? 2560 : 1600); //hack - hardcode
 			imageWidth = tableWidth / tempCols - (2 * (imageBorderPixels + padding));
-			imageHeight = (_form.getWindowWidth () > _form.getWindowHeight () ? 1200 : 1920); //hack - hardcode
+			imageHeight = (_form.getWindowWidth () > _form.getWindowHeight () ? 1600 : 2560); //hack - hardcode
 
 		} else {
 			//values for firefox
@@ -1365,9 +1374,10 @@ public class AlbumImages
 //			imageHeight = _form.getWindowHeight () - 40; //for 1080p
 			imageHeight = _form.getWindowHeight () - 60; //for 1440p
 		}
-		_log.debug ("AlbumImages.generateHtml: _form.isNexus7Device () = " + _form.isNexus7Device () + ", tableWidth = " + tableWidth + ", imageWidth = " + imageWidth + ", imageHeight = " + imageHeight);
+		_log.debug ("AlbumImages.generateHtml: _form.AndroidDevice() = " + _form.isAndroidDevice () + ", tableWidth = " + tableWidth + ", imageWidth = " + imageWidth + ", imageHeight = " + imageHeight);
 
-		sb.append ("<TABLE WIDTH=")
+		sb.append ("<A NAME=\"topAnchor\"></A>").append (NL)
+		  .append ("<TABLE WIDTH=")
 		  .append (tableWidth)
 		  .append (" CELLSPACING=0 CELLPADDING=")
 		  .append (padding)
@@ -1528,9 +1538,17 @@ public class AlbumImages
 					//drill down to single image
 					imageName = image.getName ();
 					details.append ("(")
-						   .append (image.getScaleString ())
-						   .append (")");
+							.append (image.getScaleString ())
+							.append (")");
 
+					if (cols == 1) {
+						details.append (" (")
+								.append (imageCount + 1)
+								.append (" of ")
+								.append (numImages)
+								.append (")");
+
+					}
 					imagesInSlice.add (image.getBaseName (/*collapseGroups*/ false));
 
 					int overWidth = image.getWidth () - _form.getWindowWidth ();
@@ -1589,7 +1607,7 @@ public class AlbumImages
 				  .append (fontStyle)
 				  .append (" VALIGN=BOTTOM ALIGN=")
 				  .append (textAlign)
-				  .append (">").append (NL)
+				  .append (">")//.append (NL)
 				  .append (imageName)
 				  .append (details.toString ())
 				  .append (_break).append (NL)
@@ -1614,7 +1632,7 @@ public class AlbumImages
 				  .append (image.getScaledWidth ())
 				  .append (" HEIGHT=")
 				  .append (image.getScaledHeight ())
-				  .append (" ALIGN=").append (NL)
+				  .append (" ALIGN=")//.append (NL)
 				  .append (imageAlign)
 				  .append (">").append (NL)
 				  .append ("</A>").append (NL);
@@ -1628,12 +1646,14 @@ public class AlbumImages
 						deleteParam = AlbumFormInfo._DeleteParam2 + image.getBaseName(collapseGroups) + "*" + AlbumFormInfo._ImageExtension; //wildname
 					}
 					sb.append (_break).append (NL)
-					  .append ("<FORM>Delete<INPUT TYPE=\"CHECKBOX\" NAME=\"")
+//					  .append ("<FORM>Delete<INPUT TYPE=\"CHECKBOX\" NAME=\"")
+					  .append ("Delete<INPUT TYPE=\"CHECKBOX\" NAME=\"")
 					  .append (deleteParam)
-//don't close form	  .append ("\"></FORM>").append (NL);
+//don't close form here .append ("\"></FORM>").append (NL)
 					  .append ("\"")
 					  .append (selectThisDuplicateImage ? " CHECKED" : "")
-					  .append (">").append (NL);
+					  .append (">").append (NL)
+;//					  .append ("</FORM>").append (NL);
 				}
 
 				sb.append ("</TD>").append (NL);
@@ -1655,7 +1675,8 @@ public class AlbumImages
 		sb.append ("</TABLE>").append (NL);
 
 		//footer: top link, slice links, and close link
-		sb.append ("<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0 BORDER=")
+		sb//.append ("<A HREF=\"#AlbumTop\"><NOBR>Top</NOBR></A>").append (NL)
+		  .append ("<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0 BORDER=")
 		  .append (_tableBorderPixels)
 		  .append (">").append (NL)
 		  .append ("<TR>").append (NL)
@@ -1663,14 +1684,15 @@ public class AlbumImages
 		  .append (font2)
 		  .append ("\" ALIGN=RIGHT>")
 		  .append (pageLinksHtml).append (NL)
-		  .append ("<A HREF=\"#AlbumTop\"><NOBR>Top</NOBR></A>").append (NL)
+//		  .append ("<A HREF=\"#AlbumTop\"><NOBR>Top</NOBR></A>").append (NL)
 		  .append (_spacing).append (NL)
+//		  .append ("<A HREF=\"#AlbumTop\">Top</A>").append (NL)
 //TODO - this only work for albums that were drilled into??
 		  .append ("<A HREF=\"#\" onClick=\"self.close();\">Close</A>").append (NL)
 		  .append ("</TD>").append (NL)
 		  .append ("</TR>").append (NL)
 //add a blank line at end to avoid problem when overlapping with Firefox's status area
-		  .append ("<TR><TD>&nbsp</TD></TR>").append (NL)
+//		  .append ("<TR><TD>&nbsp;</TD></TR>").append (NL)
 		  .append ("</TABLE>").append (NL);
 
 		String htmlString = sb.toString ();
@@ -1802,17 +1824,19 @@ public class AlbumImages
 		}
 
 		Path moveFile = FileSystems.getDefault ().getPath (rootPath.toString (), "moveRenameByExifDate.bat");
-		try (FileOutputStream outputStream = new FileOutputStream (moveFile.toFile ())) {
-			outputStream.write (sb.toString ().getBytes ());
-			outputStream.flush ();
-			outputStream.close ();
-			if (sb.length () > 0) {
-				_log.debug ("AlbumImages.generateExifSortCommands: move commands written to file: " + moveFile.toString () + NL);
-			}
+		if (moveFile.toFile ().length () > 0 || sb.length () > 0) {
+			try (FileOutputStream outputStream = new FileOutputStream (moveFile.toFile ())) {
+				outputStream.write (sb.toString ().getBytes ());
+				outputStream.flush ();
+				outputStream.close ();
+				if (sb.length () > 0) {
+					_log.debug ("AlbumImages.generateExifSortCommands: move commands written to file: " + moveFile.toString () + NL);
+				}
 
-		} catch (IOException ee) {
-			_log.error ("AlbumImages.generateExifSortCommands: error writing output file: " + moveFile.toString () +NL);
-			_log.error (ee); //print exception, but no stack trace
+			} catch (IOException ee) {
+				_log.error ("AlbumImages.generateExifSortCommands: error writing output file: " + moveFile.toString () +NL);
+				_log.error (ee); //print exception, but no stack trace
+			}
 		}
 	}
 
@@ -1990,7 +2014,7 @@ public class AlbumImages
 	private static Set<Long> _previousRequestTimestamps = new HashSet<Long> ();
 
 	private static final String _break = "<BR>";
-	private static final String _spacing = "&nbsp";
+	private static final String _spacing = "&nbsp;";
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm");

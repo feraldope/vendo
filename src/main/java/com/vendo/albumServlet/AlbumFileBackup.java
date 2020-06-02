@@ -8,10 +8,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
@@ -36,7 +39,7 @@ public class AlbumFileBackup
 
 	///////////////////////////////////////////////////////////////////////////
 	//entry point for "image backup" feature
-	public static void main (String args[])
+	public static void main (String[] args)
 	{
 //TODO - change CLI to read properties file, too
 
@@ -171,6 +174,7 @@ public class AlbumFileBackup
 
 			_log.debug ("AlbumFileBackup.processArgs: _numThreads: " + _numThreads);
 			_log.debug ("AlbumFileBackup.processArgs: _verbose: " + _verbose);
+			_log.debug ("");
 		}
 
 		return true;
@@ -223,6 +227,7 @@ public class AlbumFileBackup
 		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
 		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
 		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
+		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
 
 		getImageFileDetailsFromFileSystem (sourceSubFolders, sourceMap, destMap);
 
@@ -248,7 +253,41 @@ public class AlbumFileBackup
 
 		System.out.println ("determining folders to backup...");
 
-		getSourceDestFolderDiffs (sourceMap, destMap, diffMap);
+		getSourceDestFolderDiffs (sourceMap, destMap, diffMap, orphanMap);
+
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+		System.out.println ("");
+
+		System.out.println ("writing file lists...");
+
+		String timestamp = new SimpleDateFormat ("yyyyMMdd.HHmmss").format (new Date ());
+		String sourceFilename = "fileList." +  timestamp + ".source.log";
+		String orphan1Filename = "fileList." +  timestamp + ".orphan1.log";
+		String orphan2Filename = "fileList." +  timestamp + ".orphan2.log";
+		String orphan3Filename = "fileList." +  timestamp + ".orphan3.log";
+
+		List<String> sourceFileList = getSourceFileList (sourceMap, null);
+		Path outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), sourceFilename);
+		int linesWritten = writeSourceFileList (sourceFileList, outputFilePath);
+		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+
+		List<String> orphan1FileList = getSourceFileList (orphanMap, _destRootPath);
+		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan1Filename);
+		linesWritten = writeSourceFileList (orphan1FileList, outputFilePath);
+		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+
+		List<String> orphan2FileList = reduceSourceFileList (orphanMap, _destRootPath, false);
+		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan2Filename);
+		linesWritten = writeSourceFileList (orphan2FileList, outputFilePath);
+		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+
+		List<String> orphan3FileList = reduceSourceFileList (orphanMap, _destRootPath, true);
+		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan3Filename);
+		linesWritten = writeSourceFileList (orphan3FileList, outputFilePath);
+		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+		System.out.println ("");
 
 		System.out.println ("folders to backup(" + diffMap.size () + ") = " + diffMap.keySet ().stream ().sorted ().collect (Collectors.joining (",")));
 
@@ -301,6 +340,67 @@ public class AlbumFileBackup
 						 .collect (Collectors.toList ());
 
 		return subFolders;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<String> getSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath)
+	{
+		String rootFolder = rootPath != null ? rootPath + "\\" : "";
+		List<String> list = new ArrayList<String> ();
+		for (String subFolder : new TreeSet<String> (sourceMap.keySet ())) {
+			list.addAll (sourceMap.get (subFolder).stream ()
+												  .map(v -> rootFolder + subFolder + "\\" + v.getName())
+												  .sorted(VendoUtils.caseInsensitiveStringComparator)
+												  .collect(Collectors.toList()));
+		}
+
+		return list;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<String> reduceSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath, boolean collapseGroups)
+	{
+		String rootFolder = rootPath != null ? rootPath + "\\" : "";
+		Map<String, Integer> reduceMap = new HashMap<> ();
+		for (String subFolder : new TreeSet<String> (sourceMap.keySet ())) {
+			Collection<AlbumImageFileDetails> files = sourceMap.get (subFolder);
+			for (AlbumImageFileDetails file : files) {
+				String imageBaseName = rootFolder + subFolder + "\\" + getBaseName (file.getName (), collapseGroups);
+//				System.out.println(imageBaseName);
+				int count = 0;
+				if (reduceMap.get (imageBaseName) != null) {
+					count = reduceMap.get (imageBaseName);
+				}
+				reduceMap.put (imageBaseName, ++count);
+			}
+		}
+
+		List<String> reduceList = new ArrayList<> ();
+		for (String filename : new TreeSet<String> (reduceMap.keySet ())) {
+			reduceList.add (filename + " " + reduceMap.get (filename));
+		}
+
+		return reduceList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private int writeSourceFileList (List<String> sourceFileList, Path outputFilePath)
+	{
+		int linesWritten = 0;
+
+		try (FileOutputStream outputStream = new FileOutputStream (outputFilePath.toFile ());
+			 PrintWriter printWriter = new PrintWriter (outputStream)) {
+			for (String sourceFile : sourceFileList) {
+				printWriter.write (sourceFile + NL);
+				++linesWritten;
+			}
+
+		} catch (IOException ee) {
+			_log.error ("AlbumFileBackup.writeSourceFileList: error writing output file: " + outputFilePath.toString () + NL);
+			_log.error (ee); //print exception, but no stack trace
+		}
+
+		return linesWritten;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -442,9 +542,12 @@ public class AlbumFileBackup
 	///////////////////////////////////////////////////////////////////////////
 	private boolean getSourceDestFolderDiffs (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap,
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap,
-											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap)
+											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap,
+											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap)
 	{
 		final CountDownLatch endGate = new CountDownLatch (sourceMap.keySet ().size ());
+
+//TODO - handle case where sourceMap.keySet() is not the same as destMap.keySet()) {
 
 		for (String subFolder : sourceMap.keySet ()) {
 			final Collection<AlbumImageFileDetails> sourceColl = sourceMap.get (subFolder);
@@ -452,11 +555,19 @@ public class AlbumFileBackup
 
 			Runnable task = () -> {
 				final Instant startInstant = Instant.now ();
+
 				final Collection<AlbumImageFileDetails> diffColl = new HashSet<AlbumImageFileDetails> (sourceColl);
 				diffColl.removeAll (destColl);
 				if (diffColl.size () > 0) {
 					diffMap.put (subFolder, diffColl);
 				}
+
+				final Collection<AlbumImageFileDetails> orphanColl = new HashSet<AlbumImageFileDetails> (destColl);
+				orphanColl.removeAll (sourceColl);
+				if (orphanColl.size () > 0) {
+					orphanMap.put (subFolder, orphanColl);
+				}
+
 				Duration duration = Duration.between (startInstant, Instant.now ());
 
 				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
@@ -492,7 +603,7 @@ public class AlbumFileBackup
 			map1.put (subFolder, diffCollBytes);
 		}
 
-		//NOTE this is the order we create the tasks, but not necessarily the order they start (or run)???
+		//NOTE this is the order we create the tasks, but not necessarily the order they start (or run??)
 		List<String> foldersSortedByNumBytes = map1.keySet ().stream ()
 						.sorted ((f1, f2) -> {
 							long diff = map1.get (f2) - map1.get (f1); //sort in descending order
@@ -520,10 +631,6 @@ public class AlbumFileBackup
 					} else {
 						try {
 							Files.copy (sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
-
-//							if (!setFileDateTime (sourcePath, destPath)) {
-//								_log.error ("AlbumFileBackup.copyFiles: File.setLastModified failed for: " + destPath);
-//							}
 
 							++numSubfolderFilesCopied;
 							numTotalFilesCopied.getAndIncrement ();
@@ -579,6 +686,15 @@ public class AlbumFileBackup
 		return (long) Math.ceil (value * (1 + percentPadding / 100));
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	public static String getBaseName (String name, boolean collapseGroups)
+	{
+		final String regex1 = "-\\d.*$";		//match trailing [dash][digit][anything else]
+		final String regex2 = "\\d*\\-\\d.*$";	//match trailing [digits][dash][digit][anything else]
+
+		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
+	}
+
 //not necessary: functionality provided by StandardCopyOption.COPY_ATTRIBUTES
 	///////////////////////////////////////////////////////////////////////////
 //	private static boolean setFileDateTime (Path sourcePath, Path destPath)
@@ -628,6 +744,8 @@ public class AlbumFileBackup
 
 //	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME;
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
+
+//	private final DateTimeFormatter _dateTimeFormatter2 = DateTimeFormatter.ofPattern("YYYYMMDD.HHMMSS");
 
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
 

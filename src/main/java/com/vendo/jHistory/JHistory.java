@@ -5,14 +5,18 @@
 
 package com.vendo.jHistory;
 
+import com.vendo.albumServlet.AlbumImages;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.vendoUtils.WatchDir;
 import com.vendo.win32.Win32;
+import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -22,8 +26,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 public final class JHistory
@@ -146,7 +152,9 @@ public final class JHistory
 					//waiting condition - wait until Queue is not empty
 					while (listenerQueue.size () == 0) {
 						try {
-//							System.out.println ("JHistory.run: queue is empty, waiting");
+							if (_trace) {
+								System.out.println ("JHistory.run: queue is empty, waiting");
+							}
 							listenerQueue.wait ();
 						} catch (InterruptedException ex) {
 							ex.printStackTrace ();
@@ -155,7 +163,9 @@ public final class JHistory
 					StringBuffer stringBuffer = listenerQueue.poll ();
 					string = stringBuffer.toString ().trim ();
 
-//					System.out.println ("JHistory.run: consuming: " + string);
+					if (_trace) {
+						System.out.println("JHistory.run: consuming: " + string);
+					}
 					listenerQueue.notify ();
 				}
 
@@ -257,29 +267,63 @@ public final class JHistory
 			_log.error ("JHistory.watchHistoryFile: exception calling getLastModifiedTime", ee);
 		}
 
+		/*
+		try (Stream<String> stream = Files.lines (path)) {
+    stream
+        .filter(s -> s.endswith("/"))
+        .sorted()
+        .map(String::toUpperCase)
+        .forEach(System.out::println);
+}
+
+    private static List readByJava8(String fileName) throws IOException {
+        List<String> result;
+        try (Stream<String> lines = Files.lines(Paths.get(fileName))) {
+            result = lines.collect(Collectors.toList());
+        }
+        return result;
+
+    }
+		*/
+
+
+
 		boolean status = true;
 		if (_historyFileModified.compareTo (historyFileModified) < 0) {
-			synchronized (_historyFileContents) {
-				_historyFileContents.clear ();
-				try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
-					String line = new String ();
-					while ((line = reader.readLine ()) != null) {
-						UrlData urlData = parseLine (line);
-						if (urlData != null) {
-							_historyFileContents.add (urlData);
-						}
-					}
 
-				} catch (IOException ee) {
-					_log.error ("JHistory.readHistoryFile: error reading history file \"" + _historyFilename + "\"", ee);
-					status = false;
+
+
+			List<UrlData> contents;
+			try (Stream<String> stream = Files.lines (path)) {
+				contents = stream.parallel ()
+								 .map(v -> parseLine (v))
+								 .filter(v -> v != null)
+								 .collect (Collectors.toList ());
+
+/*			List<UrlData> contents = new ArrayList<> ();
+			try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
+				String line;
+				while ((line = reader.readLine ()) != null) {
+					UrlData urlData = parseLine (line);
+					if (urlData != null) {
+						contents.add (urlData);
+					}
 				}
-			}
-			if (status) {
-				_historyFileModified = historyFileModified;
+*/
+				synchronized (_historyFileContents) {
+					_historyFileContents = contents;
+					_historyFileModified = historyFileModified;
+				}
+			} catch (IOException ee) {
+				_log.error ("JHistory.readHistoryFile: error reading history file \"" + _historyFilename + "\"", ee);
+				status = false;
 			}
 		}
+//		if (status) {
+//			_historyFileModified = historyFileModified;
+//		}
 
+		System.out.println ("");
 		printTiming (startInstant, "JHistory.readHistoryFile");
 
 		return status;
@@ -296,48 +340,89 @@ public final class JHistory
 
 		Instant startInstant = Instant.now ();
 
-		List<MatchData> matchList = new ArrayList<MatchData> ();
+		final int maxThreads = VendoUtils.getLogicalProcessors () - 2;
+		final int minPerThread = 100;
+		final int chunkSize;
+		List<List<UrlData>> chunks;
+		final List<MatchData> matchList = new ArrayList<MatchData>();
 		synchronized (_historyFileContents) {
-			int numLines = _historyFileContents.size ();
+//			/*final int*/ chunkSize = _historyFileContents.size () / 12;
+			/*final int */
+			chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _historyFileContents.size ()).getFirst ();
+			/*List<List<UrlData>>*/
+			chunks = ListUtils.partition (_historyFileContents, chunkSize);
+//		}
+			final int numChunks = chunks.size ();
 
-			//check for strong matches
-			for (int ii = 0; ii < numLines; ii++) {
-				UrlData urlData = _historyFileContents.get (ii);
-				String baseLine = urlData.getPathBase ();
-				if (strongMatch (baseLine.toLowerCase (), pattern)) {
-					matchList.add (new MatchData (urlData.getLine (), true, ii - numLines, 0));
-				}
+//		final int maxThreads = VendoUtils.getLogicalProcessors ();
+//		final int minPerThread = 100;
+//		final int chunkSize = AlbumImages.calculateChunk (maxThreads, minPerThread, allCombos.size ()).getFirst ();
+
+//		final int numChunks = chunks.size ();
+			final CountDownLatch endGate = new CountDownLatch(numChunks);
+
+			if (_Debug) {
+				_log.debug("JHistory.findInHistory: _historyFileContents.size() = " + _historyFileContents.size());
+				_log.debug("JHistory.findInHistory: numChunks = " + numChunks);
+				_log.debug("JHistory.findInHistory: chunkSize = " + chunkSize);
 			}
+
+			for (final List<UrlData> chunk : chunks) {
+				new Thread(() -> {
+					final int numLines = chunk.size();
+
+					//check for strong matches
+					for (int ii = 0; ii < numLines; ii++) {
+						UrlData urlData = chunk.get(ii);
+						String baseLine = urlData.getPathBase();
+						if (strongMatch(baseLine.toLowerCase(), pattern)) {
+							synchronized (matchList) {
+								matchList.add(new MatchData(urlData.getLine(), true, ii - numLines, 0));
+							}
+						}
+					}
 
 //TODO - this might be confusing: stronger weak matches are > 1000, but a strong match is 0.
 
-			if (matchList.size () == 0) {
-				//then check for stronger weak matches
-				int minStrength = 1000;
-				for (int ii = 0; ii < numLines; ii++) {
-					UrlData urlData = _historyFileContents.get (ii);
-					String baseLine = urlData.getPathBase ();
-					int strength = weakMatch (baseLine.toLowerCase (), pattern);
-					if (strength > minStrength) {
-						matchList.add (new MatchData (urlData.getLine (), false, ii - numLines, strength));
+					if (matchList.size() == 0) {
+						//then check for stronger weak matches
+						int minStrength = 1000;
+						for (int ii = 0; ii < numLines; ii++) {
+							UrlData urlData = chunk.get(ii);
+							String baseLine = urlData.getPathBase();
+							int strength = weakMatch(baseLine.toLowerCase(), pattern);
+							if (strength > minStrength) {
+								synchronized (matchList) {
+									matchList.add(new MatchData(urlData.getLine(), false, ii - numLines, strength));
+								}
+							}
+						}
 					}
-				}
+
+					if (matchList.size() == 0) {
+						//then check for weaker weak matches
+						int minStrength = 0;
+						for (int ii = 0; ii < numLines; ii++) {
+							UrlData urlData = chunk.get(ii);
+							String baseLine = urlData.getPathBase();
+							int strength = weakMatch(baseLine.toLowerCase(), pattern);
+							if (strength > minStrength) {
+								synchronized (matchList) {
+									matchList.add(new MatchData(urlData.getLine(), false, ii - numLines, strength));
+								}
+							}
+						}
+					}
+					endGate.countDown();
+				}).start();
 			}
 
-			if (matchList.size () == 0) {
-				//then check for weaker weak matches
-				int minStrength = 0;
-				for (int ii = 0; ii < numLines; ii++) {
-					UrlData urlData = _historyFileContents.get (ii);
-					String baseLine = urlData.getPathBase ();
-					int strength = weakMatch (baseLine.toLowerCase (), pattern);
-					if (strength > minStrength) {
-						matchList.add (new MatchData (urlData.getLine (), false, ii - numLines, strength));
-					}
-				}
+			try {
+				endGate.await();
+			} catch (Exception ee) {
+				_log.error("JHistory.findInHistory: endGate:", ee);
 			}
 		}
-
 		printTiming (startInstant, "JHistory.findInHistory");
 
 		return matchList;
@@ -630,6 +715,7 @@ public final class JHistory
 
 
 	//private members
+	private static boolean _trace = false;
 	private String _destDir = null;
 	private String _outFileName = null;
 	private List<UrlData> _historyFileContents = new ArrayList<UrlData> ();

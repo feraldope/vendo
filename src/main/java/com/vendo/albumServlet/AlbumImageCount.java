@@ -15,10 +15,10 @@ public class AlbumImageCount
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImageCount (AlbumImageCount employee)
+	public AlbumImageCount (AlbumImageCount imageCount)
 	{
-		_baseName = employee.getBaseName ();
-		_count = employee.getCount ();
+		_baseName = imageCount.getBaseName ();
+		_count = imageCount.getCount ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////

@@ -341,7 +341,7 @@ public class AlbumFormInfo
 					Arrays.stream (StringUtils.split (filter, ','))
 							.sorted (VendoUtils.caseInsensitiveStringComparator)
 							.distinct ()
-							.filter (s -> !s.equalsIgnoreCase ("thumb") && !s.equalsIgnoreCase ("thumbs"))
+							.filter (s -> !s.equalsIgnoreCase ("thumb") && !s.equalsIgnoreCase ("thumbs") && !s.equalsIgnoreCase ("kha"))
 							.collect (Collectors.toList ()), ",");
 
 			//drop through to continue processing
@@ -796,31 +796,33 @@ public class AlbumFormInfo
 		return _reverseSort;
 	}
 
-//	///////////////////////////////////////////////////////////////////////////
-//	public void setScreenWidth (int screenWidth)
-//	{
-//		if (screenWidth > 0) {
-//			_screenWidth = screenWidth;
-//		}
-//	}
-//
-//	public int getScreenWidth ()
-//	{
+	///////////////////////////////////////////////////////////////////////////
+	public void setScreenWidth (int screenWidth)
+	{
+		if (screenWidth > 0) {
+			_screenWidth = screenWidth;
+		}
+	}
+
+	public int getScreenWidth ()
+	{
 //		return (isAndroidDevice () ? 2 : 1) * _screenWidth; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
-//	}
-//
-//	///////////////////////////////////////////////////////////////////////////
-//	public void setScreenHeight (int screenHeight)
-//	{
-//		if (screenHeight > 0) {
-//			_screenHeight = screenHeight;
-//		}
-//	}
-//
-//	public int getScreenHeight ()
-//	{
+		return _screenWidth;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void setScreenHeight (int screenHeight)
+	{
+		if (screenHeight > 0) {
+			_screenHeight = screenHeight;
+		}
+	}
+
+	public int getScreenHeight ()
+	{
 //		return (isAndroidDevice () ? 2 : 1) * _screenHeight; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
-//	}
+		return _screenHeight;
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public void setWindowWidth (int windowWidth)
@@ -861,13 +863,14 @@ public class AlbumFormInfo
 
 	public boolean isAndroidDevice ()
 	{
+//		_log.debug ("AlbumFormInfo.isAndroidDevice: _userAgent = " + _userAgent);
 		return _userAgent.toLowerCase ().contains ("android");
 	}
 
-	public boolean isNexus7Device ()
-	{
-		return _userAgent.toLowerCase ().contains ("nexus 7");
-	}
+//	public boolean isNexus7Device ()
+//	{
+//		return _userAgent.toLowerCase ().contains ("nexus 7");
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public void setMode (String symbol)
@@ -1185,8 +1188,8 @@ public class AlbumFormInfo
 	//hardcoded values for firefox at 1920 x 1200 resolution and reasonable width
 	private int _windowWidth = (1880 * 55) / 100;
 	private int _windowHeight = 980;
-//	private int _screenWidth = _windowWidth;
-//	private int _screenHeight = _windowHeight;
+	private int _screenWidth = _windowWidth;
+	private int _screenHeight = _windowHeight;
 
 	public static final String _ImageExtension = ".jpg";
 	public static final String _RgbDataExtension = ".dat";

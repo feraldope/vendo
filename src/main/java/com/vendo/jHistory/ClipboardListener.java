@@ -75,7 +75,9 @@ class ClipboardListener extends Thread implements ClipboardOwner
 			ex.printStackTrace ();
 		}
 
-		//hang here forever
+		System.out.println ("ClipboardListener.run: entering synchronized block");
+
+		//wait here forever
 		try {
 			synchronized (contents) {
 				contents.wait ();
@@ -85,9 +87,9 @@ class ClipboardListener extends Thread implements ClipboardOwner
 			ex.printStackTrace ();
 		}
 
-		if (_trace) {
+//		if (_trace) {
 			System.out.println ("ClipboardListener.run: leaving run() method");
-		}
+//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -98,7 +100,8 @@ class ClipboardListener extends Thread implements ClipboardOwner
 		Transferable contents = null;
 
 		do {
-			VendoUtils.sleepMillis (50); //hack
+//			VendoUtils.sleepMillis (50); //hack
+			VendoUtils.sleepMillis (5); //hack
 
 			try {
 				contents = _clipboard.getContents (this);
@@ -129,6 +132,13 @@ class ClipboardListener extends Thread implements ClipboardOwner
 	void processContents (Transferable contents)
 	{
 		String string = new String ();
+
+//		if (_trace && contents != null) {
+//			DataFlavor[] dataFlavors = contents.getTransferDataFlavors ();
+//			for (DataFlavor dataFlavor : dataFlavors) {
+//				System.out.println ("ClipboardListener.processContents: dataFlavor = " + dataFlavor);
+//			}
+//		}
 
 		if (contents != null && contents.isDataFlavorSupported (DataFlavor.stringFlavor)) {
 			try {

@@ -180,27 +180,31 @@ select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from 
 -- three-char subfolder
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
 
-
--- three-char subfolders for 'ka'
+-- !!! distribution of images in set of subfolders ('ka', 'ni', etc.)
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ka%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ni%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'se%' group by sub_folder3 order by count desc
 
 --move to three-char subfoler
+--STOP Tomcat8 SERVICE FIRST
 update images set sub_folder = 'kat' where lower(name_no_ext) like 'kat%'
 update images set sub_folder = 'kar' where lower(name_no_ext) like 'kar%'
 update images set sub_folder = 'mar' where lower(name_no_ext) like 'mar%'
 update images set sub_folder = 'jen' where lower(name_no_ext) like 'jen%'
 update images set sub_folder = 'car' where lower(name_no_ext) like 'car%'
+update images set sub_folder = 'ang' where lower(name_no_ext) like 'ang%'
+update images set sub_folder = 'ale' where lower(name_no_ext) like 'ale%'
+update images set sub_folder = 'nik' where lower(name_no_ext) like 'nik%'
+update images set sub_folder = 'jes' where lower(name_no_ext) like 'jes%'
+update images set sub_folder = 'sex' where lower(name_no_ext) like 'sex%'
 --move to one-char subfoler
 update images set sub_folder = 'u' where lower(name_no_ext) like 'u%'
 update images set sub_folder = 'y' where lower(name_no_ext) like 'y%'
 update images set sub_folder = 'w' where lower(name_no_ext) like 'w%'
 update images set sub_folder = 'o' where lower(name_no_ext) like 'o%'
 -- should also do image_counts??
---in CmdPrompt
-cd ma
-md ..\mar
-move Mar* ..\mar\
-THEN RUN "ud"
+--see todo.txt for IMPORTANT steps to move files (search for mklink and for /F)
+--THEN RUN "ud"
 
 
 -- manual cleanup of image_counts (1)

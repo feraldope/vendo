@@ -192,10 +192,12 @@ public class AlbumImageDao {
 		//sync all subfolders at startup
 		final CountDownLatch endGate = new CountDownLatch(getAlbumSubFolders().size());
 		for (final String subFolder : getAlbumSubFolders()) {
-			new Thread(() -> {
+			Thread thread = new Thread(() -> {
 				syncFolder(subFolder);
 				endGate.countDown();
-			}).start();
+			});
+			thread.setName("syncFolder:" + subFolder);
+			thread.start();
 		}
 		try {
 			endGate.await();
@@ -489,7 +491,7 @@ public class AlbumImageDao {
 		final BlockingQueue<AlbumImageEvent> queue = new LinkedBlockingQueue<AlbumImageEvent>();
 
 		//start thread to watch queue and handle events
-		new Thread(() -> {
+		Thread thread = new Thread(() -> {
 			int numHandled = 0;
 			while (true) {
 				try {
@@ -550,7 +552,9 @@ public class AlbumImageDao {
 					_log.error("AlbumImageDao.WatchDir.queueHandler: ", ee);
 				}
 			}
-		}).start();
+		});
+		thread.setName("queueHandler:" + subFolder1);
+		thread.start();
 
 		//start thread to watch for events, and put in queue
 		Thread watcherThread = null;
@@ -583,11 +587,12 @@ public class AlbumImageDao {
 
 				@Override
 				protected void overflow(WatchEvent<?> event) {
-					_log.error("AlbumImageDao.WatchDir.overflow: received event: " + event.kind().name() + ", count = " + event.count());
-					_log.error("AlbumImageDao.WatchDir.overflow: ", new Exception("WatchDir overflow"));
+					_log.error("AlbumImageDao.WatchDir.overflow(\"" + subFolder1 + "\"): received event: " + event.kind().name() + ", count = " + event.count());
+					_log.error("AlbumImageDao.WatchDir.overflow(\"" + subFolder1 + "\"): ", new Exception("WatchDir overflow(\"" + subFolder1 + "\")"));
 				}
 			};
 			watcherThread = new Thread(watchDir);
+			watcherThread.setName("watcherThread:" + subFolder1);
 			watcherThread.start();
 
 		} catch (Exception ee) {
@@ -1357,9 +1362,16 @@ public class AlbumImageDao {
 	///////////////////////////////////////////////////////////////////////////
 	public static String getSubFolderFromImageName(String imageName) {
 		int maxLength = _subFolderByLengthMap.size();
-		for (int ii = maxLength; ii > 0; --ii) {
+		for (int ii = maxLength; ii > 0; --ii) { //start with the longest first, since it is most specific (i.e., "mar" is more specific than "ma")
 			Set<String> subFolders = _subFolderByLengthMap.get(ii); //1-based
-			String nameFirstLettersLower = imageName.toLowerCase().substring(0, ii);
+
+			String nameFirstLettersLower = new String();
+			try {
+				nameFirstLettersLower = imageName.toLowerCase().substring(0, ii);
+			} catch (Exception ee) {
+				_log.error("AlbumImageDao.getSubFolderFromImageName: unhandled imageName: \"" + imageName + "\", ii: " + ii, ee);
+			}
+
 			if (subFolders.contains(nameFirstLettersLower)) {
 				return nameFirstLettersLower;
 			}
