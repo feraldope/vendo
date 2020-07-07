@@ -2,7 +2,6 @@
 
 package com.vendo.albumServlet;
 
-import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
 import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.vendoUtils.WatchDir;
@@ -823,7 +822,8 @@ public class AlbumImageDiffer
 
 	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
-		} catch (MySQLIntegrityConstraintViolationException ee) {
+//		} catch (MySQLIntegrityConstraintViolationException ee) {
+		} catch (SQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
 
 		} catch (Exception ee) {

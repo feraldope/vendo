@@ -474,7 +474,7 @@ public class AlbumFormInfo
 			filters.addAll (splitString (_filter3));
 		}
 
-		Collections.sort (filters, VendoUtils.caseInsensitiveStringComparator);
+		filters.sort (VendoUtils.caseInsensitiveStringComparator);
 		caseInsensitiveDedup (filters);
 
 		return filters.toArray (new String[] {});
@@ -513,7 +513,7 @@ public class AlbumFormInfo
 			}
 		}
 
-		Collections.sort (tags, VendoUtils.caseInsensitiveStringComparator);
+		tags.sort (VendoUtils.caseInsensitiveStringComparator);
 		caseInsensitiveDedup (tags);
 
 		return tags.toArray (new String[] {});
@@ -568,7 +568,7 @@ public class AlbumFormInfo
 			excludes.addAll (splitString (_exclude3));
 		}
 
-		Collections.sort (excludes, VendoUtils.caseInsensitiveStringComparator);
+		excludes.sort (VendoUtils.caseInsensitiveStringComparator);
 		caseInsensitiveDedup (excludes);
 
 		return excludes.toArray (new String[] {});

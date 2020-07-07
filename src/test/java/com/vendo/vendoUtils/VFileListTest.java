@@ -1,7 +1,9 @@
 package com.vendo.vendoUtils;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import com.vendo.vendoUtils.VFileList.ListMode;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.io.File;
 import java.net.URISyntaxException;
@@ -10,11 +12,8 @@ import java.nio.file.FileSystems;
 import java.util.List;
 import java.util.function.Predicate;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
-import com.vendo.vendoUtils.VFileList.ListMode;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class VFileListTest {
 	File imageFolder = null;
@@ -46,7 +45,7 @@ public class VFileListTest {
 	///////////////////////////////////////////////////////////////////////////
 	@Test
 	public void testWithWildname_CompletePath () {
-		List<String> fileList = new VFileList (imageFolder.toString (), "*.jpg", /*recurseSubdirs*/ false).getFileList (ListMode.CompletePath);
+		List<String> fileList = new VFileList (imageFolder.toString (), "*.jpg", false).getFileList (ListMode.CompletePath);
 
 		assertEquals (9, fileList.size ());
 		assertTrue (fileList.stream ().allMatch (containRelativePath));
@@ -59,7 +58,7 @@ public class VFileListTest {
 	///////////////////////////////////////////////////////////////////////////
 	@Test
 	public void testWithWildname_FileOnly () {
-		List<String> fileList = new VFileList (imageFolder.toString (), "*.jpg", /*recurseSubdirs*/ false).getFileList (ListMode.FileOnly);
+		List<String> fileList = new VFileList (imageFolder.toString (), "*.jpg", false).getFileList (ListMode.FileOnly);
 
 		assertEquals (9, fileList.size ());
 		assertTrue (fileList.stream ().noneMatch (containSlash));
@@ -72,7 +71,7 @@ public class VFileListTest {
 	///////////////////////////////////////////////////////////////////////////
 	@Test
 	public void testWithWildname_RecurseSubdirs () {
-		List<String> fileList = new VFileList (imageFolder.toString () + "/../..", "*.jpg", /*recurseSubdirs*/ true).getFileList (ListMode.CompletePath);
+		List<String> fileList = new VFileList (imageFolder.toString () + "/../..", "*.jpg", true).getFileList (ListMode.CompletePath);
 
 		assertEquals (9, fileList.size ());
 		assertTrue (fileList.stream ().allMatch (containRelativePath));

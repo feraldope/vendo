@@ -173,14 +173,13 @@ public class AlbumServlet extends HttpServlet
 		sb1.append ("</style>").append (NL);
 
 		String tableWidthString = !isAndroidDevice ? "100%" : "1600"; //TODO - hardcoded
-		sb1//.append ("<A NAME=\"AlbumTop\"></A>").append (NL)
 //attempt to turn off caching; copied from http://www.w3schools.com/tags/att_input_type.asp
-//		   .append ("<META HTTP-EQUIV=\"pragma\" CONTENT=\"no-cache\" />").append (NL)
+//		sb1.append ("<META HTTP-EQUIV=\"pragma\" CONTENT=\"no-cache\" />").append (NL)
 //		   .append ("<META HTTP-EQUIV=\"cache-control\" CONTENT=\"no-cache\" />").append (NL)
 //		   .append ("<META HTTP-EQUIV=\"expires\" CONTENT=\"0\" />").append (NL)
 
 		   //check for javascript enabled
-		   .append ("<div id='status'><span id='jscheck'>This page may not work correctly with JavaScript disabled</span>").append (NL)
+		sb1.append ("<div id='status'><span id='jscheck'>This page may not work correctly with JavaScript disabled</span>").append (NL)
 		   .append ("	<script type='text/javascript'>").append (NL)
 //		   .append ("		document.getElementById('jscheck').innerHTML = 'JavaScript enabled';").append (NL)
 		   .append ("		document.getElementById('jscheck').innerHTML = '';").append (NL)

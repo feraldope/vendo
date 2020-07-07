@@ -1225,7 +1225,7 @@ public class AlbumImageDao {
 			throw new AssertionError("Files#walkFileTree will not throw IOException if the FileVisitor does not");
 		}
 
-		Collections.sort(list);
+		Collections.sort (list);
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 

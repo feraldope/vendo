@@ -2,7 +2,6 @@
 
 package com.vendo.albumServlet;
 
-import com.mysql.jdbc.exceptions.jdbc4.MySQLIntegrityConstraintViolationException;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.vendoUtils.WatchDir;
 import com.vendo.win32.Win32;
@@ -940,9 +939,9 @@ public class AlbumTags
 			}
 
 			if (match3) {
-				String rawNameRemovePlus = rawName.substring (0, rawName.length () - 1);
-				if (rawSet.contains (rawNameRemovePlus)) {
-					misMatchedFilters1.add (rawNameRemovePlus);
+				String rawNameRemovePlusSign = rawName.substring (0, rawName.length () - 1);
+				if (rawSet.contains (rawNameRemovePlusSign)) {
+					misMatchedFilters1.add (rawNameRemovePlusSign);
 				}
 
 			} else if (match4) {
@@ -1356,7 +1355,8 @@ public class AlbumTags
 
 	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
-		} catch (MySQLIntegrityConstraintViolationException ee) {
+//		} catch (MySQLIntegrityConstraintViolationException ee) {
+		} catch (SQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
 
 		} catch (Exception ee) {
@@ -1431,7 +1431,8 @@ public class AlbumTags
 
 	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
-		} catch (MySQLIntegrityConstraintViolationException ee) {
+//		} catch (MySQLIntegrityConstraintViolationException ee) {
+		} catch (SQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
 
 		} catch (Exception ee) {

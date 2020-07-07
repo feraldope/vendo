@@ -52,7 +52,7 @@ public class AlbumImage
 		_subFolder = subFolder;
 		_imagePath = VendoUtils.appendSlash (imagePath);
 
-		_namePlus = null;
+		_namePlusAttrs = null;
 		_nameFirstLettersLower = null;
 		_baseName1 = null;
 		_baseName2 = null;
@@ -72,7 +72,7 @@ public class AlbumImage
 	public AlbumImage (AlbumImage image)
 	{
 		_name = image.getName ();
-		_namePlus = image.getNamePlus ();
+		_namePlusAttrs = image.getNamePlusAttrs ();
 		_nameFirstLettersLower = image.getNameFirstLettersLower ();
 		_numBytes = image.getNumBytes ();
 		_width = image.getWidth ();
@@ -275,13 +275,13 @@ public class AlbumImage
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized String getNamePlus ()
+	public synchronized String getNamePlusAttrs ()
 	{
-		if (_namePlus == null) {
-			_namePlus = getName () + "." + getModified () + "." + getNumBytes ();
+		if (_namePlusAttrs == null) {
+			_namePlusAttrs = getName () + "." + getModified () + "." + getNumBytes ();
 		}
 
-		return _namePlus;
+		return _namePlusAttrs;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -427,6 +427,28 @@ public class AlbumImage
 		}
 
 		return _pixels;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public int compareToByPixels (AlbumImage other)
+	{
+		long image1Pixels = getPixels ();
+		long image2Pixels = other.getPixels ();
+
+		if (image1Pixels == image2Pixels) {
+			return 0;
+		}
+
+		final double slopPercent = 0.5; //allowable variation from exactly equal that will still be considered equal
+
+		double ratio = (double) image1Pixels / (double) image2Pixels;
+		if (ratio > 1. + slopPercent / 100.) {
+			return 1;
+		} else if (ratio < 1. - slopPercent / 100.) {
+			return -1;
+		} else {
+			return 0;
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1017,7 +1039,7 @@ public class AlbumImage
 	private long[] _exifDates = null;
 
 	private File _file = null;
-	private String _namePlus = null;
+	private String _namePlusAttrs = null;
 	private String _baseName1 = null; //for collapseGroups = false
 	private String _baseName2 = null; //for collapseGroups = true
 	private String _tagString1 = null; //for collapseGroups = false

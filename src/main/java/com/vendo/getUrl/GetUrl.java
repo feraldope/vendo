@@ -1286,7 +1286,7 @@ public class GetUrl {
 		public String generateRecordDetailString(boolean printDetail, Instant endInstant) {
 			String elapsedTimeString = LocalTime.ofNanoOfDay(Duration.between(_globalStartInstant, endInstant).toNanos()).format(_dateTimeFormatter);
 
-			return _filename + ", " +
+			return _filename + " = " +
 					_width + "x" + _height + ", " +
 					VendoUtils.unitSuffixScale(_imageBytesRead, 0) + ", " +
 					VendoUtils.unitSuffixScale(_imageBitsPerSec, 0) + "ps" +

@@ -2,15 +2,9 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.commons.lang3.time.FastDateFormat;
+
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
@@ -100,36 +94,36 @@ public class AlbumImagePair
 		}
 
 		AlbumImagePair other = (AlbumImagePair) obj;
-		return getJoinedNames ().equals (other.getJoinedNames ());
+		return getJoinedNamesPlusAttrs ().equals (other.getJoinedNamesPlusAttrs ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
     @Override
     public int hashCode ()
     {
-		return getJoinedNames ().hashCode ();
+		return getJoinedNamesPlusAttrs ().hashCode ();
     }
 
 //currently only used by hashCode()
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	private synchronized String getJoinedNames ()
+	protected synchronized String getJoinedNamesPlusAttrs ()
 	{
-		if (_joinedNames == null) {
-			_joinedNames = getJoinedNames (getImage1 (), getImage2 ());
+		if (_joinedNamesPlusAttrs == null) {
+			_joinedNamesPlusAttrs = getJoinedNamesPlusAttrs (getImage1 (), getImage2 ());
 		}
 
-		return _joinedNames;
+		return _joinedNamesPlusAttrs;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
     //returns true if at least one image in each pair has the same base name
     public boolean matchesAtLeastOneImage (AlbumImagePair pair)
     {
-		return getImage1 ().equalBase (pair.getImage1 (), /*collapseGroups*/ false) ||
-			   getImage1 ().equalBase (pair.getImage2 (), /*collapseGroups*/ false) ||
-			   getImage2 ().equalBase (pair.getImage1 (), /*collapseGroups*/ false) ||
-			   getImage2 ().equalBase (pair.getImage2 (), /*collapseGroups*/ false);
+		return getImage1 ().equalBase (pair.getImage1 (), false) ||
+			   getImage1 ().equalBase (pair.getImage2 (), false) ||
+			   getImage2 ().equalBase (pair.getImage1 (), false) ||
+			   getImage2 ().equalBase (pair.getImage2 (), false);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -137,8 +131,8 @@ public class AlbumImagePair
     public boolean matchesAtLeastOneImage (Set<String> baseNames)
     {
 		for (String baseName : baseNames) {
-			if (getImage1 ().getBaseName (/*collapseGroups*/ false).equals (baseName) ||
-				getImage2 ().getBaseName (/*collapseGroups*/ false).equals (baseName)) {
+			if (getImage1 ().getBaseName (false).equals (baseName) ||
+				getImage2 ().getBaseName (false).equals (baseName)) {
 
 				return true;
 			}
@@ -148,16 +142,16 @@ public class AlbumImagePair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getJoinedNames (AlbumImage image1, AlbumImage image2)
+	public static String getJoinedNamesPlusAttrs (AlbumImage image1, AlbumImage image2)
 	{
-		String namePlus1 = image1.getNamePlus ();
-		String namePlus2 = image2.getNamePlus ();
+		String namePlusAttrs1 = image1.getNamePlusAttrs ();
+		String namePlusAttrs2 = image2.getNamePlusAttrs ();
 
 		StringBuffer sb = new StringBuffer (48);
-		if (namePlus1.compareToIgnoreCase (namePlus2) < 0) {
-			sb.append (namePlus1).append (".").append (namePlus2);
+		if (namePlusAttrs1.compareToIgnoreCase (namePlusAttrs2) < 0) {
+			sb.append (namePlusAttrs1).append (".").append (namePlusAttrs2);
 		} else {
-			sb.append (namePlus2).append (".").append (namePlus1);
+			sb.append (namePlusAttrs2).append (".").append (namePlusAttrs1);
 		}
 
 		return sb.toString ();
@@ -172,23 +166,20 @@ public class AlbumImagePair
 		pairs2.addAll (pairs1);
 
 		if (sortType != AlbumSortType.ByNone) {
-			Collections.sort (pairs2, new Comparator<AlbumImagePair> () {
-				@Override
-				public int compare (AlbumImagePair pair1, AlbumImagePair pair2) {
-					if (sortType == AlbumSortType.ByName) {
-						//this needs to be case-insensitive to achieve case-insensitive order in the browser
-						return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
+			pairs2.sort ((pair1, pair2) -> {
+				if (sortType == AlbumSortType.ByName) {
+					//this needs to be case-insensitive to achieve case-insensitive order in the browser
+					return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
 
-					} else if (sortType == AlbumSortType.ByDate) {
-						//sort pairs by descending date (i.e., reverse)
-						long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
-						long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
+				} else if (sortType == AlbumSortType.ByDate) {
+					//sort pairs by descending date (i.e., reverse)
+					long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
+					long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
 
-						return (pair1Latest < pair2Latest ? 1 : pair1Latest > pair2Latest ? -1 : 0);
+					return Long.compare (pair2Latest, pair1Latest);
 
-					} else {
-						throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
-					}
+				} else {
+					throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
 				}
 			});
 		}
@@ -215,6 +206,13 @@ public class AlbumImagePair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public String getRelativeSizeIndicator ()
+	{
+		int sizeCompare = getImage1 ().compareToByPixels (getImage2 ());
+		return sizeCompare < 0 ? "<" : sizeCompare > 0 ? ">" : "=";
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public String toString ()
 	{
@@ -231,15 +229,15 @@ public class AlbumImagePair
 
 
 	//members
-	private final AlbumImage _image1;
-	private final AlbumImage _image2;
-	private final int _averageDiff;
-	private final int _stdDev;
-	private final String _source;
-	private final Date _lastUpdate;
-	private String _joinedNames = null;
+	protected final AlbumImage _image1;
+	protected final AlbumImage _image2;
+	protected final int _averageDiff;
+	protected final int _stdDev;
+	protected final String _source;
+	protected final Date _lastUpdate;
+	protected String _joinedNamesPlusAttrs = null;
 
-	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
+	protected static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
 
-//	private static Logger _log = LogManager.getLogger ();
+//	protected static Logger _log = LogManager.getLogger ();
 }

@@ -2,7 +2,8 @@
 
 package com.vendo.albumServlet;
 
-import java.util.*;
+import java.util.Comparator;
+import java.util.Random;
 
 //import org.apache.logging.log4j.*;
 
