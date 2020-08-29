@@ -267,32 +267,8 @@ public final class JHistory
 			_log.error ("JHistory.watchHistoryFile: exception calling getLastModifiedTime", ee);
 		}
 
-		/*
-		try (Stream<String> stream = Files.lines (path)) {
-    stream
-        .filter(s -> s.endswith("/"))
-        .sorted()
-        .map(String::toUpperCase)
-        .forEach(System.out::println);
-}
-
-    private static List readByJava8(String fileName) throws IOException {
-        List<String> result;
-        try (Stream<String> lines = Files.lines(Paths.get(fileName))) {
-            result = lines.collect(Collectors.toList());
-        }
-        return result;
-
-    }
-		*/
-
-
-
 		boolean status = true;
 		if (_historyFileModified.compareTo (historyFileModified) < 0) {
-
-
-
 			List<UrlData> contents;
 			try (Stream<String> stream = Files.lines (path)) {
 				contents = stream.parallel ()
@@ -300,16 +276,6 @@ public final class JHistory
 								 .filter(v -> v != null)
 								 .collect (Collectors.toList ());
 
-/*			List<UrlData> contents = new ArrayList<> ();
-			try (BufferedReader reader = new BufferedReader (new FileReader (_destDir + _historyFilename))) {
-				String line;
-				while ((line = reader.readLine ()) != null) {
-					UrlData urlData = parseLine (line);
-					if (urlData != null) {
-						contents.add (urlData);
-					}
-				}
-*/
 				synchronized (_historyFileContents) {
 					_historyFileContents = contents;
 					_historyFileModified = historyFileModified;
@@ -319,9 +285,6 @@ public final class JHistory
 				status = false;
 			}
 		}
-//		if (status) {
-//			_historyFileModified = historyFileModified;
-//		}
 
 		System.out.println ("");
 		printTiming (startInstant, "JHistory.readHistoryFile");

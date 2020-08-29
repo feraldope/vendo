@@ -5,14 +5,9 @@
 
 package com.vendo.jdbcTest;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.text.SimpleDateFormat;
-import java.util.Date; //import this explicitly to avoid having to use "java.util.Date" below
+import java.util.Date;
 import java.util.GregorianCalendar;
 
 //import com.mysql.jdbc.exceptions.*;
@@ -20,15 +15,16 @@ import java.util.GregorianCalendar;
 
 public class JdbcTest
 {
-	private enum Database {NotSet, MySQL, Postgres};
+	private enum Database {NotSet, MySQL, Postgres}
 
- 	///////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////
 	public static void main (String args[])
 	{
 		JdbcTest jdbcTest = new JdbcTest ();
 
-		if (!jdbcTest.processArgs (args))
+		if (!jdbcTest.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		jdbcTest.run ();
 	}
@@ -101,26 +97,31 @@ public class JdbcTest
 			//mysql - handle defaults
 			_database = Database.MySQL;
 
-			if (_hostName == null)
+			if (_hostName == null) {
 				_hostName = "localhost";
+			}
 
-			if (_dbName == null)
+			if (_dbName == null) {
 				_dbName = "sakila";
+			}
 
-			if (_dbUser == null)
+			if (_dbUser == null) {
 				_dbUser = "root";
+			}
 
-			if (_dbPass == null)
+			if (_dbPass == null) {
 				_dbPass = "root";
+			}
 
-			if (_sql == null)
+			if (_sql == null) {
 				_sql = "select f.title, r.rental_date, r.return_date, timestampdiff (day, r.rental_date, r.return_date) as days" +
 					   " from film f, rental r, inventory i" +
 					   " where f.film_id = i.film_id and i.inventory_id = r.inventory_id and f.title = 'AFRICAN EGG'" +
 					   " and r.rental_date < ? " +
 					   " order by r.rental_date";
+			}
 
-			_jdbcDriver = "com.mysql.jdbc.Driver";
+			_jdbcDriver = "com.mysql.cj.jdbc.Driver";
 			_dbUrl = "jdbc:mysql://localhost/" + _dbName;
 
 		} else {
@@ -128,20 +129,25 @@ public class JdbcTest
 			_database = Database.Postgres;
 
 			//handle defaults
-			if (_hostName == null)
+			if (_hostName == null) {
 				_hostName = "ricda13wd01";
+			}
 
-			if (_dbName == null)
+			if (_dbName == null) {
 				_dbName = "capman";
+			}
 
-			if (_dbUser == null)
+			if (_dbUser == null) {
 				_dbUser = "postgres";
+			}
 
-			if (_dbPass == null)
+			if (_dbPass == null) {
 				_dbPass = "password";
+			}
 
-			if (_sql == null)
+			if (_sql == null) {
 				_sql = "select 1";
+			}
 
 			_jdbcDriver = "org.postgresql.Driver";
 			_dbUrl = "jdbc:postgresql://" + _hostName + ":5432/" + _dbName;
@@ -160,14 +166,16 @@ public class JdbcTest
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/database <database name>] [/user <username>] [/pass <password] [/sql <sql statement>]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -181,24 +189,28 @@ public class JdbcTest
 		try {
 			Class.forName (_jdbcDriver);
 
-			if (_trace)
+			if (_trace) {
 				System.err.println ("calling: DriverManager.getConnection (" + _dbUrl + ")");
+			}
 			conn = DriverManager.getConnection (_dbUrl, _dbUser, _dbPass);
 
-			if (_trace)
+			if (_trace) {
 				System.err.println ("calling: Connection.prepareStatement");
+			}
 			ps = conn.prepareStatement (_sql);
 
 			if (_database == Database.MySQL) {
 				Timestamp now = new Timestamp (new GregorianCalendar ().getTimeInMillis ());
 				ps.setTimestamp (1, now);
 
-				if (_trace)
+				if (_trace) {
 					System.err.println ("calling: PreparedStatement.executeQuery");
+				}
 				rs = ps.executeQuery ();
 
-				if (_trace)
+				if (_trace) {
 					System.err.println ("calling: ResultSet.next in loop");
+				}
 
 				while (rs.next ()) {
 					String title = rs.getString ("title");
@@ -212,12 +224,14 @@ public class JdbcTest
 				}
 
 			} else { //_database == Database.Postgres
-				if (_trace)
+				if (_trace) {
 					System.err.println ("calling: PreparedStatement.executeQuery");
+				}
 				rs = ps.executeQuery ();
 
-				if (_trace)
+				if (_trace) {
 					System.err.println ("calling: ResultSet.next in loop");
+				}
 			}
 
 			if (_database == Database.MySQL) {
@@ -269,18 +283,21 @@ Exception: errorCode=1064, sqlState='42000', message='You have an error in your 
 
 		} finally {
 			try {
-				if (rs != null)
+				if (rs != null) {
 					rs.close ();
+				}
 			} catch (SQLException ee) {} //catch and ignore exception
 
 			try {
-				if (ps != null)
+				if (ps != null) {
 					ps.close ();
+				}
 			} catch (SQLException ee) {} //catch and ignore exception
 
 			try {
-				if (conn != null)
+				if (conn != null) {
 					conn.close ();
+				}
 			} catch (SQLException ee) {} //catch and ignore exception
 		}
 	}

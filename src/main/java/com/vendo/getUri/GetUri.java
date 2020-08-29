@@ -17,11 +17,20 @@ gi http://localhost/servlet/coreservlets.ShowRequestHeaders
 
 package com.vendo.getUri;
 
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
+import com.vendo.vendoUtils.AlphanumComparator;
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.win32.ProcessUtils;
+import com.vendo.win32.Win32;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.*;
+import org.jsoup.select.Elements;
+import org.jsoup.select.NodeTraversor;
+import org.jsoup.select.NodeVisitor;
+
+import javax.net.ssl.*;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
@@ -29,46 +38,9 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.cert.X509Certificate;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date; //import this explicitly to avoid having to use "java.util.Date" below
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Vector;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
-
-import com.vendo.win32.ProcessUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Attribute;
-import org.jsoup.nodes.Attributes;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.nodes.Node;
-import org.jsoup.select.Elements;
-import org.jsoup.select.NodeTraversor;
-import org.jsoup.select.NodeVisitor;
-
-import com.vendo.vendoUtils.AlphanumComparator;
-import com.vendo.vendoUtils.VendoUtils;
-import com.vendo.win32.Win32;
+import java.sql.*;
+import java.util.Date;
+import java.util.*;
 
 
 public class GetUri
@@ -78,8 +50,9 @@ public class GetUri
 	{
 		GetUri app = new GetUri ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -107,8 +80,9 @@ public class GetUri
 				} else if (arg.equalsIgnoreCase ("pad")) { // || arg.equalsIgnoreCase ("p")) {
 					try {
 						_pad = Integer.parseInt (args[++ii]);
-						if (_pad < 0)
+						if (_pad < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -135,8 +109,9 @@ public class GetUri
 				} else if (arg.equalsIgnoreCase ("block") || arg.equalsIgnoreCase ("b")) {
 					try {
 						_blockNumber = Integer.parseInt (args[++ii]);
-						if (_blockNumber < 0)
+						if (_blockNumber < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -177,8 +152,9 @@ public class GetUri
 				} else if (_startIndex < 0) {
 					try {
 						_startIndex = Integer.parseInt (arg);
-						if (_startIndex < 0)
+						if (_startIndex < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (NumberFormatException exception) {
 						displayUsage ("Invalid value for starting index: '" + arg + "'", true);
 					}
@@ -186,8 +162,9 @@ public class GetUri
 				} else if (_endIndex < 0) {
 					try {
 						_endIndex = Integer.parseInt (arg);
-						if (_endIndex < 0)
+						if (_endIndex < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (NumberFormatException exception) {
 						displayUsage ("Invalid value for ending index", true);
 					}
@@ -195,8 +172,9 @@ public class GetUri
 				} else if (_step < 0) {
 					try {
 						_step = Integer.parseInt (arg);
-						if (_step < 0)
+						if (_step < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (NumberFormatException exception) {
 						displayUsage ("Invalid value for step", true);
 					}
@@ -208,8 +186,9 @@ public class GetUri
 		}
 
 		//check for required args and handle defaults
-		if (_model == null)
+		if (_model == null) {
 			displayUsage ("No URI specified", true);
+		}
 		_model = normalizeUrl2 (_model);
 
 		try {
@@ -217,10 +196,12 @@ public class GetUri
 			URI uri = new URI (_model);
 
 			_baseUri = new String ();
-			if (uri.getScheme () != null)
+			if (uri.getScheme () != null) {
 				_baseUri += uri.getScheme () + "://";
-			if (uri.getAuthority () != null)
+			}
+			if (uri.getAuthority () != null) {
 				_baseUri += uri.getAuthority ();
+			}
 
 		} catch (Exception ee) {
 //TODO		displayUsage ("TBD", true);
@@ -230,33 +211,40 @@ public class GetUri
 		}
 
 //TODO - verify _destDir exists, and is writable??
-		if (_destDir == null)
+		if (_destDir == null) {
 			_destDir = getCurrentDirectory ();
+		}
 		_destDir = appendSlash (_destDir);
 //		if (_Debug)
 //			_log.debug ("_destDir = " + _destDir);
 
-		if (_startIndex >= 0 && _endIndex >= 0)
-			if (_startIndex > _endIndex)
-				displayUsage ("<start index> (" + _startIndex + ") + cannot be greater than <end index> (" + _endIndex + ")", true);
+		if (_startIndex >= 0 && _endIndex >= 0) {
+			if (_startIndex > _endIndex) {
+				displayUsage("<start index> (" + _startIndex + ") + cannot be greater than <end index> (" + _endIndex + ")", true);
+			}
+		}
 
-		if (_step < 0 && (_startIndex > 0 || _endIndex > 0))
+		if (_step < 0 && (_startIndex > 0 || _endIndex > 0)) {
 			_step = 1;
+		}
 
-		if (_prefix == null)
+		if (_prefix == null) {
 			_prefix = "";
-		else if (!validFileChars (_prefix))
+		} else if (!validFileChars (_prefix)) {
 			displayUsage ("Invalid value for <file prefix> '" + _prefix + "'", true);
+		}
 
-		if (_exten == null)
+		if (_exten == null) {
 			_exten = ".htm";
-		else if (!validFileChars (_exten))
+		} else if (!validFileChars (_exten)) {
 			displayUsage ("Invalid value for <file extension> '" + _exten + "'", true);
+		}
 
 		if (false) { //dump all args
 			_log.debug ("args.length = " + args.length);
-			for (int ii = 0; ii < args.length; ii++)
+			for (int ii = 0; ii < args.length; ii++) {
 				_log.debug ("args[" + ii + "] = '" + args[ii] + "'");
+			}
 		}
 
 		return true;
@@ -266,31 +254,37 @@ public class GetUri
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/prefix <file prefix>] [/pad <number>] [/exten <file extension>] [<start index> <end index> [<step>]] [/destDir <folder>] [/checkHistoryOnly] [/block <block number>] [/ignoreHistory] [/noHistory] [/image] [/imageLinksOnly] [/linksOnly]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean run ()
 	{
-		if (_Debug)
+		if (_Debug) {
 			_log.debug ("GetUri.run");
+		}
 
-		if (!parseModel ())
+		if (!parseModel ()) {
 			return false;
+		}
 
 		if (!_noHistory) {
-			if (findInHistory (_model))
+			if (findInHistory (_model)) {
 				return false;
+			}
 
-			if (_checkHistoryOnly)
+			if (_checkHistoryOnly) {
 				return true;
+			}
 		}
 
 		buildTempString ();
@@ -298,13 +292,15 @@ public class GetUri
 		int count = 0;
 
 		if (_startIndex < 0 || _endIndex < 0) {
-			if (getUrl ())
+			if (getUrl ()) {
 				count++;
+			}
 
 		} else {
 			for (_index = _startIndex; _index <= _endIndex; _index += _step) {
-				if (getUrl ())
+				if (getUrl ()) {
 					count++;
+				}
 			}
 		}
 
@@ -314,8 +310,9 @@ public class GetUri
 			return false;
 		}
 
-		if (!_noHistory && !_TestMode)
+		if (!_noHistory && !_TestMode) {
 			writeHistory ();
+		}
 
 		_perfStats.print ();
 
@@ -359,10 +356,11 @@ public class GetUri
 		try {
 			BufferedInputStream in = new BufferedInputStream (conn.getInputStream ());
 			OutputStream out = null;
-			if (_image)
+			if (_image) {
 				out = new FileOutputStream (_tempFilename);
-			else
+			} else {
 				out = new ByteArrayOutputStream ();
+			}
 
 			final int size = 64 * 1024;
 			byte bytes[] = new byte [size];
@@ -382,10 +380,11 @@ public class GetUri
 
 			in.close ();
 
-			if (_image)
+			if (_image) {
 				out.close ();
-			else
+			} else {
 				wholeFile = new String (((ByteArrayOutputStream) out).toByteArray (), "UTF-8");
+			}
 
 		} catch (Exception ee) {
 			_log.error ("getUrl: error reading url '" + _urlStr + "'");
@@ -531,8 +530,9 @@ public class GetUri
 
 		boolean status = moveFile (_tempFilename, _filename);
 
-		if (!status) //move failed, try copying file
+		if (!status) { //move failed, try copying file
 			status = copyFile (_tempFilename, _filename, true);
+		}
 
 //		if (status)
 //			_log.debug ("downloaded file: " + _filename);
@@ -585,11 +585,14 @@ public class GetUri
 		//Create a trust manager that does not validate certificate chains
 		TrustManager[] trustAllCerts = new TrustManager[] {
 			new X509TrustManager ()	{
+				@Override
 				public X509Certificate[] getAcceptedIssuers () {
 					return null;
 				}
+				@Override
 				public void checkClientTrusted (X509Certificate[] certs, String authType) {
 				}
+				@Override
 				public void checkServerTrusted (X509Certificate[] certs, String authType) {
 				}
 			}
@@ -603,6 +606,7 @@ public class GetUri
 
 		//Create all-trusting host name verifier
 		HostnameVerifier allHostsValid = new HostnameVerifier () {
+			@Override
 			public boolean verify (String hostname, SSLSession session) {
 				return true;
 			}
@@ -739,8 +743,9 @@ public class GetUri
 	private static String appendSlash (String dir) //append slash if necessary
 	{
 		int lastChar = dir.charAt (dir.length () - 1);
-		if (lastChar != '/' && lastChar != '\\')
+		if (lastChar != '/' && lastChar != '\\') {
 			dir += _slash;
+		}
 
 		return dir;
 	}
@@ -757,8 +762,9 @@ public class GetUri
 		String parts[] = splitLeaf (_model, _blockNumber);
 
 		_head = parts[0];
-		if (parts.length > 1)
+		if (parts.length > 1) {
 			_tail = parts[1];
+		}
 
 		_digits = _model.length () - _head.length () - _tail.length ();
 
@@ -810,8 +816,9 @@ public class GetUri
 		}
 
 		int headerIndex = url.indexOf (header2);
-		if (headerIndex < 0)
+		if (headerIndex < 0) {
 			return url;
+		}
 
 		int endOfHeader = headerIndex + header2.length ();
 
@@ -915,8 +922,9 @@ public class GetUri
 			return false;
 		}
 
-		if (found)
+		if (found) {
 			System.out.println ("");
+		}
 
 		return (_ignoreHistory ? false : found);
 	}
@@ -935,14 +943,18 @@ public class GetUri
 		Collections.sort (_switches, VendoUtils.caseInsensitiveStringComparator);
 
 		String args = new String ();
-		for (String str : _switches)
+		for (String str : _switches) {
 			args += str + " ";
-		if (_startIndex >= 0)
+		}
+		if (_startIndex >= 0) {
 			args += _startIndex + " ";
-		if (_endIndex >= 0)
+		}
+		if (_endIndex >= 0) {
 			args += _endIndex + " ";
-		if (_step > 1) //only step values > 1 need to be included
+		}
+		if (_step > 1) { //only step values > 1 need to be included
 			args += _step + " ";
+		}
 		args = args.trim ();
 
 		//build prepared statement
@@ -979,14 +991,18 @@ public class GetUri
 			Timestamp now = new Timestamp (new GregorianCalendar ().getTimeInMillis ());
 			ps.setTimestamp (index++, now);
 			ps.setString (index++, _model);
-			if (args.length () > 0)
+			if (args.length () > 0) {
 				ps.setString (index++, args);
-			if (_startIndex >= 0)
+			}
+			if (_startIndex >= 0) {
 				ps.setInt (index++, _startIndex);
-			if (_endIndex >= 0)
+			}
+			if (_endIndex >= 0) {
 				ps.setInt (index++, _endIndex);
-			if (_step > 1)
+			}
+			if (_step > 1) {
 				ps.setInt (index++, _step);
+			}
 //System.out.println ("writeHistory: ps='" + ps + "'");
 
 			ps.executeUpdate ();
@@ -1004,7 +1020,7 @@ public class GetUri
 	private Connection connectDatabase () throws Exception
 	{
 		//TODO - move connection info to properties file, with hard-coded defaults
-		final String jdbcDriver = "com.mysql.jdbc.Driver";
+		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
 		final String dbUrl = "jdbc:mysql://localhost/gihistory";
 		final String dbUser = "root";
 		final String dbPass = "root";
@@ -1025,8 +1041,9 @@ public class GetUri
 			str.contains ("?") ||
 			str.contains (":") ||
 			str.contains ("/") ||
-			str.contains ("\\"))
+			str.contains ("\\")) {
 			return false;
+		}
 
 		return true;
 	}

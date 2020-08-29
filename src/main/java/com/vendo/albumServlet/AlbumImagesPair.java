@@ -1,4 +1,4 @@
-//AlbumImagePair.java - class to hold a pair of images that typically are related (like dups)
+//AlbumImagesPair.java - class to hold a pair of images that typically are related (like dups)
 
 package com.vendo.albumServlet;
 
@@ -21,8 +21,8 @@ public class AlbumImagesPair implements Comparator<AlbumImage>
 			_image2 = image1;
 		}
 		//TODO - shouldn't make these calls in ctor
-		_numberOfMatchingImages1 = AlbumImages.getNumMatchingImages (image1.getBaseName (false), 0);
-		_numberOfMatchingImages2 = AlbumImages.getNumMatchingImages (image2.getBaseName (false), 0);
+		_numberOfMatchingImages1 = AlbumImages.getNumMatchingImages (_image1.getBaseName (false), 0);
+		_numberOfMatchingImages2 = AlbumImages.getNumMatchingImages (_image2.getBaseName (false), 0);
 		_numberOfDuplicateMatches = 1;
 	}
 
@@ -66,7 +66,7 @@ public class AlbumImagesPair implements Comparator<AlbumImage>
 	@Override
 	public int compare (AlbumImage image1, AlbumImage image2)
 	{
-		return image1.getName ().compareToIgnoreCase (image1.getName ());
+		return image1.getName ().compareToIgnoreCase (image2.getName ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -123,7 +123,8 @@ public class AlbumImagesPair implements Comparator<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public boolean pairsRepresentDuplicates ()
 	{
-		return getNumberOfMatchingImages1 () == getNumberOfDuplicateMatches () || getNumberOfMatchingImages2 () == getNumberOfDuplicateMatches ();
+//		return getNumberOfMatchingImages1 () == getNumberOfDuplicateMatches () || getNumberOfMatchingImages2 () == getNumberOfDuplicateMatches ();
+		return getNumberOfMatchingImages1 () <= getNumberOfDuplicateMatches () || getNumberOfMatchingImages2 () <= getNumberOfDuplicateMatches ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////

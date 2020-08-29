@@ -24,25 +24,32 @@ jr.bat /subdirs /folder .. /file "*jpg" /dateOnly
 
 package com.vendo.jpgInfo;
 
-import java.io.*;
-//import java.nio.*;
-import java.nio.file.*;
-import java.text.*;
-import java.util.*;
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Directory;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.Tag;
+import com.drew.metadata.exif.ExifIFD0Directory;
+import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.drew.metadata.iptc.IptcDirectory;
+import com.drew.metadata.xmp.XmpDirectory;
+import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.win32.Win32;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import com.drew.imaging.*;
-import com.drew.metadata.*;
-import com.drew.metadata.exif.*;
-import com.drew.metadata.iptc.*;
-import com.drew.metadata.xmp.*;
-
-//import javax.imageio.metadata.*;
-
-//import com.sun.media.jai.*;
-//import com.sun.media.jai.codec.*;
-//import com.sun.image.codec.jpeg.*;
-
-import org.apache.logging.log4j.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.text.SimpleDateFormat;
+import java.util.Collection;
+import java.util.Date;
+import java.util.Iterator;
 
 
 public class JpgInfo
@@ -52,8 +59,9 @@ public class JpgInfo
 	{
 		JpgInfo app = new JpgInfo ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -94,6 +102,9 @@ public class JpgInfo
 
 				} else if (arg.equalsIgnoreCase ("subdirs") || arg.equalsIgnoreCase ("s")) {
 					_recurseSubdirs = true;
+
+				} else if (arg.equalsIgnoreCase ("imageInfo") || arg.equalsIgnoreCase ("image")) {
+					_imageInfo = true;
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -136,14 +147,16 @@ public class JpgInfo
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/subdirs] [/folder <folder>] [/file <filename pattern>] [/dateOnly]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -184,7 +197,7 @@ public class JpgInfo
 	{
 		try (DirectoryStream <Path> ds = Files.newDirectoryStream (folder)) {
 			for (Path file : ds) {
-				if (_filenamePatternFilter.accept (file)) {
+				if (file.toString ().toLowerCase ().endsWith (".jpg") && _filenamePatternFilter.accept (file)) {
 					processFile (file);
 				}
 
@@ -205,7 +218,9 @@ public class JpgInfo
 	private boolean processFile (Path file) throws Exception
 	{
 		if (_dateOnly) {
-			return processFileDateOnly (file);
+			return processFileDateOnly(file);
+		} else if (_imageInfo) {
+			return processImageInfo (file);
 		} else {
 			return processFileFull (file);
 		}
@@ -356,6 +371,40 @@ public class JpgInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private boolean processImageInfo (Path file) throws Exception {
+//		String filename = file.toAbsolutePath ().normalize ().toString ();
+		String filename = file.getFileName ().toString ();
+
+		BufferedImage image = null;
+		long numBytes = 0;
+		int width = 0;
+		int height = 0;
+		short color = _warningColor;
+		String orientation = "";
+
+		try {
+			BasicFileAttributes attrs = Files.readAttributes (file, BasicFileAttributes.class);
+			image = JpgUtils.readImage (new File (filename));
+
+			numBytes = attrs.size ();
+			width = image.getWidth();
+			height = image.getHeight();
+			color = _highlightColor;
+			if (width < _alertPixels || height < _alertPixels) {
+				color = _warningColor;
+			}
+			orientation = (width > height ? "-" : width < height ? "|" : "+"); //TODO - does not include any slop when identifying square images
+		} catch (Exception ex) {
+			//ignore
+		}
+
+		String details = filename + " " + orientation + " " + width + "x" + height + ", " + VendoUtils.unitSuffixScale (numBytes);
+		VendoUtils.printWithColor (color, details);
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private boolean processFileFull (Path file) throws Exception
 	{
 		String filename = file.toAbsolutePath ().normalize ().toString ();
@@ -418,7 +467,13 @@ public class JpgInfo
 	private Path _folder;
 	private Boolean _recurseSubdirs = false;
 	private Boolean _dateOnly = false;
+	private Boolean _imageInfo = false;
 	private FilenamePatternFilter _filenamePatternFilter = null;
+
+	private static final int _alertPixels = 640;
+//	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
+	private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;
+	private static final short _highlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;
 
 	private static Logger _log = LogManager.getLogger (JpgInfo.class);
     private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yyyy HH:mm:ss");

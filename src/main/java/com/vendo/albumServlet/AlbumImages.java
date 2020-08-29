@@ -1106,7 +1106,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//handles max of two filters
-	public String generateImageLink (String filter1, String filter2, AlbumMode mode, int columns, double sinceDays)
+	public String generateImageLink (String filter1, String filter2, AlbumMode mode, int columns, double sinceDays, boolean limitedCompare)
 	{
 		String server = AlbumFormInfo.getInstance ().getServer ();
 
@@ -1114,10 +1114,12 @@ public class AlbumImages
 		AlbumSortType sortType = _form.getSortType ();
 
 		String filters = filter1 + "," + filter2;
+		String limitedCompareStr = limitedCompare ? "&limitedCompare=true" : "";
 
 		StringBuilder sb = new StringBuilder (200);
 		sb.append ("?mode=").append (mode.getSymbol ())
 		  .append ("&filter1=").append (filters)
+		  .append ("&filter2=").append (filters)
 //TODO - propagate tags?
 //TODO - propagate excludes?
 		  .append ("&columns=").append (columns);
@@ -1134,6 +1136,7 @@ public class AlbumImages
 //		  .append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 //		  .append ("&collapseGroups=").append (_form.getCollapseGroups ())
 //		  .append ("&limitedCompare=").append (_form.getLimitedCompare ())
+		  .append (limitedCompareStr)
 //		  .append ("&dbCompare=").append (_form.getDbCompare ())
 		  .append ("&looseCompare=").append (_form.getLooseCompare ())
 		  .append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
@@ -1402,6 +1405,7 @@ public class AlbumImages
 				if (mode == AlbumMode.DoSampler) {
 					//if collapseGroups is enabled, disable it in the drilldown when there is only one group
 					AlbumMode newMode = AlbumMode.DoDir;
+					boolean limitedCompare = false;
 
 					int newCols = defaultCols;
 					if (collapseGroups) {
@@ -1409,6 +1413,7 @@ public class AlbumImages
 							getNumMatchingImages (image.getBaseName (true), sinceInMillis)) {
 							newMode = AlbumMode.DoSampler;
 							newCols = _form.getColumns ();
+							limitedCompare = true;
 						}
 					}
 
@@ -1418,7 +1423,7 @@ public class AlbumImages
 //TODO - clean this up
 					imageName = image.getBaseName (collapseGroups);
 					String imageName1 = imageName + (collapseGroups ? "+" : ""); //plus sign here means digit
-					href = generateImageLink (imageName1, imageName1, newMode, newCols, sinceDays);
+					href = generateImageLink (imageName1, imageName1, newMode, newCols, sinceDays, limitedCompare);
 					details.append ("(");
 					if (collapseGroups) {
 						details.append(getNumMatchingAlbums(imageName, sinceInMillis))
@@ -1460,7 +1465,8 @@ public class AlbumImages
 					imageBorderStyle = image.compareToByPixels (partner) < 0 ? "dashed" : "solid";
 
 					if (duplicateHandling != AlbumDuplicateHandling.SelectNone) {
-						long pixelDiff = image.getPixels () - partner.getPixels (); //note: does not take orientation into account here
+//						long pixelDiff = image.getPixels () - partner.getPixels (); //note: does not take orientation into account here
+						int pixelDiff = image.compareToByPixels (partner);
 						switch (duplicateHandling) {
 						default:
 							throw new RuntimeException ("AlbumImages.generateHtml: invalid duplicateHandling \"" + duplicateHandling + "\"");
@@ -1472,6 +1478,12 @@ public class AlbumImages
 
 						case SelectSecond:
 							if (!isEven) {
+								selectThisDuplicateImage = true;
+							}
+							break;
+
+						case SelectSmaller:
+							if (pixelDiff < 0) {
 								selectThisDuplicateImage = true;
 							}
 							break;
@@ -1508,7 +1520,8 @@ public class AlbumImages
 						newCols = (imageCols + partnerCols) / 2;
 					}
 
-					href = generateImageLink (imageNonUniqueString, partnerNonUniqueString, newMode, newCols, 0);
+					href = generateImageLink (imageNonUniqueString, partnerNonUniqueString, newMode, newCols, 0, false);
+
 					details.append ("(")
 						   .append (imageCols)
 						   .append ("/")
@@ -1546,7 +1559,7 @@ public class AlbumImages
 //count: here I actually need to know the number of images that will be shown in the drilldown page...
 //like, getNumMatchingGroups()
 
-						href = generateImageLink (imageName, imageName, newMode, newCols, sinceDays);
+						href = generateImageLink (imageName, imageName, newMode, newCols, sinceDays, false);
 					}
 				}
 
@@ -1771,7 +1784,7 @@ public class AlbumImages
 		int numImages = _imageDisplayList.size ();
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
 		Path rootPath = FileSystems.getDefault ().getPath (AlbumFormInfo.getInstance ().getRootPath (false));
-		boolean hasOneFilter = form.getFilters (1).length == 1;
+		boolean hasOneFilter = form.getFilters (0).length == 1;
 
 		if (form.getMode () == AlbumMode.DoDir && form.getSortType () == AlbumSortType.ByExif && hasOneFilter && numImages > 0) {// && numImages < 24) {
 			String baseNameDest = form.getFilters (1)[0]; //only uses the first filter
@@ -1984,7 +1997,7 @@ public class AlbumImages
 	private static long _allCombosNumImages = 0;
 	private static List<VPair<Integer, Integer>> _allCombos = null;
 
-	public static final int _nameScaledImageMapMaxSize = 24 * 1024;
+	public static final int _nameScaledImageMapMaxSize = 36 * 1024;
 	public static final int _looseCompareMapMaxSize = 24 * 1024 * 1024;
 	private static Map<String, ByteBuffer> _nameScaledImageMap = null;
 	private static Map<String, AlbumImagePair> _looseCompareMap = null;

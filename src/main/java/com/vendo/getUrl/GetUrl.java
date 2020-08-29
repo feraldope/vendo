@@ -214,9 +214,8 @@ public class GetUrl {
 				displayUsage("No output file (prefix) specified", true);
 
 			} else {
-//				final String whiteList = "[0-9A-Za-z_\\-\\.]"; //all valid characters
-				final String whiteList = "[0-9A-Za-z_\\-\\.\\*]"; //all valid characters
-				if (_outputPrefix.replaceAll(whiteList, "").length() > 0) {
+				final String whiteList = "[0-9A-Za-z_\\-.*]"; //regex - all valid characters
+				if (_outputPrefix.length() < 3 || _outputPrefix.replaceAll(whiteList, "").length() > 0) {
 					displayUsage("Invalid value for <output prefix> '" + _outputPrefix + "'", true);
 				}
 
@@ -1285,8 +1284,9 @@ public class GetUrl {
 		///////////////////////////////////////////////////////////////////////////
 		public String generateRecordDetailString(boolean printDetail, Instant endInstant) {
 			String elapsedTimeString = LocalTime.ofNanoOfDay(Duration.between(_globalStartInstant, endInstant).toNanos()).format(_dateTimeFormatter);
+			String orientation = (_width > _height ? "-" : _width < _height ? "|" : "+"); //TODO - does not include any slop when identifying square images
 
-			return _filename + " = " +
+			return _filename + " " + orientation + " " +
 					_width + "x" + _height + ", " +
 					VendoUtils.unitSuffixScale(_imageBytesRead, 0) + ", " +
 					VendoUtils.unitSuffixScale(_imageBitsPerSec, 0) + "ps" +
@@ -1325,7 +1325,7 @@ public class GetUrl {
 		///////////////////////////////////////////////////////////////////////////
 		public ImageBaseNames(String outputPrefixOrig) {
 			_outputPrefixOrig = outputPrefixOrig;
-			_outputPrefixBase = outputPrefixOrig.replaceAll("[\\-\\._]", ""); //regex
+			_outputPrefixBase = outputPrefixOrig.replaceAll("[\\-._]", ""); //regex
 			String outputPrefix = _outputPrefixBase;
 
 			if (_classDebug) {

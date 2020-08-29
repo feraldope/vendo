@@ -1979,7 +1979,7 @@ public class AlbumTags
 	private synchronized static BasicDataSource getDataSource ()
 	{
 		//TODO - move connection info to properties file, with hard-coded defaults
-		final String jdbcDriver = "com.mysql.jdbc.Driver";
+		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
 		final String dbUrl = "jdbc:mysql://localhost/albumtags";
 		final String dbUser = "root";
 		final String dbPass = "root";

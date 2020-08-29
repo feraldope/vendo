@@ -13,6 +13,7 @@ public enum AlbumDuplicateHandling
 	SelectNone ("Select None"),
 	SelectFirst ("Select First"), //select first image in pair
 	SelectSecond ("Select Second"), //select second image in pair
+	SelectSmaller ("Select Smaller"), //select the smaller image
 	SelectSmallerFirst ("Select Smaller / First"), //select the smaller image, or first in pair if same size
 	SelectSmallerSecond ("Select Smaller / Second"); //select the smaller image, or second in pair if same size
 

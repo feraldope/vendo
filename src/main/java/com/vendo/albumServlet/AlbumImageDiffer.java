@@ -550,7 +550,7 @@ public class AlbumImageDiffer
 					 "select tag_id from albumtags.tags " + NL +
 					 whereClause + NL +
 					 ")) order by rand() limit " + maxRowsForQuery + ") t)";
-//		_log.debug ("AlbumImageDiffer.queryImageIdsTags: sql: " + NL + sql1);
+//		_log.debug ("AlbumImageDiffer.queryImageIdsTags: sql: " + NL + sql);
 
 		try (Connection connection = getConnection ();
 			 Statement statement = connection.createStatement ();
@@ -1024,7 +1024,7 @@ public class AlbumImageDiffer
 	private synchronized static BasicDataSource getDataSource ()
 	{
 		//TODO - move connection info to properties file, with hard-coded defaults
-		final String jdbcDriver = "com.mysql.jdbc.Driver";
+		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
 		final String dbUrl = "jdbc:mysql://localhost/albumimages";
 		final String dbUser = "root";
 		final String dbPass = "root";

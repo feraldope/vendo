@@ -167,19 +167,23 @@ public class AlbumImagePair
 
 		if (sortType != AlbumSortType.ByNone) {
 			pairs2.sort ((pair1, pair2) -> {
-				if (sortType == AlbumSortType.ByName) {
-					//this needs to be case-insensitive to achieve case-insensitive order in the browser
-					return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
+				switch (sortType) {
+					case ByDate:
+						//sort pairs by descending date (i.e., reverse)
+						long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
+						long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
+						int diff = Long.compare (pair2Latest, pair1Latest);
+						if (diff != 0) {
+							return diff;
+						}
+						//if dates are identical fall through to sort by name
 
-				} else if (sortType == AlbumSortType.ByDate) {
-					//sort pairs by descending date (i.e., reverse)
-					long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
-					long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
+					case ByName:
+						//this needs to be case-insensitive to achieve case-insensitive order in the browser
+						return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
 
-					return Long.compare (pair2Latest, pair1Latest);
-
-				} else {
-					throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
+					default:
+						throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
 				}
 			});
 		}
