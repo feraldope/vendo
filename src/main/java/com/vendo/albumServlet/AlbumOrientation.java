@@ -69,6 +69,7 @@ public enum AlbumOrientation
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//similar code in AlbumImages#compareToWithSlop
 	public static AlbumOrientation getOrientation (int imageWidth, int imageHeight)
 	{
 		if (imageWidth <= 0 || imageHeight <= 0) {

@@ -7,20 +7,19 @@
 
 package com.vendo.daylight;
 
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.util.Collection;
-import java.util.TimeZone;
-
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jfree.chart.ChartPanel;
 import org.jfree.ui.ApplicationFrame;
 import org.jfree.ui.RefineryUtilities;
 
-import com.vendo.vendoUtils.VendoUtils;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.util.Collection;
+import java.util.TimeZone;
 
 
 public class Daylight
@@ -37,8 +36,9 @@ public class Daylight
 	{
 		Daylight app = new Daylight ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -103,9 +103,10 @@ public class Daylight
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
-		if (message != null)
+		String msg = "";
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] <input file>";
 		System.err.println ("Error: " + msg + NL);

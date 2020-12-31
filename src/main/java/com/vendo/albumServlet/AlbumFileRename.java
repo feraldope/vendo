@@ -2,6 +2,11 @@
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.VPair;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.File;
 import java.io.FilenameFilter;
 import java.nio.file.FileSystems;
@@ -9,21 +14,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VPair;
-import com.vendo.vendoUtils.VendoUtils;
 
 
 public class AlbumFileRename
@@ -33,8 +27,9 @@ public class AlbumFileRename
 	{
 		AlbumFileRename app = new AlbumFileRename ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -159,16 +154,19 @@ public class AlbumFileRename
 
 		//check for required args and handle defaults
 		if (!_migrate) {
-			if (_inPattern == null)
+			if (_inPattern == null) {
 				displayUsage ("<inPattern> not specified", true);
+			}
 
-			if (_outPattern == null)
+			if (_outPattern == null) {
 				displayUsage ("<outPattern> not specified", true);
+			}
 		}
 
 //TODO - verify _destDir exists, and is writable??
-		if (_dir == null)
+		if (_dir == null) {
 			_dir = VendoUtils.getCurrentDirectory ();
+		}
 		_dir = appendSlash (_dir);
 //		if (_Debug)
 //			_log.debug ("_destDir = " + _destDir);
@@ -179,9 +177,10 @@ public class AlbumFileRename
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
-		if (message != null)
+		String msg = "";
+		if (message != null) {
 			msg = message + NL;
+		}
 
 //ju <infile> [/subDirs] [/outFile <outfile>] [/width <width (possibly negative)>] [/height <height (possibly negative)>]
 
@@ -189,8 +188,9 @@ public class AlbumFileRename
 		msg += "Usage: " + _AppName + " [/debug] ... TBD";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -524,8 +524,9 @@ public class AlbumFileRename
 		String[] filenames = dir.list (filenameFilter);
 
 		dirName = appendSlash (dirName);
-		for (int ii = 0; ii < filenames.length; ii++)
+		for (int ii = 0; ii < filenames.length; ii++) {
 			filenames[ii] = dirName + filenames[ii];
+		}
 
 		return filenames;
 	}
@@ -542,8 +543,9 @@ public class AlbumFileRename
 	private String appendSlash (String dir) //append slash if necessary
 	{
 		int lastChar = dir.charAt (dir.length () - 1);
-		if (lastChar != '/' && lastChar != '\\')
+		if (lastChar != '/' && lastChar != '\\') {
 			dir += _slash;
+		}
 
 		return dir;
 	}

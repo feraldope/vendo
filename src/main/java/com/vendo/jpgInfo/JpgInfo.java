@@ -103,6 +103,18 @@ public class JpgInfo
 				} else if (arg.equalsIgnoreCase ("subdirs") || arg.equalsIgnoreCase ("s")) {
 					_recurseSubdirs = true;
 
+				} else if (arg.equalsIgnoreCase ("ignoreSmallerThan") || arg.equalsIgnoreCase ("ignore")) {
+					try {
+						_ignoreSmallerThan = Integer.parseInt (args[++ii]);
+						if (_ignoreSmallerThan < 0) {
+							throw (new NumberFormatException ());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
 				} else if (arg.equalsIgnoreCase ("imageInfo") || arg.equalsIgnoreCase ("image")) {
 					_imageInfo = true;
 
@@ -398,8 +410,10 @@ public class JpgInfo
 			//ignore
 		}
 
-		String details = filename + " " + orientation + " " + width + "x" + height + ", " + VendoUtils.unitSuffixScale (numBytes);
-		VendoUtils.printWithColor (color, details);
+		if (!(_ignoreSmallerThan > 0 && (width < _ignoreSmallerThan || height < _ignoreSmallerThan))) {
+			String details = filename + " " + orientation + " " + width + "x" + height + ", " + VendoUtils.unitSuffixScale (numBytes);
+			VendoUtils.printWithColor (color, details);
+		}
 
 		return true;
 	}
@@ -464,6 +478,7 @@ public class JpgInfo
 
 
 	//private members
+	private int _ignoreSmallerThan;
 	private Path _folder;
 	private Boolean _recurseSubdirs = false;
 	private Boolean _dateOnly = false;

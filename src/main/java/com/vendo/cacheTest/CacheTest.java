@@ -134,7 +134,7 @@ public class CacheTest
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
+		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}

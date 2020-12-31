@@ -24,13 +24,13 @@ public class AlbumFileFilter implements FilenameFilter
 		int patternFlags = (useCase ? 0 : Pattern.CASE_INSENSITIVE);
 
 		if (debugCtor && AlbumFormInfo._Debug) {
-			String inc = new String ();
+			String inc = "";
 			if (includeFilters != null) {
 				for (String includeFilter : includeFilters) {
 					inc += " \"" + includeFilter + "\"";
 				}
 			}
-			String exc = new String ();
+			String exc = "";
 			if (excludeFilters != null) {
 				for (String excludeFilter : excludeFilters) {
 					exc += " \"" + excludeFilter + "\"";

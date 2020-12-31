@@ -2,28 +2,32 @@
 
 package com.vendo.dropBox;
 
-import com.vendo.vendoUtils.*;
+import com.vendo.vendoUtils.VCrypto;
+import com.vendo.vendoUtils.VZipper;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.*;
-import java.util.*;
-
-import org.apache.logging.log4j.*;
-
 import java.security.InvalidKeyException;
+import java.util.Arrays;
+import java.util.Comparator;
 
 
 public class DropBox
 {
-	public enum Action {ListAction, PutAction, GetAction, DeleteAction};
-	public enum Mode {EncodeMode, ClearMode};
+	public enum Action {ListAction, PutAction, GetAction, DeleteAction}
+
+	public enum Mode {EncodeMode, ClearMode}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String args[])
 	{
 		DropBox dropBox = new DropBox ();
 
-		if (!dropBox.processArgs (args))
+		if (!dropBox.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		dropBox.run ();
 	}
@@ -128,22 +132,25 @@ public class DropBox
 
 		//verify required args
 
-		if (_Debug)
+		if (_Debug) {
 			System.out.println ("_dropboxFolder = " + quote (_dropboxFolder));
+		}
 
 		try {
 			File folder = new File (_dropboxFolder);
-			if (folder.exists ())
+			if (folder.exists ()) {
 				_dropboxFolder = folder.getCanonicalPath ();
-			else
+			} else {
 				displayUsage ("DropBox folder '" + _dropboxFolder + "' does not exist", true);
+			}
 
 		} catch (Exception ee) {
 			_log.error ("file.exists: failed on '" + _dropboxFolder + "'", ee);
 		}
 
-		if (_action == Action.ListAction)
+		if (_action == Action.ListAction) {
 			return true; //done processing args
+		}
 
 		generateDropboxFilename ();
 
@@ -155,24 +162,29 @@ public class DropBox
 		}
 
 		if (_action == Action.GetAction) {
-			if (!fileExists (_dropboxFilename))
+			if (!fileExists (_dropboxFilename)) {
 				displayUsage ("Source file '" + _userFileBase + "' does not exist in DropBox folder (" + _dropboxFilename + ")", true);
+			}
 
-			if (fileExists (_userFilename) && !_force)
+			if (fileExists (_userFilename) && !_force) {
 				displayUsage ("Destination file '" + _userFilename + "' exists; use /force to overwrite", true);
+			}
 		}
 
 		if (_action == Action.PutAction) {
-			if (!fileExists (_userFilename))
+			if (!fileExists (_userFilename)) {
 				displayUsage ("Source file '" + _userFilename + "' does not exist", true);
+			}
 
-			if (fileExists (_dropboxFilename) && !_force)
+			if (fileExists (_dropboxFilename) && !_force) {
 				displayUsage ("Destination file '" + _userFileBase + "' exists in DropBox folder (" + _dropboxFilename + "); use /force to overwrite", true);
+			}
 		}
 
 		if (_action == Action.DeleteAction) {
-			if (!fileExists (_dropboxFilename))
+			if (!fileExists (_dropboxFilename)) {
 				displayUsage ("File '" + _userFilename + "' does not exist in DropBox folder (" + _dropboxFilename + ")", true);
+			}
 		}
 
 		return true;
@@ -181,15 +193,17 @@ public class DropBox
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
-		if (message != null)
+		String msg = "";
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " {/list | {/get | /put | /del} <filename> [/force] [/clear] [/folder <dropbox>] [/debug]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -197,8 +211,9 @@ public class DropBox
 	{
 		try {
 			File file = new File (filename);
-			if (file.exists ())
+			if (file.exists ()) {
 				return true;
+			}
 
 		} catch (Exception ee) {
 			_log.error ("fileExists: failed on '" + filename + "'", ee);
@@ -212,17 +227,15 @@ public class DropBox
 	private void run ()
 	{
 		try {
-			if (_action == Action.ListAction)
+			if (_action == Action.ListAction) {
 				listFiles ();
-
-			else if (_action == Action.GetAction)
+			} else if (_action == Action.GetAction) {
 				getFile ();
-
-			else if (_action == Action.PutAction)
+			} else if (_action == Action.PutAction) {
 				putFile ();
-
-			else if (_action == Action.DeleteAction)
+			} else if (_action == Action.DeleteAction) {
 				deleteFile ();
+			}
 
 		} catch (InvalidKeyException ee) {
 			//this happens when the security policy jars in "%JAVA_HOME%\jre\lib\security" are incorrect
@@ -270,8 +283,9 @@ public class DropBox
 	///////////////////////////////////////////////////////////////////////////
 	private String translateDropboxFilename (String in)
 	{
-		if (_mode == Mode.ClearMode)
+		if (_mode == Mode.ClearMode) {
 			return new String (in);
+		}
 
 		byte[] bytes = new byte [256];
 //TODO - verify string with String.startsWith, String.endsWith
@@ -283,16 +297,18 @@ public class DropBox
 		for (int ii = start; ii < end; ii += 2) {
 
 			int i0 = (int) in.charAt (ii);
-			if (i0 >= '0' && i0 <= '9')
+			if (i0 >= '0' && i0 <= '9') {
 				i0 -= (char) '0';
-			else
+			} else {
 				i0 -= (char) 'a' - 10;
+			}
 
 			int i1 = (int) in.charAt (ii + 1);
-			if (i1 >= '0' && i1 <= '9')
+			if (i1 >= '0' && i1 <= '9') {
 				i1 -= (char) '0';
-			else
+			} else {
 				i1 -= (char) 'a' - 10;
+			}
 
 			int h1 = i0 * 16 + i1;
 //			System.out.println ("i0 = " + i0 + ", i1 = " + i1 + ", h1 = " + h1);
@@ -333,6 +349,7 @@ public class DropBox
 		}
 
 		Arrays.sort (sorted, new Comparator<String> () {
+			@Override
 			public int compare (String s1, String s2) {
 				return s1.compareToIgnoreCase (s2);
 			}
@@ -340,8 +357,9 @@ public class DropBox
 
 		System.out.println (NL + "Listing for " + quote (_dropboxFolder) + NL);
 
-		for (int ii = 0; ii < sorted.length; ii++)
+		for (int ii = 0; ii < sorted.length; ii++) {
 			System.out.println (sorted[ii]);
+		}
 
 		System.out.println (NL + sorted.length + " files found" + NL);
 	}
@@ -349,8 +367,9 @@ public class DropBox
 	///////////////////////////////////////////////////////////////////////////
 	private void getFile () throws Exception
 	{
-		if (fileExists (_userFilename))
+		if (fileExists (_userFilename)) {
 			backupFile (_userFilename);
+		}
 
 		File inFile = new File (_dropboxFilename);
 		FileInputStream inStream = new FileInputStream (inFile);
@@ -384,8 +403,9 @@ public class DropBox
 
 //TODO - does this always represent the number of bytes in the stream??
 		int available = inStream.available ();
-		if (_Debug)
+		if (_Debug) {
 			System.out.println ("DropBox.putFile: inStream bytes = " + available);
+		}
 
 		byte[] bytes = new byte [available];
 		inStream.read (bytes, 0, available);
@@ -419,8 +439,9 @@ public class DropBox
 			status = false;
 		}
 
-		if (!status)
+		if (!status) {
 			_log.error ("deleteFile: error deleting file '" + _userFilename + "'");
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -465,8 +486,9 @@ public class DropBox
 				int size = 0;
 				byte[] buf = new byte[1024];
 
-				while ((size = in.read (buf)) >= 0)
+				while ((size = in.read (buf)) >= 0) {
 					out.write (buf, 0, size);
+				}
 
 				in.close ();
 				out.close ();
@@ -484,10 +506,11 @@ public class DropBox
 	///////////////////////////////////////////////////////////////////////////
 	private String quote (String string)
 	{
-		if (string.contains (" "))
+		if (string.contains (" ")) {
 			return "\"" + string + "\"";
-		else
+		} else {
 			return string;
+		}
 	}
 
 

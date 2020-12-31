@@ -235,12 +235,21 @@ public class AlbumImage
 
 	///////////////////////////////////////////////////////////////////////////
 	//remove trailing digits (and optionally '-')
+	//expected format: Foo01-01; will return either Foo01 or Foo
 	public static String getBaseName (String name, boolean collapseGroups)
 	{
 		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
 		final String regex2 = "\\d*\\-\\d*$";	//match trailing [digits][dash][digits]
 
 		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//remove trailing digits and any dashes '-'
+	//this version simply removes everything starting with the first digit (collapseGroups is implied)
+	public static String getBaseName (String name)
+	{
+		return name.replaceAll ("[\\d-].*$", "");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -322,7 +331,7 @@ public class AlbumImage
 	///////////////////////////////////////////////////////////////////////////
 	public static String getSubFolderFromName (String name)
 	{
-		return AlbumImageDao.getInstance ().getSubFolderFromImageName (name);
+		return AlbumImageDao.getInstance().getSubFolderFromImageName (name); //call AlbumImageDao.getInstance() to force initialization of DAO
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -423,7 +432,7 @@ public class AlbumImage
 	public synchronized long getPixels ()
 	{
 		if (_pixels < 0) {
-			_pixels = getWidth () * getHeight ();
+			_pixels = (long) getWidth () * (long) getHeight ();
 		}
 
 		return _pixels;
@@ -432,23 +441,7 @@ public class AlbumImage
 	///////////////////////////////////////////////////////////////////////////
 	public int compareToByPixels (AlbumImage other)
 	{
-		long image1Pixels = getPixels ();
-		long image2Pixels = other.getPixels ();
-
-		if (image1Pixels == image2Pixels) {
-			return 0;
-		}
-
-		final double slopPercent = 0.5; //allowable variation from exactly equal that will still be considered equal
-
-		double ratio = (double) image1Pixels / (double) image2Pixels;
-		if (ratio > 1. + slopPercent / 100.) {
-			return 1;
-		} else if (ratio < 1. - slopPercent / 100.) {
-			return -1;
-		} else {
-			return 0;
-		}
+		return AlbumImages.compareToWithSlop (getPixels(), other.getPixels(), true, 0.5);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -519,7 +512,7 @@ public class AlbumImage
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean isValidImageName (String name) //name without extension
 	{
-		final Pattern goodPattern = Pattern.compile ("^[A-Za-z]{2,}\\d{2,}\\-\\d{2,}$"); //match: [2 or more alpha][2 or more digits][dash][2 or more digits]
+		final Pattern goodPattern = Pattern.compile ("^[A-Za-z]{2,}\\d{2,}\\-\\d{2,}$"); //regex - match: [2 or more alpha][2 or more digits][dash][2 or more digits]
 
 		return goodPattern.matcher (name).matches ();
 	}
@@ -928,7 +921,7 @@ public class AlbumImage
 			if (isExifDateValid (exifDate)) {
 				_exifDateStrings[exifDateIndex] = _dateFormat.format (new Date (exifDate));
 			} else {
-				_exifDateStrings[exifDateIndex] = new String ();
+				_exifDateStrings[exifDateIndex] = "";
 			}
 		}
 

@@ -776,6 +776,9 @@ public class VendoUtils
 		return list;
 	}
 
+//TODO: note that most (all?) uses of arrayToString() can likely be replaced with a stream solution using Collectors.joining(), like:
+//		String string = set.stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect (Collectors.joining (", "));
+
 	///////////////////////////////////////////////////////////////////////////
 	//use this version for primitive type (int)
 	public static String arrayToString (int[] items)
@@ -1109,6 +1112,14 @@ public class VendoUtils
 		url = url.replaceFirst (":/", "://");
 
 		return url;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String escapeHtmlChars (String urlFragment)
+	{
+		return urlFragment.replace ("+", "%2b")
+							.replace ("[", "%5b")
+							.replace ("]", "%5d");
 	}
 
 	///////////////////////////////////////////////////////////////////////////

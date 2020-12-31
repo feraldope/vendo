@@ -1,22 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
   <component name="ChangeListManager">
     <list default="true" id="97c7c55e-57f6-4d7b-90e4-4ee351afb03b" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageSet.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dbnavigator.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dbnavigator.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumDuplicateHandling.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumDuplicateHandling.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileRename.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileRename.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDifferGen.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDifferGen.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagePair.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagePair.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagesPair.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagesPair.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagesPair.java" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumOrientation.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumOrientation.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumUncaughtExceptionHandler.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumUncaughtExceptionHandler.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/album.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/album.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/CacheTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/cacheTest/CacheTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/csvData/CsvData.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/csvData/CsvData.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/daylight/Daylight.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/daylight/Daylight.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/diskUsage/DiskUsage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/diskUsage/DiskUsage.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/dropBox/DropBox.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/dropBox/DropBox.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/getUri/GetUri.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/getUri/GetUri.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/getUrl/GetUrl.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jdbcTest/JdbcTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jdbcTest/JdbcTest.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/jpgInfo/JpgInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/jpgInfo/JpgInfo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/com/vendo/albumServlet/mybatis-image-server-config.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/com/vendo/albumServlet/mybatis-image-server-config.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/com/vendo/myBatisTest/mybatis-test-config.xml" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/com/vendo/myBatisTest/mybatis-test-config.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/printUrl/PrintUrl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/printUrl/PrintUrl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,6 +54,9 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="HierarchyBrowserManager">
+    <option name="IS_AUTOSCROLL_TO_SOURCE" value="true" />
+  </component>
   <component name="ProjectId" id="1RqF2NHYgeEtKDiFPkCICHoruT4" />
   <component name="ProjectViewState">
     <option name="autoscrollFromSource" value="true" />
@@ -45,23 +69,33 @@
     <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrary" value="JUnit5" />
     <property name="com.intellij.testIntegration.createTest.CreateTestDialog.defaultLibrarySuperClass.JUnit5" value="" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/.." />
-    <property name="settings.editor.selected.configurable" value="editor.preferences.fonts.default" />
+    <property name="last.edited.regexp" value="Sample Text" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/src/main/java/com/vendo/jHistory" />
+    <property name="settings.editor.selected.configurable" value="editor.preferences.folding" />
   </component>
   <component name="RecentsManager">
+    <key name="CreateTestDialog.Recents.Supers">
+      <recent name="" />
+    </key>
     <key name="CreateTestDialog.RecentsKey">
       <recent name="com.vendo.albumServlet" />
     </key>
     <key name="CopyClassDialog.RECENTS_KEY">
-      <recent name="com.vendo.vendoUtils" />
       <recent name="com.vendo.albumServlet" />
-    </key>
-    <key name="CreateTestDialog.Recents.Supers">
-      <recent name="" />
+      <recent name="com.vendo.vendoUtils" />
     </key>
   </component>
-  <component name="RunManager" selected="Remote.AlbumServlet">
-    <configuration name="AlphanumComparatorTest" type="JUnit" factoryName="JUnit" temporary="true" nameIsGenerated="true">
+  <component name="RunManager" selected="Remote JVM Debug.AlbumServlet">
+    <configuration name="GetUrl" type="Application" factoryName="Application">
+      <option name="MAIN_CLASS_NAME" value="com.vendo.getUrl.GetUrl" />
+      <module name="vendo" />
+      <option name="PROGRAM_PARAMETERS" value="http://foobar/foo09/01.jpg mq1" />
+      <option name="WORKING_DIRECTORY" value="D:/Netscape/Program" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="AlphanumComparatorTest" type="JUnit" factoryName="JUnit" nameIsGenerated="true">
       <module name="vendo" />
       <extension name="coverage">
         <pattern>
@@ -90,12 +124,28 @@
       </RunnerSettings>
       <method v="2" />
     </configuration>
-    <recent_temporary>
-      <list>
-        <item itemvalue="JUnit.AlphanumComparatorTest" />
-      </list>
-    </recent_temporary>
+    <configuration name="JHistory - remote" type="Remote">
+      <module name="vendo" />
+      <option name="USE_SOCKET_TRANSPORT" value="true" />
+      <option name="SERVER_MODE" value="false" />
+      <option name="SHMEM_ADDRESS" />
+      <option name="HOST" value="localhost" />
+      <option name="PORT" value="5006" />
+      <option name="AUTO_RESTART" value="false" />
+      <RunnerSettings RunnerId="Debug">
+        <option name="DEBUG_PORT" value="5006" />
+        <option name="LOCAL" value="false" />
+      </RunnerSettings>
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Application.GetUrl" />
+      <item itemvalue="JUnit.AlphanumComparatorTest" />
+      <item itemvalue="Remote JVM Debug.AlbumServlet" />
+      <item itemvalue="Remote JVM Debug.JHistory - remote" />
+    </list>
   </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="StructureViewFactory">
     <option name="AUTOSCROLL_FROM_SOURCE" value="true" />
     <option name="ACTIVE_ACTIONS" value=",ALPHA_COMPARATOR,SHOW_FIELDS,SHOW_ANONYMOUS,SHOW_LAMBDA" />
@@ -125,70 +175,25 @@
     </option>
     <option name="oldMeFiltersMigrated" value="true" />
   </component>
-  <component name="WindowStateProjectService">
-    <state x="1827" y="803" key="#com.intellij.openapi.updateSettings.impl.PluginUpdateInfoDialog" timestamp="1598718225177">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state x="1827" y="803" key="#com.intellij.openapi.updateSettings.impl.PluginUpdateInfoDialog/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718225177" />
-    <state x="1588" y="0" key="#com.intellij.refactoring.rename.AutomaticRenamingDialog" timestamp="1592564817792">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state x="1588" y="0" key="#com.intellij.refactoring.rename.AutomaticRenamingDialog/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1592564817792" />
-    <state x="1902" y="771" key="#xdebugger.evaluate" timestamp="1592855143086">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state x="1902" y="771" key="#xdebugger.evaluate/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1592855143086" />
-    <state width="438" height="466" key="DebuggerActiveHint" timestamp="1593361738065">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="438" height="466" key="DebuggerActiveHint/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1593361738065" />
-    <state width="2057" height="403" key="GridCell.Tab.0.bottom" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.0.bottom/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.0.center" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.0.center/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.0.left" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.0.left/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.0.right" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.0.right/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.1.bottom" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.1.bottom/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.1.center" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.1.center/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.1.left" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.1.left/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="2057" height="403" key="GridCell.Tab.1.right" timestamp="1598718243340">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="2057" height="403" key="GridCell.Tab.1.right/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598718243340" />
-    <state width="1350" height="1067" key="XDebugger.FullValuePopup" timestamp="1593781722317">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state width="1350" height="1067" key="XDebugger.FullValuePopup/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1593781722317" />
-    <state x="1696" y="795" width="908" height="621" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2" timestamp="1597501274729">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state x="1696" y="795" width="908" height="621" key="com.intellij.xdebugger.impl.breakpoints.ui.BreakpointsDialogFactory$2/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1597501274729" />
-    <state x="1310" y="294" width="1826" height="1533" key="find.popup" timestamp="1598717224601">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state x="1310" y="294" width="1826" height="1533" key="find.popup/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598717224601" />
-    <state x="1813" y="502" width="672" height="678" key="search.everywhere.popup" timestamp="1598717338382">
-      <screen x="0" y="0" width="3840" height="2130" />
-    </state>
-    <state x="1813" y="502" width="672" height="678" key="search.everywhere.popup/0.0.3840.2130/-2560.0.2560.1410@0.0.3840.2130" timestamp="1598717338382" />
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/jHistory/JHistory.java</url>
+          <line>448</line>
+          <option name="timeStamp" value="275" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java</url>
+          <line>625</line>
+          <option name="timeStamp" value="290" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="Remote">
+        <watch expression="Arrays.stream (getFilters ()).anyMatch (wildcards)" language="JAVA" />
+      </configuration>
+    </watches-manager>
   </component>
 </project>

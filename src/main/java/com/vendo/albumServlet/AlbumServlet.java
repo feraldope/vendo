@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 public class AlbumServlet extends HttpServlet
@@ -53,7 +54,7 @@ public class AlbumServlet extends HttpServlet
 
 		AlbumProfiling.getInstance ().exit (1);
 
-		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ false);
+		AlbumProfiling.getInstance ().print (false);
 
 		_log.debug ("--------------- AlbumServlet.init - done ---------------");
 	}
@@ -82,6 +83,20 @@ public class AlbumServlet extends HttpServlet
 	{
 	try {
 		_log.debug ("--------------- AlbumServlet.doGet ---------------");
+
+		synchronized (requestInProgress) {
+			if (requestInProgress.getAndSet (true)) {
+				String message = "Request already in progress. Please retry later.";
+				_log.error(message);
+
+				response.setContentType ("text/html");
+				PrintWriter out = response.getWriter ();
+				out.println (message);
+
+				_log.debug ("--------------- AlbumServlet.doGet - aborted ---------------");
+				return;
+			}
+		}
 
 		//debugging
 //		_log.debug ("Request Headers:" + NL + VendoUtils.getRequestHeaders (request));
@@ -120,7 +135,7 @@ public class AlbumServlet extends HttpServlet
 
 		String title = _album.generateTitle ();
 
-		String action = new String ();
+		String action = "";
 		String method = form.getMethod ();
 //		if (method.compareToIgnoreCase ("post") == 0) { //add appropriate action if method="post"
 //			action = response.encodeURL (form.getServer ());
@@ -139,28 +154,28 @@ public class AlbumServlet extends HttpServlet
 
 		if (!isAndroidDevice) {
 			sb1.append("<style type='text/css'>").append(NL)
-					.append("	body {").append(NL)
-					.append("		font-family: Arial;").append(NL)
-					.append("		font-size: 10pt;").append(NL)
-					.append("	}").append(NL)
-					.append("	h3 {").append(NL)
-					.append("		font-size: 14pt;").append(NL)
-					.append("	}").append(NL)
-					.append("	td {").append(NL)
-					.append("		font-size: 10pt;").append(NL)
-					.append("	}").append(NL);
+				.append("	body {").append(NL)
+				.append("		font-family: Arial;").append(NL)
+				.append("		font-size: 10pt;").append(NL)
+				.append("	}").append(NL)
+				.append("	h3 {").append(NL)
+				.append("		font-size: 14pt;").append(NL)
+				.append("	}").append(NL)
+				.append("	td {").append(NL)
+				.append("		font-size: 10pt;").append(NL)
+				.append("	}").append(NL);
 		} else {
 			sb1.append("<style type='text/css'>").append(NL)
-					.append("	body {").append(NL)
-					.append("		font-family: Arial;").append(NL)
-					.append("		font-size: 20pt;").append(NL)
-					.append("	}").append(NL)
-					.append("	h3 {").append(NL)
-					.append("		font-size: 28pt;").append(NL)
-					.append("	}").append(NL)
-					.append("	td {").append(NL)
-					.append("		font-size: 20pt;").append(NL)
-					.append("	}").append(NL);
+				.append("	body {").append(NL)
+				.append("		font-family: Arial;").append(NL)
+				.append("		font-size: 20pt;").append(NL)
+				.append("	}").append(NL)
+				.append("	h3 {").append(NL)
+				.append("		font-size: 28pt;").append(NL)
+				.append("	}").append(NL)
+				.append("	td {").append(NL)
+				.append("		font-size: 20pt;").append(NL)
+				.append("	}").append(NL);
 		}
 
 //		List<Integer> fontSizes = !isAndroidDevice ? Arrays.asList (8, 9, 10, 24) : Arrays.asList (16, 18, 20, 48);
@@ -176,9 +191,9 @@ public class AlbumServlet extends HttpServlet
 //attempt to turn off caching; copied from http://www.w3schools.com/tags/att_input_type.asp
 //		sb1.append ("<META HTTP-EQUIV=\"pragma\" CONTENT=\"no-cache\" />").append (NL)
 //		   .append ("<META HTTP-EQUIV=\"cache-control\" CONTENT=\"no-cache\" />").append (NL)
-//		   .append ("<META HTTP-EQUIV=\"expires\" CONTENT=\"0\" />").append (NL)
+//		   .append ("<META HTTP-EQUIV=\"expires\" CONTENT=\"0\" />").append (NL);
 
-		   //check for javascript enabled
+		//check for javascript enabled
 		sb1.append ("<div id='status'><span id='jscheck'>This page may not work correctly with JavaScript disabled</span>").append (NL)
 		   .append ("	<script type='text/javascript'>").append (NL)
 //		   .append ("		document.getElementById('jscheck').innerHTML = 'JavaScript enabled';").append (NL)
@@ -275,22 +290,17 @@ public class AlbumServlet extends HttpServlet
 		   .append ("</TABLE>").append (NL)
 
 		   .append ("<TABLE WIDTH=").append (tableWidthString).append (" CELLPADDING=0 CELLSPACING=0 BORDER=0>").append (NL)
-				.append ("<TR>").append (NL)
-				.append ("<TD ALIGN=CENTER>").append (NL)
+		   .append ("<TR>").append (NL)
+		   .append ("<TD ALIGN=CENTER>").append (NL)
 
 //		   .append (inputElement ("Extension", "extension", form.getExtension (), 10)) //could make this hidden??
 		   .append (radioButtons ("Columns", "columns", form.getColumns (), 1, maxColumns, 4)).append (_break).append (NL)
-				.append ("</TD>").append (NL)
-				.append ("</TR>").append (NL)
+		   .append ("</TD>").append (NL)
+		   .append ("</TR>").append (NL)
 
-				.append ("<TR>").append (NL)
-				.append ("<TD ALIGN=CENTER>").append (NL)
-		   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (/*visibleInUi*/ true), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
-//				.append ("</TD>").append (NL)
-//				.append ("</TR>").append (NL)
-//
-//				.append ("<TR>").append (NL)
-//				.append ("<TD ALIGN=CENTER>").append (NL)
+		   .append ("<TR>").append (NL)
+		   .append ("<TD ALIGN=CENTER>").append (NL)
+		   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (true), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
 		   .append (checkbox ("Reverse Sort", "reverseSort", form.getReverseSort ())).append (_spacing).append (NL)
 		   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_spacing).append (NL)
 		   .append (dropDown ("Duplicate Handling", "duplicateHandling", AlbumDuplicateHandling.getValues (), AlbumDuplicateHandling.SelectNone.toString ())).append (_break).append (NL)
@@ -315,13 +325,13 @@ public class AlbumServlet extends HttpServlet
 		   .append (checkbox ("Use Case", "useCase", form.getUseCase ())).append (_spacing).append (NL)
 		   .append (checkbox ("Clear Cache", "clearCache", false /*form.getClearCache ()*/))//.append (_spacing).append (NL)
 //		   .append (checkbox ("Debug", "debug", AlbumFormInfo._Debug))
-				.append ("</TD>").append (NL)
-				.append ("</TR>").append (NL)
+		   .append ("</TD>").append (NL)
+		   .append ("</TR>").append (NL)
 //		   .append ("<P>").append (NL)
 
 		   //place dummy hidden submit first, to act as default action when pressing RETURN
-				.append ("<TR>").append (NL)
-				.append ("<TD ALIGN=CENTER>").append (NL)
+		   .append ("<TR>").append (NL)
+		   .append ("<TD ALIGN=CENTER>").append (NL)
 		   .append ("<div style=\"display:none\">").append (NL)
 		   .append ("<INPUT TYPE=\"SUBMIT\" NAME=\"mode\" VALUE=\"").append (form.getMode ().getSymbol ())
 		   .append ("\">").append (NL).append ("</div>").append (NL)
@@ -331,12 +341,12 @@ public class AlbumServlet extends HttpServlet
 		   .append ("\">").append (NL).append (_spacing).append (NL)
 		   .append ("<INPUT TYPE=\"SUBMIT\" NAME=\"mode\" VALUE=\"").append (AlbumMode.DoSampler.getSymbol ())
 		   .append ("\">").append (NL)
-				.append ("</TD>").append (NL)
-				.append ("</TR>").append (NL)
+		   .append ("</TD>").append (NL)
+		   .append ("</TR>").append (NL)
 
 //		   .append ("</CENTER>").append (NL)
-		   .append ("</TABLE>").append (NL)
-;//				.append ("</FORM>").append (NL);
+		   .append ("</TABLE>").append (NL);
+//		   .append ("</FORM>").append (NL);
 
 		StringBuilder sb4 = new StringBuilder ();
 		sb4.append ("</FORM>").append (NL)
@@ -347,6 +357,18 @@ public class AlbumServlet extends HttpServlet
 
 		response.setContentType ("text/html");
 		PrintWriter out = response.getWriter ();
+
+		//TODO - this isn't quite right
+		if (form.getForceBrowserCacheRefresh ()) {
+			_log.debug ("AlbumServlet.doGet: force browser cache refresh");
+			response.setHeader("Cache-Control", "no-cache"); //Forces caches to obtain a new copy of the page from the origin server
+			response.setHeader("Cache-Control", "max-age=0");
+			response.setHeader("Cache-Control", "must-revalidate");
+//			response.setHeader("Cache-Control","no-store"); //Directs caches not to store the page under any circumstance
+			response.setDateHeader("Expires", -1); //Causes the proxy cache to see the page as "stale"
+//			response.setHeader("Pragma","no-cache"); //HTTP 1.0 backward compatibility
+		}
+
 		out.println (sb1.toString ());
 		out.println (sb2.toString ());
 		out.println (sb3.toString ());
@@ -355,10 +377,10 @@ public class AlbumServlet extends HttpServlet
 
 		AlbumProfiling.getInstance ().exit (1);
 
-		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
+		AlbumProfiling.getInstance ().print (true);
 
 		if (false) { //debugging
-			Path rootPath = FileSystems.getDefault ().getPath (AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false));
+			Path rootPath = FileSystems.getDefault ().getPath (AlbumFormInfo.getInstance ().getRootPath (false));
 			Path htmlFile = FileSystems.getDefault ().getPath (rootPath.toString (), "page.html");
 			try (FileOutputStream outputStream = new FileOutputStream (htmlFile.toFile ())) {
 				outputStream.write (sb1.toString ().getBytes ());
@@ -370,10 +392,12 @@ public class AlbumServlet extends HttpServlet
 				outputStream.close ();
 
 			} catch (IOException ee) {
-				_log.error ("AlbumServlet.doGet: error writing html file: " + htmlFile.toString () +NL);
+				_log.error ("AlbumServlet.doGet: error writing html file: " + htmlFile.toString () + NL);
 				_log.error (ee); //print exception, but no stack trace
 			}
 		}
+
+		requestInProgress.set (false);
 
 		_log.debug ("--------------- AlbumServlet.doGet - done ---------------");
 
@@ -562,10 +586,11 @@ public class AlbumServlet extends HttpServlet
 	//members
 	private AlbumImages _album = null;
 
-	private static String _break = "<BR>";
-	private static String _spacing = "&nbsp;"; //"&nbsp;&nbsp;";
-//	private static String _spacingBreak = _spacing + _break;
+	public static final AtomicBoolean requestInProgress = new AtomicBoolean (false);
 
+	private static final String _break = "<BR>";
+	private static final String _spacing = "&nbsp;"; //"&nbsp;&nbsp;";
+//	private static final String _spacingBreak = _spacing + _break;
 	private static final String NL = System.getProperty ("line.separator");
 	private static final String DOCTYPE = "<!DOCTYPE HTML>";// PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\n";
 	private static final long serialVersionUID = 1L;

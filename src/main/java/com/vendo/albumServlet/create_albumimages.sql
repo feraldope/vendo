@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS image_diffs
 	last_update	TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 	PRIMARY KEY (name_id_1, name_id_2)
 );
+CREATE INDEX name_id_1_idx on image_diffs (name_id_1);
+CREATE INDEX name_id_2_idx on image_diffs (name_id_2);
 CREATE INDEX avg_diff_idx on image_diffs (avg_diff);
 CREATE INDEX std_dev_idx on image_diffs (std_dev);
 CREATE INDEX source_idx on image_diffs (source);
@@ -172,7 +174,16 @@ SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 10
 FROM information_schema.tables 
 GROUP BY table_schema; 
 
--- distribution of images in subfolders
+
+-- size and count of image folders (actual subfolders) (NOTE does not account for drive's block size; just adds raw bytes)
+select sub_folder, (sum(bytes)/(1024*1024*1024)) as GBytes, count(*) as count from images group by sub_folder order by GBytes desc
+select sub_folder, (sum(bytes)/(1024*1024*1024)) as GBytes, count(*) as count from images group by sub_folder order by count desc
+
+-- distribution of images in actual subfolders
+select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by count desc
+select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by sub_folder2
+
+-- distribution of images in 1-, 2-, and 3-char subfolders
 -- single-char subfolder (NOTE SORT ASCENDING)
 select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count asc
 -- two-char subfolder
@@ -180,13 +191,17 @@ select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from 
 -- three-char subfolder
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
 
+-- ONCE a subfolder shows up at the top of the previous query, see how it needs to be split
 -- !!! distribution of images in set of subfolders ('ka', 'ni', etc.)
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ka%' group by sub_folder3 order by count desc
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ni%' group by sub_folder3 order by count desc
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'se%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'sa%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
 
---move to three-char subfoler
 --STOP Tomcat8 SERVICE FIRST
+--FIRST update DB
+--move to three-char subfolder
 update images set sub_folder = 'kat' where lower(name_no_ext) like 'kat%'
 update images set sub_folder = 'kar' where lower(name_no_ext) like 'kar%'
 update images set sub_folder = 'mar' where lower(name_no_ext) like 'mar%'
@@ -197,12 +212,15 @@ update images set sub_folder = 'ale' where lower(name_no_ext) like 'ale%'
 update images set sub_folder = 'nik' where lower(name_no_ext) like 'nik%'
 update images set sub_folder = 'jes' where lower(name_no_ext) like 'jes%'
 update images set sub_folder = 'sex' where lower(name_no_ext) like 'sex%'
+update images set sub_folder = 'sar' where lower(name_no_ext) like 'sar%'
+update images set sub_folder = 'sam' where lower(name_no_ext) like 'sam%'
 --move to one-char subfoler
 update images set sub_folder = 'u' where lower(name_no_ext) like 'u%'
 update images set sub_folder = 'y' where lower(name_no_ext) like 'y%'
 update images set sub_folder = 'w' where lower(name_no_ext) like 'w%'
 update images set sub_folder = 'o' where lower(name_no_ext) like 'o%'
 -- should also do image_counts??
+--SECOND move files to new folder
 --see todo.txt for IMPORTANT steps to move files (search for mklink and for /F)
 --THEN RUN "ud"
 
@@ -329,6 +347,10 @@ select count(*) from image_diffs
 -- count distribution
 select d.count as count, count(d.count) as rows1 from image_diffs d group by d.count order by d.count desc
 
+-- diff distribution
+select d.avg_diff as avg_diff, count(d.avg_diff) as rows1 from image_diffs d group by d.avg_diff order by d.avg_diff desc
+select d.std_dev as std_dev, count(d.std_dev) as rows1 from image_diffs d group by d.std_dev order by d.std_dev desc
+
 -- check for invalid state, should return 0 rows
 select * from image_diffs where name_id_2 < name_id_1
 
@@ -397,7 +419,7 @@ where d.avg_diff <= 15 and -- MAX_RGB_DIFF and
 -- order by avg desc, i1.name_no_ext
 order by d.last_update
 
--- number of rows with mismatched orientation vs all rows
+-- number of rows with mismatched orientation vs all rows (SHOULD ALWAYS BE ZERO because this is prevented in the code)
 select count(*) from (
 select 
 d.name_id_1,
@@ -436,6 +458,17 @@ select avg_diff as diff, count(avg_diff) as rows1 from image_diffs group by avg_
 select 'Min' as name, min(last_update) as last_update from image_diffs
 union all 
 select 'Max' as name, max(last_update) as last_update from image_diffs
+
+-- rows that no longer have corresponding images
+select count(*) 
+from image_diffs 
+where (name_id_1 not in (select name_id from images))
+or (name_id_2 not in (select name_id from images))
+
+--cleanup obsolete rows
+select count(*) from image_diffs 
+--delete from image_diffs where (name_id_1 not in (select name_id from images)) OR (name_id_2 not in (select name_id from images))
+select count(*) from image_diffs 
 
 -- -----------------------------------------------------------------------------
 -- find albums that have a high number of images and a large byte size (and optionally EXIF date)
@@ -495,5 +528,29 @@ SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
 +----------------------------+ 
 | abcdefg                    | 
 +----------------------------+ 
+
+-- -----------------------------------------------------------------------------
+-- "How to Optimize MySQL Tables and Defragment to Recover Space"
+-- https://www.thegeekstuff.com/2016/04/mysql-optimize-table/
+
+-- NOTE that data_free_kb seems to always be 4096KB or larger
+select table_schema, table_name, 
+round(data_length/1024) as data_length_kb, 
+round(data_free/1024) as data_free_kb,
+round(100*data_free/(data_length+data_free)) as percent_free
+from information_schema.tables 
+where table_schema in ('albumimages', 'albumtags')
+order by table_schema, table_name
+
+-- optimize table from command line
+mysql -u root -proot albumimages
+optimize table image_diffs;
+
+-- table metadata
+select *
+from information_schema.tables
+where table_schema in ('albumimages', 'albumtags')
+order by table_schema, table_name
+
 
 */

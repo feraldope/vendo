@@ -2,12 +2,11 @@
 
 package com.vendo.albumServlet;
 
-import java.lang.Thread.UncaughtExceptionHandler;
-
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import com.vendo.vendoUtils.VendoUtils;
+import java.lang.Thread.UncaughtExceptionHandler;
 
 
 public class AlbumUncaughtExceptionHandler implements UncaughtExceptionHandler
@@ -22,6 +21,8 @@ public class AlbumUncaughtExceptionHandler implements UncaughtExceptionHandler
 
 		Thread.currentThread ().interrupt ();
 //		System.exit (1);
+
+		AlbumServlet.requestInProgress.set (false); //HACK
 	}
 
 	private static Logger _log = LogManager.getLogger ();

@@ -11,13 +11,18 @@ java8Test3.ca.com,2015-05-11 14:10:00,300.0,75.0,45.0,
 [...]
 */
 
-import java.io.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.io.PrintStream;
+import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 //import java.net.*;
 //import java.nio.file.*;
-import java.text.*;
-import java.util.*;
-
-import org.apache.logging.log4j.*;
 
 
 public class CsvData
@@ -27,8 +32,9 @@ public class CsvData
 	{
 		CsvData app = new CsvData ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -148,22 +154,25 @@ public class CsvData
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
-		if (message != null)
+		String msg = "";
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] TBD...";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean run () throws Exception
 	{
-		if (_Debug)
+		if (_Debug) {
 			_log.debug ("CsvData.run");
+		}
 
 		String header = "Server Name,Time Stamp,Duration,Total CPU Utilization,Total Memory Utilization,";
 		_out.println (header);

@@ -166,7 +166,7 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
+		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
@@ -758,7 +758,7 @@ public class AlbumTags
 		int saveLogLevel = AlbumFormInfo._logLevel;
 		AlbumFormInfo._logLevel = 1;
 		for (String tagIn : tagsIn) {
-			Collection<String> rawNames = getNamesForTags (false, new String[] {tagIn});
+			Collection<String> rawNames = getNamesForTags (false, false, new String[] {tagIn});
 			String string = VendoUtils.collectionToString (rawNames);
 			out.println (tagIn + _tagMarker1 + string + ", ");
 		}
@@ -987,7 +987,7 @@ public class AlbumTags
 
 		final int maxThreads = 10 * VendoUtils.getLogicalProcessors ();
 		final int minPerThread = 1000;
-		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, tagFilters.size ()).getFirst ();
+		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, tagFilters.size (), true).getFirst ();
 		List<List<TagFilter1>> tagFilterChunks = ListUtils.partition (tagFilters, chunkSize);
 		final int numChunks = tagFilterChunks.size ();
 		_log.debug ("AlbumTags.checkForOrphanFilters: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
@@ -1004,6 +1004,7 @@ public class AlbumTags
 
 		for (final List<TagFilter1> filterChunk : tagFilterChunks) {
 			Runnable task = () -> {
+				Thread.currentThread ().setName (filterChunk.get (0)._tag);
 				for (final TagFilter1 tagFilter : filterChunk) {
 					AlbumFileFilter filter = tagFilter._filter;
 					int minExpectedMatches = filter.getMinItemCount ();
@@ -1282,7 +1283,7 @@ public class AlbumTags
 
 		final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
 		final int minPerThread = 1000;
-		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _base1NameTags.size ()).getFirst ();
+		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _base1NameTags.size (), true).getFirst ();
 		final List<List<NameTag>> base1NameTagsList = ListUtils.partition ((List<NameTag>) _base1NameTags, chunkSize);
 		final int numChunks = base1NameTagsList.size ();
 		_log.debug ("AlbumTags.updateTagDatabase: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
@@ -1571,7 +1572,7 @@ public class AlbumTags
 
 		String value = defaultValue;
 		try {
-			Collection<String> strings = getObjectsFromDatabase (sql, new String ());
+			Collection<String> strings = getObjectsFromDatabase (sql, "");
 			value = strings.toArray (new String[] {})[0];
 
 		} catch (Exception ee) {
@@ -1590,7 +1591,7 @@ public class AlbumTags
 		items.add (_noTattoosTag);
 
 		String sql = "select tag from tags order by lower(tag)";
-		items.addAll (getObjectsFromDatabase (sql, new String ()));
+		items.addAll (getObjectsFromDatabase (sql, ""));
 
 		return items;
 	}
@@ -1697,7 +1698,7 @@ public class AlbumTags
 					  "join " + tablePrefix + "_names_tags bnt on bn.name_id = bnt.name_id" + NL +
 					  "join tags t on bnt.tag_id = t.tag_id" + NL +
 					  "where bn.name in (?";
-		String sql2 = new String ();
+		String sql2 = "";
 		String sql3 = ")" + NL + " order by lower(tag)";
 
 		int numBaseNames = baseNames.size ();
@@ -1749,15 +1750,15 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string array on error, or if no entries found
 	//if 'filters' are passed in, this will "OR" (union) all filters together, then "AND" (intersect) the result against all tags
-	public Collection<String> getNamesForTags (boolean useCase, String[] tagsIn)
+	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn)
 	{
-		return getNamesForTags (useCase, tagsIn, new String[] {}, new String[] {});
+		return getNamesForTags (useCase, collapseGroups, tagsIn, new String[] {}, new String[] {});
 	}
-	public Collection<String> getNamesForTags (boolean useCase, String[] tagsIn, String[] tagsNotIn)
+	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn, String[] tagsNotIn)
 	{
-		return getNamesForTags (useCase, tagsIn, tagsNotIn, new String[] {});
+		return getNamesForTags (useCase, collapseGroups, tagsIn, tagsNotIn, new String[] {});
 	}
-	public Collection<String> getNamesForTags (boolean useCase, String[] tagsIn, String[] tagsNotIn, String[] filters)
+	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn, String[] tagsNotIn, String[] filters)
 	{
 		if (AlbumFormInfo._logLevel >= 5) {
 			_log.debug ("AlbumTags.getNamesForTags: tagsIn = \"" + VendoUtils.arrayToString (tagsIn) + "\"");
@@ -1814,7 +1815,7 @@ public class AlbumTags
 		}
 		sqlFilterStub += ")" + NL;
 
-		String sql = new String ();
+		String sql;
 
 		if (numItemsIn == 1) { //can only happen for numTagsIn = 1 and numFilters = 0
 			sql = "select distinct name from " + tablePrefix + "_names where name_id in (" + NL;
@@ -1860,17 +1861,17 @@ public class AlbumTags
 
 			int index = 1;
 
-			for (int ii = 0; ii < numTagsIn; ii++) {
-				ps.setString (index++, tagsIn[ii]);
+			for (String s : tagsIn) {
+				ps.setString (index++, s);
 			}
 
-			for (int ii = 0; ii < numFilters; ii++) {
-				String filter = (useCase ? filters[ii] : filters[ii].toLowerCase ());
+			for (String s : filters) {
+				String filter = (useCase ? s : s.toLowerCase());
 				ps.setString (index++, AlbumFormInfo.convertWildcardsToSqlRegex (filter));
 			}
 
-			for (int ii = 0; ii < numTagsNotIn; ii++) {
-				ps.setString (index++, tagsNotIn[ii]);
+			for (String s : tagsNotIn) {
+				ps.setString (index++, s);
 			}
 
 			rs = ps.executeQuery ();
@@ -1887,6 +1888,17 @@ public class AlbumTags
 			if (rs != null) {
 				try { rs.close (); } catch (SQLException ex) { _log.error ("Error", ex); }
 			}
+		}
+
+		//if we are collapsing groups, we can do it now to reduce size of returned object
+		if (collapseGroups) {
+			int lengthOriginal = baseNames.size();
+			baseNames = baseNames.stream()
+								.sorted(VendoUtils.caseInsensitiveStringComparator)
+								.map(f -> AlbumImage.getBaseName(f) + "+")
+								.distinct()
+								.collect(Collectors.toList());
+			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal +  " -> " + baseNames.size());
 		}
 
 		AlbumProfiling.getInstance ().exit (5);

@@ -15,6 +15,7 @@
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -27,6 +28,8 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.util.*;
+import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
@@ -64,7 +67,7 @@ public class AlbumFormInfo
 
 		for (int ii = 0; ii < _NumTagParams; ii++) {
 			_tagMode.add (AlbumTagMode.TagIn);
-			_tagValue.add (new String ());
+			_tagValue.add ("");
 		}
 
 		_exclude1 = "";
@@ -92,6 +95,7 @@ public class AlbumFormInfo
 		_clearCache = false;
 		_reverseSort = false;
 		_sortType = AlbumSortType.ByName;
+		_forceBrowserCacheRefresh = false;
 
 		_highlightMinPixels = _defaultHighlightMinPixels;
 		_highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
@@ -300,10 +304,12 @@ public class AlbumFormInfo
 	public synchronized int getNumServletErrors ()
 	{
 		return getServletErrors ().size ();
+//		return _servletErrors.size ();
 	}
+
 	public Collection<String> getServletErrors ()
 	{
-		Collection<String> servletErrors = new HashSet<String> (); //use set to avoid dups
+		Collection<String> servletErrors = new TreeSet<> (new AlphanumComparator()); //use set to avoid dups
 		servletErrors.addAll (_servletErrors);
 		servletErrors.addAll (AlbumImageDao.getInstance ().getServletErrors ());
 
@@ -363,7 +369,7 @@ public class AlbumFormInfo
 		filter = filter.replaceAll ("[ \t]*", ""); //regex
 
 		//remove all periods
-		filter = filter.replaceAll ("\\.", ""); //regex
+//		filter = filter.replaceAll ("\\.", ""); //regex
 
 		//remove all exclamation points
 		filter = filter.replaceAll ("!", ""); //regex
@@ -478,6 +484,14 @@ public class AlbumFormInfo
 		caseInsensitiveDedup (filters);
 
 		return filters.toArray (new String[] {});
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean filtersHaveWildCards ()
+	{
+		final Predicate<String> wildcards = Pattern.compile ("[+*\\[\\]]").asPredicate (); //regex: prevent: '+', '*', '[', or ']'
+
+		return Arrays.stream (getFilters ()).anyMatch (wildcards);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -786,6 +800,17 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public void setForceBrowserCacheRefresh (boolean forceBrowserCacheRefresh)
+	{
+		_forceBrowserCacheRefresh = forceBrowserCacheRefresh;
+	}
+
+	public boolean getForceBrowserCacheRefresh ()
+	{
+		return _forceBrowserCacheRefresh;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public void setReverseSort (boolean reverseSort)
 	{
 		_reverseSort = reverseSort;
@@ -1010,7 +1035,7 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private long getMillisFromDays (double days, boolean truncateToMidnightBoundary)
+	public static long getMillisFromDays (double days, boolean truncateToMidnightBoundary)
 	{
 		Calendar date = new GregorianCalendar (); //now
 
@@ -1053,7 +1078,7 @@ public class AlbumFormInfo
 	{
 		List<String> toBeRemoved = new ArrayList<String> ();
 
-		String prevString = new String ();
+		String prevString = "";
 		for (String string : strings) {
 			if (prevString.length () != 0 && prevString.compareToIgnoreCase (string) == 0) {
 				toBeRemoved.add (string);
@@ -1100,11 +1125,12 @@ public class AlbumFormInfo
 			string += "*"; //add trailing string
 		}
 
-		string = string.replace ("*", ".*")
-					   .replace (";", "[aeiouy]") //regex: semicolon here means vowel or 'y'
-//this syntax doesn't work with MySQL? .replace (":", "[a-z&&[^aeiouy]]") //regex: colon here means any letter except vowel or 'y'
-					   .replace (":", "[b-df-hj-np-tv-xz]") //regex: colon here means any letter except vowel or 'y'
-					   .replace ("+", "[\\d]"); //regex: plus sign here means digit
+		string = string.replace (".", "[a-z]") //dot/period here means any alpha
+					   .replace ("*", ".*")
+					   .replace (";", "[aeiouy]") //semicolon here means vowel or 'y'
+//this syntax doesn't work with MySQL? .replace (":", "[a-z&&[^aeiouy]]") //colon here means any letter except vowel or 'y'
+					   .replace (":", "[b-df-hj-np-tv-xz]") //colon here means any letter except vowel or 'y'
+					   .replace ("+", "[\\d]"); //plus sign here means digit
 
 		return string;
 	}
@@ -1113,10 +1139,11 @@ public class AlbumFormInfo
 	public static String convertRegexToWildcards (String string)
 	{
 		string = string.replace (".*", "*")
-					   .replace ("[aeiouy]", ";") //regex: semicolon here means vowel or 'y'
-//this syntax doesn't work with MySQL? .replace ("[a-z&&[^aeiouy]]", ":") //regex: colon here means any letter except vowel or 'y'
-					   .replace ("[b-df-hj-np-tv-xz]", ":") //regex: colon here means any letter except vowel or 'y'
-					   .replace ("[\\d]", "+"); //regex: plus sign here means digit
+					   .replace ("[a-z]", ".") //dot/period here means any alpha
+					   .replace ("[aeiouy]", ";") //semicolon here means vowel or 'y'
+//this syntax doesn't work with MySQL? .replace ("[a-z&&[^aeiouy]]", ":") //colon here means any letter except vowel or 'y'
+					   .replace ("[b-df-hj-np-tv-xz]", ":") //colon here means any letter except vowel or 'y'
+					   .replace ("[\\d]", "+"); //plus sign here means digit
 
 		if (string.endsWith ("*")) {
 			string = string.substring (0, string.length () - 1); //remove trailing string
@@ -1142,6 +1169,7 @@ public class AlbumFormInfo
 
 	//private members
 	private boolean _isServlet = false;
+	private boolean _forceBrowserCacheRefresh = false;
 	private String _defaultRootFolder = "jroot";
 //	private String _subFolders = "";
 	private int _highlightMinPixels = _defaultHighlightMinPixels;

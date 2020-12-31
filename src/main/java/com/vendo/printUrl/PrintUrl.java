@@ -42,18 +42,15 @@ if u is hierarchical and has either no authority or a server-based authority.
 
 package com.vendo.printUrl;
 
+import com.vendo.vendoUtils.VendoUtils;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.Vector;
-
-import com.vendo.vendoUtils.VendoUtils;
+import java.util.*;
 
 
 public class PrintUrl
@@ -63,8 +60,9 @@ public class PrintUrl
 	{
 		PrintUrl app = new PrintUrl ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -91,8 +89,9 @@ public class PrintUrl
 				} else if (arg.equalsIgnoreCase ("timeout") || arg.equalsIgnoreCase ("to")) {
 					try {
 						_timeoutSeconds = Integer.parseInt (args[++ii]);
-						if (_timeoutSeconds < 0)
+						if (_timeoutSeconds < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -146,22 +145,27 @@ public class PrintUrl
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
-		if (message != null)
+		String msg = "";
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " TBD"; //" [/debug] [/sleep(millis)] [/strip] [/ignore] [/checkOnly] [/fromFile <file>] [/dest <dest dir>] [/start <start index>] [/block <block number>] [/maxMissedFiles <count>] [/digits <number>] [/pad <number>] [/prefix <numberPrefix>] <URL> <output prefix>";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean run ()
 	{
 		try {
-			printUrl ();
+			List<String> contents = getUrlContents (_urlString);
+			for (String line : contents) {
+				System.out.println (line);
+			}
 
 		} catch (Exception ee) {
 			System.err.println (ee);
@@ -174,16 +178,17 @@ public class PrintUrl
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean printUrl () throws Exception
+	public static List<String> getUrlContents (String inputUrlString) throws Exception
 	{
 //		String string = "http://ricda13wd01.ca.com/cgi-bin/nhWeb?func=getList&listType=clientversion&contents=6.3.0.0.0";
 //		String string = "http://localhost/servlet/coreservlets.ShowRequestHeaders";
 
-		if (_verbose)
-			System.err.println ("_urlString = '" + _urlString + "'");
+		if (_verbose) {
+			System.err.println ("_urlString = '" + inputUrlString + "'");
+		}
 
 		//construct URI, which will decode any escaped chars in string
-		URI uri = new URI (_urlString);
+		URI uri = new URI (inputUrlString);
 
 		if (_verbose) {
 			System.err.println ("uri.getScheme () = '" + uri.getScheme () + "'");
@@ -198,50 +203,63 @@ public class PrintUrl
 		}
 
 		//reassemble URL string from components
-		String urlString = new String ();
-		if (uri.getScheme () != null)
+		String urlString = "";
+		if (uri.getScheme () != null) {
 			urlString += uri.getScheme () + "://";
-		if (uri.getUserInfo () != null)
+		}
+		if (uri.getUserInfo () != null) {
 			urlString += uri.getUserInfo ();
-		if (uri.getAuthority () != null)
+		}
+		if (uri.getAuthority () != null) {
 			urlString += uri.getAuthority ();
-		if (uri.getPath () != null)
+		}
+		if (uri.getPath () != null) {
 			urlString += uri.getPath ();
-		if (uri.getQuery  () != null)
+		}
+		if (uri.getQuery  () != null) {
 			urlString += "?" + uri.getQuery ();
-		if (uri.getFragment () != null)
+		}
+		if (uri.getFragment () != null) {
 			urlString += "#" + uri.getFragment ();
+		}
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("urlString = '" + urlString + "'");
+		}
 
 		URL url = new URL (urlString);
 
-		if (_debug)
+		if (_debug) {
 			printProperties ();
+		}
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("url = '" + url + "'");
+		}
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("calling: url.openConnection");
+		}
 		HttpURLConnection conn = (HttpURLConnection) url.openConnection ();
 
 //note when running this program against http://localhost/servlet/coreservlets.ShowRequestHeaders it returns "Java/1.6.0_29" when no "User-Agent" is set
 		if (true) {
 			String userAgent = VendoUtils.getUserAgent (true);
 
-			if (_verbose)
+			if (_verbose) {
 				System.err.println ("calling: conn.setRequestProperty");
+			}
 			conn.setRequestProperty ("User-Agent", userAgent);
 		}
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("calling: conn.setConnectTimeout");
+		}
 		conn.setConnectTimeout (_timeoutSeconds * 1000); //milliseconds
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("calling: conn.getInputStream");
+		}
 
 		InputStream inputStream = null;
 		try {
@@ -254,28 +272,33 @@ public class PrintUrl
 
 		System.err.println ("HttpURLConnection response: " + conn.getResponseCode () + " = " + conn.getResponseMessage ());
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("calling: 'new InputStreamReader'");
+		}
 		InputStreamReader in1 = new InputStreamReader (inputStream);
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("calling: 'new BufferedReader'");
+		}
 		BufferedReader in2 = new BufferedReader (in1);
 
 		String inputLine;
 
-		if (_verbose)
+		if (_verbose) {
 			System.err.println ("calling: 'in2.readLine' in loop");
+		}
 
+		List<String> contents = new ArrayList<>();
 		while ((inputLine = in2.readLine ()) != null) {
 			if (!_checkOnly) {
-				System.out.println (inputLine);
+//				System.out.println (inputLine);
+				contents.add (inputLine);
 			}
 		}
 
 		in2.close ();
 
-		return true;
+		return contents;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -291,6 +314,7 @@ public class PrintUrl
 		}
 
 		Collections.sort (sorted, new Comparator<String> () {
+			@Override
 			public int compare (String s1, String s2) {
 				return s1.compareToIgnoreCase (s2);
 			}
@@ -304,11 +328,12 @@ public class PrintUrl
 	}
 
 	//private members
-	private boolean _checkOnly = false;
-	private boolean _debug = false;
-	private boolean _verbose = false;
-	private int _timeoutSeconds = 10;
+	private static boolean _checkOnly = false;
+	private static boolean _debug = false;
+	private static boolean _verbose = false;
+	private static int _timeoutSeconds = 10;
 	private String _urlString = null;
+
 
 	//global members
 	public static final String _AppName = "PrintUrl";

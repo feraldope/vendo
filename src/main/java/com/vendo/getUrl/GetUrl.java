@@ -228,7 +228,16 @@ public class GetUrl {
 			}
 
 			setFileType();
+		}
 
+		_urlHostFragment1Value = System.getenv(_urlHostFragment1Name);
+		if (_urlHostFragment1Value == null || _urlHostFragment1Value.isEmpty()) {
+			displayUsage ("Must specify environment variable '" + _urlHostFragment1Name + "'", true);
+		}
+
+		_urlHostFragment2Value = System.getenv(_urlHostFragment2Name);
+		if (_urlHostFragment2Value == null || _urlHostFragment2Value.isEmpty()) {
+			displayUsage ("Must specify environment variable '" + _urlHostFragment2Name + "'", true);
 		}
 
 		return true;
@@ -384,9 +393,11 @@ public class GetUrl {
 			return _resultsMap.getStatus(_urlStr);
 		}
 
+		//check here, and check again below
 		if (fileExists(_filename)) {
-			VendoUtils.printWithColor(_alertColor, "File already exists: " + _filename);
-			return false;
+			VendoUtils.printWithColor(_alertColor, "File already exists@1: " + _filename);
+			throw new RuntimeException ("GetUrl.getUrl@1: destination file already exists");
+//			return false;
 		}
 
 		if (_TestMode) {
@@ -454,12 +465,12 @@ public class GetUrl {
 				_log.error(ee); //print exception, but no stack trace
 
 				boolean retryableCondition = ee instanceof ConnectException ||
-						ee instanceof SocketException ||
-						ee instanceof SocketTimeoutException ||
-						ee instanceof UnknownHostException ||
-//						(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
-//						(ee instanceof IOException && responseCode == errorGatewayTimeout);
-						(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
+											ee instanceof SocketException ||
+											ee instanceof SocketTimeoutException ||
+											ee instanceof UnknownHostException ||
+//											(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
+//											(ee instanceof IOException && responseCode == errorGatewayTimeout);
+											(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
 
 				if (retryableCondition && retryCount >= 0) {
 					_log.debug("******** retries left = " + retryCount + ", sleepMillis = " + retrySleepMillis + " ********");
@@ -510,6 +521,13 @@ public class GetUrl {
 			_log.warn("*********************************************************");
 			_log.warn("Possible problem: duplicate file sizes");
 			_log.warn("*********************************************************");
+		}
+
+		//checked above, now check again
+		if (fileExists(_filename)) {
+			VendoUtils.printWithColor(_alertColor, "File already exists@2: " + _filename);
+			throw new RuntimeException ("GetUrl.getUrl@2: destination file already exists");
+//			return false;
 		}
 
 		boolean status = moveFile(_tempFilename, _filename);
@@ -745,13 +763,15 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean moveFile(String srcName, String destName) {
+	private static boolean moveFile (String srcName, String destName) {
 		Path src = FileSystems.getDefault().getPath(srcName);
 		Path dest = FileSystems.getDefault().getPath(destName);
 
 		if (Files.exists(dest)) {
-			_log.error("moveFile: destination file already exists: " + dest.toString());
-			return false;
+//			_log.error("moveFile: destination file already exists: " + dest.toString());
+			VendoUtils.printWithColor(_alertColor, "File already exists@3: " + dest.toString ());
+			throw new RuntimeException ("GetUrl.moveFile: destination file already exists");
+//			return false;
 		}
 
 		try {
@@ -767,13 +787,15 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean copyFile(String srcName, String destName, boolean deleteSrc) {
+	private static boolean copyFile (String srcName, String destName, boolean deleteSrc) {
 		Path src = FileSystems.getDefault().getPath(srcName);
 		Path dest = FileSystems.getDefault().getPath(destName);
 
 		if (Files.exists(dest)) {
-			_log.error("copyFile: destination file already exists: " + dest.toString());
-			return false;
+//			_log.error("copyFile: destination file already exists: " + dest.toString());
+			VendoUtils.printWithColor(_alertColor, "File already exists@4: " + dest.toString ());
+			throw new RuntimeException ("GetUrl.copyFile: destination file already exists");
+//			return false;
 		}
 
 		try {
@@ -985,6 +1007,12 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private boolean isSpecialMatch (String sourceUrl, String historyUrl) {
+		return (sourceUrl.contains(_urlHostFragment2Value) && historyUrl.contains(_urlHostFragment1Value))
+			|| (sourceUrl.contains(_urlHostFragment1Value) && historyUrl.contains(_urlHostFragment2Value));
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private boolean findInHistory(String basePattern, boolean printResults) {
 //		String pattern = stripHttpHeader (basePattern).toLowerCase ();
 		String pattern = VendoUtils.getUrlFileComponent(basePattern).toLowerCase();
@@ -1018,7 +1046,7 @@ public class GetUrl {
 		for (int ii = 0; ii < numLines; ii++) {
 			String baseLine = _historyFileContents.get(ii);
 			String line = /*stripHttpHeader*/ (baseLine).toLowerCase();
-			if (line.contains(pattern)) {
+			if (line.contains(pattern) && !isSpecialMatch(basePattern, baseLine)) {
 				if (!found) { //print header
 					found = true;
 
@@ -1063,9 +1091,8 @@ public class GetUrl {
 			return false;
 		}
 
-		int numLines = fromFileContents.size();
-		for (int ii = 0; ii < numLines; ii++) {
-			_model = fromFileContents.get(ii);
+		for (String fromFileContent : fromFileContents) {
+			_model = fromFileContent;
 
 			if (!parseModel()) {
 				continue; //parseModel prints error
@@ -1171,14 +1198,14 @@ public class GetUrl {
 		}
 	}
 
-	private class ImageSize {
+	private static class ImageSize {
 		///////////////////////////////////////////////////////////////////////////
 		//holder for image size data
 		public int _width;
 		public int _height;
 	}
 
-	private class SizeDist {
+	private static class SizeDist {
 		///////////////////////////////////////////////////////////////////////////
 		//returns the number of times this value is in the hash (including the instance just added)
 		public int add(Integer bytes) {
@@ -1341,10 +1368,13 @@ public class GetUrl {
 				System.out.println("GetUrl.ImageBaseNames: outputPrefix @2 = " + outputPrefix);
 			}
 
-			String subdir = "/jroot/" + AlbumImage.getSubFolderFromName(outputPrefix);
+			String subFolder = AlbumImage.getSubFolderFromName(outputPrefix);
+			if (subFolder == null || subFolder.length() == 0) {
+				throw new IllegalArgumentException("no matching image subfolder for imageName \"" + outputPrefix + "\"");
+			}
 
 			_filenameList.addAll(getFileList(_destDir, outputPrefix));
-			_filenameList.addAll(getFileList(_destDir + subdir, outputPrefix));
+			_filenameList.addAll(getFileList(_destDir + "/jroot/" + subFolder, outputPrefix));
 			_filenameList.sort(new AlphanumComparator());
 
 //			if (_classDebug) {
@@ -1434,7 +1464,7 @@ public class GetUrl {
 			String outputPrefix = parts1[0].replaceAll("\\d+-", ""); //replace all digits and dashes (with empty string)
 			String numberStr = parts1[0].replaceAll("\\D+", ""); //replace all non-digits (with empty string)
 
-			int nextNumber = 1 + Integer.valueOf(numberStr);
+			int nextNumber = 1 + Integer.parseInt(numberStr);
 			if ((nextNumber % 10) == 0) {
 				nextNumber++;
 			}
@@ -1582,8 +1612,8 @@ public class GetUrl {
 	private SizeDist _sizeDist = new SizeDist ();
 	private PerfStats _perfStats = null;
 	private ResultsMap _resultsMap = new ResultsMap ();
-	private Vector<String> _switches = new Vector<String> ();
-	private Vector<String> _historyFileContents = new Vector<String> ();
+	private Vector<String> _switches = new Vector<> ();
+	private Vector<String> _historyFileContents = new Vector<> ();
 	private HttpURLConnection _httpURLConnection = null;
 	private static final String _historyFilename = "gu.history.txt";
 	private static final String _slash = System.getProperty ("file.separator");
@@ -1591,6 +1621,12 @@ public class GetUrl {
 	private static Logger _log = LogManager.getLogger (GetUrl.class);
 
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm:ss"); //note this wraps values >= 60 minutes
+
+	//must be specified in environment
+	private static String _urlHostFragment1Value;
+	private static String _urlHostFragment1Name = "URL_HOST_FRAGMENT1";
+	private static String _urlHostFragment2Value;
+	private static String _urlHostFragment2Name = "URL_HOST_FRAGMENT2";
 
 	private static final int _alertPixels = 640;
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;

@@ -838,8 +838,10 @@ public class GetUri
 		if (url.endsWith (".com/") ||
 			url.endsWith (".htm/") ||
 			url.endsWith (".html/") ||
+			url.endsWith (".name/") ||
 			url.endsWith (".net/") ||
 			url.endsWith (".org/") ||
+			url.endsWith (".today/") ||
 			url.endsWith (".us/") ||
 			url.endsWith (".xxx/")) {
 			url = url.substring (0, url.length () - 1); //strip trailing slash

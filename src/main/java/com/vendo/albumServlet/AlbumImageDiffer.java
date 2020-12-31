@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 
 public class AlbumImageDiffer
 {
-	private enum Mode {NotSet, Names, Tags, Folders}
+	public enum Mode {NotSet, Names, Names2, Tags, Tags2, Folders, Folders2, OnDemand} //OnDemand currrently only used by servlet
 
 	///////////////////////////////////////////////////////////////////////////
 	static
@@ -42,7 +42,7 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String args[])
+	public static void main (String[] args)
 	{
 		AlbumFormInfo.getInstance (); //call ctor to load class defaults
 
@@ -69,11 +69,11 @@ public class AlbumImageDiffer
 
 		AlbumProfiling.getInstance ().exit (1);
 
-		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
+		AlbumProfiling.getInstance ().print (true);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
+	private Boolean processArgs (String[] args)
 	{
 		String filterAStr = null;
 		String filterBStr = null;
@@ -138,27 +138,13 @@ public class AlbumImageDiffer
 					}
 
 				} else if (arg.equalsIgnoreCase ("modeA")) {
-					String modeStr = args[++ii];
-					if (modeStr.compareTo ("names") == 0) {
-						_modeA = Mode.Names;
-					} else if (modeStr.compareTo ("folders") == 0) {
-						_modeA = Mode.Folders;
-					} else if (modeStr.compareTo ("tags") == 0) {
-						_modeA = Mode.Tags;
-					}
+					_modeA = getMode(args[++ii]);
 					if (_modeA == Mode.NotSet) {
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 
 				} else if (arg.equalsIgnoreCase ("modeB")) {
-					String modeStr = args[++ii];
-					if (modeStr.compareTo ("names") == 0) {
-						_modeB = Mode.Names;
-					} else if (modeStr.compareTo ("folders") == 0) {
-						_modeB = Mode.Folders;
-					} else if (modeStr.compareTo ("tags") == 0) {
-						_modeB = Mode.Tags;
-					}
+					_modeB = getMode(args[++ii]);
 					if (_modeB == Mode.NotSet) {
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
@@ -243,12 +229,12 @@ public class AlbumImageDiffer
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
+		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxStdDev=<n>] [/maxRows=<n>] /modeA={names|subFolders|tags} /modeB={names|subFolders|tags} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
+		msg += "Usage: " + _AppName + " [/debug] [/filtersA=<str>] [/filtersB=<str>] [/maxRgbDiffs=<n>] [/maxStdDev=<n>] [/maxRows=<n>] /modeA={names[2]|subFolders[2]|tags[2]} /modeB={names[2]|subFolders[2]|tags[2]} [/numThreads=<n>] [/whereClauseA=<str>] [/whereClauseB=<str>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -333,6 +319,8 @@ public class AlbumImageDiffer
 			}
 
 			Runnable task = () -> {
+				Thread.currentThread ().setName (albumImageDataA.getName ());
+
 				Collection<AlbumImageDiffDetails> imageDiffDetails = new ArrayList<AlbumImageDiffDetails> ();
 
 				Iterator<AlbumImageData> iterB = _idListB.iterator();
@@ -441,7 +429,8 @@ public class AlbumImageDiffer
 		final CountDownLatch endGate = new CountDownLatch (2);
 
 		Runnable taskA = () -> {
-			if (_modeA == Mode.Names || _modeA == Mode.Folders) {
+			Thread.currentThread ().setName ("queryA");
+			if (isModeNameOrFolder(_modeA)) {
 				_idListA = queryImageIdsNames(_whereClauseA);
 			} else {
 				_idListA = queryImageIdsTags(_whereClauseA, _filtersA);
@@ -451,7 +440,8 @@ public class AlbumImageDiffer
 		getExecutor ().execute (taskA);
 
 		Runnable taskB = () -> {
-			if (_modeB == Mode.Names || _modeB == Mode.Folders) {
+			Thread.currentThread ().setName ("queryB");
+			if (isModeNameOrFolder(_modeB)) {
 				_idListB = queryImageIdsNames(_whereClauseB);
 			} else {
 				_idListB = queryImageIdsTags(_whereClauseB, _filtersB);
@@ -847,11 +837,11 @@ public class AlbumImageDiffer
 		Collection<AlbumImageDiffData> items = new ArrayList<AlbumImageDiffData> ();
 
 		final String operatorStr = (operatorOr ? "OR" : "AND");
-		final int sinceMinutes = (int) (sinceDays * 24 * 60);
+		final int sinceMinutes = (int) (sinceDays * 24. * 60.);
 
 		AlbumSortType sortType = AlbumFormInfo.getInstance ().getSortType ();
 		boolean reverseSort = AlbumFormInfo.getInstance ().getReverseSort ();
-		String orderByClause = new String ();
+		String orderByClause;
 		switch (sortType) {
 		case ByName:
 			orderByClause = " order by i1.name_no_ext, i2.name_no_ext, min_diff, max_diff" + (reverseSort ? " desc" : " asc");
@@ -1004,6 +994,31 @@ public class AlbumImageDiffer
 			return _modeA.toString () + "/" + _modeB.toString ();
 		}
 	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Mode getMode (String modeStr) {
+		switch(modeStr) {
+			default: return Mode.NotSet;
+			case "folders": return Mode.Folders;
+			case "folders2": return Mode.Folders2;
+			case "names": return Mode.Names;
+			case "names2": return Mode.Names2;
+			case "tags": return Mode.Tags;
+			case "tags2": return Mode.Tags2;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean isModeNameOrFolder (Mode mode) {
+		switch(mode) {
+			default: return false;
+			case Folders:
+			case Folders2:
+			case Names:
+			case Names2: return true;
+		}
+	}
+
 	///////////////////////////////////////////////////////////////////////////
 	private Connection getConnection ()
 	{
