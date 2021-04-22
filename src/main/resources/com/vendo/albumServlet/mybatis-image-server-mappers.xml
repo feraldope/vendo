@@ -38,6 +38,7 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<resultMap id="AlbumImageResultMap" type="com.vendo.albumServlet.AlbumImage">
 		<constructor>
+			<arg column="name_id" javaType="_integer" />
 			<arg column="name_no_ext" javaType="String" />
 			<arg column="sub_folder" javaType="String" />
 			<arg column="bytes" javaType="_long" />
@@ -67,6 +68,7 @@ mysql -u root -proot albumimages -e "describe images"
 			<arg column="std_dev" javaType="_integer" />
 			<arg column="count" javaType="_integer" />
 			<arg column="source" javaType="String" />
+			<arg column="last_update" javaType="java.sql.Timestamp" />
 		</constructor>
 	</resultMap>
 
@@ -81,18 +83,21 @@ mysql -u root -proot albumimages -e "describe images"
 
 
 	<!-- each argument must be a column name from the database table definition -->
-	<sql id="imagesColumns">name_no_ext, sub_folder, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
+	<sql id="imagesReadColumns">name_id, name_no_ext, sub_folder, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
+	<sql id="imagesWriteColumns">name_no_ext, sub_folder, bytes, width, height, modified, rgb_data, exifDate0, exifDate1, exifDate2, exifDate3</sql>
 	<!-- each argument must represent a "getter" value from the corresponding class -->
-	<sql id="imagesValues">#{name}, #{subFolder}, #{numBytes}, #{width}, #{height}, #{modified}, #{rgbData}, #{exifDate0}, #{exifDate1}, #{exifDate2}, #{exifDate3}</sql>
+	<!--<sql id="imagesReadValues">#{nameId}, #{name}, #{subFolder}, #{numBytes}, #{width}, #{height}, #{modified}, #{rgbData}, #{exifDate0}, #{exifDate1}, #{exifDate2}, #{exifDate3}</sql>-->
+	<sql id="imagesWriteValues">#{name}, #{subFolder}, #{numBytes}, #{width}, #{height}, #{modified}, #{rgbData}, #{exifDate0}, #{exifDate1}, #{exifDate2}, #{exifDate3}</sql>
 
 	<!-- each argument must be a column name from the database table definition -->
 	<sql id="imageCountsColumns">sub_folder, base_name, collapse_groups, image_count</sql>
+	<!-- each argument must represent a "getter" value from the corresponding class -->
 	<sql id="imageCountsValues">#{sub_folder}, #{base_name}, #{collapse_groups}, #{image_count}</sql>
 
 	<!-- each argument must be a column name from the database table definition -->
-	<sql id="imageDiffsColumns">name_id_1, name_id_2, avg_diff, std_dev, count, source</sql>
+	<sql id="imageDiffsColumns">name_id_1, name_id_2, avg_diff, std_dev, count, source, last_update</sql>
 	<!-- each argument must represent a "getter" value from the corresponding class -->
-	<sql id="imageDiffsValues">#{nameId1}, #{nameId2}, #{avgDiff}, #{stdDev}, #{count}, #{source}</sql>
+	<sql id="imageDiffsValues">#{nameId1}, #{nameId2}, #{avgDiff}, #{stdDev}, #{count}, #{source}, #{lastUpdate}</sql>
 
 	<select id="selectLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
 		select last_update
@@ -119,7 +124,7 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<select id="selectImagesFromImages" resultMap="AlbumImageResultMap">
 		select
-		<include refid="imagesColumns"/>
+		<include refid="imagesReadColumns"/>
 		from images
 		where sub_folder = #{sub_folder}
 	</select>
@@ -138,6 +143,7 @@ mysql -u root -proot albumimages -e "describe images"
 		and base_name = #{base_name}
 	</select>
 
+<!-- obsolete - replaced by map in DAO
 	<select id="selectAlbumCountFromImageCounts" resultType="int">
 		select count(name_id)
 		from image_counts
@@ -145,6 +151,7 @@ mysql -u root -proot albumimages -e "describe images"
 		and sub_folder = #{sub_folder}
 		and base_name rlike #{base_name}
 	</select>
+-->
 
 	<select id="selectImageCountsFromImageCounts" resultMap="AlbumImageCountResultMap">
 		select base_name, image_count
@@ -152,19 +159,35 @@ mysql -u root -proot albumimages -e "describe images"
 		where sub_folder = #{sub_folder}
 	</select>
 
+<!-- do not use: this does not work for variable-length subfolders; e.g., it does not distinguish between subfolders "ka" and "kat"
 	<select id="selectMismatchedEntriesFromImageCounts" resultMap="AlbumImageCountResultMap">
 		select t.base_name, t.image_count
 		from (
 			select base_name, image_count, sub_folder
 			from image_counts
- 			having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder
+			 having lower(substring(base_name,1,LENGTH(sub_folder))) != sub_folder
 		) as t
+	</select>
+-->
+
+	<select id="selectAllImagesFromImageDiffs" resultMap="AlbumImageDiffDetailsMap">
+		select
+		<include refid="imageDiffsColumns"/>
+		from image_diffs
 	</select>
 
 	<select id="selectImagesFromImageDiffs" resultMap="AlbumImageDiffDetailsMap">
 		select
 		<include refid="imageDiffsColumns"/>
 		from image_diffs
+		where name_id_1 in
+		<foreach item="item" index="index" collection="nameIds" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+		or name_id_2 in
+		<foreach item="item" index="index" collection="nameIds" open="(" separator="," close=")">
+			#{item}
+		</foreach>
 	</select>
 
 	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
@@ -196,10 +219,10 @@ mysql -u root -proot albumimages -e "describe images"
 
 	<insert id="insertImageIntoImages">
 		insert into images (
-			<include refid="imagesColumns"/>
+			<include refid="imagesWriteColumns"/>
 		)
 		values (
-			<include refid="imagesValues"/>
+			<include refid="imagesWriteValues"/>
 		)
 	</insert>
 
@@ -215,7 +238,7 @@ mysql -u root -proot albumimages -e "describe images"
 		sub_folder = values (sub_folder)
 	</insert>
 
-<!-- not currently used	
+<!-- currently being implement by "AlbumImageDiffer.insertImageIntoImageDiffs to handle 'on duplicate key' case
 	<insert id="insertImageIntoImageDiffs">
 		insert into image_diffs (
 			<include refid="imageDiffsColumns"/>

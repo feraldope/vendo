@@ -35,12 +35,14 @@ import java.util.regex.Pattern;
 public class AlbumImage
 {
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImage (String name, String subFolder, long numBytes, int width, int height, long modified, String rgbData,
+	//this ctor is used by mybatis
+	public AlbumImage (int nameId, String name, String subFolder, long numBytes, int width, int height, long modified, String rgbData,
 					   long exifDate0, long exifDate1, long exifDate2, long exifDate3)
 	{
-		String imagePath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false) + subFolder;
+		String imagePath = AlbumFormInfo.getInstance ().getRootPath (false) + subFolder;
 		long[] exifDates = new long[] {exifDate0, exifDate1, exifDate2, exifDate3, 0, 0};
 
+		_nameId = nameId;
 		_name = name;
 		_numBytes = numBytes;
 		_width = width;
@@ -68,9 +70,11 @@ public class AlbumImage
 	}
 
 //TODO - replace with clone?
+/*unused?
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImage (AlbumImage image)
 	{
+		_nameId = image.getNameId ();
 		_name = image.getName ();
 		_namePlusAttrs = image.getNamePlusAttrs ();
 		_nameFirstLettersLower = image.getNameFirstLettersLower ();
@@ -85,10 +89,10 @@ public class AlbumImage
 		_subFolder = image.getSubFolder ();
 		_imagePath = image.getImagePath ();
 
-		_baseName1 = image.getBaseName (/*collapseGroups*/ false);
-		_baseName2 = image.getBaseName (/*collapseGroups*/ true);
-		_tagString1 = image.getTagString (/*collapseGroups*/ false);
-		_tagString2 = image.getTagString (/*collapseGroups*/ true);
+		_baseName1 = image.getBaseName (false);
+		_baseName2 = image.getBaseName (true);
+		_tagString1 = image.getTagString (false);
+		_tagString2 = image.getTagString (true);
 		_file = image.getFile ();
 		_pixels = image.getPixels ();
 //		_count = image.getCount ();
@@ -100,6 +104,7 @@ public class AlbumImage
 		_scaledHeight = image.getScaledHeight ();
 		_scale = image.getScale ();
 	}
+*/
 
 	///////////////////////////////////////////////////////////////////////////
 	//this ctor optionally reads the attributes from the image file on the disk
@@ -108,8 +113,9 @@ public class AlbumImage
 		AlbumProfiling.getInstance ().enter (7, subFolder, "ctor");
 
 		String nameWithExt = name + AlbumFormInfo._ImageExtension;
-		String imagePath = AlbumFormInfo.getInstance ().getRootPath (/*asUrl*/ false) + subFolder;
+		String imagePath = AlbumFormInfo.getInstance ().getRootPath (false) + subFolder;
 
+		_nameId = -1;
 		_name = name;
 		_subFolder = subFolder;
 		_imagePath = VendoUtils.appendSlash (imagePath);
@@ -132,7 +138,7 @@ public class AlbumImage
 			//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
 			final int w = 5;
 			final int h = 1;
-			int rgbIntArray[] = new int [w * h];
+			int[] rgbIntArray = new int [w * h];
 
 			BufferedImage image = JpgUtils.readImage (_file);
 			_width = image.getWidth ();
@@ -142,8 +148,8 @@ public class AlbumImage
 			//convert exact RGB data to String
 			StringBuilder sb = new StringBuilder ();
 			Formatter formatter = new Formatter (sb, Locale.US);
-			for (int ii = 0; ii < rgbIntArray.length; ii++) {
-				formatter.format ("%08x", rgbIntArray[ii]); //note: writing integers
+			for (int i : rgbIntArray) {
+				formatter.format("%08x", i); //note: writing integers
 			}
 			_rgbData = sb.toString ();
 			formatter.close ();
@@ -165,7 +171,7 @@ public class AlbumImage
 	@Override
 	public String toString ()
 	{
-		return toString (/*full*/ false, /*collapseGroups*/ false);
+		return toString (false, false);
 	}
 	public String toString (boolean full, boolean collapseGroups)
 	{
@@ -206,31 +212,23 @@ public class AlbumImage
 			return equalExifDates (image, exifDateIndex);
 		}
 
-		if (equalAttrsStrict (image, ignoreBytes)) {
-			return true;
-		}
-
-		return false;
+		return equalAttrsStrict(image, ignoreBytes);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//check for exact match: bytes (optional), width, height, exact RGB data
 	private boolean equalAttrsStrict (AlbumImage image, boolean ignoreBytes)
 	{
-		return (ignoreBytes || (!ignoreBytes && (getNumBytes () == image.getNumBytes ()))) &&
-				getWidth () == image.getWidth () &&
-				getHeight () == image.getHeight () &&
-				getRgbData ().equals (image.getRgbData ());
+		return (ignoreBytes || getNumBytes() == image.getNumBytes()) &&
+				getWidth() == image.getWidth() &&
+				getHeight() == image.getHeight() &&
+				getRgbData().equals(image.getRgbData());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public boolean equalBase (AlbumImage image, boolean collapseGroups)
 	{
-		if (image.getBaseName (collapseGroups).equals (getBaseName (collapseGroups))) {
-			return true;
-		} else {
-			return false;
-		}
+		return image.getBaseName(collapseGroups).equals(getBaseName(collapseGroups));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -239,7 +237,7 @@ public class AlbumImage
 	public static String getBaseName (String name, boolean collapseGroups)
 	{
 		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
-		final String regex2 = "\\d*\\-\\d*$";	//match trailing [digits][dash][digits]
+		final String regex2 = "\\d*-\\d*$";	//match trailing [digits][dash][digits]
 
 		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
 	}
@@ -270,6 +268,12 @@ public class AlbumImage
 		}
 	}
 
+	/////////////////////////////////////////////////////////////////////////
+	public int getNameId ()
+	{
+		return _nameId;
+	}
+
 	///////////////////////////////////////////////////////////////////////////
 	public String getName ()
 	{
@@ -298,7 +302,7 @@ public class AlbumImage
 	public synchronized String getNameFirstLettersLower ()
 	{
 		if (_nameFirstLettersLower == null) {
-			_nameFirstLettersLower = getSubFolderFromName (getName ());
+			_nameFirstLettersLower = AlbumImageDao.getInstance ().getSubFolderFromImageName (getName ());
 		}
 
 		return _nameFirstLettersLower;
@@ -328,11 +332,12 @@ public class AlbumImage
 		return _subFolder;
 	}
 
+//remove "helper" method; just have callers call DAO method directly
 	///////////////////////////////////////////////////////////////////////////
-	public static String getSubFolderFromName (String name)
-	{
-		return AlbumImageDao.getInstance().getSubFolderFromImageName (name); //call AlbumImageDao.getInstance() to force initialization of DAO
-	}
+//	public static String getSubFolderFromName (String name)
+//	{
+//		return AlbumImageDao.getInstance ().getSubFolderFromImageName (name);
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getImagePath ()
@@ -672,7 +677,8 @@ public class AlbumImage
 	public static boolean acceptDiff (int averageDiff, int stdDev, int maxRgbDiffs, int maxStdDev)
 	{
 		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
-		return (averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 4 * maxRgbDiffs && stdDev <= 4 * maxStdDev; //hardcoded values
+		return (averageDiff >= 0 && stdDev >= 0) && //avoid accepting AlbumImagePair objects that have not been inited with diff values
+				(averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 3 * maxRgbDiffs && stdDev <= 3 * maxStdDev; //hardcoded values
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -999,7 +1005,7 @@ public class AlbumImage
 			IptcDirectory directory = metadata.getFirstDirectoryOfType (IptcDirectory.class);
 			Date date = directory.getDate (IptcDirectory.TAG_DATE_CREATED);
 			int time = directory.getInt (IptcDirectory.TAG_TIME_CREATED);
-			exifDates[2] = date.getTime () + (time * 1000); //this probably does not handle TZ correctly
+			exifDates[2] = date.getTime () + (time * 1000L); //this probably does not handle TZ correctly
 		} catch (Exception ee) {
 			//ignore
 		}
@@ -1021,6 +1027,7 @@ public class AlbumImage
 	//members
 
 	//attributes read from database
+	private final int _nameId;
 	private final String _name; //name only, no file extension
 	private final long _numBytes;
 	private final int _width;

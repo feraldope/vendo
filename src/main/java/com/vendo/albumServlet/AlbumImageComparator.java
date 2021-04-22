@@ -79,8 +79,8 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			String imageName1 = image1.getBaseName (collapseGroups);
 			String imageName2 = image2.getBaseName (collapseGroups);
 
-			value1 = AlbumImageDao.getInstance().getImagesCount (imageName1);
-			value2 = AlbumImageDao.getInstance().getImagesCount (imageName2);
+			value1 = AlbumImageDao.getInstance().getNumMatchingImages (imageName1, 0);
+			value2 = AlbumImageDao.getInstance().getNumMatchingImages (imageName2, 0);
 		}
 			break;
 

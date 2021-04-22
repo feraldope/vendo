@@ -7,10 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.text.DecimalFormat;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -18,10 +15,15 @@ import java.util.stream.Collectors;
 public class AlbumProfiling
 {
 	///////////////////////////////////////////////////////////////////////////
-	public synchronized static AlbumProfiling getInstance ()
+	//create singleton instance
+	public static AlbumProfiling getInstance()
 	{
 		if (_instance == null) {
-			_instance = new AlbumProfiling (); // _instance is deleted in print()
+			synchronized (AlbumProfiling.class) {
+				if (_instance == null) {
+					_instance = new AlbumProfiling ();
+				}
+			}
 		}
 
 		return _instance;
@@ -79,8 +81,7 @@ public class AlbumProfiling
 			return;
 		}
 
-		StringBuilder tags = new StringBuilder (tag1).append (".").append (tag2);
-		enter (tags.toString (), false);
+		enter (tag1 + "." + tag2, false);
 	}
 
 	public void enterAndTrace (int profileLevel)
@@ -123,13 +124,13 @@ public class AlbumProfiling
 				record = new ProfileRecord (method.toString (), _currentIndex++, startNano);
 
 			} else {
-				if (record._inProcess) {
+				if (record.getInProcess()) {
 //					throw new RuntimeException ("AlbumProfiling.enter: recursive entry for \"" + method + "\"");
 					_log.error ("AlbumProfiling.enter: recursive entry for \"" + method.toString () + "\"");
 				}
 
-				record._startNano = startNano;
-				record._inProcess = true;
+				record.setStartNano(startNano);
+				record.setInProcess(true);
 			}
 
 			_recordMap.put (method.toString (), record);
@@ -161,8 +162,7 @@ public class AlbumProfiling
 			return;
 		}
 
-		StringBuilder tags = new StringBuilder (tag1).append (".").append (tag2);
-		exit (tags.toString ());
+		exit (tag1 + "." + tag2);
 	}
 
 	private void exit (String tag)
@@ -183,19 +183,19 @@ public class AlbumProfiling
 				return;
 			}
 
-			long elapsedNano = endNano - record._startNano;
+			long elapsedNano = endNano - record.getSetStartNano();
 
-			if (record._minNano > elapsedNano) {
-				record._minNano = elapsedNano;
+			if (record.getMinNano() > elapsedNano) {
+				record.setMinNano(elapsedNano);
 			}
-			if (record._maxNano < elapsedNano) {
-				record._maxNano = elapsedNano;
+			if (record.getMaxNano() < elapsedNano) {
+				record.setMaxNano(elapsedNano);
 			}
 
-			record._elapsedNano += elapsedNano;
-			record._count++;
-			record._startNano = 0;
-			record._inProcess = false;
+			record.setElapsedNanos(record.getElapsedNanos() + elapsedNano);
+			record.setCount(record.getCount() + 1);
+			record.setStartNano(0);
+			record.setInProcess(false);
 
 			_recordMap.put (method.toString (), record);
 		}
@@ -233,7 +233,7 @@ public class AlbumProfiling
 	//note this resets all the profiling data
 	public synchronized void print (boolean showMemoryUsage)
 	{
-		print (showMemoryUsage, /*resetProfiling*/ true);
+		print (showMemoryUsage, true);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -258,13 +258,11 @@ public class AlbumProfiling
 
 		int longestMethodName = 10; //min width
 		for (ProfileRecord record : records) {
-			if (record._inProcess) {
-//				throw new RuntimeException ("AlbumProfiling.print: exit not called for \"" + record._method + "\"");
-//TODO			if (!resetProfiling)
-				_log.error ("AlbumProfiling.print: exit not called for \"" + record._method + "\"");
+			if (record.getInProcess() && !record.getIsFake()) {
+				_log.error ("AlbumProfiling.print: exit not called for \"" + record.getMethod() + "\"");
 			}
 
-			int length = record._method.length ();
+			int length = record.getMethod().length ();
 			longestMethodName = Math.max (length, longestMethodName);
 		}
 		_fieldWidths[0] = longestMethodName;// + 5;
@@ -275,17 +273,17 @@ public class AlbumProfiling
 		for (ProfileRecord record : records) {
 			if (record.getCount () > 0 && !record.getIgnore ()) {
 				//convert values from nanosecs to millisecs
-				double total = (double) record._elapsedNano / 1000000;
-				double average = total / record._count;
-				double min = (double) record._minNano / 1000000;
-				double max = (double) record._maxNano / 1000000;
+				double total = (double) record.getElapsedNanos() / 1e6;
+				double average = total / record.getCount();
+				double min = (double) record.getMinNano() / 1e6;
+				double max = (double) record.getMaxNano() / 1e6;
 
-				printRecord (record._method, record._count, total, average, min, max);
+				printRecord (record.getMethod(), record.getCount(), record.getIsFake(), total, average, min, max);
 			}
 		}
 
 		if (_recordsIgnoredCount > 0) {
-			_log.debug ("AlbumProfiling.print: " + _recordsIgnoredCount + " of " + records.size () + " records ignored");
+			_log.debug ("AlbumProfiling.print: " + _recordsIgnoredCount + " of " + records.size () + " records ignored/collapsed");
 		}
 
 		if (showMemoryUsage) {
@@ -321,12 +319,12 @@ public class AlbumProfiling
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void printRecord (String v0, Integer v1, Double v2, Double v3, Double v4, Double v5)
+	private void printRecord (String v0, Integer v1, boolean isFake, Double v2, Double v3, Double v4, Double v5)
 	{
-		String s2 = _decimalFormat0.format (v2);
-		String s3 = (v1 == 1 ? "--" : _decimalFormat0.format (v3));
-		String s4 = (v1 == 1 ? "--" : _decimalFormat0.format (v4));
-		String s5 = (v1 == 1 ? "--" : _decimalFormat0.format (v5));
+		String s2 = (isFake ? "**" : _decimalFormat0.format (v2));
+		String s3 = (v1 == 1 || isFake ? "--" : _decimalFormat0.format (v3));
+		String s4 = (v1 == 1 || isFake ? "--" : _decimalFormat0.format (v4));
+		String s5 = (v1 == 1 || isFake ? "--" : _decimalFormat0.format (v5));
 
 		printRecord (v0, v1.toString (), s2, s3, s4, s5);
 	}
@@ -364,6 +362,26 @@ public class AlbumProfiling
 															.filter (v -> v.getCount () == 1)
 															.filter (v -> v.matchesPattern (ignorableRecord.getMethodPattern ()))
 															.collect (Collectors.toList ());
+
+//TODO there is only one value for neuteredKey each loop; no need for Map
+			Map<String, Integer> map = new HashMap<>();
+			for (ProfileRecord record : matchingRecords) {
+				String neuteredKey = record.getMethod().replaceAll("\\(.*\\)", "(*)").replaceAll("\\)\\.[a-z\\-]+", ").*");
+				Integer count = map.get(neuteredKey);
+				if (count != null) {
+					count += record.getCount();
+				} else {
+					count = record.getCount();
+				}
+				map.put(neuteredKey, count);
+			}
+
+			for (Map.Entry<String, Integer> entry : map.entrySet()) {
+				ProfileRecord record = new ProfileRecord(entry.getKey(), _currentIndex++, 0);
+				record.setCount(entry.getValue());
+				record.setIsFake(true);
+				_recordMap.put(entry.getKey(), record);
+			}
 
 			int numToBeIgnored = matchingRecords.size () - ignorableRecord.getMinCount ();
 			if (numToBeIgnored > 0) {
@@ -430,6 +448,10 @@ public class AlbumProfiling
 		{
 			return _elapsedNano;
 		}
+		public void setElapsedNanos (long elapsedNano)
+		{
+			_elapsedNano = elapsedNano;
+		}
 
 		///////////////////////////////////////////////////////////////////////
 		public long getElapsedMillis ()
@@ -438,9 +460,44 @@ public class AlbumProfiling
 		}
 
 		///////////////////////////////////////////////////////////////////////
+		public long getSetStartNano ()
+		{
+			return _startNano;
+		}
+		public void setStartNano (long startNano)
+		{
+			_startNano = startNano;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public long getMinNano ()
+		{
+			return _minNano;
+		}
+		public void setMinNano (long minNano)
+		{
+			_minNano = minNano;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public long getMaxNano ()
+		{
+			return _maxNano;
+		}
+		public void setMaxNano (long maxNano)
+		{
+			_maxNano = maxNano;
+		}
+
+		///////////////////////////////////////////////////////////////////////
 		public int getCount ()
 		{
 			return _count;
+		}
+		///////////////////////////////////////////////////////////////////////
+		public void setCount (int count)
+		{
+			_count = count;
 		}
 
 		///////////////////////////////////////////////////////////////////////
@@ -451,6 +508,26 @@ public class AlbumProfiling
 		public void setIgnore (boolean ignore)
 		{
 			_ignore = ignore;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public boolean getInProcess ()
+		{
+			return _inProcess;
+		}
+		public void setInProcess (boolean inProcess)
+		{
+			_inProcess = inProcess;
+		}
+
+		///////////////////////////////////////////////////////////////////////
+		public boolean getIsFake ()
+		{
+			return _isFake;
+		}
+		public void setIsFake (boolean isFake)
+		{
+			_isFake = isFake;
 		}
 
 		///////////////////////////////////////////////////////////////////////
@@ -479,6 +556,7 @@ public class AlbumProfiling
 		private int _count = 0;
 		private boolean _inProcess = true;
 		private boolean _ignore = false;
+		private boolean _isFake = false;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -545,7 +623,7 @@ public class AlbumProfiling
 	private static HashSet<ProfileIgnorableRecord> _ignorableRecords;
 	private static int _recordsIgnoredCount;
 	private static int _currentIndex = 0;
-	private static AlbumProfiling _instance = null;
+	private static volatile AlbumProfiling _instance = null;
 
 	private final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0");
 	private final DecimalFormat _decimalFormat1 = new DecimalFormat ("###,##0.0");

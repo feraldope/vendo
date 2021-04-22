@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS images
 	exifDate3		BIGINT UNSIGNED,
 	PRIMARY KEY (name_id, insert_date, name_no_ext, sub_folder)
 );
+CREATE INDEX name_id_idx on images (name_id);
 CREATE INDEX sub_folder_idx on images (sub_folder);
 CREATE INDEX name_no_ext_idx on images (name_no_ext);
 CREATE INDEX insert_date_idx on images (insert_date);
@@ -143,26 +144,26 @@ INSERT INTO image_counts (name_id, sub_folder, base_name, collapse_groups, image
 
 -- -----------------------------------------------------------------------------
 -- update image folders with new subfolder length
-update images set sub_folder = lower(substring(name_no_ext,1,2)) 
-where lower(name_no_ext) like 'a%' 
+update images set sub_folder = lower(substring(name_no_ext,1,2))
+where lower(name_no_ext) like 'a%'
 OR lower(name_no_ext) like 'b%'
 OR lower(name_no_ext) like 'c%'
 
 -- look for any stragglers
-select * from images 
+select * from images
 where char_length(sub_folder) != 2
 
 -- update image_counts folders with new subfolder length
-update image_counts set sub_folder = lower(substring(base_name,1,2)) 
+update image_counts set sub_folder = lower(substring(base_name,1,2))
 
 -- look for any stragglers
-delete from image_counts 
--- select * from image_counts 
+delete from image_counts
+-- select * from image_counts
 where char_length(sub_folder) != 2
 
 -- look for any stragglers
 delete from image_folder
--- select * from image_counts 
+-- select * from image_counts
 where char_length(sub_folder) != 2
 
 -- -----------------------------------------------------------------------------
@@ -170,10 +171,15 @@ where char_length(sub_folder) != 2
 mysql -u root -proot albumimages
 
 -- size of all databases
-SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) "DB Size in MB" 
-FROM information_schema.tables 
-GROUP BY table_schema; 
+SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) "DB Size in MB"
+FROM information_schema.tables
+GROUP BY table_schema;
 
+-- images size distribution by 1-char subfolder (for determining which folders to move from D: to C:)
+select lower(substring(name_no_ext,1,1)) as sub_folder1, sum(bytes) / (1024 * 1024 *1024) as giga_bytes, count(*) as count
+from images
+group by sub_folder1
+order by giga_bytes desc
 
 -- size and count of image folders (actual subfolders) (NOTE does not account for drive's block size; just adds raw bytes)
 select sub_folder, (sum(bytes)/(1024*1024*1024)) as GBytes, count(*) as count from images group by sub_folder order by GBytes desc
@@ -230,7 +236,7 @@ select * from image_counts where image_count < 1 order by lower(base_name);
 delete from image_counts where image_count = 0;
 
 -- manual cleanup of image_counts (2)
--- all basenames with 0 or 1 capital letters
+-- all baseNames with 0 or 1 capital letters
 select * from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$' order by base_name;
 -- delete from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$';
 
@@ -254,7 +260,7 @@ select base_name, image_count, sub_folder from image_counts having lower(substri
 ) as t
 --
 delete image_counts.*
-from image_counts 
+from image_counts
 inner join (
   select name_id, base_name, sub_folder
   from image_counts
@@ -300,7 +306,7 @@ select 'images' as name, sub_folder, insert_date as latest_entry from images whe
 
 select count(*) as "total" from images order by sub_folder;
 select count(*) as "total" from images_tmp order by sub_folder;
-select sub_folder, count(*) from images group by sub_folder 
+select sub_folder, count(*) from images group by sub_folder
 order by count(*)
 -- order by sub_folder;
 
@@ -330,13 +336,13 @@ select 1
 -- -----------------------------------------------------------------------------
 -- select random rows from images table
 
-select name_id, name_no_ext from images where name_id in 
-    (select name_id from (select name_id from images 
+select name_id, name_no_ext from images where name_id in
+    (select name_id from (select name_id from images
     where (name_no_ext like 'se%' or name_no_ext like 'ba%')
     order by rand() limit 10000) t)
-    
-select name_id, name_no_ext from images where name_id in 
-    (select name_id from (select name_id from images 
+
+select name_id, name_no_ext from images where name_id in
+    (select name_id from (select name_id from images
     where (name_no_ext not like 'q%' and name_no_ext not like 'x%' and name_no_ext not like 'se%' and name_no_ext not like 'ba%' )
     order by rand() limit 10000) t)
 
@@ -359,7 +365,7 @@ select i1.name_id, i1.name_no_ext, i2.name_id, i2.name_no_ext, d.avg_diff, sourc
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff < 25 
+where d.avg_diff < 25
 -- order by i1.name_no_ext, i2.name_no_ext
 order by d.last_update desc
 
@@ -392,14 +398,14 @@ select tag_id from albumtags.tags
 where tag = 'bumble'
 )) order by rand() limit 500) t)
 
--- query image_diffs table for AlbumImages.doDups, with orientation test
+-- original: query image_diffs table for AlbumImages.doDups, with orientation test
 set @row_number := 0;
 select @row_number := @row_number + 1 as row,
 	RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 42, ' ') as 'names                                   ',
 	d.avg_diff as avg,
 	d.source as 'source',
 	d.count as 'count',
-	d.last_update as 'last update     ',	
+	d.last_update as 'last update     ',
 	timestampdiff (hour, d.last_update, current_timestamp()) as hours,
 	case
 	when cast(i1.width as int) - cast(i1.height as int) > 10 then 'L'
@@ -412,16 +418,16 @@ select @row_number := @row_number + 1 as row,
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff <= 15 and -- MAX_RGB_DIFF and
-	timestampdiff (hour, d.last_update, current_timestamp) <= 12 -- and -- SINCE_HOURS
+where -- d.avg_diff <= 15 and -- MAX_RGB_DIFF and
+	timestampdiff (hour, d.last_update, current_timestamp) <= 1 -- and -- SINCE_HOURS
   having strcmp(i1_orient, i2_orient) = 0
 -- order by avg_diff, i1.name_no_ext, i2.name_no_ext
 -- order by avg desc, i1.name_no_ext
-order by d.last_update
+order by d.last_update desc
 
 -- number of rows with mismatched orientation vs all rows (SHOULD ALWAYS BE ZERO because this is prevented in the code)
 select count(*) from (
-select 
+select
 d.name_id_1,
 d.name_id_2,
 d.last_update,
@@ -446,41 +452,62 @@ select count(*) from image_diffs
 -- -----------------------------------------------------------------------------
 -- count distribution (includes rows that no longer have existing images)
 select 'Total' as count, count(count) as rows1 from image_diffs
-union all 
+union all
 select count as count, count(count) as rows1 from image_diffs group by count desc
 
 -- avg_diff distribution (includes rows that no longer have existing images)
 select 'Total' as diff, count(avg_diff) as rows1 from image_diffs
-union all 
-select avg_diff as diff, count(avg_diff) as rows1 from image_diffs group by avg_diff 
+union all
+select avg_diff as diff, count(avg_diff) as rows1 from image_diffs group by avg_diff
 
 -- image_diffs date ranges
 select 'Min' as name, min(last_update) as last_update from image_diffs
-union all 
+union all
 select 'Max' as name, max(last_update) as last_update from image_diffs
 
 -- rows that no longer have corresponding images
-select count(*) 
-from image_diffs 
+select count(*)
+from image_diffs
 where (name_id_1 not in (select name_id from images))
 or (name_id_2 not in (select name_id from images))
 
---cleanup obsolete rows
-select count(*) from image_diffs 
+select * from image_diffs limit 100
+
+select max(name_id_1), max(name_id_2) from image_diffs
+
+-- cleanup obsolete rows
+select count(*) from image_diffs
+where (name_id_1 not in (select name_id from images)) OR (name_id_2 not in (select name_id from images))
 --delete from image_diffs where (name_id_1 not in (select name_id from images)) OR (name_id_2 not in (select name_id from images))
-select count(*) from image_diffs 
+--Split in two; perhaps quicker?
+--delete from image_diffs where name_id_1 not in (select name_id from images)
+--delete from image_diffs where name_id_2 not in (select name_id from images)
+--Delete in ranges
+--delete from image_diffs where name_id_1 > 1000000 and name_id_1 < 2000000 and name_id_1 not in (select name_id from images)
+--delete from image_diffs where name_id_2 > 1000000 and name_id_2 < 2000000 and name_id_2 not in (select name_id from images)
+
+-- cleanup obsolete rows (break into two parts; perhaps quicker)
+select count(*) from image_diffs
+where name_id_1 not in (select name_id from images)
+-- where name_id_2 not in (select name_id from images)
+
+-- cleanup likely useless rows
+select avg_diff, count(*) from image_diffs where avg_diff >= 50 group by avg_diff order by avg_diff desc
+--delete from image_diffs where avg_diff >= 50
+
+select std_dev, count(*) from image_diffs where std_dev >= 0 group by std_dev order by std_dev desc
 
 -- -----------------------------------------------------------------------------
 -- find albums that have a high number of images and a large byte size (and optionally EXIF date)
-select i.base_name, 
- round(sum(i.mbytes), 1) as total_mbytes, 
- ic.image_count, 
+select i.base_name,
+ round(sum(i.mbytes), 1) as total_mbytes,
+ ic.image_count,
  round(sum(i.mbytes) / ic.image_count, 1) as avg_mbytes,
- count(i.mbytes) as number_over_size_threshold, 
+ count(i.mbytes) as number_over_size_threshold,
  round(100 * count(i.mbytes) / ic.image_count, 1) as percent_over_size_threshold
  -- i.exif
 from (
- select left(name_no_ext, locate('-', name_no_ext) - 1) as base_name, bytes / (1024 * 1024) as mbytes, 
+ select left(name_no_ext, locate('-', name_no_ext) - 1) as base_name, bytes / (1024 * 1024) as mbytes,
   ((exifDate0 + exifDate1 + exifDate2 + exifDate3) > 0) as has_exif
  from images
  -- where (exifDate0 > 0 or exifDate1 > 0 or exifDate2 > 0 or exifDate3 > 0)
@@ -500,57 +527,82 @@ order by avg_mbytes desc, total_mbytes desc, number_over_size_threshold desc, im
 -- -----------------------------------------------------------------------------
 -- "remove all numeric characters from column mysql"
 -- original from https://stackoverflow.com/questions/11431831/remove-all-numeric-characters-from-column-mysql
-DROP FUNCTION IF EXISTS alphas; 
-DELIMITER | 
-CREATE FUNCTION alphas( str CHAR(64) ) RETURNS CHAR(64) 
-BEGIN 
-  DECLARE i, len SMALLINT DEFAULT 1; 
-  DECLARE ret CHAR(64) DEFAULT ''; 
-  DECLARE c CHAR(1); 
-  SET len = CHAR_LENGTH( str ); 
-  REPEAT 
-    BEGIN 
-      SET c = MID( str, i, 1 ); 
-      IF c REGEXP '[[:alpha:]]' THEN 
-        SET ret=CONCAT(ret,c); 
-      END IF; 
-      SET i = i + 1; 
-    END; 
-  UNTIL i > len END REPEAT; 
-  RETURN ret; 
--- END | 
+DROP FUNCTION IF EXISTS alphas;
+DELIMITER |
+CREATE FUNCTION alphas( str CHAR(64) ) RETURNS CHAR(64)
+BEGIN
+  DECLARE i, len SMALLINT DEFAULT 1;
+  DECLARE ret CHAR(64) DEFAULT '';
+  DECLARE c CHAR(1);
+  SET len = CHAR_LENGTH( str );
+  REPEAT
+    BEGIN
+      SET c = MID( str, i, 1 );
+      IF c REGEXP '[[:alpha:]]' THEN
+        SET ret=CONCAT(ret,c);
+      END IF;
+      SET i = i + 1;
+    END;
+  UNTIL i > len END REPEAT;
+  RETURN ret;
+-- END |
 END;
-DELIMITER ; 
+DELIMITER ;
 
-SELECT alphas('123ab45cde6789fg0000000000000000000000000000'); 
-+----------------------------+ 
-| alphas('123ab45cde6789fg') | 
-+----------------------------+ 
-| abcdefg                    | 
-+----------------------------+ 
+SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
++----------------------------+
+| alphas('123ab45cde6789fg') |
++----------------------------+
+| abcdefg                    |
++----------------------------+
 
 -- -----------------------------------------------------------------------------
 -- "How to Optimize MySQL Tables and Defragment to Recover Space"
 -- https://www.thegeekstuff.com/2016/04/mysql-optimize-table/
 
+-- see dbInfo.bat
+
 -- NOTE that data_free_kb seems to always be 4096KB or larger
-select table_schema, table_name, 
-round(data_length/1024) as data_length_kb, 
+select table_schema, table_name,
+round(data_length/1024) as data_length_kb,
 round(data_free/1024) as data_free_kb,
 round(100*data_free/(data_length+data_free)) as percent_free
-from information_schema.tables 
+from information_schema.tables
 where table_schema in ('albumimages', 'albumtags')
 order by table_schema, table_name
 
--- optimize table from command line
+-- optimize table from command line (maybe don't? Message says: "Table does not support optimize, doing recreate + analyze instead")
 mysql -u root -proot albumimages
-optimize table image_diffs;
+--optimize table image_diffs;
+
+    MariaDB [albumimages]> optimize table image_diffs;
+    +-------------------------+----------+----------+-------------------------------------------------------------------+
+    | Table                   | Op       | Msg_type | Msg_text                                                          |
+    +-------------------------+----------+----------+-------------------------------------------------------------------+
+    | albumimages.image_diffs | optimize | note     | Table does not support optimize, doing recreate + analyze instead |
+    | albumimages.image_diffs | optimize | status   | OK                                                                |
+    +-------------------------+----------+----------+-------------------------------------------------------------------+
+    2 rows in set (31 min 36.564 sec)
 
 -- table metadata
 select *
 from information_schema.tables
 where table_schema in ('albumimages', 'albumtags')
 order by table_schema, table_name
+
+REM database files on disk
+tdir/s "C:\Program Files\MariaDB 10.4\data\albumimages"
+tdir/s "C:\Program Files\MariaDB 10.4\data\albumtags"
+
+REM backups
+tdir/s A:\Netscape.data.backup\sql
+
+-- -----------------------------------------------------------------------------
+-- find all new images within 120 days
+select count(*) from images
+-- select *,  UNIX_TIMESTAMP(), (UNIX_TIMESTAMP() - (modified/1000)), FROM_UNIXTIME(modified/1000) from images
+where (UNIX_TIMESTAMP() - (modified/1000)) <= (120 * 24 * 60 * 60)
+-- limit 100
 
 
 */

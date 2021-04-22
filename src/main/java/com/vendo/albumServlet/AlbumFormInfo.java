@@ -36,11 +36,32 @@ import java.util.stream.Collectors;
 public class AlbumFormInfo
 {
 	///////////////////////////////////////////////////////////////////////////
+//	//create singleton instance
+//	public synchronized static AlbumFormInfo getInstance ()
+//	{
+//		if (_instance == null) {
+//			_instance = new AlbumFormInfo ();
+//		}
+//
+//		return _instance;
+//	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public synchronized static AlbumFormInfo getInstance ()
-	{
-		if (_instance == null) {
-			_instance = new AlbumFormInfo ();
+	public static AlbumFormInfo getInstance(boolean createNewInstance) {
+		if (createNewInstance) {
+			synchronized (AlbumFormInfo.class) {
+				_log.debug ("AlbumFormInfo.getInstance(" + createNewInstance + ")@1: calling AlbumFormInfo ctor");
+				_instance = new AlbumFormInfo();
+			}
+
+		} else if (_instance == null) {
+			synchronized (AlbumFormInfo.class) {
+				if (_instance == null) {
+					_log.debug ("AlbumFormInfo.getInstance(" + createNewInstance + ")@2: calling AlbumFormInfo ctor");
+					_instance = new AlbumFormInfo();
+				}
+			}
 		}
 
 		return _instance;
@@ -48,17 +69,26 @@ public class AlbumFormInfo
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public synchronized static AlbumFormInfo newInstance ()
+	public static AlbumFormInfo getInstance()
 	{
-		_instance = null; //force creation of new instance
-		_instance = new AlbumFormInfo ();
-
-		return _instance;
+		return getInstance (false);
 	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//create new singleton instance
+//	public synchronized static AlbumFormInfo newInstance ()
+//	{
+//		_instance = null; //force creation of new instance
+//		_instance = new AlbumFormInfo ();
+//
+//		return _instance;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private AlbumFormInfo ()
 	{
+		_log.debug ("AlbumFormInfo ctor");
+
 		_mode = AlbumMode.DoDir;
 //		_subFolders = "";
 		_filter1 = "";
@@ -122,22 +152,34 @@ public class AlbumFormInfo
 			}
 		}
 
+//		try {
+//			String ww = request.getParameter("windowWidth");
+//			Cookie[] c = request.getCookies();
+////			HttpServletMapping m = request.getHttpServletMapping();
+////			Collection<Part> p = request.getParts();
+//			HttpSession s = request.getSession();
+//			Map<String, String> t = request.getTrailerFields();
+//			int bh = 1;
+//		}catch (Exception e) {
+//			int bh = 1;
+//		}
+
 		List<String> paramNames = Collections.list (request.getParameterNames ()).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 		for (String paramName : paramNames) {
 			if (_debugProperties) { //debug - log form parameters
-				List<String> paramValues = Arrays.asList (request.getParameterValues (paramName)).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
+				List<String> paramValues = Arrays.stream(request.getParameterValues (paramName)).sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 				for (String paramValue : paramValues) {
 					_log.debug ("AlbumFormInfo.processRequest: param: " + paramName + " = " + paramValue);
 				}
 			}
 
-			if (paramName.equals ("rootFolder")) {
-				if (_debugProperties) {
-					_log.debug ("AlbumFormInfo.processRequest: got rootFolder = " + request.getParameterValues (paramName)[0]);
-				}
-				_rootFolder = request.getParameterValues (paramName)[0];
+//			if (paramName.equals ("rootFolder")) {
+//				if (_debugProperties) {
+//					_log.debug ("AlbumFormInfo.processRequest: got rootFolder = " + request.getParameterValues (paramName)[0]);
+//				}
+//				_rootFolder = request.getParameterValues (paramName)[0];
 
-			} else if (paramName.equals ("duplicateHandling")) {
+			if (paramName.equals ("duplicateHandling")) {
 				if (_debugProperties) {
 					_log.debug ("AlbumFormInfo.processRequest: got duplicateHandling = " + request.getParameterValues (paramName)[0]);
 				}
@@ -480,8 +522,8 @@ public class AlbumFormInfo
 			filters.addAll (splitString (_filter3));
 		}
 
-		filters.sort (VendoUtils.caseInsensitiveStringComparator);
-		caseInsensitiveDedup (filters);
+//		filters.sort (VendoUtils.caseInsensitiveStringComparator);
+		filters = VendoUtils.caseInsensitiveSortAndDedup (filters);
 
 		return filters.toArray (new String[] {});
 	}
@@ -489,7 +531,8 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public boolean filtersHaveWildCards ()
 	{
-		final Predicate<String> wildcards = Pattern.compile ("[+*\\[\\]]").asPredicate (); //regex: prevent: '+', '*', '[', or ']'
+//		final Predicate<String> wildcards = Pattern.compile ("[+*\\[\\]]").asPredicate (); //regex: prevent: '+', '*', '[', or ']'
+		final Predicate<String> wildcards = Pattern.compile ("[+*]").asPredicate (); //regex: prevent: '+', '*', '[', or ']'
 
 		return Arrays.stream (getFilters ()).anyMatch (wildcards);
 	}
@@ -505,6 +548,17 @@ public class AlbumFormInfo
 		return _tagMode.get (index);
 	}
 
+	public String getTagModeHtml (int index)
+	{
+		if (AlbumTagMode.TagIn != _tagMode.get (index)) {
+			return "&tagMode=" + _tagMode.get (index).getSymbol ();
+		} else {
+			return "";
+		}
+	}
+/*			sb.append ("&tagMode").append (ii).append ("=").append (_form.getTagMode (ii).getSymbol ());
+			sb.append ("&tag").append (ii).append ("=").append (_form.getTag (ii));
+*/
 	///////////////////////////////////////////////////////////////////////////
 	public void setTag (int index, String tagValue)
 	{
@@ -514,6 +568,15 @@ public class AlbumFormInfo
 	public String getTag (int index)
 	{
 		return _tagValue.get (index);
+	}
+
+	public String getTagHtml (int index)
+	{
+		if (!_tagValue.get (index).isEmpty()) {
+			return "&tag=" + _tagValue.get(index);
+		} else {
+			return "";
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -527,8 +590,8 @@ public class AlbumFormInfo
 			}
 		}
 
-		tags.sort (VendoUtils.caseInsensitiveStringComparator);
-		caseInsensitiveDedup (tags);
+//		tags.sort (VendoUtils.caseInsensitiveStringComparator);
+		tags = VendoUtils.caseInsensitiveSortAndDedup (tags);
 
 		return tags.toArray (new String[] {});
 	}
@@ -582,8 +645,8 @@ public class AlbumFormInfo
 			excludes.addAll (splitString (_exclude3));
 		}
 
-		excludes.sort (VendoUtils.caseInsensitiveStringComparator);
-		caseInsensitiveDedup (excludes);
+//		excludes.sort (VendoUtils.caseInsensitiveStringComparator);
+		excludes = VendoUtils.caseInsensitiveSortAndDedup (excludes);
 
 		return excludes.toArray (new String[] {});
 	}
@@ -643,10 +706,13 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void setColumns (int Columns)
+	public void setColumns (int columns)
 	{
-		_columns = Math.max (Columns, 1);
-		_columns = Math.min (_columns, 32); //avoid issues with doDup
+		_columns = Math.min (Math.max (columns, 1), 32); //avoid issues with doDup
+
+//old way
+//		_columns = Math.max (Columns, 1);
+//		_columns = Math.min (_columns, 32); //avoid issues with doDup
 	}
 
 	public int getColumns ()
@@ -821,33 +887,33 @@ public class AlbumFormInfo
 		return _reverseSort;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	public void setScreenWidth (int screenWidth)
-	{
-		if (screenWidth > 0) {
-			_screenWidth = screenWidth;
-		}
-	}
-
-	public int getScreenWidth ()
-	{
-//		return (isAndroidDevice () ? 2 : 1) * _screenWidth; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
-		return _screenWidth;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	public void setScreenHeight (int screenHeight)
-	{
-		if (screenHeight > 0) {
-			_screenHeight = screenHeight;
-		}
-	}
-
-	public int getScreenHeight ()
-	{
-//		return (isAndroidDevice () ? 2 : 1) * _screenHeight; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
-		return _screenHeight;
-	}
+//	///////////////////////////////////////////////////////////////////////////
+//	public void setScreenWidth (int screenWidth)
+//	{
+//		if (screenWidth > 0) {
+//			_screenWidth = screenWidth;
+//		}
+//	}
+//
+//	public int getScreenWidth ()
+//	{
+////		return (isAndroidDevice () ? 2 : 1) * _screenWidth; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
+//		return _screenWidth;
+//	}
+//
+//	///////////////////////////////////////////////////////////////////////////
+//	public void setScreenHeight (int screenHeight)
+//	{
+//		if (screenHeight > 0) {
+//			_screenHeight = screenHeight;
+//		}
+//	}
+//
+//	public int getScreenHeight ()
+//	{
+////		return (isAndroidDevice () ? 2 : 1) * _screenHeight; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
+//		return _screenHeight;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public void setWindowWidth (int windowWidth)
@@ -942,10 +1008,10 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void setRootFolder (String rootFolder)
-	{
-		_rootFolder = rootFolder.replaceAll ("[ \t]*", ""); //regex
-	}
+//	public void setRootFolder (String rootFolder)
+//	{
+//		_rootFolder = rootFolder.replaceAll ("[ \t]*", ""); //regex
+//	}
 
 	public String getRootFolder ()
 	{
@@ -1073,9 +1139,18 @@ public class AlbumFormInfo
 		return list;
 	}
 
+//moved to VendoUtils
 	///////////////////////////////////////////////////////////////////////////
-	public static void caseInsensitiveDedup (Collection<String> strings)
-	{
+//	public static List<String> caseInsensitiveDedup (List<String> strings)
+//	{
+//		Set<String> deduped = new HashSet<> (strings);
+//
+//		TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+//		deduped.removeIf (s -> !seen.add (s));
+//
+//		return new ArrayList<> (deduped);
+
+/*old way (didn't sort)
 		List<String> toBeRemoved = new ArrayList<String> ();
 
 		String prevString = "";
@@ -1089,7 +1164,8 @@ public class AlbumFormInfo
 		for (String string : toBeRemoved) {
 			strings.remove (string);
 		}
-	}
+*/
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static String stripImageExtension (String name)
@@ -1200,7 +1276,7 @@ public class AlbumFormInfo
 	private int _exifDateIndex = _defaultExifDateIndex; //when sorting/comparing EXIF dates, specifies which date to use
 	private boolean _tagFilterOperandOr = false;
 	private boolean _collapseGroups = false;
-	private boolean _limitedCompare = false; //don't include dups that share common basename
+	private boolean _limitedCompare = false; //don't include dups that share common baseName
 	private boolean _dbCompare = false; //compare dups retrieved from imgage_diffs table
 	private boolean _looseCompare = false; //compare dups with either loose or strict critera
 	private boolean _ignoreBytes = false; //optionally tell compare dups to ignore number of bytes
@@ -1213,11 +1289,16 @@ public class AlbumFormInfo
 	private AlbumSortType _sortType = AlbumSortType.ByName;
 	private String _userAgent = "";
 
-	//hardcoded values for firefox at 1920 x 1200 resolution and reasonable width
-	private int _windowWidth = (1880 * 55) / 100;
-	private int _windowHeight = 980;
-	private int _screenWidth = _windowWidth;
-	private int _screenHeight = _windowHeight;
+	//hardcoded values for firefox on 4k monitor reasonable width
+
+//[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowHeight = 2052
+//		[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowWidth = 2211
+	private int _windowWidth = 2211; //(1880 * 55) / 100;
+	private int _windowHeight = 2052; //980;
+//	private int _windowWidth = (1880 * 55) / 100;
+//	private int _windowHeight = 980;
+//	private int _screenWidth = _windowWidth;
+//	private int _screenHeight = _windowHeight;
 
 	public static final String _ImageExtension = ".jpg";
 	public static final String _RgbDataExtension = ".dat";
@@ -1238,7 +1319,7 @@ public class AlbumFormInfo
 
 	private static boolean _showRgbData = false;
 
-	private static AlbumFormInfo _instance = null;
+	private static volatile AlbumFormInfo _instance = null;
 
 	private final boolean _debugProperties = false;
 

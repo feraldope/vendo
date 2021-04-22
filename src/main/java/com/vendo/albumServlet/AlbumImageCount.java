@@ -8,18 +8,27 @@ package com.vendo.albumServlet;
 public class AlbumImageCount
 {
 	///////////////////////////////////////////////////////////////////////////
+	//used by mybatis
 	public AlbumImageCount (String baseName, Integer count)
 	{
 		_baseName = baseName;
 		_count = count;
+
+		if (_baseName == null || _baseName.isEmpty() || _count < 1) {
+			throw new IllegalArgumentException ("AlbumImageCount.ctor1: invalid values: + " + toString());
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImageCount (AlbumImageCount imageCount)
-	{
-		_baseName = imageCount.getBaseName ();
-		_count = imageCount.getCount ();
-	}
+//	public AlbumImageCount (AlbumImageCount imageCount)
+//	{
+//		_baseName = imageCount.getBaseName ();
+//		_count = imageCount.getCount ();
+//
+//		if (_baseName == null || _baseName.isEmpty() || _count < 1) {
+//			throw new IllegalArgumentException ("AlbumImageCount.ctor2: invalid values: + " + toString());
+//		}
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getBaseName ()

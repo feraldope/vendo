@@ -14,6 +14,7 @@ import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
@@ -23,13 +24,16 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.MalformedURLException;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,12 +92,25 @@ public final class JHistory
 						displayUsage ("Missing value for /" + arg, true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("outFile") || arg.equalsIgnoreCase ("out")) {
+				} else if (arg.equalsIgnoreCase ("timeout") || arg.equalsIgnoreCase ("to")) {
 					try {
-						_outFileName = args[++ii];
+						_timeoutSeconds = Integer.parseInt (args[++ii]);
+						if (_timeoutSeconds < 0) {
+							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
+
+
+//				} else if (arg.equalsIgnoreCase ("outFile") || arg.equalsIgnoreCase ("out")) {
+//					try {
+//						_outFileName = args[++ii];
+//					} catch (ArrayIndexOutOfBoundsException exception) {
+//						displayUsage ("Missing value for /" + arg, true);
+//					}
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -121,19 +138,23 @@ public final class JHistory
 		}
 		_destDir = VendoUtils.appendSlash (_destDir);
 
-		_urlPathFragmentValue = System.getenv(_urlPathFragmentName);
-		if (_urlPathFragmentValue == null || _urlPathFragmentValue.isEmpty()) {
-			displayUsage ("Must specify environment variable '" + _urlPathFragmentName + "'", true);
+		//NOTE: similar code exists in JHistory.java and GetUrl.java
+		_urlPathFragmentsValues = Arrays.stream(System.getenv (_urlPathFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
 		}
-
-		_urlHostFragment1Value = System.getenv(_urlHostFragment1Name);
-		if (_urlHostFragment1Value == null || _urlHostFragment1Value.isEmpty()) {
-			displayUsage ("Must specify environment variable '" + _urlHostFragment1Name + "'", true);
+		_urlHostToBeSkippedValues = Arrays.stream(System.getenv (_urlHostToBeSkippedName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlHostToBeSkippedValues == null ||*/ _urlHostToBeSkippedValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlHostToBeSkippedName + "'", true);
 		}
-
-		_urlHostFragment2Value = System.getenv(_urlHostFragment2Name);
-		if (_urlHostFragment2Value == null || _urlHostFragment2Value.isEmpty()) {
-			displayUsage ("Must specify environment variable '" + _urlHostFragment2Name + "'", true);
+		//DO NOT SORT - DO NOT CHANGE ORDER FROM FILE
+		_urlKnownHostFragmentsValues = Arrays.stream(System.getenv (_urlKnownHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlKnownHostFragmentsValues == null ||*/ _urlKnownHostFragmentsValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlKnownHostFragmentsName + "'", true);
+		}
+		_urlDeadHostFragmentsValues = Arrays.stream(System.getenv (_urlDeadHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (_urlDeadHostFragmentsValues == null || _urlDeadHostFragmentsValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlDeadHostFragmentsName + "'", true);
 		}
 
 		return true;
@@ -162,8 +183,18 @@ public final class JHistory
 			_log.debug ("JHistory.run");
 		}
 
-		readHistoryFile ();
-		/*Thread watchHistoryFileThread =*/ watchHistoryFile ();
+		readGuHistoryFile(true);
+
+		readJhHistoryFile();
+
+		Set<String> missingValues = verifyUrlKnownHostFragmentsValues();
+		if (!missingValues.isEmpty()) {
+			_log.error("JHistory.run: verifyUrlKnownHostFragmentsValues() found missing values: " + missingValues.toString());
+		}
+
+		_interestingUrls = loadInterestingUrlsFromJhHistory (true);
+
+		/*Thread watchGuHistoryFileThread =*/ watchGuHistoryFile ();
 
 		final Queue<StringBuffer> listenerQueue = new LinkedList<> ();
 		ClipboardListener clipboardListener = new ClipboardListener (listenerQueue);
@@ -214,24 +245,28 @@ public final class JHistory
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns true if url found, false otherwise
-	private boolean handleImageUrl (UrlData urlData) {
+	private boolean handleImageUrl (UrlData urlData)
+	{
 		boolean status = false;
 
 		String urlNormalizedString = urlData.getNormalizedLine ();
-		writeHistoryFile (urlNormalizedString + NL);
+		writeAppendJhHistoryFile(urlNormalizedString);
 
 		System.out.println ("");
 
-		List<MatchData> matchList = findInHistory (urlData.getPathBase (), urlNormalizedString);
+		List<MatchData> matchList = findInGuHistory (urlData);//.getPathBase (), urlNormalizedString);
 		if (matchList.size () > 0) {
 			System.out.println ("Duplicate entry(s) found in history file: " + matchList.size ());
-			System.out.println ("---- " + urlNormalizedString);
+//			System.out.println ("---- " + urlNormalizedString);
+			System.out.print ("---- ");// + urlNormalizedString);
+			short color = isKnownDeadHost (_urlDeadHostFragmentsValues, urlNormalizedString) ? _warningColor : _defaultColor;
+			VendoUtils.printWithColor (color, urlNormalizedString);
 
 			int maxLines = (_Debug ? 20 : 6);
 			int lineCount = Math.min (matchList.size (), maxLines);
 			for (int ii = 0; ii < lineCount; ii++) {
 				MatchData match = matchList.get (ii);
-				short color = (match.getStrength () < 1000 ? _alertColor : _warningColor);
+				/*short*/ color = (match.getStrength () < 1000 ? _alertColor : _warningColor);
 				System.out.print ("  ");
 				VendoUtils.printWithColor (color, match.getLine (), false);
 				System.out.println (" (" + match.getReverseIndex () + ", " + match.getStrength () + ")");
@@ -240,7 +275,8 @@ public final class JHistory
 
 		} else {
 			System.out.print ("Not found: ");
-			VendoUtils.printWithColor (_highlightColor, urlNormalizedString);
+			short color = isKnownDeadHost (_urlDeadHostFragmentsValues, urlNormalizedString) ? _warningColor : _highlightColor;
+			VendoUtils.printWithColor (color, urlNormalizedString);
 		}
 
 		return status;
@@ -248,55 +284,65 @@ public final class JHistory
 
 	///////////////////////////////////////////////////////////////////////////
 	//generates HTML; returns true if url found, false otherwise
-	private boolean handleHtmlUrl (UrlData urlData1) {
+	private boolean handleHtmlUrl (UrlData urlData1)
+	{
 		boolean status = false;
 
-  		String urlNormalizedString = urlData1.getNormalizedLine ();
-		writeHistoryFile (urlNormalizedString + NL);
+		String urlNormalizedString = urlData1.getNormalizedLine();
 
-		System.out.println ("");
-		VendoUtils.printWithColor (_highlightColor, "Processing URL: " + urlNormalizedString);
+		addToInterestingUrls(urlNormalizedString);
 
-		Collection<UrlLinkData> urlLinkDataAll = getUrlLinkData (urlData1, true);
+		System.out.println("");
+		VendoUtils.printWithColor(_highlightColor, "Processing URL: " + urlNormalizedString);
+
+		findInJhHistory(urlNormalizedString).stream()
+											.sorted(String.CASE_INSENSITIVE_ORDER)
+											.forEach(s -> VendoUtils.printWithColor(_warningColor, "Previous match: " + s));
+
+		List<UrlLinkData> urlLinkDataAll = getUrlLinkData(urlData1, true);
 
 		if (urlLinkDataAll == null || urlLinkDataAll.isEmpty()) {
 			return status; //nothing to do
 		}
 
-		List<UrlLinkData> urlLinkDataNew = new ArrayList<> ();
+		List<UrlLinkData> urlLinkDataNew = new ArrayList<>();
 		for (UrlLinkData urlLink : urlLinkDataAll) {
-			String firstImageUrl = urlLink.getImageUrlStr (0);
-			UrlData urlData2 = parseLine(firstImageUrl);
-			boolean found = handleImageUrl(urlData2);
-			if (!found) {
-				urlLinkDataNew.add(urlLink);
+			String firstImageUrl = urlLink.getImageUrlStr(0);
+			if (!urlLinkDataNew.contains(urlLink)) {
+				UrlData urlData2 = parseLine(firstImageUrl);
+				boolean found = handleImageUrl(urlData2);
+				if (!found) {
+					urlLinkDataNew.add(urlLink);
+				}
+			} else {
+				int bh = 1;
 			}
 		}
 
-//		final String htmlEscapedPlusSign = VendoUtils.escapeHtmlChars ("+");
-		final String htmlEscapedModifier = VendoUtils.escapeHtmlChars ("[hmr+]");
+		urlLinkDataNew = urlLinkDataNew.stream()
+										.sorted((u1, u2) -> u1.getBaseUrl().getFile().compareToIgnoreCase(u2.getBaseUrl().getFile()))
+										.collect(Collectors.toList());
 
-		String name = "unknown";
-		if (!urlLinkDataAll.isEmpty()) {
-			name = urlLinkDataAll.iterator().next().getMainTitle().replaceAll("pictures.*", "").replaceAll("\\s", "");// + htmlEscapedPlusSign; //TODO hack
-		}
+		final String htmlEscapedModifier = VendoUtils.escapeHtmlChars("[bhlmr+]");
 
-		String albumServetLink = "http://localhost/AlbumServlet/AlbumServlet?mode=doSampler&filter1=" + name + "&filter2=" + name + htmlEscapedModifier +
-								"&screenWidth=3840&screenHeight=2160&windowWidth=1863&windowHeight=2027" +
-								"&panels=4000&columns=8&collapseGroups=on&limitedCompare=true&looseCompare=true&ignoreBytes=true&debug=on#topAnchor";
-		String title = _htmlFilename + " (" + urlLinkDataNew.size () + " new of " + urlLinkDataAll.size () + " total)";
+		final String regex = "(?i)(picture.*|\\sin\\s.*|\\saka\\s.*)";
+		final String nameStr = urlLinkDataAll.iterator().next().getMainTitle().replaceAll(regex, "").replaceAll("\\s", ""); //TODO hack - string processing, and just uses first item in collection
+
+		String albumServetLink = "http://localhost/AlbumServlet/AlbumServlet?mode=doSampler&filter1=" + nameStr + "&filter2=" + nameStr + htmlEscapedModifier +
+									"&windowWidth=2200&windowHeight=2050&panels=4000&columns=8&collapseGroups=on&limitedCompare=true&looseCompare=true&ignoreBytes=true&debug=on#topAnchor";
+		String titleStr = _htmlFilename + " - " + nameStr + " (" + urlLinkDataNew.size() + " new of " + urlLinkDataAll.size() + " total)";
 
 		String html = DOCTYPE + NL;
-		if (!urlLinkDataNew.isEmpty ()) {
+		if (!urlLinkDataNew.isEmpty()) {
 			AtomicInteger linkNumber = new AtomicInteger(1);
 			final int totalLinkCount = urlLinkDataNew.size();
 			html += html(
 					head(
-						title(title)
+						title(titleStr)
 					),
 					body(
 						div(attrs("#div0"),
-							h1(title)
+							h1(titleStr)
 						),
 						div(attrs("#div1"),
 							text("Existing albums: "),
@@ -307,35 +353,36 @@ public final class JHistory
 							urlLinkDataNew.stream().map(u1 ->
 								div(attrs("#div3"),
 									div(attrs("#div4"),
-										h2("(" + linkNumber.getAndIncrement() + "/" + totalLinkCount + ") " + u1.getChildTitle()),
+										h2("(" + linkNumber.getAndIncrement() + "/" + totalLinkCount + ") " + nameStr + " - " + u1.getChildTitle()),
 										a().withText(u1.getAlbumUrlStr())
 											.withHref(u1.getAlbumUrlStr())
-											.withTarget("_blank")
+											.withTarget("_blank"),
+										h4("call gu.bat " + u1.getImageUrlStr(0) + " " + nameStr + " && call push.bat")
 									),
 									div(attrs("#div5"),
 										u1.getImageUrlList().stream().map(u2 ->
 											a(img().withSrc(u2)
-													.attr("width=" + getImageDimensionFromName (u2, Dimension.Width, true))
-													.attr("height=" + getImageDimensionFromName (u2, Dimension.Height, true))
+													.attr("width=" + getImageDimensionFromName(u2, Dimension.Width, true))
+													.attr("height=" + getImageDimensionFromName(u2, Dimension.Height, true))
 											)
-											.withHref(u2.replaceAll("p/\\d+x\\d+_", "m")) //convert thumbnail to image
-											.withTarget("_blank")
+												.withHref(u2.replaceAll("p/\\d+x\\d+_", "m")) //convert thumbnail to image
+												.withTarget("_blank")
 										).toArray(ContainerTag[]::new)
 									)
 								)
 							).toArray(ContainerTag[]::new)
 						)
-					)
+				)
 			).renderFormatted();
 
 		} else { //no new images found
 			html += html(
 					head(
-						title(title)
+						title(titleStr)
 					),
 					body(
 						div(attrs("#div0"),
-								h1(title)
+							h1(titleStr)
 						),
 						div(attrs("#div1"),
 							text("No new links found for: "),
@@ -352,14 +399,62 @@ public final class JHistory
 			).renderFormatted();
 		}
 
-		Path outputFilePath = FileSystems.getDefault().getPath(_destDir, _htmlFilename);
+		//never overwrite .BAT file while it is running
+		//if the BAT file is run more than once simultaneously, each instance will get its own lock file
+		Path outputFilePath = FileSystems.getDefault().getPath(_destDir, "tmp", nameStr + ".bat");
+		Path lockFileBase = FileSystems.getDefault().getPath(_destDir, "tmp", nameStr + ".lock");
+		if (!VendoUtils.fileExistsWild(lockFileBase.toString() + "*")) {
+			String batFileCommands = "";
+			if (!urlLinkDataNew.isEmpty()) {
+				StringBuilder sb = new StringBuilder();
+				sb.append("echo on" + NL)
+				  .append("REM autogenerated by " + _AppName + NL)
+//				  .append("title " + nameStr + NL)
+				  .append("setlocal" + NL)
+				  .append("SET DO_INTERMEDIATE_PUSH=YES" + NL)
+				  .append("IF EXIST " + lockFileBase.toString() + "* SET DO_INTERMEDIATE_PUSH=NO" + NL)
+				  .append("SET LOCKFILE=" + lockFileBase.toString() + ".%RANDOM%" + NL)
+				  .append("SET do" + NL)
+				  .append("SET lock" + NL)
+				  .append("echo running at %DATE% %TIME% ... >> %LOCKFILE%" + NL)
+				  .append("set NAME=%1" + NL)
+				  .append("if %NAME%@==@ set NAME=" + nameStr + NL);
+				int count = 0;
+				for (UrlLinkData urlLinkData : urlLinkDataNew) {
+					sb.append(NL)
+					  .append("echo " + (++count) + " of " + urlLinkDataNew.size() + NL)
+					  .append("call gu.bat " + urlLinkData.getImageUrlStr(0) + " %NAME%" + NL)
+					  .append("echo on" + NL);
+//					if (count != urlLinkDataNew.size()) {
+						sb.append("IF %DO_INTERMEDIATE_PUSH%==YES echo calling push.bat" + NL)
+						  .append("IF %DO_INTERMEDIATE_PUSH%==YES call push.bat" + NL);
+//					}
+				}
+				sb.append(NL)
+				  .append("IF %DO_INTERMEDIATE_PUSH%==NO echo calling push.bat" + NL)
+				  .append("IF %DO_INTERMEDIATE_PUSH%==NO call push.bat" + NL)
+				  .append("echo on" + NL)
+				  .append("del %LOCKFILE%" + NL);
+				batFileCommands = sb.toString();
+			}
+
+			if (writeOutputFile(batFileCommands, outputFilePath)) {
+				System.out.println("");
+				_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size() + " links to BAT output file: " + outputFilePath.toString());
+				status = true;
+			}
+		} else {
+			_log.error("JHistory.handleHtmlUrl: BAT FILE IN USE; NOT OVERWRITING: " + outputFilePath.toString());
+		}
+
+		outputFilePath = FileSystems.getDefault().getPath(_destDir, _htmlFilename);
 		if (writeOutputFile (html, outputFilePath)) {
 			System.out.println ("");
 			_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size () + " links to HTML output file: " + outputFilePath.toString());
 			status = true;
 		}
 
-		String allNewLinks = urlLinkDataNew.stream ().map (u -> u.getImageUrlStr(0)).sorted ().collect (Collectors.joining (NL)) + NL;
+		String allNewLinks = urlLinkDataNew.stream ().map (u -> u.getImageUrlStr(0))/*.sorted ()*/.collect (Collectors.joining (NL)) + NL;
 		outputFilePath = FileSystems.getDefault().getPath(_destDir, _allNewLinksFilename);
 		if (writeOutputFile (allNewLinks, outputFilePath)) {
 			System.out.println ("");
@@ -367,115 +462,249 @@ public final class JHistory
 			status = true;
 		}
 
+		List<UrlLinkData> urlLinkDataNewDead = urlLinkDataNew.stream().filter(u -> isKnownDeadHost (_urlDeadHostFragmentsValues, u.getImageUrlList().get(0))).collect(Collectors.toList());
+		List<UrlLinkData> urlLinkDataNewNotDead = urlLinkDataNew.stream().filter(u -> !isKnownDeadHost (_urlDeadHostFragmentsValues, u.getImageUrlList().get(0))).collect(Collectors.toList());
+
 		VendoUtils.printWithColor (_highlightColor, "Total links: " + urlLinkDataAll.size ());
 		VendoUtils.printWithColor (_alertColor,     "Old links:   " + (urlLinkDataAll.size () - urlLinkDataNew.size ()));
-		VendoUtils.printWithColor (_highlightColor, "New links:   " + (urlLinkDataNew.isEmpty () ? "---" : urlLinkDataNew.size () + " *****"));
+		VendoUtils.printWithColor (_warningColor,   "New links:   " + (urlLinkDataNewDead.isEmpty () ? "---" : urlLinkDataNewDead.size ()) + " (known dead)");
+		VendoUtils.printWithColor (_highlightColor, "New links:   " + (urlLinkDataNewNotDead.isEmpty () ? "---" : urlLinkDataNewNotDead.size () + " *****") + " (excluding any known dead)");
 
 		return status;
 	}
+
 	///////////////////////////////////////////////////////////////////////////
-	private Collection<UrlLinkData> getUrlLinkData (UrlData urlData1, boolean verbose) {
-		Collection<UrlLinkData> urlLinkData = new ArrayList<> ();
+	private List<String> getUrlLinkDataHelper (UrlData urlData1, boolean verbose)
+	{
+		List<String> mainLinksList = new ArrayList<>();
 
-//		String urlNormalizedString = urlData1.getNormalizedLine ();
-
-		Document document1 = null;
+		Document document = null;
 		try {
-			document1 = Jsoup.parse (urlData1.getUrl (), _timeoutMillis);
+			document = Jsoup.parse(urlData1.getUrl(), _timeoutSeconds * 1000);
 		} catch (Exception ee) {
-			System.err.println (ee);
-			ee.printStackTrace (System.err);
+			//will return empty list below
+//			_log.error("JHistory.getUrlLinkDataHelper: error opening main URL: " + urlData1.getUrl());
+			VendoUtils.printWithColor (_alertColor, "JHistory.getUrlLinkDataHelper: " + getParseError(ee) + " opening main URL: " + urlData1.getUrl());
+
+			//try again with denormalized url (if it wasn't already a denormalized url)
+			String deNormalizedUrlStr = urlData1.getDeNormalizedUrl().toString();
+			if (!deNormalizedUrlStr.equalsIgnoreCase(urlData1.getNormalizedLine())) {
+				try {
+					document = Jsoup.parse(urlData1.getDeNormalizedUrl(), _timeoutSeconds * 1000);
+				} catch (Exception e2) {
+					//will return empty list below
+	//				_log.error("JHistory.getUrlLinkDataHelper: error opening main URL: " + urlData1.getUrl());
+					VendoUtils.printWithColor(_alertColor, "JHistory.getUrlLinkDataHelper: " + getParseError(ee) + " opening main URL: " + urlData1.getDeNormalizedUrl());
+			}
+			}
 		}
 
-		if (document1 == null) {
-			_log.error ("JHistory.getUrlLinkData: error opening main URL: " + urlData1.getUrl () + NL);
+		if (document != null) {
+//TODO fix _mainTitle
+			/*String*/
+			_mainTitle = document.select("title").text();
 
-		} else {
-			String mainTitle = document1.select("title").text();
-//old way
-//			Elements linkElements1 = document1.select("title");
-//			String mainTitle = "[main title not found]";
-//			for (Element element : linkElements1) {
-//				Elements elements = element.getElementsByTag ("title");
-//				for (Element element2 : elements) {
-//					Node node = element2.childNode(0);
-//					mainTitle = node.toString();
-//					break;
-//				}
-//			}
+			mainLinksList = document.select("a[href]").stream()
+					.map(e -> e.attr("href"))
+//					.map(e -> e.attr("abs:href"))
+					.filter(s -> s.contains("/galleries/") || s.contains("/picz/"))
+					.filter(s -> !s.contains("/287586/")) //HACK - this gets rid of one who will not be named
+					.filter(s -> !s.contains("/116335/")) //HACK - this gets rid of one who will not be named
+					.map(s -> {
+						if (!s.startsWith("http")) {
+							String fragment = _urlPathFragmentsValues.get(0); //HACK
+							String string = urlData1.getNormalizedLine().replaceAll(Pattern.quote(fragment) + ".*", "");
+							return string + s;
+						} else {
+							return s;
+						}
+					})
+					.distinct()
+					.collect(Collectors.toList());
 
-			List<String> mainLinksList = document1.select("a[href]").stream ()
-												.map (e -> e.attr("abs:href"))
-												.filter(s -> s.contains ("/galleries/"))
-												.sorted(VendoUtils.caseInsensitiveStringComparator)
-												.distinct()
-												.collect(Collectors.toList());
-
-			//skip if already checked during this session
-//			Integer linkCount = _recentUrlResultsCache.get(urlNormalizedString);
-//			if (linkCount != null && linkCount.equals(mainLinksList.size())) {
-//				VendoUtils.printWithColor (_highlightColor, "****** Skipping URL as it was already processed during this session (" + mainLinksList.size () + " links)");
-//				System.out.println ("");
-//				return null;
-// 			} else {
-//				_recentUrlResultsCache.put(urlNormalizedString, mainLinksList.size());
-//			}
-
+			String urlNormalizedString = urlData1.getNormalizedLine();
 			if (verbose) {
-				VendoUtils.printWithColor (_highlightColor, "Processing " + mainLinksList.size () + " links");
+//				VendoUtils.printWithColor(_highlightColor, "Processed URL: " + urlNormalizedString + ", found " + mainLinksList.size() + " links");
+				System.out.println("Processed URL: " + urlNormalizedString + (mainLinksList.size() > 0 ? " --> found " + mainLinksList.size() + " links" : ""));
 			}
 
-			for (String link : mainLinksList) {
-				System.out.print (".");
-				URL url = null;
-				Document document2 = null;
-
-				try {
-					url = new URL (link);
-					document2 = Jsoup.parse (url, _timeoutMillis);
-				} catch (Exception ee) {
-					System.err.println (ee);
-					ee.printStackTrace (System.err);
-				}
-
-				if (document2 == null) {
-					_log.error ("JHistory.getUrlLinkData: error opening child URL: " + url.toString () + NL);
-
-				} else {
-//					final String tagForChildTitle = "title"; //works OK
-					final String tagForChildTitle = "h1"; //works better
-					String childTitle = document2.select(tagForChildTitle).text();
-
-					List<String> imageLinksList = document2.select ("[src]").stream ()
-															.filter(e -> e.tagName ().equals ("img"))
-															.map (e -> e.attr("abs:src"))
-															.filter (s -> !s.contains ("/preview"))
-															.sorted(ignoreImageSizeComparator)
-															.distinct()
-															.collect(Collectors.toList());
-					urlLinkData.add (new UrlLinkData (url, mainTitle, childTitle, link, imageLinksList));
-				}
+			if (mainLinksList.size() > 0) {
+				writeAppendJhHistoryFile(urlNormalizedString + " " + mainLinksList.size());
 			}
+		}
 
-			if (!mainLinksList.isEmpty ()) {
-				System.out.println(".");
+		return mainLinksList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<String> getMainLinksList (UrlData urlData1, boolean verbose)
+	{
+//TODO ?? - do I still need this?
+//		List<String> baseLeafs = Arrays.asList("/galleries/v2/", "/picz/");
+
+		String leaf = urlData1.getUrl().getFile();
+
+		List<String> mainLinksList = new ArrayList<>();
+		_interestingUrls.stream()
+				.parallel()
+				.forEach(u -> {
+//TODO
+//					for (String fragment : _urlPathFragmentsValues) {
+					final UrlData urlData2 = parseLine(u + leaf);
+					final List<String> mainLinksList1 = getUrlLinkDataHelper(urlData2, verbose);
+					synchronized (mainLinksList) {
+						mainLinksList.addAll(mainLinksList1);
+					}
+//					}
+				});
+
+//original
+//		List<String> mainLinksList = new ArrayList<>();
+//		_interestingUrls.stream()
+//				.parallel()
+//				.forEach(u -> {
+//					final UrlData urlData2 = parseLine(u + leaf);
+//					final List<String> mainLinksList1 = getUrlLinkDataHelper(urlData2, verbose);
+//					synchronized (mainLinksList) {
+//						mainLinksList.addAll(mainLinksList1);
+//					}
+//				});
+
+		return mainLinksList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<UrlLinkData> getUrlLinkData (UrlData urlData1, boolean verbose)
+	{
+		List<String> mainLinksList = getMainLinksList(urlData1, verbose);
+
+		List<UrlLinkData> urlLinkData = getChildLinkData (mainLinksList, verbose);
+
+		return urlLinkData;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private UrlLinkData getChildLinkDataHelper (String mainLink, boolean verbose)
+	{
+		UrlLinkData urlLinkData = null;
+
+		if (verbose) {
+			System.out.print("."); //no linefeed
+		}
+
+		URL url = null;
+		Document document = null;
+		try {
+			url = new URL (mainLink);
+			document = Jsoup.parse (url, _timeoutSeconds * 1000);
+		} catch (Exception ee) {
+			if (verbose) {
+				System.out.println(""); //just linefeed
 			}
+//			_log.error ("JHistory.getChildLinkDataHelper: error opening child URL: " + url.toString ());
+			VendoUtils.printWithColor (_alertColor, "JHistory.getChildLinkDataHelper: " + getParseError(ee) + " opening child URL: " + url.toString ());
+//			System.err.println (ee);
+//			ee.printStackTrace (System.err);
+		}
+
+		if (document != null) {
+//			final String tagForChildTitle = "title"; //works OK
+			final String tagForChildTitle = "h1"; //works better
+			String childTitle = document.select(tagForChildTitle).text();
+
+			List<String> imageLinksList = document.select ("[src]").stream ()
+													.filter(e -> e.tagName ().equals ("img"))
+													.map (e -> e.attr("abs:src"))
+													.filter (s -> !s.contains ("/preview"))
+//													.sorted(ignoreImageSizeComparator)
+													.distinct()
+													.collect(Collectors.toList());
+			urlLinkData = new UrlLinkData(url, _mainTitle, childTitle, mainLink, imageLinksList);
 		}
 
 		return urlLinkData;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//watch file and call readHistoryFile() whenever file changes on disk
-	private Thread watchHistoryFile ()
+	private List<UrlLinkData> getChildLinkData (List<String> mainLinksList, boolean verbose)
+	{
+		if (verbose) {
+			long distinctLeafs = mainLinksList.stream()
+												.map(l -> {
+													try {
+														return new URL (l).getFile();
+													} catch (Exception ignored) {}
+													return null;
+//													String leaf = null;
+//													try {
+//														URL url = new URL (l);
+//														return url.getFile();
+//													} catch (Exception ignored) {}
+//													return leaf;
+												})
+												.filter(Objects::nonNull)
+												.distinct()
+												.count();
+			VendoUtils.printWithColor(_highlightColor, "Processing " + mainLinksList.size() + " links");
+			VendoUtils.printWithColor(_highlightColor, "Found " + distinctLeafs + " distinct leafs");
+
+			if (false) { //debugging
+				System.out.println(mainLinksList.stream()
+						.map(l -> {
+							String leaf = null;
+							try {
+								URL url = new URL (l);
+								return url.getFile();
+							} catch (Exception ignored) {}
+							return leaf;
+						})
+						.filter(Objects::nonNull)
+						.distinct()
+						.sorted(String.CASE_INSENSITIVE_ORDER)
+						.collect(Collectors.joining(NL)) + NL);
+			}
+		}
+
+		//use map to avoid duplicate image links
+		ConcurrentHashMap<String, UrlLinkData> urlLinkDataMap = new ConcurrentHashMap<>();
+		mainLinksList.stream()
+					.parallel()
+					.forEach(l -> {
+						if (verbose) {
+							System.out.print("."); //no linefeed
+						}
+						final UrlLinkData urlLinkData1 = getChildLinkDataHelper (l, verbose);
+						if (urlLinkData1 != null) {
+							final List<String> imageLinksList = urlLinkData1.getImageUrlList();
+							if (imageLinksList != null && imageLinksList.get(0) != null && !urlLinkDataMap.containsKey(imageLinksList.get(0))) {
+								urlLinkDataMap.put(imageLinksList.get(0), urlLinkData1);
+							}
+						}
+					});
+
+		if (false) { //debugging
+			System.out.println(urlLinkDataMap.values().stream()
+					.map(u -> u.getImageUrlStr(0))
+					.filter(Objects::nonNull)
+					.distinct()
+					.sorted(String.CASE_INSENSITIVE_ORDER)
+					.collect(Collectors.joining(NL)) + NL);
+		}
+
+		return new ArrayList<>(urlLinkDataMap.values());
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//watch file and call readGuHistoryFile() whenever file changes on disk
+	private Thread watchGuHistoryFile ()
 	{
 		Thread watchingThread = null;
 		try {
-			Path path = FileSystems.getDefault ().getPath (_destDir, _historyFilename);
+			Path path = FileSystems.getDefault ().getPath (_destDir, _guHistoryFilename);
 			Path dir = path.getRoot ().resolve (path.getParent ());
 			String filename = path.getFileName ().toString ();
 
-			_log.info ("JHistory.watchHistoryFile: watching history file: " + path.normalize ().toString ());
+			_log.info ("JHistory.watchGuHistoryFile: watching history file: " + path.normalize ().toString ());
 
 			Pattern pattern = Pattern.compile (filename, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
@@ -488,20 +717,20 @@ public final class JHistory
 					if (_Debug) {
 						Path file = pathEvent.context ();
 						Path path = dir.resolve (file);
-						_log.debug ("JHistory.watchHistoryFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+						_log.debug ("JHistory.watchGuHistoryFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
 					}
 
 					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
 						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
-						readHistoryFile ();
+						readGuHistoryFile(false);
 					}
 				}
 
 				@Override
 				protected void overflow (WatchEvent<?> event)
 				{
-					_log.error ("JHistory.watchHistoryFile.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
-					_log.error ("JHistory.watchHistoryFile.overflow: ", new Exception ("WatchDir overflow"));
+					_log.error ("JHistory.watchGuHistoryFile.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
+					_log.error ("JHistory.watchGuHistoryFile.overflow: ", new Exception ("WatchDir overflow"));
 				}
 			};
 			watchingThread = new Thread (watchDir);
@@ -510,27 +739,51 @@ public final class JHistory
 //			thread.join (); //wait for thread to complete
 
 		} catch (Exception ee) {
-			_log.error ("JHistory.watchHistoryFile: exception watching history file", ee);
+			_log.error ("JHistory.watchGuHistoryFile: exception watching history file", ee);
 		}
 
 		return watchingThread;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean readHistoryFile ()
+	//only called at startup
+	private boolean readJhHistoryFile() {
+		Instant startInstant = Instant.now();
+
+		Path path = FileSystems.getDefault().getPath(_destDir, _jhHistoryFilename);
+
+		boolean status = true;
+		try (Stream<String> stream = Files.lines (path)) {
+			_jhHistoryFileContents = stream
+//										.filter(s -> !s.startsWith("#"))
+										.map(String::trim)
+										.collect (Collectors.toSet ());
+
+		} catch (IOException ee) {
+			_log.error ("JHistory.readJhHistoryFile: error reading JH history file \"" + _jhHistoryFilename + "\"", ee);
+			status = false;
+		}
+
+		printTiming(startInstant, "JHistory.readJhHistoryFile");
+
+		return status;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean readGuHistoryFile(boolean printTiming)
 	{
 		Instant startInstant = Instant.now ();
 
-		Path path = FileSystems.getDefault ().getPath (_destDir, _historyFilename);
+		Path path = FileSystems.getDefault ().getPath (_destDir, _guHistoryFilename);
 		FileTime historyFileModified = FileTime.from (Instant.MAX);
 		try {
 			historyFileModified = Files.getLastModifiedTime (path);
 		} catch (Exception ee) {
-			_log.error ("JHistory.watchHistoryFile: exception calling getLastModifiedTime", ee);
+			_log.error ("JHistory.readGuHistoryFile: exception calling getLastModifiedTime", ee);
 		}
 
 		boolean status = true;
-		if (_historyFileModified.compareTo (historyFileModified) < 0) {
+		if (_guHistoryFileModified.compareTo (historyFileModified) < 0) {
 			List<UrlData> contents;
 			try (Stream<String> stream = Files.lines (path)) {
 				contents = stream.parallel ()
@@ -538,32 +791,59 @@ public final class JHistory
 								 .filter(Objects::nonNull)
 								 .collect (Collectors.toList ());
 
-				synchronized (_historyFileContentsLock) {
-					_historyFileContents = contents;
-					_historyFileModified = historyFileModified;
+				synchronized (_guHistoryFileContentsLock) {
+					_guHistoryFileContents = contents;
+					_guHistoryFileModified = historyFileModified;
 				}
 			} catch (IOException ee) {
-				_log.error ("JHistory.readHistoryFile: error reading history file \"" + _historyFilename + "\"", ee);
+				_log.error ("JHistory.readGuHistoryFile: error GU reading history file \"" + _guHistoryFilename + "\"", ee);
 				status = false;
 			}
 		}
 
-//		System.out.println ("");
-		printTiming (startInstant, NL + "JHistory.readHistoryFile");
+		if (printTiming) {
+			printTiming(startInstant, "JHistory.readGuHistoryFile");
+		}
 
 		return status;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<MatchData> findInHistory (String basePattern, String sourceUrlIn)
+	private List<String> findInJhHistory (String sourceUrl)
 	{
-		String pattern = VendoUtils.getUrlFileComponent (basePattern).toLowerCase ();
-		if (_Debug) {
-			_log.debug ("JHistory.findInHistory: basePattern = " + basePattern);
-			_log.debug ("JHistory.findInHistory: pattern = " + pattern);
+//call this on every URL for temp debugging
+//		Set<String> forDebugging = loadInterestingUrlsFromJhHistory (true);
+
+		List<String> foundInJhHistory = new ArrayList<>();
+		for (String fragment : _urlPathFragmentsValues) {
+			foundInJhHistory.addAll(
+				_jhHistoryFileContents.stream()
+					.filter(s -> s.contains(fragment))
+					.filter(s -> {
+						String sourceUrlFragment = sourceUrl.replaceAll(".*" + fragment, fragment).replaceAll("\\s+.*", "");
+						String jhHistoryUrlFragment = s.replaceAll(".*" + fragment, fragment).replaceAll("\\s+.*", "");
+						return jhHistoryUrlFragment.equalsIgnoreCase(sourceUrlFragment);
+					})
+//					.sorted(String.CASE_INSENSITIVE_ORDER)
+					.collect(Collectors.toList()));
 		}
 
-		Instant startInstant = Instant.now ();
+		return foundInJhHistory;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<MatchData> findInGuHistory (UrlData urlDataIn)
+	{
+		String basePattern = urlDataIn.getPathBase();
+		String sourceUrlIn = urlDataIn.getNormalizedLine();
+
+		String patternStr = VendoUtils.getUrlFileComponent (basePattern).toLowerCase ();
+		if (_Debug) {
+			_log.debug ("JHistory.findInGuHistory: basePattern = " + basePattern);
+			_log.debug ("JHistory.findInGuHistory: patternStr = " + patternStr);
+		}
+
+//		Instant startInstant = Instant.now ();
 
 		final int maxThreads = VendoUtils.getLogicalProcessors () - 2;
 		final int minPerThread = 100;
@@ -571,16 +851,16 @@ public final class JHistory
 		List<List<UrlData>> chunks;
 		AtomicBoolean foundStrongMatch = new AtomicBoolean ();
 		final List<MatchData> matchList = new ArrayList<MatchData> ();
-		synchronized (_historyFileContentsLock) {
-			chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _historyFileContents.size ()).getFirst ();
-			chunks = ListUtils.partition (_historyFileContents, chunkSize);
+		synchronized (_guHistoryFileContentsLock) {
+			chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _guHistoryFileContents.size ()).getFirst ();
+			chunks = ListUtils.partition (_guHistoryFileContents, chunkSize);
 			final int numChunks = chunks.size ();
 			final CountDownLatch endGate = new CountDownLatch (numChunks);
 
 			if (_Debug) {
-				_log.debug("JHistory.findInHistory: _historyFileContents.size() = " + _historyFileContents.size());
-				_log.debug("JHistory.findInHistory: numChunks = " + numChunks);
-				_log.debug("JHistory.findInHistory: chunkSize = " + chunkSize);
+				_log.debug("JHistory.findInGuHistory: _historyFileContents.size() = " + _guHistoryFileContents.size());
+				_log.debug("JHistory.findInGuHistory: numChunks = " + numChunks);
+				_log.debug("JHistory.findInGuHistory: chunkSize = " + chunkSize);
 			}
 
 			for (final List<UrlData> chunk : chunks) {
@@ -590,9 +870,10 @@ public final class JHistory
 
 					//check for strong matches
 					for (int ii = 0; ii < numLines; ii++) {
-						UrlData urlData = chunk.get(ii);
-						String baseLine = urlData.getPathBase();
-						if (strongMatch(baseLine.toLowerCase(), pattern, sourceUrl, urlData)) {
+						final UrlData urlData = chunk.get(ii);
+						final String baseLine = urlData.getPathBase();
+//TODO - ignore if extensions don't match
+						if (strongMatch(baseLine.toLowerCase(), patternStr, sourceUrl, urlData)) {
 							synchronized (matchList) {
 								matchList.add(new MatchData(urlData.getLine(), true, ii - numLines, 0));
 								foundStrongMatch.getAndSet (true);
@@ -606,9 +887,9 @@ public final class JHistory
 						//then check for stronger weak matches
 						int minStrength = 1000;
 						for (int ii = 0; ii < numLines; ii++) {
-							UrlData urlData = chunk.get(ii);
-							String baseLine = urlData.getPathBase();
-							int strength = weakMatch(baseLine.toLowerCase(), pattern, sourceUrl, urlData);
+							final UrlData urlData = chunk.get(ii);
+							final String baseLine = urlData.getPathBase();
+							int strength = weakMatch(baseLine.toLowerCase(), patternStr, sourceUrl, urlData);
 							if (strength > minStrength) {
 								synchronized (matchList) {
 									matchList.add(new MatchData(urlData.getLine(), false, ii - numLines, strength));
@@ -620,11 +901,11 @@ public final class JHistory
 
 					if (matchList.size() == 0 && !foundStrongMatch.get ()) {
 						//then check for weaker weak matches
-						int minStrength = 0;
+						final int minStrength = 0;
 						for (int ii = 0; ii < numLines; ii++) {
-							UrlData urlData = chunk.get(ii);
-							String baseLine = urlData.getPathBase();
-							int strength = weakMatch(baseLine.toLowerCase(), pattern, sourceUrl, urlData);
+							final UrlData urlData = chunk.get(ii);
+							final String baseLine = urlData.getPathBase();
+							final int strength = weakMatch(baseLine.toLowerCase(), patternStr, sourceUrl, urlData);
 							if (strength > minStrength) {
 								synchronized (matchList) {
 									matchList.add(new MatchData(urlData.getLine(), false, ii - numLines, strength));
@@ -639,7 +920,7 @@ public final class JHistory
 			try {
 				endGate.await();
 			} catch (Exception ee) {
-				_log.error("JHistory.findInHistory: endGate:", ee);
+				_log.error("JHistory.findInGuHistory: endGate:", ee);
 			}
 		}
 
@@ -648,7 +929,7 @@ public final class JHistory
 			matchList.removeIf (MatchData::isWeakMatch);
 		}
 
-		printTiming (startInstant, "JHistory.findInHistory");
+//		printTiming (startInstant, "JHistory.findInGuHistory");
 
 		return matchList;
 	}
@@ -690,44 +971,154 @@ public final class JHistory
 		return null;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	private boolean isSpecialMatch (String sourceUrl, UrlData urlData)
-	{
-		return (sourceUrl.contains(_urlHostFragment2Value) && urlData.getLine().contains(_urlHostFragment1Value))
-			|| (sourceUrl.contains(_urlHostFragment1Value) && urlData.getLine().contains(_urlHostFragment2Value));
-	}
-
 	//debugging
-//	String debugFragment = "/fool/";
+	static String debugFragment = "flower".toLowerCase ();
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean strongMatch (String historyFragment, String pattern, String sourceUrl, UrlData urlData)
+	//NOTE: this method used by JHistory.java and GetUrl.java
+	//returns true if this is a special match that we can ignore
+	public static boolean ignoreThisSpecialMatch (List<String> urlKnownHostFragmentsValues, String sourceUrl, String historyUrl)
 	{
 		//debugging
-//		if (historyFragment.toLowerCase().contains(debugFragment) && pattern.toLowerCase().contains(debugFragment)) {
-//			System.out.println("*************");
+//		if (sourceUrl.toLowerCase().contains(debugFragment) || historyUrl.toLowerCase().contains(debugFragment)) {
+//			System.out.println("************* - found match for \"" + debugFragment + "\": " + urlData1.getNormalizedLine());
 //		}
 
-		boolean matches = pattern.length () >= 2 && historyFragment.contains (pattern);
+		String sourceFragment = urlKnownHostFragmentsValues.stream().filter(sourceUrl::contains).findAny().orElse(null);
+		String urlDataFragment = urlKnownHostFragmentsValues.stream().filter(historyUrl::contains).findAny().orElse(null);
+
+//TODO - what to do about ip addresses?
+		final Pattern ipAddressPattern = Pattern.compile(".*//\\d+\\.\\d+\\.\\d+\\.\\d+\\/.*");
+		boolean b1 = ipAddressPattern.matcher (sourceUrl).matches ();
+		boolean b2 = ipAddressPattern.matcher (historyUrl).matches ();
+
+		return (sourceFragment != null &&
+				urlDataFragment != null &&
+				!sourceFragment.equalsIgnoreCase(urlDataFragment)) ||
+					ipAddressPattern.matcher (historyUrl).matches ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//NOTE: this method used by JHistory.java and GetUrl.java
+	//returns true if this is a know dead host
+	public static boolean isKnownDeadHost (List<String> urlDeadHostFragmentsValues, String sourceUrl)
+	{
+//		_log.debug("JHistory.isKnownDeadHost: urlDeadHostFragmentsValues: " + urlDeadHostFragmentsValues + ", sourceUrl: " + sourceUrl);
+		String sourceFragment = urlDeadHostFragmentsValues.stream().filter(sourceUrl::contains).findAny().orElse(null);
+//		_log.debug("JHistory.isKnownDeadHost: sourceFragment: " + sourceFragment);
+		return sourceFragment != null;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns set of any values in _urlKnownHostFragmentsValues that do not exist in _historyFileContents
+	private Set<String> verifyUrlKnownHostFragmentsValues() {
+		Instant startInstant = Instant.now();
+
+//TODO - stream the inner block
+
+		Set<String> missingValues = new HashSet<>(_urlKnownHostFragmentsValues);
+		_guHistoryFileContents.stream()
+				.parallel()
+				.map(u -> u.getUrl().toString().toLowerCase())
+				.forEach(s -> {
+					for (String urlFragment : _urlKnownHostFragmentsValues) {
+						if (s.contains(urlFragment)) {
+							missingValues.remove(urlFragment);
+							return;
+						}
+					}
+				});
+
+		printTiming (startInstant, "JHistory.verifyUrlKnownHostFragmentsValues");
+
+		return missingValues;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Set<String> loadInterestingUrlsFromJhHistory (boolean verbose)
+	{
+		Instant startInstant = Instant.now();
+
+		Map<String, Long> interestingUrlDistribution = _jhHistoryFileContents.stream()
+						.filter(s -> _urlPathFragmentsValues.stream().anyMatch(s::contains))
+						.filter(s -> !_urlHostToBeSkippedValues.stream().anyMatch(s::contains))
+
+//		private final static String _urlHostToBeSkippedName = "URL_PATH_TO_BE_SKIPPED";
+//		private static List<String> _urlHostToBeSkippedValues;
+
+//						.filter(s -> !s.startsWith("https:" + "//" + "po")) //HACK - this gets rid of one who will not be named
+//						.filter(s -> !s.startsWith("http:" + "//" + "blog.")) //HACK - this gets rid of one who will not be named
+//						.filter(s -> !s.startsWith("http:" + "//" + "cyber")) //HACK - this gets rid of one who will not be named
+//						.filter(s -> !s.startsWith("http:" + "//" + "natou")) //HACK - this gets rid of one who will not be named
+						.map(s -> {
+							final String[] string = {s}; //HACK variable must be final for lambda, so use array instead of string
+							_urlPathFragmentsValues.forEach(f -> string[0] = string[0].replaceAll(Pattern.quote(f) + ".*", ""));
+							return string[0];
+//old way
+//							for (String fragment : _urlPathFragmentsValues) {
+//								string = string.replaceAll(Pattern.quote(fragment) + ".*", "");
+//							}
+//							return string;
+						})
+						.collect(Collectors.groupingBy(e -> e, Collectors.counting()));
+
+		printTiming(startInstant, "JHistory.loadInterestingUrlsFromJhHistory");
+
+		if (verbose) {
+			System.out.println("URLs (" + interestingUrlDistribution.size() + ")" + NL +
+					interestingUrlDistribution.keySet().stream()
+					.map(u -> u + " (" + interestingUrlDistribution.get(u) + ")")
+					.sorted(String.CASE_INSENSITIVE_ORDER)
+					.collect(Collectors.joining(NL)) + NL);
+		}
+
+		return new HashSet<>(interestingUrlDistribution.keySet());
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean addToInterestingUrls (String urlStrOrig)
+	{
+		//debugging
+//		_log.debug ("JHistory.addToInterestingUrls: urlStr: " + urlStr);
+
+		int numAdded = 0;
+		for (String fragment : _urlPathFragmentsValues) {
+			String urlStrBase = urlStrOrig.replaceAll(Pattern.quote(fragment) + ".*", "");
+			boolean added = _interestingUrls.add(urlStrBase);
+			if (added) {
+				numAdded++;
+				writeAppendJhHistoryFile(urlStrOrig);
+
+				_log.debug("JHistory.addToInterestingUrls: added: " + urlStrBase);
+			}
+		}
+
+		return numAdded > 0;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean strongMatch (String historyFragment, String patternStr, String sourceUrl, UrlData urlData)
+	{
+		boolean matches = patternStr.length () >= 2 && historyFragment.contains (patternStr);
 
 		//this block allows redownload of what might be considered close matches
-		if (matches && isSpecialMatch(sourceUrl, urlData)) {
+		if (matches && ignoreThisSpecialMatch(_urlKnownHostFragmentsValues, sourceUrl, urlData.getLine())) {
 			matches = false; //force not a match
 		}
 
 		if (_Debug && matches) {
 			_log.debug ("JHistory.strongMatch: historyFragment: " + historyFragment);
-			_log.debug ("JHistory.strongMatch: pattern: " + pattern);
+			_log.debug ("JHistory.strongMatch: patternStr: " + patternStr);
 		}
 
 		return matches;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int weakMatch (String historyFragment, String pattern, String sourceUrl, UrlData urlData)
+	private int weakMatch (String historyFragment, String patternStr, String sourceUrl, UrlData urlData)
 	{
 		String[] array1 = StringUtils.split (historyFragment, '/'); //URL from history file
-		String[] array2 = StringUtils.split (pattern, '/'); //pattern to match
+		String[] array2 = StringUtils.split (patternStr, '/'); //pattern to match
 
 		Set<String> set1 = Arrays.stream (array1).filter (this::accept).collect (Collectors.toSet ());
 		Set<String> set2 = Arrays.stream (array2).filter (this::accept).collect (Collectors.toSet ());
@@ -742,7 +1133,7 @@ public final class JHistory
 		for (String string : set3) {
 //TODO: add test for hex numbers?
 			if (VendoUtils.isDigits (string)) {
-				if (string.length () >= 3) { //all-digit strings must have minimum length to count as match
+				if (string.length () >= 4) { //all-digit strings must have minimum length to count as match
 					matchList.add (string);
 					matchingNumberStrings++;
 				} else {
@@ -759,11 +1150,6 @@ public final class JHistory
 		int set2size = set2.size ();
 		int set3size = set3.size ();
 		int matchListSize = matchList.size ();
-
-		//debugging
-//		if (sourceUrl.toLowerCase().contains(debugFragment) && historyFragment.toLowerCase().contains(debugFragment) && pattern.toLowerCase().contains(debugFragment)) {
-//			System.out.println("*************");
-//		}
 
 		int strength = 0;
 
@@ -792,13 +1178,13 @@ public final class JHistory
 		}
 
 		if (matchingNumberStrings >= 2 && nonMatchingNumberStrings == 0) {
-			if (!isSpecialMatch(sourceUrl, urlData)) {
+			if (!ignoreThisSpecialMatch(_urlKnownHostFragmentsValues, sourceUrl, urlData.getLine())) {
 				strength |= 32;
 			} // else ignore
 		}
 
 		if (matchingNumberStrings >= 1 && matchingNonNumberStrings >= 1 && nonMatchingNumberStrings == 0) {
-			if (!isSpecialMatch(sourceUrl, urlData)) {
+			if (!ignoreThisSpecialMatch(_urlKnownHostFragmentsValues, sourceUrl, urlData.getLine())) {
 				strength |= 64;
 			} else {
 				strength = 0; //force not a match
@@ -808,7 +1194,7 @@ public final class JHistory
 		if (strength > 0 && _Debug) {
 //		if (historyFragment.contains (debugFragment)) {
 			_log.debug ("JHistory.weakMatch: historyFragment: " + historyFragment);
-			_log.debug ("JHistory.weakMatch: pattern: " + pattern);
+			_log.debug ("JHistory.weakMatch: patternStr: " + patternStr);
 			_log.debug ("JHistory.weakMatch: set1:  (" + set1size + ") " + StringUtils.join (set1.stream ().sorted ().collect (Collectors.toList ()), ','));
 			_log.debug ("JHistory.weakMatch: set2:  (" + set2size + ") " + StringUtils.join (set2.stream ().sorted ().collect (Collectors.toList ()), ','));
 			_log.debug ("JHistory.weakMatch: set3:  (" + set3size + ") " + StringUtils.join (set3.stream ().sorted ().collect (Collectors.toList ()), ','));
@@ -817,6 +1203,19 @@ public final class JHistory
 		}
 
 		return strength;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private String getParseError (Throwable exception)
+	{
+		if (exception instanceof SocketTimeoutException) {
+			return "timeout";
+		} else if (exception instanceof UnknownHostException) {
+			return "unknown host error";
+		} else if (exception instanceof HttpStatusException) {
+			return "error " + ((HttpStatusException) exception).getStatusCode();
+		}
+		return "error";
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -836,20 +1235,21 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean writeHistoryFile (String urlString)
+	//do not write lines that have already been written
+	private synchronized boolean writeAppendJhHistoryFile(String urlString)
 	{
-		if (_outFileName == null || _outFileSet.contains (urlString)) {
+		if (_jhHistoryFileContents.contains (urlString)) {
 	 		return false;
 		}
 
-		try (FileOutputStream outputStream = new FileOutputStream (new File(_destDir + _outFileName), true)) {
-			outputStream.write (urlString.getBytes ());
+		try (FileOutputStream outputStream = new FileOutputStream (new File(_destDir + _jhHistoryFilename), true)) {
+			outputStream.write ((urlString + NL).getBytes ());
 			outputStream.flush ();
 
-			_outFileSet.add (urlString);
+			_jhHistoryFileContents.add (urlString);
 
 		} catch (IOException ee) {
-			_log.error ("JHistory.writeHistoryFile: error writing output file \"" + _destDir + _outFileName + "\"");
+			_log.error ("JHistory.writeAppendJhHistoryFile: error writing output file \"" + _destDir + _jhHistoryFilename + "\"");
 			_log.error (ee); //print exception, but no stack trace
 			return false;
 		}
@@ -878,12 +1278,13 @@ public final class JHistory
 	///////////////////////////////////////////////////////////////////////////
 	private void printTiming (Instant startInstant, String message)
 	{
-		if (!_printTiming) {
-			return;
-		}
+//		if (!_printTiming) {
+//			return;
+//		}
 
 		long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
-		_log.debug (message + ": elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
+//		_log.debug (message + ": elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
+		System.out.println(message + ": elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1028,6 +1429,8 @@ public final class JHistory
 		private final String _childTitle;
 		private final String _albumUrlStr;
 		private final List<String> _imageUrlStrList;
+
+//		private static final String _title;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1051,7 +1454,25 @@ public final class JHistory
 		///////////////////////////////////////////////////////////////////////////
 		public String getNormalizedLine ()
  		{
-			return _line.replaceFirst ("://www\\.", "://");
+//			if (_line.contains("www.bdsmirl.com")) {
+//				return _line;
+//			}
+ 			return _line.replaceFirst ("://www\\.", "://");
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public URL getDeNormalizedUrl () //throws Exception
+ 		{
+			String line = _line;
+			if (!_line.contains("://www.")) {
+				line = _line.replaceFirst("://", "://www.");
+			}
+			URL deNormalizedUrl = _url;
+			try {
+				deNormalizedUrl = new URL(line);
+			} catch (Exception ignore) {
+			}
+			return deNormalizedUrl;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1089,7 +1510,7 @@ public final class JHistory
 		///////////////////////////////////////////////////////////////////////////
 		public boolean isInterestingUrl ()
 		{
-			return getPathBase ().toLowerCase ().contains (_urlPathFragmentValue);
+			return _urlPathFragmentsValues.stream().anyMatch(s -> getPathBase ().toLowerCase ().contains (s));
 		}
 
 		//members
@@ -1146,31 +1567,39 @@ public final class JHistory
 	//private members
 	private static boolean _trace = false;
 	private String _destDir = null;
-	private String _outFileName = null;
-	private FileTime _historyFileModified = FileTime.from (Instant.MIN);
-	private List<UrlData> _historyFileContents = new ArrayList<UrlData> ();
-	private final Object _historyFileContentsLock = new Object ();
-	private final Set<String> _outFileSet = new HashSet<String> ();
+//	private String _outFileName = null;
+	private FileTime _guHistoryFileModified = FileTime.from (Instant.MIN);
+	private Set<String> _jhHistoryFileContents = new HashSet<> ();
+	private Set<String> _interestingUrls = new HashSet<>();
+	private List<UrlData> _guHistoryFileContents = new ArrayList<> ();
+	private final Object _guHistoryFileContentsLock = new Object ();
+	private int _timeoutSeconds = 5;
 	private final int _imageDimensionMax = 300;
-	private final int _timeoutMillis = 10000;
+
+	private String _mainTitle; //HACK
 
 	//must be specified in environment
-	private static String _urlPathFragmentValue;
-	private static String _urlPathFragmentName = "URL_PATH_FRAGMENT";
-	private static String _urlHostFragment1Value;
-	private static String _urlHostFragment1Name = "URL_HOST_FRAGMENT1";
-	private static String _urlHostFragment2Value;
-	private static String _urlHostFragment2Name = "URL_HOST_FRAGMENT2";
+	//NOTE: similar code exists in JHistory.java and GetUrl.java
+	private final static String _urlPathFragmentsName = "URL_PATH_FRAGMENTS";
+	private static List<String> _urlPathFragmentsValues;
+	private final static String _urlHostToBeSkippedName = "URL_HOST_TO_BE_SKIPPED";
+	private static List<String> _urlHostToBeSkippedValues;
+	private final static String _urlKnownHostFragmentsName = "URL_KNOWN_HOST_FRAGMENTS";
+	private static List<String> _urlKnownHostFragmentsValues;
+	private final static String _urlDeadHostFragmentsName = "URL_DEAD_HOST_FRAGMENTS";
+	private static List<String> _urlDeadHostFragmentsValues;
 
-	private boolean _printTiming = false; //for performance timing
+//	private boolean _printTiming = true; //for performance timing
 //	private Instant _startInstant = Instant.EPOCH; //for performance timing
 //	private Map<String, Integer> _recentUrlResultsCache = new HashMap<>();
 
-	private static final String _historyFilename = "gu.history.txt";
+	private static final String _guHistoryFilename = "gu.history.txt";
+	private static final String _jhHistoryFilename = "jHistory.log";
 	private static final String _htmlFilename = "00html.html";
 	private static final String _allNewLinksFilename = "00allNewLinks.dat";
 	private static final Logger _log = LogManager.getLogger ();
 
+	private static final short _defaultColor = Win32.CONSOLE_FOREGROUND_COLOR_WHITE;
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
 	private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;
 	private static final short _highlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;

@@ -887,6 +887,16 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static List<String> caseInsensitiveSortAndDedup (List<String> strings) {
+		Set<String> deduped = new HashSet<>(strings);
+
+		TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+		deduped.removeIf(s -> !seen.add(s));
+
+		return new ArrayList<>(deduped);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static String getStackTrace (Throwable ex)
 	{
 	    PrintWriter writer = new PrintWriter (new StringWriter ());
@@ -987,6 +997,30 @@ public class VendoUtils
 		}
 
 		return isDirectory;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//expects full path with wildcard "*" in the name only
+	//returns true if it finds any matches
+	public static boolean fileExistsWild (String wildname)
+	{
+		boolean fileExists = false;
+
+		try {
+			final String marker = "QyUuZeQa"; //temporarily remove any "*" since getPath does not accept them
+			Path fileWithMarker = FileSystems.getDefault ().getPath (wildname.replace("*", marker));
+			Path parent = fileWithMarker.getParent();
+			List<File> list = Arrays.asList((parent.toFile()).listFiles(File::isFile));
+
+			String wildnameOnly = fileWithMarker.toFile().getName().replace(marker, ".*");
+			Pattern pattern = Pattern.compile(wildnameOnly);
+			fileExists = list.stream().map(File::getName).anyMatch(pattern.asPredicate());
+
+		} catch (Exception ee) {
+			ee.printStackTrace ();
+		}
+
+		return fileExists;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1163,7 +1197,7 @@ public class VendoUtils
 		final boolean includeNewLine = true;
 		printWithColor (bg, fg, line, includeNewLine);
 	}
-	public static void printWithColor (Short bg, Short fg, String line, boolean includeNewLine)
+	public synchronized static void printWithColor (Short bg, Short fg, String line, boolean includeNewLine)
 	{
 		try {
 			if (includeNewLine) {

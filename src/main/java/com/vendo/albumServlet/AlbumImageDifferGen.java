@@ -345,7 +345,7 @@ public class AlbumImageDifferGen
 		}
 
 		if (_destRootPath.toString ().toLowerCase ().contains ("netscape")) { //handle AlbumImage case
-			String subFolder = AlbumImage.getSubFolderFromName (imageFileName);
+			String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (imageFileName);
 			imageFileName = FileSystems.getDefault ().getPath (_destRootPath.toString (), "jroot", subFolder, imageFileName).toString ();
 		}
 

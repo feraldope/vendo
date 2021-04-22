@@ -4,9 +4,9 @@
 
 package com.vendo.win32;
 
-import java.io.*;
-
 import com.vendo.win32.Win32.Kernel32;
+
+import java.io.PrintStream;
 
 
 public class ConsoleUtil
@@ -65,14 +65,14 @@ public class ConsoleUtil
 			short current_bg_and_fg_color = console_screen_buffer_info.wAttributes;
 			if (null == background_color) {
 				short current_bg_color = (short) (current_bg_and_fg_color / 0x10);
-				background_color = new Short (current_bg_color);
+				background_color = current_bg_color;
 			}
 			if (null == foreground_color) {
 				short current_fg_color = (short) (current_bg_and_fg_color % 0x10);
-				foreground_color = new Short (current_fg_color);
+				foreground_color = current_fg_color;
 			}
 		}
-		short bg_and_fg_color = (short) (background_color.shortValue () | foreground_color.shortValue ());
+		short bg_and_fg_color = (short) (background_color | foreground_color);
 		Kernel32.DLL.SetConsoleTextAttribute (stdout_handle, bg_and_fg_color);
 	}
 

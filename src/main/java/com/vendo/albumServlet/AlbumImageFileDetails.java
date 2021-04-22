@@ -2,13 +2,12 @@
 
 package com.vendo.albumServlet;
 
-//import org.apache.logging.log4j.*;
-
 
 import org.apache.commons.lang3.time.FastDateFormat;
 
 import java.util.Date;
 import java.util.Objects;
+
 
 public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 {
@@ -18,6 +17,14 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 		_name = name;
 		_bytes = bytes;
 		_modified = modified;
+
+		if (_name == null || _name.isEmpty() || _bytes <= 0 || _modified <= 0) {
+			throw new IllegalArgumentException ("AlbumImageFileDetails.ctor: invalid values: + " + toString());
+
+//			String message = "AlbumImageFileDetails.ctor: invalid values: " + toString();
+//			_log.error(message, new IllegalArgumentException (message));
+//			throw new IllegalArgumentException (message);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////

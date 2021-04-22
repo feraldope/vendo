@@ -2,7 +2,8 @@
 
 package com.vendo.getUrl;
 
-import com.vendo.albumServlet.AlbumImage;
+import com.vendo.albumServlet.AlbumImageDao;
+import com.vendo.jHistory.JHistory;
 import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
@@ -26,6 +27,7 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 public class GetUrl {
@@ -127,6 +129,20 @@ public class GetUrl {
 						displayUsage("Missing value for /" + arg, true);
 					}
 					_switches.add("/prefix " + _numberPrefix);
+
+				} else if (arg.equalsIgnoreCase("retry") || arg.equalsIgnoreCase("r")) {
+					try {
+						_retryCount = Integer.parseInt(args[++ii]);
+						if (_retryCount < 0) {
+							throw (new NumberFormatException());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+					_overrideStartIndex = true;
+					_switches.add("/retry " + _retryCount);
 
 				} else if (arg.equalsIgnoreCase("start") || arg.equalsIgnoreCase("s")) {
 					try {
@@ -230,14 +246,23 @@ public class GetUrl {
 			setFileType();
 		}
 
-		_urlHostFragment1Value = System.getenv(_urlHostFragment1Name);
-		if (_urlHostFragment1Value == null || _urlHostFragment1Value.isEmpty()) {
-			displayUsage ("Must specify environment variable '" + _urlHostFragment1Name + "'", true);
+		//NOTE: similar code exists in JHistory.java and GetUrl.java
+		_urlPathFragmentsValues = Arrays.stream(System.getenv (_urlPathFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
 		}
-
-		_urlHostFragment2Value = System.getenv(_urlHostFragment2Name);
-		if (_urlHostFragment2Value == null || _urlHostFragment2Value.isEmpty()) {
-			displayUsage ("Must specify environment variable '" + _urlHostFragment2Name + "'", true);
+		_urlHostToBeSkippedValues = Arrays.stream(System.getenv (_urlHostToBeSkippedName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlHostToBeSkippedValues == null ||*/ _urlHostToBeSkippedValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlHostToBeSkippedName + "'", true);
+		}
+		//DO NOT SORT - DO NOT CHANGE ORDER FROM FILE
+		_urlKnownHostFragmentsValues = Arrays.stream(System.getenv (_urlKnownHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlKnownHostFragmentsValues == null ||*/ _urlKnownHostFragmentsValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlKnownHostFragmentsName + "'", true);
+		}
+		_urlDeadHostFragmentsValues = Arrays.stream(System.getenv (_urlDeadHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (_urlDeadHostFragmentsValues == null || _urlDeadHostFragmentsValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlDeadHostFragmentsName + "'", true);
 		}
 
 		return true;
@@ -250,7 +275,8 @@ public class GetUrl {
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/sleep <millis>] [/strip] [/ignore] [/checkHistoryOnly] [/fromFile <file>] [/dest <dest dir>] [/start <start index>] [/block <block number>] [/maxMissedFiles <count>] [/digits <number>] [/pad <number>] [/prefix <numberPrefix>] <URL> <output prefix>";
+		msg += "Usage: " + _AppName + " [/debug] [/sleep <millis>] [/strip] [/ignore] [/checkHistoryOnly] [/fromFile <file>] [/dest <dest dir>] [/start <start index>] [/block <block number>]" +
+									  " [/maxMissedFiles <count>] [/digits <number>] [/pad <number>] [/prefix <numberPrefix>] [/retry <number of times to retry on exception>] <URL> <output prefix>";
 		System.err.println("Error: " + msg + NL);
 
 		if (exit) {
@@ -410,7 +436,7 @@ public class GetUrl {
 		int totalBytesRead = 0;
 		double imageElapsedNanos = 0;
 
-		int retryCount = 250;
+		int retryCount = _retryCount;
 		int retrySleepStepMillis = 250; //increase sleep time on each failure
 		int retrySleepMillis = retrySleepStepMillis;
 
@@ -464,13 +490,20 @@ public class GetUrl {
 				_log.error("getUrl: error (" + responseCode + ") reading url: " + _urlStr);
 				_log.error(ee); //print exception, but no stack trace
 
-				boolean retryableCondition = ee instanceof ConnectException ||
+				boolean retryableCondition = (ee instanceof ConnectException ||
 											ee instanceof SocketException ||
 											ee instanceof SocketTimeoutException ||
 											ee instanceof UnknownHostException ||
 //											(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
 //											(ee instanceof IOException && responseCode == errorGatewayTimeout);
-											(ee instanceof IOException && responseCode >= 500 && responseCode < 510);
+											(ee instanceof IOException && responseCode >= 500 && responseCode < 510));
+
+				if (ee instanceof UnknownHostException) {
+					if (JHistory.isKnownDeadHost(_urlDeadHostFragmentsValues, _urlStr)) {
+						VendoUtils.printWithColor(_alertColor, "Aborting. This is a known dead host: " + _urlStr);
+						throw new RuntimeException ("GetUrl.getUrl: Aborting. This is a known dead host.");
+					}
+				}
 
 				if (retryableCondition && retryCount >= 0) {
 					_log.debug("******** retries left = " + retryCount + ", sleepMillis = " + retrySleepMillis + " ********");
@@ -628,7 +661,7 @@ public class GetUrl {
 		String filenameNumber = String.format(filenameNumberFormat, _index);
 
 		_urlStr = _base + _headOrig + _numberPrefix + urlNumber + _tailOrig;
-		_filename = _destDir + _outputPrefix + _headUsed + filenameNumber + _tailUsed;
+		_filename = _destDir + _outputPrefix + _headUsed + filenameNumber + "." + _extension;
 
 //		if (_Debug) {
 //			_log.debug ("_urlStr = " + _urlStr);
@@ -897,22 +930,18 @@ public class GetUrl {
 		}
 
 		//process tail
-		_tailUsed = _tailOrig = parts1[1];
+		_extension = _tailOrig = parts1[1];
 		String[] parts2 = _tailOrig.toLowerCase().split("\\."); //regex
 		if (parts2.length == 2) {
-			_tailUsed = "." + parts2[1];
+			_extension = parts2[1];
 		}
 
-		if (_tailUsed.equals(".jpeg")) {
-			_tailUsed = ".jpg";
+		if (_extension.equals("jpeg")) {
+			_extension = "jpg";
 		}
 
 		//process head
-		if (parts1.length == 2) {
-			_headOrig = parts1[0];
-		} else {
-			_headOrig = "";
-		}
+		_headOrig = parts1[0];
 
 		if (_stripHead) {
 			_headUsed = "";
@@ -926,11 +955,11 @@ public class GetUrl {
 		if (_Debug) {
 			_log.debug("_base = " + _base);
 			_log.debug("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
-			if (!".jpg".equalsIgnoreCase(_tailOrig)) {
+			if (!"jpg".equalsIgnoreCase(_tailOrig)) {
 				_log.debug("_tailOrig = " + _tailOrig);
 			}
-			if (!".jpg".equalsIgnoreCase(_tailUsed)) {
-				_log.debug("_tailUsed = " + _tailUsed);
+			if (!"jpg".equalsIgnoreCase(_extension)) {
+				_log.debug("_extension = " + _extension);
 			}
 			_log.debug("_digits = " + _digits);
 		}
@@ -950,16 +979,16 @@ public class GetUrl {
 			ImageBaseNames imageBaseNames = new ImageBaseNames(_outputPrefix);
 
 			if (imageBaseNames.hasInvalidMatch()) {
-				VendoUtils.printWithColor(_alertColor, "Error: invalid basename: \"" + _outputPrefix + "\"");
+				VendoUtils.printWithColor(_alertColor, "Error: invalid baseName: \"" + _outputPrefix + "\"");
 				return false;
 
 			} else if (imageBaseNames.hasMultipleMatches()) {
-				VendoUtils.printWithColor(_alertColor, "Error: multiple matching basenames found for \"" + _outputPrefix + "\": " + imageBaseNames.getMatchingNames());
+				VendoUtils.printWithColor(_alertColor, "Error: multiple matching baseNames found for \"" + _outputPrefix + "\": " + imageBaseNames.getMatchingNames());
 				return false;
 
 			} else if (imageBaseNames.hasNoMatches()) {
 				if (imageBaseNames.usingWildcards()) {
-					VendoUtils.printWithColor(_alertColor, "Error: no matching basenames found for \"" + _outputPrefix + "\"");
+					VendoUtils.printWithColor(_alertColor, "Error: no matching baseNames found for \"" + _outputPrefix + "\"");
 					return false;
 				}
 
@@ -1007,12 +1036,6 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean isSpecialMatch (String sourceUrl, String historyUrl) {
-		return (sourceUrl.contains(_urlHostFragment2Value) && historyUrl.contains(_urlHostFragment1Value))
-			|| (sourceUrl.contains(_urlHostFragment1Value) && historyUrl.contains(_urlHostFragment2Value));
-	}
-
-	///////////////////////////////////////////////////////////////////////////
 	private boolean findInHistory(String basePattern, boolean printResults) {
 //		String pattern = stripHttpHeader (basePattern).toLowerCase ();
 		String pattern = VendoUtils.getUrlFileComponent(basePattern).toLowerCase();
@@ -1046,7 +1069,7 @@ public class GetUrl {
 		for (int ii = 0; ii < numLines; ii++) {
 			String baseLine = _historyFileContents.get(ii);
 			String line = /*stripHttpHeader*/ (baseLine).toLowerCase();
-			if (line.contains(pattern) && !isSpecialMatch(basePattern, baseLine)) {
+			if (line.contains(pattern) && !JHistory.ignoreThisSpecialMatch(_urlKnownHostFragmentsValues, basePattern, baseLine)) {
 				if (!found) { //print header
 					found = true;
 
@@ -1151,17 +1174,17 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private FileType setFileType() {
-		String extension = _model.toLowerCase();
+		String model = _model.toLowerCase();
 
-		if (extension.endsWith(".jpg") || extension.endsWith(".jpeg")) {
+		if (model.endsWith(".jpg") || model.endsWith(".jpeg")) {
 			_fileType = FileType.JPG;
-		} else if (extension.endsWith(".mpg")) {
+		} else if (model.endsWith(".mpg")) {
 			_fileType = FileType.MPG;
-		} else if (extension.endsWith(".wmv")) {
+		} else if (model.endsWith(".wmv")) {
 			_fileType = FileType.WMV;
-		} else if (extension.endsWith(".mp4")) {
+		} else if (model.endsWith(".mp4")) {
 			_fileType = FileType.MP4;
-		} else if (extension.endsWith(".avi")) {
+		} else if (model.endsWith(".avi")) {
 			_fileType = FileType.AVI;
 		} else {
 			_fileType = FileType.Other;
@@ -1368,7 +1391,7 @@ public class GetUrl {
 				System.out.println("GetUrl.ImageBaseNames: outputPrefix @2 = " + outputPrefix);
 			}
 
-			String subFolder = AlbumImage.getSubFolderFromName(outputPrefix);
+			String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName(outputPrefix);
 			if (subFolder == null || subFolder.length() == 0) {
 				throw new IllegalArgumentException("no matching image subfolder for imageName \"" + outputPrefix + "\"");
 			}
@@ -1477,9 +1500,9 @@ public class GetUrl {
 		///////////////////////////////////////////////////////////////////////////
 		private List<String> getFileList(String dirName, final String nameWild) {
 			//digits in following pattern prevent e.g. "Foo01" from matching "FooBar01"
-//save old code until tested
-// 			Pattern pattern = Pattern.compile(nameWild + "[0-9][0-9].*" + "\\" + _tailUsed, Pattern.CASE_INSENSITIVE);
-			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\" + _tailUsed, Pattern.CASE_INSENSITIVE);
+//save old code until tested.
+// 			Pattern pattern = Pattern.compile(nameWild + "[0-9][0-9].*" + "\\" + _extension, Pattern.CASE_INSENSITIVE);
+			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + _extension, Pattern.CASE_INSENSITIVE);
 
 			if (_classDebug) {
 				System.out.println("GetUrl.getFileList: dirName = " + dirName + ", nameWild = " + nameWild + ", pattern = " + pattern.pattern());
@@ -1498,7 +1521,7 @@ public class GetUrl {
 //			if (_classDebug) {
 //				System.out.println ("GetUrl.getFileList: files = " + files);
 //			}
-//save old code until tested
+//save old code until tested.
 //			return (files != null ? Arrays.asList(dir.list(filenameFilter)) : new ArrayList<String>());
 			return (files != null ? Arrays.asList(files) : new ArrayList<String>());
 		}
@@ -1588,6 +1611,7 @@ public class GetUrl {
 	private long _startIndex = 1;
 	private int _maxMissedFiles = 3;
 	private int _blockNumber = 0;
+	private int _retryCount = 3;
 	private boolean _overrideStartIndex = false;
 	private boolean _stripHead = false;
 	private boolean _autoPrefix = true;
@@ -1602,7 +1626,7 @@ public class GetUrl {
 	private String _headOrig = null;
 	private String _headUsed = null;
 	private String _tailOrig = null;
-	private String _tailUsed = null;
+	private String _extension = null; //excluding "."
 	private String _urlStr = null;
 	private String _filename = null;
 	private String _destDir = null;
@@ -1623,10 +1647,15 @@ public class GetUrl {
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm:ss"); //note this wraps values >= 60 minutes
 
 	//must be specified in environment
-	private static String _urlHostFragment1Value;
-	private static String _urlHostFragment1Name = "URL_HOST_FRAGMENT1";
-	private static String _urlHostFragment2Value;
-	private static String _urlHostFragment2Name = "URL_HOST_FRAGMENT2";
+	//NOTE: similar code exists in JHistory.java and GetUrl.java
+	private final static String _urlPathFragmentsName = "URL_PATH_FRAGMENTS";
+	private static List<String> _urlPathFragmentsValues;
+	private final static String _urlHostToBeSkippedName = "URL_HOST_TO_BE_SKIPPED";
+	private static List<String> _urlHostToBeSkippedValues;
+	private final static String _urlKnownHostFragmentsName = "URL_KNOWN_HOST_FRAGMENTS";
+	private static List<String> _urlKnownHostFragmentsValues;
+	private final static String _urlDeadHostFragmentsName = "URL_DEAD_HOST_FRAGMENTS";
+	private static List<String> _urlDeadHostFragmentsValues;
 
 	private static final int _alertPixels = 640;
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;

@@ -2,11 +2,11 @@
 
 package com.vendo.albumServlet;
 
+import org.apache.ibatis.annotations.Param;
+
 import java.sql.Timestamp;
 import java.util.Collection;
 import java.util.List;
-
-import org.apache.ibatis.annotations.Param;
 
 
 public interface AlbumImageMapper {
@@ -33,7 +33,9 @@ public interface AlbumImageMapper {
 
 	public List<AlbumImageCount> selectMismatchedEntriesFromImageCounts ();
 
-	public List<AlbumImageDiffDetails> selectImagesFromImageDiffs ();
+	public List<AlbumImageDiffDetails> selectAllImagesFromImageDiffs ();
+
+	public List<AlbumImageDiffDetails> selectImagesFromImageDiffs (@Param("nameIds") Collection<Integer> nameIds);
 
 	public Collection<AlbumImageData> selectNamesFromImages (@Param("names") Collection<String> names);
 

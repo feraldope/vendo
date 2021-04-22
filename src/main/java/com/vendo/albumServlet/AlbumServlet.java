@@ -94,7 +94,7 @@ public class AlbumServlet extends HttpServlet
 				out.println (message);
 
 				_log.debug ("--------------- AlbumServlet.doGet - aborted ---------------");
-				return;
+//				return;
 			}
 		}
 
@@ -108,7 +108,7 @@ public class AlbumServlet extends HttpServlet
 //TODO - change CLI to read properties file, too
 		ServletContext context = getServletContext ();
 
-		AlbumFormInfo form = AlbumFormInfo.newInstance (); //force a new instance on every request
+		AlbumFormInfo form = AlbumFormInfo.getInstance (true); //force a new instance on every request
 		form.processRequest (request, context); //also checks for debug request
 		AlbumBeanUtilities.populateBean (form, request);
 
@@ -216,10 +216,10 @@ public class AlbumServlet extends HttpServlet
 			//avoid Firefox message when refreshing (when using method=post)
 //		   .append ("		window.location = window.location;").append (NL)
 		   //add display geometry
-		   .append ("		var screenWidth = document.getElementById (\"screenWidth\");").append (NL)
-		   .append ("		var screenHeight = document.getElementById (\"screenHeight\");").append (NL)
-		   .append ("		screenWidth.value = top.screen.width;").append (NL)
-		   .append ("		screenHeight.value = top.screen.height;").append (NL)
+//		   .append ("		var screenWidth = document.getElementById (\"screenWidth\");").append (NL)
+//		   .append ("		var screenHeight = document.getElementById (\"screenHeight\");").append (NL)
+//		   .append ("		screenWidth.value = top.screen.width;").append (NL)
+//		   .append ("		screenHeight.value = top.screen.height;").append (NL)
 		   .append ("		var windowWidth = document.getElementById (\"windowWidth\");").append (NL)
 		   .append ("		var windowHeight = document.getElementById (\"windowHeight\");").append (NL)
 		   .append ("		windowWidth.value = top.window.innerWidth;").append (NL)
@@ -230,7 +230,6 @@ public class AlbumServlet extends HttpServlet
 		   //add userAgent to URL for browser (and mobile) specific handling
 		   .append ("		var userAgent = document.getElementById (\"userAgent\");").append (NL)
 		   .append ("		userAgent.value = navigator.userAgent;").append (NL)
-//		   .append ("		alert (\"userAgent=\" + userAgent);").append (NL)
 //		   .append ("		alert (\"userAgent.value=\" + userAgent.value);").append (NL)
 		   .append ("		return true;").append (NL)
 		   .append ("	}").append (NL)
@@ -241,19 +240,40 @@ public class AlbumServlet extends HttpServlet
 //		   .append ("	}").append (NL)
 		   .append ("</SCRIPT>").append (NL)
 
+//testing
+//		   .append ("<FORM name=\"AlbumForm\" onDOMContentLoaded=\"return handleSubmit()\" autocomplete=\"off\" ").append (method).append (action).append (">").append (NL)
+//		   .append ("<FORM name=\"AlbumForm\" onbeforeprint=\"return handleSubmit()\" autocomplete=\"off\" ").append (method).append (action).append (">").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"screenWidth\" id=\"screenWidth\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"screenHeight\" id=\"screenHeight\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"windowWidth\" id=\"windowWidth\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"windowHeight\" id=\"windowHeight\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"timestamp\" id=\"timestamp\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"userAgent\" id=\"userAgent\" />").append (NL)
+//		   .append ("</FORM>").append (NL)
+
+//		window.addEventListener('DOMContentLoaded', (event) => {
+//				console.log('DOM fully loaded and parsed');
+//});
+
+//testing
+//			.append ("	<form method=\"GET\" action=\"/AlbumServlet\">").append(NL)// action="your/page/url">
+//			.append ("		<input type=\"hidden\" name=\"someName\" value=\"someValue\" />").append(NL)
+//			.append ("		<input type=\"submit\" />").append(NL)
+//			.append ("	</form>").append(NL)
+
 //		   .append ("</HEAD>").append (NL)
 //		   .append ("<BODY onload=\"setFocus()\" BGCOLOR=\"").append (bgColor).append ("\">").append (NL)
 //		   .append ("<CENTER>").append (NL)
 //		   .append ("<H3>").append (title).append ("</H3>").append (NL)
 
 		   .append ("<FORM name=\"AlbumForm\" onsubmit=\"return handleSubmit()\" autocomplete=\"off\" ").append (method).append (action).append (">").append (NL)
-		   .append ("	<input type=\"hidden\" name=\"screenWidth\" id=\"screenWidth\" />").append (NL)
-		   .append ("	<input type=\"hidden\" name=\"screenHeight\" id=\"screenHeight\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"screenWidth\" id=\"screenWidth\" />").append (NL)
+//		   .append ("	<input type=\"hidden\" name=\"screenHeight\" id=\"screenHeight\" />").append (NL)
 		   .append ("	<input type=\"hidden\" name=\"windowWidth\" id=\"windowWidth\" />").append (NL)
 		   .append ("	<input type=\"hidden\" name=\"windowHeight\" id=\"windowHeight\" />").append (NL)
 		   .append ("	<input type=\"hidden\" name=\"timestamp\" id=\"timestamp\" />").append (NL)
 		   .append ("	<input type=\"hidden\" name=\"userAgent\" id=\"userAgent\" />").append (NL)
-//				.append ("</FORM>").append (NL)
+//form ends at bottom of page		   .append ("</FORM>").append (NL)
 
 		   .append ("<TABLE WIDTH=").append (tableWidthString).append (" CELLPADDING=0 CELLSPACING=0 BORDER=0>").append (NL)
 		   .append ("<TR>").append (NL)

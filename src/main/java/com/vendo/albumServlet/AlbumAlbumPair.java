@@ -1,4 +1,4 @@
-//AlbumImagePair.java - class to hold a pair of images that typically are related (like dups)
+//AlbumAlbumPair.java - class to hold one imagePair (two albums) of albums (collection of AlbumImage objects) that typically are related (like dups)
 
 package com.vendo.albumServlet;
 
@@ -13,36 +13,42 @@ import java.util.stream.Collectors;
 //import org.apache.logging.log4j.*;
 
 
-public class AlbumImageSet
+public class AlbumAlbumPair
 {
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImageSet(String joinedNames)
+	public AlbumAlbumPair(String joinedNames)
 	{
 		this (joinedNames, null);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImageSet(String joinedNames, AlbumImagePair pair)
+	public AlbumAlbumPair(String joinedNames, AlbumImagePair imagePair)
 	{
 		_joinedNames = joinedNames;
 
-		if (pair != null) {
-			addPair(pair);
+		if (imagePair != null) {
+			addImagePair(imagePair);
 		}
 
 		_baseNames = Arrays.stream(_joinedNames.split(","))
 							.sorted(_alphanumComparator)
 							.collect(Collectors.toList());
 
-		_numberOfImagesInAlbum1 = AlbumImages.getNumMatchingImages (_baseNames.get(0), 0);
-		_numberOfImagesInAlbum2 = AlbumImages.getNumMatchingImages (_baseNames.get(1), 0);
+		_numberOfImagesInAlbum1 = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(0), 0);
+		_numberOfImagesInAlbum2 = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(1), 0);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void addPair(AlbumImagePair pair)
+	public void addImagePair(AlbumImagePair imagePair)
 	{
-		_pairs.add(pair);
-		incrementNumberOfDuplicateMatches (pair.getImage1 ().compareToByPixels (pair.getImage2 ())); //pass pixelDiff
+		_imagePairs.add(imagePair);
+		incrementNumberOfDuplicateMatches (imagePair.getImage1 ().compareToByPixels (imagePair.getImage2 ())); //pass pixelDiff
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public Set<AlbumImagePair> getImagePairs ()
+	{
+		return _imagePairs;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -108,15 +114,38 @@ public class AlbumImageSet
 		final int slop = 2;
 		return ((Math.abs (getNumberOfImagesInAlbum2 () - getNumberOfDuplicateMatches ()) <= slop) &&
 				(Math.abs (getNumberOfDuplicateMatches() - _numberOfImagesOfEqualSize - _numberOfImagesWhereFirstIsLarger) <= slop));
-
 	}
 
+/*
 	///////////////////////////////////////////////////////////////////////////
-	//returns true if at least one image in either pair has the same base name as an pair in this set
-	public boolean matchesAtLeastOneImage (AlbumImagePair pair2)
+	//returns true if at least one image in either imagePair has the same base name as an imagePair in this set
+	public boolean matchesAtLeastOneImage (AlbumAlbumPair set2)
 	{
 		//TODO: improve this brute-force method
-		for (AlbumImagePair pair1 : _pairs) {
+		Set<AlbumImage> images1 = new HashSet<>();
+		for (AlbumImagePair imagePair : _imagePairs) {
+			images1.add(imagePair.getImage1());
+			images1.add(imagePair.getImage2());
+		}
+		Set<AlbumImage> images2 = new HashSet<>();
+		for (AlbumImagePair imagePair : set2.getPairs()) {
+			images2.add(imagePair.getImage1());
+			images2.add(imagePair.getImage2());
+		}
+		for (AlbumImage image1 : images1) {
+			for (AlbumImage image2 : images2) {
+				if (image1.getBaseName(false).equalsIgnoreCase(image2.getBaseName(false))) {
+					return true;
+				}
+			}
+
+		}
+
+		return false;
+*/
+/* old way
+		//TODO: improve this brute-force method
+		for (AlbumImagePair pair1 : _imagePairs) {
 			if (pair1.getImage1().equalBase(pair2.getImage1(), false) ||
 				pair1.getImage1().equalBase(pair2.getImage2(), false) ||
 				pair1.getImage2().equalBase(pair2.getImage1(), false) ||
@@ -124,16 +153,14 @@ public class AlbumImageSet
 				return true;
 			}
 		}
-
 		return false;
 	}
+*/
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getDetailString() {
-		AlphanumComparator alphanumComparator = new AlphanumComparator();
-
-		if (_pairs.isEmpty()) {
-			return "<no pairs>";
+		if (_imagePairs.isEmpty()) {
+			return "<no image pairs>";
 		}
 
 		String pixelDiffString;
@@ -160,7 +187,7 @@ public class AlbumImageSet
 		sb.append (getBaseName(1)).append (", ");
 		sb.append (getNumberOfImagesInAlbum1 ()).append (", ");
 		sb.append (getNumberOfImagesInAlbum2 ()).append (", ");
-		sb.append (_pairs.size()).append (", ");
+		sb.append (_imagePairs.size()).append (", ");
 		sb.append (pixelDiffString);
 //		sb.append (getAverageDiff ()).append (", ");
 //		sb.append (getStdDev ()).append (", ");
@@ -181,7 +208,7 @@ public class AlbumImageSet
 	protected int _numberOfImagesWhereFirstIsLarger;
 	protected int _numberOfImagesWhereSecondIsLarger;
 
-	protected final Set<AlbumImagePair> _pairs = new HashSet<>();
+	protected final Set<AlbumImagePair> _imagePairs = new HashSet<>();
 
 	private static final AlphanumComparator _alphanumComparator = new AlphanumComparator();
 

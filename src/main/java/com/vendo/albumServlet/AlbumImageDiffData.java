@@ -1,8 +1,8 @@
 package com.vendo.albumServlet;
 
-import java.util.Date;
-
 import org.apache.commons.lang3.time.FastDateFormat;
+
+import java.util.Date;
 
 public class AlbumImageDiffData
 {
@@ -14,17 +14,21 @@ public class AlbumImageDiffData
 		_stdDev = stdDev;
 		_source = source;
 		_lastUpdate = lastUpdate;
+
+		if (_name1 == null || _name1.isEmpty() || _name2 == null || _name2.isEmpty() || _averageDiff < 0 || _stdDev < 0 || _source == null || _source.isEmpty() || _lastUpdate == null) {
+			throw new IllegalArgumentException ("AlbumImageDiffData.ctor: invalid values: + " + toString());
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageDiffData (AlbumImageDiffData imageData) {
-		_name1 = imageData.getName1 ();
-		_name2 = imageData.getName2 ();
-		_averageDiff = imageData.getAverageDiff ();
-		_stdDev = imageData.getStdDev ();
-		_source = imageData.getSource ();
-		_lastUpdate = imageData.getLastUpdate ();
-	}
+//	AlbumImageDiffData (AlbumImageDiffData imageData) {
+//		_name1 = imageData.getName1 ();
+//		_name2 = imageData.getName2 ();
+//		_averageDiff = imageData.getAverageDiff ();
+//		_stdDev = imageData.getStdDev ();
+//		_source = imageData.getSource ();
+//		_lastUpdate = imageData.getLastUpdate ();
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getName1 () {

@@ -100,8 +100,7 @@ class ClipboardListener extends Thread implements ClipboardOwner
 		Transferable contents = null;
 
 		do {
-//			VendoUtils.sleepMillis (50); //hack
-			VendoUtils.sleepMillis (5); //hack
+			VendoUtils.sleepMillis (10); //hack
 
 			try {
 				contents = _clipboard.getContents (this);
@@ -131,7 +130,7 @@ class ClipboardListener extends Thread implements ClipboardOwner
 	///////////////////////////////////////////////////////////////////////////
 	void processContents (Transferable contents)
 	{
-		String string = new String ();
+		String string = "";
 
 //		if (_trace && contents != null) {
 //			DataFlavor[] dataFlavors = contents.getTransferDataFlavors ();

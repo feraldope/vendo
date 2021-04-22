@@ -10,23 +10,32 @@ public class AlbumImageData implements Comparator<AlbumImageData>
 		_nameId = nameId;
 		_name = name;
 		_orientation = orientation;
+
+		if (_nameId <= 0 || _name == null || _name.isEmpty()) {
+			throw new IllegalArgumentException ("AlbumImageData.ctor1: invalid values: + " + toString());
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//this ctor is used by mybatis
 	AlbumImageData (int nameId, String name, int width, int height)
 	{
 		_nameId = nameId;
 		_name = name;
 		_orientation = AlbumOrientation.getOrientation (width, height);
+
+		if (_nameId <= 0 || _name == null || _name.isEmpty()) {
+			throw new IllegalArgumentException ("AlbumImageData.ctor2: invalid values: + " + toString());
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageData (AlbumImageData imageData)
-	{
-		_nameId = imageData.getNameId ();
-		_name = imageData.getName ();
-		_orientation = imageData.getOrientation ();
-	}
+//	AlbumImageData (AlbumImageData imageData)
+//	{
+//		_nameId = imageData.getNameId ();
+//		_name = imageData.getName ();
+//		_orientation = imageData.getOrientation ();
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public int getNameId ()
@@ -47,15 +56,19 @@ public class AlbumImageData implements Comparator<AlbumImageData>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSubFolder ()
-	{
-		return AlbumImage.getSubFolderFromName (getName ());
+	//calculated on demand and cached
+	public synchronized String getSubFolder () {
+		if (_subFolder == null) {
+			_subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName(getName ());
+		}
+
+		return _subFolder;
 	}
 
 	@Override
 	public int compare (AlbumImageData data1, AlbumImageData data2)
 	{
-		return data1._name.compareToIgnoreCase(data2.getName ());
+		return data1.getName ().compareToIgnoreCase (data2.getName ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -74,4 +87,6 @@ public class AlbumImageData implements Comparator<AlbumImageData>
 	private final int _nameId;
 	private final String _name;
 	private final AlbumOrientation _orientation;
+
+	private String _subFolder;
 }

@@ -60,7 +60,6 @@
       <option name="ignoreObscureOperators" value="false" />
     </inspection_tool>
     <inspection_tool class="StaticGuardedByInstance" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="SuspiciousGetterSetter" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestOnlyProblems" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnknownGuard" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="UnusedReturnValue" enabled="false" level="WARNING" enabled_by_default="false" />

@@ -1,4 +1,4 @@
-//AlbumImagePair.java - class to hold a pair of images that typically are related (like dups)
+//AlbumImagePair.java - class to hold one pair (two only) of AlbumImage objects that typically are related (like dups)
 
 package com.vendo.albumServlet;
 
@@ -16,14 +16,14 @@ public class AlbumImagePair //implements Comparator<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2)
 	{
-		this (image1, image2, 0, 0, null, null);
+		this (image1, image2, -1, -1, null, null);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source)
-	{
-		this (image1, image2, averageDiff, stdDev, source, null);
-	}
+//	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source)
+//	{
+//		this (image1, image2, averageDiff, stdDev, source, null);
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source, Date lastUpdate)
@@ -37,6 +37,11 @@ public class AlbumImagePair //implements Comparator<AlbumImage>
 		_lastUpdate = lastUpdate;
 		_joinedNames = getJoinedNames (getImage1 (), getImage2 (), false);
 		_joinedNamesPlusAttrs = getJoinedNames (getImage1 (), getImage2 (), true);
+
+//TODO
+//		if (_filter == null || _filter.isEmpty()) {
+//			throw new IllegalArgumentException ("ImageDuplicateDetails.ctor: invalid values: + " + toString());
+//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -102,7 +107,6 @@ public class AlbumImagePair //implements Comparator<AlbumImage>
 					.sorted (_alphanumComparator) //sort numerically
 					.collect (Collectors.joining (","));
 	}
-
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns true if at least one image in either pair has the same base name

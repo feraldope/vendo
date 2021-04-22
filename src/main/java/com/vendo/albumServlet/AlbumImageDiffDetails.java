@@ -5,15 +5,19 @@ package com.vendo.albumServlet;
 //import org.apache.logging.log4j.*;
 
 
+import java.sql.Timestamp;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
 public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageDiffDetails (int nameId1, int nameId2)
-	{
-		this (nameId1, nameId2, 0, 0, 0, null);
-	}
+//	AlbumImageDiffDetails (int nameId1, int nameId2)
+//	{
+//		this (nameId1, nameId2, 0, 0, 0, null, null);
+//	}
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageDiffDetails (int nameId1, int nameId2, int avgDiff, int stdDev, int count, String source)
+	AlbumImageDiffDetails (int nameId1, int nameId2, int avgDiff, int stdDev, int count, String source, Timestamp lastUpdate)
 	{
 		if (nameId1 < nameId2) {
 			_nameId1 = nameId1;
@@ -26,6 +30,11 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 		_stdDev = stdDev;
 		_count = count;
 		_source = source;
+		_lastUpdate = lastUpdate;
+
+		if (_nameId1 <= 0 || _nameId2 <= 0 || _avgDiff < 0 || _stdDev < 0 || _count < 1 || _source == null || _source.isEmpty() || _lastUpdate == null) {
+			throw new IllegalArgumentException ("AlbumImageDiffDetails.ctor: invalid values: + " + toString());
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -62,6 +71,21 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	public String getSource ()
 	{
 		return _source;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public Timestamp getLastUpdate ()
+	{
+		return _lastUpdate;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String getJoinedNameIds (int imageId1, int imageId2)
+	{
+		return Arrays.stream (new Integer[] { imageId1, imageId2 })
+						.sorted ()
+						.map(String::valueOf)
+						.collect (Collectors.joining (","));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -102,13 +126,14 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	@Override
 	public String toString ()
 	{
-		StringBuffer sb = new StringBuffer ();
-		sb.append (getNameId1 ()).append (", ");
-		sb.append (getNameId2 ()).append (", ");
-		sb.append (getAvgDiff ()).append (", ");
-		sb.append (getStdDev ()).append (", ");
-		sb.append (getCount ()).append (", ");
-		sb.append (getSource ());
+		StringBuilder sb = new StringBuilder();
+		sb.append (getNameId1 ()).append (", ")
+		  .append (getNameId2 ()).append (", ")
+		  .append (getAvgDiff ()).append (", ")
+		  .append (getStdDev ()).append (", ")
+		  .append (getCount ()).append (", ")
+		  .append (getSource ()).append (", ")
+		  .append (getLastUpdate());
 
 		return sb.toString ();
 	}
@@ -120,6 +145,7 @@ public class AlbumImageDiffDetails implements Comparable<AlbumImageDiffDetails>
 	private final Integer _stdDev;
 	private final Integer _count;
 	private final String _source;
+	private final Timestamp _lastUpdate;
 
 //	private static Logger _log = LogManager.getLogger ();
 }

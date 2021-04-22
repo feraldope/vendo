@@ -19,6 +19,9 @@ import java.nio.ByteBuffer;
 import java.nio.file.*;
 import java.sql.*;
 import java.text.DecimalFormat;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
 import java.util.Date;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
@@ -29,11 +32,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 
 public class AlbumImageDiffer
 {
-	public enum Mode {NotSet, Names, Names2, Tags, Tags2, Folders, Folders2, OnDemand} //OnDemand currrently only used by servlet
+	public enum Mode {NotSet, Names, Names2, New, Tags, Tags2, Folders, Folders2, OnDemand} //OnDemand currently only used by servlet
 
 	///////////////////////////////////////////////////////////////////////////
 	static
@@ -86,6 +90,9 @@ public class AlbumImageDiffer
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_Debug = true;
+
+				} else if (arg.equalsIgnoreCase ("cleanup")) {
+					_cleanUpObsoleteEntries = true;
 
 				} else if (arg.equalsIgnoreCase ("filtersA")) {
 					try {
@@ -201,27 +208,29 @@ public class AlbumImageDiffer
 			_filtersB = Arrays.asList(filterBStr.split("\\s*,\\s*"));
 		}
 
-		//check for required args and handle defaults
-		if (_whereClauseA == null || _whereClauseB == null) {
-			displayUsage ("Incorrect usage", true);
-		}
-
-		if (_modeA == Mode.NotSet || _modeB == Mode.NotSet) {
-			displayUsage ("Incorrect usage", true);
-		}
-
-		if (_Debug) {
-			_log.debug ("AlbumImageDiffer.processArgs: filtersA = " + _filtersA);
-			_log.debug ("AlbumImageDiffer.processArgs: filtersB = " + _filtersB);
-			_log.debug ("AlbumImageDiffer.processArgs: maxRgbDiffs = " + _maxRgbDiffs);
-			_log.debug ("AlbumImageDiffer.processArgs: maxStdDev = " + _maxStdDev);
-			_log.debug ("AlbumImageDiffer.processArgs: maxRows = " + _decimalFormat.format (_maxRows));
-			_log.debug ("AlbumImageDiffer.processArgs: modeA = " + _modeA);
-			_log.debug ("AlbumImageDiffer.processArgs: modeB = " + _modeB);
-			_log.debug ("AlbumImageDiffer.processArgs: numThreads = " + _numThreads);
-			_log.debug ("AlbumImageDiffer.processArgs: whereClauseA = " + _whereClauseA);
-			_log.debug ("AlbumImageDiffer.processArgs: whereClauseB = " + _whereClauseB);
+		if (!_cleanUpObsoleteEntries) {
+			//check for required args and handle defaults
+			if (_whereClauseA == null || _whereClauseB == null) {
+				displayUsage("Incorrect usage", true);
 			}
+
+			if (_modeA == Mode.NotSet || _modeB == Mode.NotSet) {
+				displayUsage("Incorrect usage", true);
+			}
+
+			if (_Debug) {
+				_log.debug ("AlbumImageDiffer.processArgs: filtersA = " + _filtersA);
+				_log.debug ("AlbumImageDiffer.processArgs: filtersB = " + _filtersB);
+				_log.debug ("AlbumImageDiffer.processArgs: maxRgbDiffs = " + _maxRgbDiffs);
+				_log.debug ("AlbumImageDiffer.processArgs: maxStdDev = " + _maxStdDev);
+				_log.debug ("AlbumImageDiffer.processArgs: maxRows = " + _decimalFormat.format (_maxRows));
+				_log.debug ("AlbumImageDiffer.processArgs: modeA = " + _modeA);
+				_log.debug ("AlbumImageDiffer.processArgs: modeB = " + _modeB);
+				_log.debug ("AlbumImageDiffer.processArgs: numThreads = " + _numThreads);
+				_log.debug ("AlbumImageDiffer.processArgs: whereClauseA = " + _whereClauseA);
+				_log.debug ("AlbumImageDiffer.processArgs: whereClauseB = " + _whereClauseB);
+			}
+		}
 
 		return true;
 	}
@@ -244,10 +253,14 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public synchronized static AlbumImageDiffer getInstance ()
+	public static AlbumImageDiffer getInstance()
 	{
 		if (_instance == null) {
-			_instance = new AlbumImageDiffer ();
+			synchronized (AlbumImageDiffer.class) {
+				if (_instance == null) {
+					_instance = new AlbumImageDiffer ();
+				}
+			}
 		}
 
 		return _instance;
@@ -270,9 +283,23 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void run () throws Exception
+	private void run ()
 	{
 		AlbumProfiling.getInstance ().enter (5);
+
+		if (_cleanUpObsoleteEntries) {
+			_log.debug ("AlbumImageDiffer.run: cleanUpObsoleteEntries starting");
+			Instant startInstant = Instant.now();
+
+			long rowsDeleted = deleteFromImageDiffs();
+
+			long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
+			_log.debug ("AlbumImageDiffer.run: rowsDeleted: " + _decimalFormat.format(rowsDeleted) + ", total elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
+
+			AlbumProfiling.getInstance ().exit (5);
+
+			return;
+		}
 
 		_shutdownThread = watchShutdownFile ();
 
@@ -280,12 +307,19 @@ public class AlbumImageDiffer
 			return;
 		}
 
+//debugging
+//		Map<String, AlbumImageDiffDetails> images = getImagesFromImageDiffs (IntStream.range(1, 10000).boxed().collect(Collectors.toList()));
+//		System.out.println("*** images = " + images);
+//		if (true) {
+//			return;
+//		}
+
 		getImageIds ();
 
 		_log.debug ("AlbumImageDiffer.run: _idListA.size: " + _decimalFormat.format (_idListA.size ()));
 		_log.debug ("AlbumImageDiffer.run: _idListB.size: " + _decimalFormat.format (_idListB.size ()));
 
-		if (_idListA.size () == 0 || _idListB.size () == 0) {
+		if (_idListA.isEmpty () || _idListB.isEmpty ()) {
 			return;
 		}
 
@@ -298,7 +332,13 @@ public class AlbumImageDiffer
 		final AtomicInteger rowsInserted = new AtomicInteger (0);
 		final Set<String> toBeSkipped = new HashSet<String>();
 
-		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> existingDiffs = getImagesFromImageDiffs ();
+		if (_shutdownFlag.get ()) {
+			return;
+		}
+
+		List<Integer> imageIds = Stream.of (_idListA, _idListB).flatMap (Collection::stream).map (AlbumImageData::getNameId).distinct ().collect (Collectors.toList ());
+//		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> existingDiffs = getAllImagesFromImageDiffs ();
+		Map<String, AlbumImageDiffDetails> existingDiffs = getImagesFromImageDiffs (imageIds);
 
 		final CountDownLatch endGate = new CountDownLatch (_idListA.size ());
 		final Iterator<AlbumImageData> iterA = _idListA.iterator();
@@ -345,11 +385,12 @@ public class AlbumImageDiffer
 						continue;
 					}
 
-					AlbumImageDiffDetails existingDiff = existingDiffs.get (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId()));
+//					AlbumImageDiffDetails existingDiff = existingDiffs.get (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId()));
+					AlbumImageDiffDetails existingDiff = existingDiffs.get (AlbumImageDiffDetails.getJoinedNameIds (albumImageDataA.getNameId (), albumImageDataB.getNameId ()));
 					if (existingDiff != null) {
 						//if this image pair already exists in database, skip diffing them, but still update record in database
-						_log.debug ("AlbumImageDiffer.run: skipping duplicate: " + imageA.getName () + "," + imageB.getName ()  + ", " + existingDiff);
-						imageDiffDetails.add (new AlbumImageDiffDetails (existingDiff.getNameId1 (), existingDiff.getNameId2 (), existingDiff.getAvgDiff (), existingDiff.getStdDev (), 1, getMode ()));
+						_log.debug ("AlbumImageDiffer.run: skipping duplicate: " + imageA.getName () + ", " + imageB.getName ()  + ", " + existingDiff);
+						imageDiffDetails.add (new AlbumImageDiffDetails (existingDiff.getNameId1 (), existingDiff.getNameId2 (), existingDiff.getAvgDiff (), existingDiff.getStdDev (), 1, getMode (), existingDiff.getLastUpdate ()));
 						duplicates.incrementAndGet ();
 						continue;
 					}
@@ -369,8 +410,11 @@ public class AlbumImageDiffer
 					int stdDev = diffPair.getSecond ();
 					if (AlbumImage.acceptDiff (averageDiff, stdDev, _maxRgbDiffs, _maxStdDev)) {
 						String goodMatchMarker = (averageDiff <= 10 || stdDev <= 10) ? " *" : "";
-						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId (), albumImageDataB.getNameId (), averageDiff, stdDev, 1, getMode ()));
-						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + "," + goodMatchMarker);
+						if (!goodMatchMarker.isEmpty() && !imageA.equalBase(imageB, true)) {
+							goodMatchMarker += "*"; //set to " **"
+						}
+						imageDiffDetails.add (new AlbumImageDiffDetails (albumImageDataA.getNameId (), albumImageDataB.getNameId (), averageDiff, stdDev, 1, getMode (), new Timestamp (new GregorianCalendar ().getTimeInMillis ())));
+						_log.debug ("AlbumImageDiffer.run: " + String.format ("%2s", averageDiff) + " " + String.format ("%2s", stdDev) + " " + imageA.getName () + "," + imageB.getName () + goodMatchMarker);
 					}
 
 //					if (_shutdownFlag.get ()) {
@@ -430,7 +474,7 @@ public class AlbumImageDiffer
 
 		Runnable taskA = () -> {
 			Thread.currentThread ().setName ("queryA");
-			if (isModeNameOrFolder(_modeA)) {
+			if (isQueryFromImagesTable(_modeA)) {
 				_idListA = queryImageIdsNames(_whereClauseA);
 			} else {
 				_idListA = queryImageIdsTags(_whereClauseA, _filtersA);
@@ -441,7 +485,7 @@ public class AlbumImageDiffer
 
 		Runnable taskB = () -> {
 			Thread.currentThread ().setName ("queryB");
-			if (isModeNameOrFolder(_modeB)) {
+			if (isQueryFromImagesTable(_modeB)) {
 				_idListB = queryImageIdsNames(_whereClauseB);
 			} else {
 				_idListB = queryImageIdsTags(_whereClauseB, _filtersB);
@@ -477,11 +521,11 @@ public class AlbumImageDiffer
 		AlbumProfiling.getInstance ().enterAndTrace (5, profileTag);
 
 		//example where clause: "where name_no_ext like 's%' or name_no_ext like 'b%'"
-		String sql = "select name_id, name_no_ext, width, height from images where name_id in " + NL +
-			    	 "(select name_id from (select name_id from images " + NL +
+		String sql = "select name_id, name_no_ext, width, height from albumimages.images where name_id in " + NL +
+			    	 "(select name_id from (select name_id from albumimages.images " + NL +
 			    	 whereClause + NL +
 			    	 "order by rand() limit " + _maxRows + ") t)";
-//		_log.debug ("AlbumImageDiffer.queryImageIdsNames: sql: " + NL + sql);
+		_log.debug ("AlbumImageDiffer.queryImageIdsNames: sql: " + NL + sql);
 
 		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
@@ -502,7 +546,7 @@ public class AlbumImageDiffer
 			_log.error ("AlbumImageDiffer.queryImageIdsNames: sql:" + NL + sql);
 		}
 
-		if (items.size () == 0) {
+		if (items.isEmpty ()) {
 			_log.error ("AlbumImageDiffer.queryImageIdsNames: no rows found for query:" + NL + sql);
 		}
 
@@ -528,7 +572,7 @@ public class AlbumImageDiffer
 		if (useFilters) {
 			maxRowsForQuery *= 10; //since filters will eliminate many results
 		} else {
-			maxRowsForQuery /= 4; //since each basename will have multiple images
+			maxRowsForQuery /= 4; //since each baseName will have multiple images
 		}
 
 		//example where clause: "where tag = 'blue'"
@@ -540,7 +584,7 @@ public class AlbumImageDiffer
 					 "select tag_id from albumtags.tags " + NL +
 					 whereClause + NL +
 					 ")) order by rand() limit " + maxRowsForQuery + ") t)";
-//		_log.debug ("AlbumImageDiffer.queryImageIdsTags: sql: " + NL + sql);
+		_log.debug ("AlbumImageDiffer.queryImageIdsTags: sql: " + NL + sql);
 
 		try (Connection connection = getConnection ();
 			 Statement statement = connection.createStatement ();
@@ -548,7 +592,7 @@ public class AlbumImageDiffer
 
 			while (rs.next ()) {
 				String name = rs.getString ("name");
-				if (!useFilters || (useFilters && accept (name, filters))) {
+				if (!useFilters || accept (name, filters)) {
 					baseNames.add(name);
 				}
 			}
@@ -560,7 +604,7 @@ public class AlbumImageDiffer
 		}
 		_log.debug ("AlbumImageDiffer.queryImageIdsTags: baseNames.size(): " + baseNames.size ());
 
-		if (baseNames.size () == 0) {
+		if (baseNames.isEmpty ()) {
 			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: sql:" + NL + sql);
 			_log.error ("AlbumImageDiffer.queryImageIdsTags: no rows found for query: filters:" + NL + filters);
 		}
@@ -579,7 +623,7 @@ public class AlbumImageDiffer
 			int maxRows = (_maxRows * 11) / 10;
 			names = getRandomNamesForBaseNames (baseNames, maxRows);
 
-			if (names.size () == 0) {
+			if (names.isEmpty ()) {
 				_log.error ("AlbumImageDiffer.queryImageIdsTags: no names returned from getRandomNamesForBaseNames");
 			}
 
@@ -591,7 +635,7 @@ public class AlbumImageDiffer
 
 			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
 
-			if (items.size () == 0) {
+			if (items.isEmpty ()) {
 				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesFS");
 			}
 
@@ -605,7 +649,7 @@ public class AlbumImageDiffer
 
 			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
 
-			if (items.size () == 0) {
+			if (items.isEmpty ()) {
 				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesDB");
 			}
 
@@ -622,26 +666,23 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean accept (String base, List<String> filters) {
-		for (String filter : filters) {
-			if (base.startsWith (filter)) {
-//				_log.debug ("AlbumImageDiffer.accept(" + base + "," + filter + "): " + true);
-				return true;
-			}
-		}
-
-		return false;
+	private boolean accept (String base, List<String> filters)
+	{
+//		if (filters.stream().anyMatch(base::startsWith)) {
+//			_log.debug("AlbumImageDiffer.accept(" + base + "," + filters + ")");
+//		}
+		return filters.stream ().anyMatch (base::startsWith);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	private Collection<AlbumImageData> selectNamesFromImagesFS (Collection<String> names)
+	public Collection<AlbumImageData> selectNamesFromImagesFS (Collection<String> names)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
 		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
-		if (names.size () == 0) {
+		if (names.isEmpty ()) {
 			return items;
 		}
 
@@ -670,7 +711,7 @@ public class AlbumImageDiffer
 
 		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
 
-		if (baseNames.size () == 0) {
+		if (baseNames.isEmpty ()) {
 			return items;
 		}
 
@@ -703,7 +744,7 @@ public class AlbumImageDiffer
 			}
 		}
 
-		if (items.size () == 0) {
+		if (items.isEmpty ()) {
 			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: no rows found for query:" + NL + sql);
 		}
 
@@ -715,30 +756,108 @@ public class AlbumImageDiffer
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	//returns a Map because I want to use get() on the result, and Set does not support get()
-	private Map<AlbumImageDiffDetails, AlbumImageDiffDetails> getImagesFromImageDiffs ()
+	private Map<String, AlbumImageDiffDetails> getAllImagesFromImageDiffs ()
+//	private Map<AlbumImageDiffDetails, AlbumImageDiffDetails> getAllImagesFromImageDiffs ()
 	{
-		AlbumProfiling.getInstance ().enter (7);
+		AlbumProfiling.getInstance ().enterAndTrace (5);
 
-		List<AlbumImageDiffDetails> list = new LinkedList<AlbumImageDiffDetails> ();
+		List<AlbumImageDiffDetails> list = new LinkedList<> ();
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			list = mapper.selectImagesFromImageDiffs ();
+			list = mapper.selectAllImagesFromImageDiffs ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.getAllImagesFromImageDiffs(): ", ee);
+		}
+
+//		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i, i -> i));
+		Map<String, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i.getNameId1 () + "," + i.getNameId2 (), i -> i));
+
+		AlbumProfiling.getInstance ().exit (5);
+
+//		_log.debug ("AlbumImageDiffer.getAllImagesFromImageDiffs): map.size: " + map.size ());
+
+		return map;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by AlbumImageDiffer CLI and servlet
+	public Map<String, AlbumImageDiffDetails> getImagesFromImageDiffs (Collection<Integer> nameIds)
+	{
+		AlbumProfiling.getInstance ().enterAndTrace (5);
+
+//TODO - check if list is TOO long for MariaDB or mybatis???
+		if (nameIds.isEmpty ()) {
+			return new HashMap<> ();
+		}
+
+		List<AlbumImageDiffDetails> list = new LinkedList<> ();
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			list = mapper.selectImagesFromImageDiffs (nameIds);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDiffer.getImagesFromImageDiffs(): ", ee);
 		}
 
-		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i, i -> i));
+		Map<String, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i.getNameId1 () + "," + i.getNameId2 (), i -> i));
 
-		AlbumProfiling.getInstance ().exit (7);
+		AlbumProfiling.getInstance ().exit (5);
 
 //		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): map.size: " + map.size ());
 
 		return map;
 	}
 
-/* unused
+	///////////////////////////////////////////////////////////////////////////
+	//cleanup obsolete rows: rows in image_diffs that are no longer in images
+	public long deleteFromImageDiffs ()
+	{
+		final int nameIdMax = 10 * 1000 * 1000;
+		final int nameIdSteps = 10;
+		final int nameIdStep = nameIdMax / nameIdSteps;
+
+		long totalRowsDeleted = 0;
+
+		String nameIdColumnFormat = "name_id_%d";
+		String sqlFormat = "delete from image_diffs where %s >= %d and %s < %d and %s not in (select name_id from images)";
+
+		for (int nameId = 0; nameId < nameIdMax; nameId += nameIdStep) {
+			for (int nameIdColumnIndex = 1; nameIdColumnIndex <= 2; nameIdColumnIndex++) {
+				AlbumProfiling.getInstance ().enter(5, "deleteFromImageDiffs");
+
+				String nameIdColumn = String.format(nameIdColumnFormat, nameIdColumnIndex);
+				String sql = String.format(sqlFormat, nameIdColumn, nameId, nameIdColumn, (nameId + nameIdStep), nameIdColumn);
+
+				_log.debug("AlbumImageDiffer.deleteFromImageDiffs: sql: " + sql);
+				Instant startInstant = Instant.now();
+
+				int rowsDeleted = 0;
+				try (Connection connection = getConnection ();
+					 Statement statement = connection.createStatement ()) {
+
+					rowsDeleted = statement.executeUpdate (sql);
+
+				} catch (Exception ee) {
+					_log.error ("AlbumImageDiffer.deleteFromImageDiffs:", ee);
+					_log.error ("AlbumImageDiffer.deleteFromImageDiffs: sql:" + NL + sql);
+				}
+
+				long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
+				_log.debug("AlbumImageDiffer.deleteFromImageDiffs: rowsDeleted: " + _decimalFormat.format(rowsDeleted) + ", elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
+
+				totalRowsDeleted += rowsDeleted;
+
+				AlbumProfiling.getInstance ().exit(5, "deleteFromImageDiffs");
+			}
+		}
+
+		return totalRowsDeleted;
+	}
+
+/* unused: currently being implement by the other AlbumImageDiffer.insertImageIntoImageDiffs to handle 'on duplicate key' case
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	private boolean insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails)
@@ -767,7 +886,7 @@ public class AlbumImageDiffer
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertImageIntoImageDiffs (Collection<AlbumImageDiffDetails> items)
+	public int insertImageIntoImageDiffs (Collection<AlbumImageDiffDetails> items)
 	{
 //		AlbumProfiling.getInstance ().enter (5);
 
@@ -857,7 +976,7 @@ public class AlbumImageDiffer
 
 		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
 		String acceptDiffClause = " (d.avg_diff <= " + maxRgbDiff + " " + operatorStr + " d.std_dev <= " + maxStdDev + ")" +
-								  " and d.avg_diff <= (4 * " + maxRgbDiff + ") and d.std_dev <= (4 * " + maxStdDev + ")"; //hardcoded values
+								  " and d.avg_diff <= (3 * " + maxRgbDiff + ") and d.std_dev <= (3 * " + maxStdDev + ")"; //hardcoded values
 
 		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.std_dev as std_dev, d.source as source, d.last_update as last_update," + NL +
 				     " case when avg_diff < std_dev then avg_diff else std_dev end as min_diff," + NL +
@@ -868,7 +987,6 @@ public class AlbumImageDiffer
 					 " where " + acceptDiffClause + NL +
 					 " and d.last_update >= timestampadd(minute, -" + sinceMinutes + ", now())" + NL +
 					 orderByClause;
-//
 		_log.debug ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
 
 		try (Connection connection = getConnection ();
@@ -891,7 +1009,7 @@ public class AlbumImageDiffer
 			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: sql:" + NL + sql);
 		}
 
-		if (items.size () == 0) {
+		if (items.isEmpty ()) {
 			_log.error ("AlbumImageDiffer.selectNamesFromImageDiffs: no rows found for query:" + NL + sql);
 		}
 
@@ -902,7 +1020,8 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns a random subset
-	private Collection<String> getRandomNamesForBaseNames (Collection<String> baseNames, int maxRows) {
+	private Collection<String> getRandomNamesForBaseNames (Collection<String> baseNames, int maxRows)
+	{
 //		_log.debug ("AlbumImageDiffer.getRandomNamesForBaseNames: baseNames: " + baseNames);
 
 		Collection<String> names = new ArrayList<String> ();
@@ -925,12 +1044,13 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns names only: no path or extension
-	private Collection<String> getMatchingImageNamesFromFileSystem (String baseName) {
+	private Collection<String> getMatchingImageNamesFromFileSystem (String baseName)
+	{
 //		_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: baseName: " + baseName);
 
 		Collection<String> files = new ArrayList<String> ();
 
-		String subFolder = AlbumImage.getSubFolderFromName (baseName);
+		String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (baseName);
 		Collection<String> filenames = getDirectoryCache (subFolder);
 		for (String filename : filenames) {
 			if (filename.startsWith (baseName)) {// && filename.endsWith (".jpg")) {
@@ -1003,19 +1123,21 @@ public class AlbumImageDiffer
 			case "folders2": return Mode.Folders2;
 			case "names": return Mode.Names;
 			case "names2": return Mode.Names2;
+			case "new": return Mode.New;
 			case "tags": return Mode.Tags;
 			case "tags2": return Mode.Tags2;
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean isModeNameOrFolder (Mode mode) {
+	private boolean isQueryFromImagesTable (Mode mode) {
 		switch(mode) {
 			default: return false;
 			case Folders:
 			case Folders2:
 			case Names:
-			case Names2: return true;
+			case Names2:
+			case New: return true;
 		}
 	}
 
@@ -1028,7 +1150,7 @@ public class AlbumImageDiffer
 			connection = getDataSource ().getConnection ();
 
 		} catch (Exception ee) {
-			connection = null;
+//			connection = null;
 			_log.error ("AlbumImageDiffer.getConnection: error connecting to database", ee);
 		}
 
@@ -1147,18 +1269,19 @@ public class AlbumImageDiffer
 		return watchingThread;
 	}
 
-	
+
 	//members from command line
 	private static int _numThreads = 4;
 	private int _maxRows = 10;
-	private int _maxRgbDiffs = 25;
-	private int _maxStdDev = 30;
+	private int _maxRgbDiffs = _maxAverageDiffUsedByBatFiles;
+	private int _maxStdDev = _maxStdDevDiffUsedByBatFiles;
 	private Mode _modeA = Mode.NotSet;
 	private Mode _modeB = Mode.NotSet;
 	private String _whereClauseA = null;
 	private String _whereClauseB = null;
 	private List<String> _filtersA = null;
 	private List<String> _filtersB = null;
+	private boolean _cleanUpObsoleteEntries = false;
 
 	//members
 	private SqlSessionFactory _sqlSessionFactory = null;
@@ -1169,14 +1292,17 @@ public class AlbumImageDiffer
 	private Collection<AlbumImageData> _idListA = null;
 
 	private Thread _shutdownThread = null;
-	private AtomicBoolean _shutdownFlag = new AtomicBoolean ();
+	private final AtomicBoolean _shutdownFlag = new AtomicBoolean ();
 	private static final String _shutdownFilename = "shutdownImageDiffer.txt";
 
 	private Map<String, Collection<String>> _directoryCache = new HashMap<String, Collection<String>> ();
 
+	public static final int _maxAverageDiffUsedByBatFiles = 40; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_RGB_DIFFS=/maxRgbDiffs 35
+	public static final int _maxStdDevDiffUsedByBatFiles = 45; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_STD_DEV=/maxStdDev 40
+
 	private static BasicDataSource _dataSource = null;
-	private static AlbumImageDiffer _instance = null;
 	private static ExecutorService _executor = null;
+	private static volatile AlbumImageDiffer _instance = null;
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //as int

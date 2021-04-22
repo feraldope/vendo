@@ -181,10 +181,14 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public synchronized static AlbumTags getInstance ()
+	public static AlbumTags getInstance()
 	{
 		if (_instance == null) {
-			_instance = new AlbumTags ();
+			synchronized (AlbumTags.class) {
+				if (_instance == null) {
+					_instance = new AlbumTags ();
+				}
+			}
 		}
 
 		return _instance;
@@ -566,7 +570,7 @@ public class AlbumTags
 				final List<String> outFilterList = new ArrayList<String> ();
 				for (String inFilter : inFilterSet) {
 					if (checkForMalformedFilter (inFilter)) {
-						String firstCharsLower = AlbumImage.getSubFolderFromName (inFilter);
+						String firstCharsLower = AlbumImageDao.getInstance ().getSubFolderFromImageName (inFilter);
 						if (subFolder.compareTo (firstCharsLower) == 0 || "*".compareTo (firstCharsLower) == 0) {
 							outFilterList.add (inFilter);
 						}
@@ -985,8 +989,8 @@ public class AlbumTags
 			}
 		}
 
-		final int maxThreads = 10 * VendoUtils.getLogicalProcessors ();
-		final int minPerThread = 1000;
+		final int maxThreads = 5 * VendoUtils.getLogicalProcessors ();
+		final int minPerThread = 2000;
 		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, tagFilters.size (), true).getFirst ();
 		List<List<TagFilter1>> tagFilterChunks = ListUtils.partition (tagFilters, chunkSize);
 		final int numChunks = tagFilterChunks.size ();
@@ -1168,7 +1172,7 @@ public class AlbumTags
 			while (rs.next ()) {
 				String name = rs.getString ("name");
 				Integer count = rs.getInt("count");
-				String subFolder = AlbumImage.getSubFolderFromName (name);
+				String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (name);
 				items.add (new NameCount (name, subFolder, count));
 //				_log.debug ("AlbumTags.getAlbumsWithNoTags: item: " + new NameCount (name, subFolder, count));
 			}
@@ -1665,7 +1669,7 @@ public class AlbumTags
 	private int getCountFromDatabase (String table)
 	{
 		String sql = "select count(*) from " + table;
-		Collection<Integer> items = getObjectsFromDatabase (sql, new Integer (0));
+		Collection<Integer> items = getObjectsFromDatabase (sql, 0);
 
 		int count = 0;
 		if (items.size () > 0) {
@@ -1738,7 +1742,7 @@ public class AlbumTags
 		}
 
 		//truncate the list
-		int maxTagsShown = 60;
+		int maxTagsShown = 60; //TODO - hardcoded
 		VendoUtils.truncateList (tags, maxTagsShown);
 		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}));
 
@@ -2191,7 +2195,7 @@ public class AlbumTags
 	private Collection<NameTag> _base2NameTags = new LinkedList<NameTag> ();
 	private Collection<NameTag> _rawNameTags = new LinkedList<NameTag> ();
 
-	private static AlbumTags _instance = null;
+	private static volatile AlbumTags _instance = null;
 
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
 	private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;

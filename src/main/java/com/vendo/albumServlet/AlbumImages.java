@@ -23,10 +23,14 @@ import java.nio.ByteBuffer;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Timestamp;
 import java.text.DecimalFormat;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
@@ -38,6 +42,7 @@ public class AlbumImages
 		Thread.setDefaultUncaughtExceptionHandler (new AlbumUncaughtExceptionHandler ());
 	}
 
+/*old way - _prevRootPath is no longer supported/needed
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
 	public synchronized static AlbumImages getInstance ()
@@ -63,6 +68,22 @@ public class AlbumImages
 
 		return _instance;
 	}
+*/
+
+	///////////////////////////////////////////////////////////////////////////
+	//create singleton instance
+	public static AlbumImages getInstance()
+	{
+		if (_instance == null) {
+			synchronized (AlbumImages.class) {
+				if (_instance == null) {
+					_instance = new AlbumImages ();
+				}
+			}
+		}
+
+		return _instance;
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private AlbumImages ()
@@ -70,10 +91,10 @@ public class AlbumImages
 //		if (AlbumFormInfo._logLevel >= 6)
 		_log.debug ("AlbumImages ctor");
 
-		final String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
-		if (AlbumFormInfo._logLevel >= 7) {
-			_log.debug ("AlbumImages ctor: rootPath = " + rootPath);
-		}
+//		final String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+//		if (AlbumFormInfo._logLevel >= 7) {
+//			_log.debug ("AlbumImages ctor: rootPath = " + rootPath);
+//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -238,7 +259,7 @@ public class AlbumImages
 
 		int imagesRemoved = 0;
 		String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
-		String subFolder = AlbumImage.getSubFolderFromName (wildName);
+		String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (wildName);
 
 		List<String> fileList = new VFileList (rootPath + subFolder, wildName, false).getFileList (ListMode.FileOnly);
 		_log.debug ("AlbumImages.renameImageFiles: renaming " + fileList.size () + " files");
@@ -264,7 +285,7 @@ public class AlbumImages
 
 		int imagesRemoved = 0;
 		String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
-		String subFolder = AlbumImage.getSubFolderFromName (origName);
+		String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (origName);
 		String origPath = rootPath + subFolder + "/" + origName;
 		String newPath = origPath + AlbumFormInfo._DeleteSuffix;
 		if (AlbumFormInfo._logLevel >= 7) {
@@ -357,8 +378,23 @@ public class AlbumImages
 			generateExifSortCommands ();
 		}
 
-		if (form.getMode () == AlbumMode.DoDup) {
-			generateDuplicateImageRenameCommands ();
+		if (form.getMode () == AlbumMode.DoDup && !form.getDbCompare()) {
+			if (form.getLooseCompare()) {
+				final int maxCountToCompare = 60;
+
+				Set<String> removed = removeImagesWithLargeCounts(maxCountToCompare); //HACK; Note: operates directly on _imageDisplayList
+				if (!removed.isEmpty()) {
+					String removedStr = removed.stream()
+							.sorted(_alphanumComparator)
+							.collect(Collectors.joining(","));
+
+					String message = "excluding the following " + removed.size() + " albums that have more than " + maxCountToCompare + " images: " + removedStr;
+					_log.debug("AlbumImages.removeImagesWithLargeCounts: " + message);
+					form.addServletError("Warning: " + message);
+				}
+			}
+
+			generateDuplicateImageRenameCommands();
 		}
 
 		if (AlbumFormInfo._logLevel >= 5) {
@@ -401,14 +437,17 @@ public class AlbumImages
 		}
 
 		//since we can't run this combo (way too many diffs), just return no image; it was probably a mistake on user's part
-		if (form.getFilters ().length == 0 && !dbCompare && looseCompare && ignoreBytes) {
+		if ((form.getFilters ().length == 0 && !dbCompare && looseCompare && ignoreBytes) /*||
+				(!"*".equalsIgnoreCase(Arrays.stream(filters).sorted().distinct().collect (Collectors.joining (","))) &&
+				getMatchingAlbumsForFilters(filters, true, 0).size () > 10)*/) { //don't call getMatchingAlbumsForFilters() on "*"
 			form.addServletError ("Warning: too many comparisons; aborting");
 			_imageDisplayList = new ArrayList<> ();
 			return 0;
 		}
 
-		_nameOfExactDuplicateThatCanBeDeleted.clear ();
-		_nameOfNearDuplicateThatCanBeDeleted.clear ();
+//TODO - should be done by AlbumImageDao.getImagesFromCache
+//		_nameOfExactDuplicateThatCanBeDeleted.clear ();
+//		_nameOfNearDuplicateThatCanBeDeleted.clear ();
 
 		AlbumSortType sortType = AlbumSortType.ByNone;
 		if (useExifDates) {
@@ -475,14 +514,78 @@ public class AlbumImages
 
 			long maxElapsedSecs1 = 30;
 			long maxElapsedSecs2 = 30;
+			final long startNano1 = System.nanoTime ();
 			final long endNano1 = System.nanoTime () + maxElapsedSecs1 * 1000 * 1000 * 1000;
 			AtomicInteger timeElapsedCount1 = new AtomicInteger (0);
 			AtomicInteger timeElapsedCount2 = new AtomicInteger (0);
 			AtomicInteger cacheHits = new AtomicInteger (0);
 			AtomicInteger cacheMisses = new AtomicInteger (0);
+//			AtomicInteger equalAttrsHits = new AtomicInteger (0);
+			AtomicInteger imageDiffsHits = new AtomicInteger (0);
 
 			final List<AlbumImagePair> pairsReady = Collections.synchronizedList (new ArrayList<AlbumImagePair> (1000));
 			final List<AlbumImagePair> pairsWip = Collections.synchronizedList (new ArrayList<AlbumImagePair> (1000));
+			final Set<AlbumImageDiffDetails> toBeAddedToImageDiffsTable = Collections.synchronizedSet (new HashSet<>());
+
+
+
+
+
+
+//TODO TODO
+//			//get list of names from images
+//			List<String> namesList = Arrays.stream(images).map(AlbumImage::getName).collect(Collectors.toList());
+//			//query database for name<->id mapping
+//			Collection<AlbumImageData> imageDataCol = AlbumImageDiffer.getInstance().selectNamesFromImagesFS(namesList);
+
+
+			//create some helper maps
+			Map<String, Integer> imageNameToIdMap = Arrays.stream(images).collect(Collectors.toMap(AlbumImage::getName, AlbumImage::getNameId));
+			Map<Integer, String> imageIdToNameMap = Arrays.stream(images).collect(Collectors.toMap(AlbumImage::getNameId, AlbumImage::getName));
+
+			//get list of ids for all images
+			List<Integer> imageIds = Arrays.stream(images).map(AlbumImage::getNameId).distinct().collect(Collectors.toList());
+
+			//query database for known diffs; has joined IDs as key
+			Map<String, AlbumImageDiffDetails> imageDiffDetailsFromImageDiffs = AlbumImageDiffer.getInstance().getImagesFromImageDiffs(imageIds);
+			_log.debug("AlbumImages.doDup: imageDiffDetailsFromImageDiffs.size() before removing obsolete entries: " + _decimalFormat0.format (imageDiffDetailsFromImageDiffs.size()));
+
+			//filter out any that are obsolete (i.e., there is no longer an entry in the "images" table for either image_id (and therefore no AlbumImage object)
+			imageDiffDetailsFromImageDiffs.entrySet().removeIf(i -> {
+						List<Integer> imageIdList = Arrays.stream(i.getKey().split(",")).map(Integer::valueOf).collect(Collectors.toList());
+						return imageIdToNameMap.get(imageIdList.get(0)) == null || imageIdToNameMap.get(imageIdList.get(1)) == null;
+					}
+			);
+
+			_log.debug("AlbumImages.doDup: imageDiffDetailsFromImageDiffs.size() after removing obsolete entries: " + _decimalFormat0.format (imageDiffDetailsFromImageDiffs.size()));
+
+			{ //statement block for logging
+				List<String> info = imageDiffDetailsFromImageDiffs.values().stream()
+						.map(i -> {
+							String imageName1 = imageIdToNameMap.get(i.getNameId1());
+							String imageName2 = imageIdToNameMap.get(i.getNameId2());
+							if (imageName1 == null || imageName2 == null) {
+								return null; //pair not found in map
+							}
+							return imageName1 + ", " + imageName2 + " - " + i.toString();
+						})
+						.filter(Objects::nonNull)
+						.sorted(String.CASE_INSENSITIVE_ORDER)
+						.collect(Collectors.toList());
+
+				if (!info.isEmpty()) {
+//					_log.debug("AlbumImages.doDup: XXXXXXXXXX found " + info.size() + " matches from image_diffs table: " + NL + String.join(NL, info) + NL);
+					_log.debug("AlbumImages.doDup: XXXXXXXXXX found " + info.size() + " matches from image_diffs table");
+				} else {
+					_log.debug("AlbumImages.doDup: XXXXXXXXXX NO matches found in image_diffs table" + NL);
+				}
+			}
+
+
+
+
+
+
 
 			{
 				AlbumProfiling.getInstance ().enterAndTrace (5, "part 1");
@@ -493,6 +596,15 @@ public class AlbumImages
 //				_log.debug ("AlbumImages.doDup: comboChunk.size = " + _decimalFormat0.format (comboChunk.size ()));
 					new Thread (() -> {
 						for (VPair<Integer, Integer> vpair : comboChunk) {
+							if (System.nanoTime () > endNano1) {
+								if (timeElapsedCount1.incrementAndGet () == 1) { //only log first occurrence
+									_log.debug ("AlbumImages.doDup: time elapsed @0 (" + LocalTime.ofNanoOfDay (System.nanoTime () - startNano1).format (_dateTimeFormatter) +
+												") ************************************************************");
+
+								}
+								break;
+							}
+
 							AlbumImage image1 = null;
 							AlbumImage image2 = null;
 							try {
@@ -509,38 +621,116 @@ public class AlbumImages
 							boolean sameBaseName = image1.equalBase (image2, collapseGroups);
 							if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
 													( reverseSort &&  sameBaseName))) {
-								//proceed with next test
+								//proceed to next test
 							} else {
 								continue;
 							}
+
+
+
+
+//temp debugging
+//							String s1 = "EnnieA09-116";
+//							String s2 = "EnnieA09-213";
+//							if ((s1.equals(image1.getName()) && s2.equals(image2.getName())) ||
+//								(s1.equals(image2.getName()) && s2.equals(image1.getName()))) {
+//								int bh = 1;
+//							}
+
+
+
+
+
+
+
+
+
 
 							//at least one of each pair compared must be accepted by filter1 (including name pattern, sinceInMillis, etc.)
 							if (!filter1.accept (null, image1.getName ()) && !filter1.accept (null, image2.getName ())) {
 								continue;
 							}
 
+//							final int maxCountToCompare = 100; //HACK
+//							final int image1Count = getNumMatchingImages(image1.getBaseName(false), 0);
+//							if (image1Count > maxCountToCompare) {
+//								_log.debug ("AlbumImages.doDup: skipping time elapsed @0 ************************************************************");
+//
+//							}
+//								getNumMatchingImages(image2.getBaseName(false), 0) > maxCountToCompare) {
+//								continue;
+//							}
+
 //TODO - if this is true, can we add pair directly to ready list?
-//						boolean equalAttrs = image1.equalAttrs (image2, looseCompare, ignoreBytes, useExifDates, exifDateIndex);
+//       NO: this does not seem to work because we don't know the aveDiff and stdDev and when we call the AlbumImagePair ctor w/o these, they are set to 0 forever
+//							boolean equalAttrs = image1.equalAttrs (image2, true, false, useExifDates, exifDateIndex);
+//							if (equalAttrs) {
+//								equalAttrsHits.incrementAndGet();
+//								AlbumImagePair pair = new AlbumImagePair (image1, image2);
+//								pairsReady.add(pair);
+//								_log.debug ("AlbumImages.doDup: OOOOOOOOOO using match from equalAttrs for: " + pair);//new AlbumImagePair (image1, image2));
+//								continue;
+//							}
+
+
+
+
+
+
+
+
+
+							if (imageDiffDetailsFromImageDiffs != null) {
+								String joinedIds = AlbumImageDiffDetails.getJoinedNameIds(imageNameToIdMap.get(image1.getName()), imageNameToIdMap.get(image2.getName()));
+								AlbumImageDiffDetails imageDiffDetails = imageDiffDetailsFromImageDiffs.get (joinedIds);
+								if (imageDiffDetails != null) {
+									imageDiffsHits.incrementAndGet();
+									if (AlbumImage.acceptDiff(imageDiffDetails.getAvgDiff(), imageDiffDetails.getStdDev(), maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
+										AlbumImagePair pair = new AlbumImagePair (image1, image2, imageDiffDetails.getAvgDiff(), imageDiffDetails.getStdDev(), AlbumImageDiffer.Mode.OnDemand.name(), imageDiffDetails.getLastUpdate());
+
+										String joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames (image1, image2, true);
+										_looseCompareMap.put (joinedNamesPlusAttrs, pair);
+
+										pairsReady.add(pair);
+//										_log.debug ("AlbumImages.doDup: XXXXXXXXXX using match from image_diffs for: " + pair);
+										continue;
+									}
+								}
+							}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 							String joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames (image1, image2, true);
 							AlbumImagePair pair = _looseCompareMap.get (joinedNamesPlusAttrs);
 							if (pair != null) {
-								if (AlbumImage.acceptDiff (pair.getAverageDiff (), pair.getStdDev (), maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
-									pairsReady.add (pair);
+								if (AlbumImage.acceptDiff (pair.getAverageDiff(), pair.getStdDev(), AlbumImageDiffer._maxAverageDiffUsedByBatFiles, AlbumImageDiffer._maxStdDevDiffUsedByBatFiles)) { //hardcoded values from BAT files
+									if (!imageDiffDetailsFromImageDiffs.containsKey(AlbumImageDiffDetails.getJoinedNameIds(image1.getNameId(), image2.getNameId()))) {
+										toBeAddedToImageDiffsTable.add(new AlbumImageDiffDetails(image1.getNameId(), image2.getNameId(), pair.getAverageDiff(), pair.getStdDev(), 1, AlbumImageDiffer.Mode.OnDemand.name(), new Timestamp (new GregorianCalendar ().getTimeInMillis ())));
+									}
 								}
-								cacheHits.incrementAndGet ();
-							} else {
-								pairsWip.add (new AlbumImagePair (image1, image2));
-//								_log.debug ("AlbumImages.doDup: cache miss for: " + new AlbumImagePair (image1, image2));
-								cacheMisses.incrementAndGet ();
+
+								if (AlbumImage.acceptDiff(pair.getAverageDiff(), pair.getStdDev(), maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
+									pairsReady.add(pair);
+								}
+								cacheHits.incrementAndGet();
+								continue;
 							}
 
-							if (System.nanoTime () > endNano1) {
-								if (timeElapsedCount1.incrementAndGet () == 1) { //only log first occurrence
-									_log.debug ("AlbumImages.doDup: time elapsed @0 ************************************************************");
-								}
-								break;
-							}
+							//this pair needs to be compared
+							pairsWip.add (new AlbumImagePair (image1, image2));
+//							_log.debug ("AlbumImages.doDup: cache miss for: " + new AlbumImagePair (image1, image2));
+							cacheMisses.incrementAndGet ();
 						}
 						endGate.countDown ();
 					}).start ();
@@ -557,6 +747,8 @@ public class AlbumImages
 
 			_log.debug ("AlbumImages.doDup: pairsReady.size = " + _decimalFormat0.format (pairsReady.size ()));
 			_log.debug ("AlbumImages.doDup: pairsWip.size = " + _decimalFormat0.format (pairsWip.size ()));
+//			_log.debug ("AlbumImages.doDup: equalAttrsHits = " + _decimalFormat0.format (equalAttrsHits.get ()));
+			_log.debug ("AlbumImages.doDup: imageDiffsHits = " + _decimalFormat0.format (imageDiffsHits.get ()));
 			_log.debug ("AlbumImages.doDup: cacheHits = " + _decimalFormat0.format (cacheHits.get ()));
 			_log.debug ("AlbumImages.doDup: cacheMisses = " + _decimalFormat0.format (cacheMisses.get ()));
 
@@ -576,16 +768,20 @@ public class AlbumImages
 			}
 			AlbumProfiling.getInstance ().exit (5, "load toBeRead");
 
-			{ //block to call readScaledImageData ()
+			{ //statement block to call readScaledImageData ()
 				AlbumProfiling.getInstance ().enterAndTrace (5, "read RGB");
 				final CountDownLatch endGate = new CountDownLatch (toBeRead.size ());
 
 				for (final AlbumImage image : toBeRead) {
-					Thread.currentThread ().setName (image.getName ());
 					Runnable task = () -> {
-						Thread.currentThread ().setName (image.getName ());
-						ByteBuffer scaledImageData = image.readScaledImageData ();
-						_nameScaledImageMap.put (image.getNamePlusAttrs (), scaledImageData);
+						try {
+	//						Thread.currentThread ().setName (image.getName ());
+							ByteBuffer scaledImageData = image.readScaledImageData ();
+							_nameScaledImageMap.put (image.getNamePlusAttrs (), scaledImageData);
+
+						} catch (Exception ee){
+							_log.error("AlbumImage.doDup: readScaledImageData failed on: " + image.getName (), ee);
+						}
 						endGate.countDown ();
 					};
 					getExecutor ().execute (task);
@@ -600,18 +796,20 @@ public class AlbumImages
 				AlbumProfiling.getInstance ().exit (5, "read RGB");
 			}
 
-			{ //block to call nearlyEquals ()
+			{ //statement block to call nearlyEquals ()
 				AlbumProfiling.getInstance ().enterAndTrace (5, "compute diffs");
 
 				final CountDownLatch endGate = new CountDownLatch (pairsWip.size ());
 
+				final long startNano2 = System.nanoTime ();
 				final long endNano2 = System.nanoTime () + maxElapsedSecs2 * 1000 * 1000 * 1000;
 				for (final AlbumImagePair pair : pairsWip) {
 					Runnable task = () -> {
-						Thread.currentThread ().setName (pair.getJoinedNames ());
+//						Thread.currentThread ().setName (pair.getJoinedNames ());
 						if (System.nanoTime () > endNano2) {
 							if (timeElapsedCount2.incrementAndGet () == 1) { //only log first occurrence
-								_log.debug ("AlbumImages.doDup: time elapsed @1 ************************************************************");
+								_log.debug ("AlbumImages.doDup: time elapsed @1 (" + LocalTime.ofNanoOfDay (System.nanoTime () - startNano2).format (_dateTimeFormatter) +
+											") ************************************************************");
 							}
 
 						} else {
@@ -623,7 +821,14 @@ public class AlbumImages
 							VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
 							int averageDiff = diffPair.getFirst ();
 							int stdDev = diffPair.getSecond ();
-							AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, AlbumImageDiffer.Mode.OnDemand.name ());
+
+							if (AlbumImage.acceptDiff (averageDiff, stdDev, AlbumImageDiffer._maxAverageDiffUsedByBatFiles, AlbumImageDiffer._maxStdDevDiffUsedByBatFiles)) { //hardcoded values from BAT files
+								if (!imageDiffDetailsFromImageDiffs.containsKey(AlbumImageDiffDetails.getJoinedNameIds(image1.getNameId(), image2.getNameId()))) {
+									toBeAddedToImageDiffsTable.add(new AlbumImageDiffDetails(image1.getNameId(), image2.getNameId(), averageDiff, stdDev, 1, AlbumImageDiffer.Mode.OnDemand.name(), new Timestamp (new GregorianCalendar ().getTimeInMillis ())));
+								}
+							}
+
+							AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, AlbumImageDiffer.Mode.OnDemand.name (), null);
 							if (AlbumImage.acceptDiff (averageDiff, stdDev, maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
 								pairsReady.add (newPair);
 								_log.debug ("AlbumImages.doDup: " + newPair.getDetails3String ());
@@ -659,6 +864,33 @@ public class AlbumImages
 				form.addServletError ("Warning: " + message);
 			}
 
+			{ //statement block for logging
+				List<String> info = toBeAddedToImageDiffsTable.stream()
+//						.filter(i -> !imageDiffDetailsFromImageDiffs.containsKey(AlbumImageDiffDetails.getJoinedNameIds(i.getNameId1(), i.getNameId2())))
+						.map(i -> {
+							String imageName1 = imageIdToNameMap.get(i.getNameId1());
+							String imageName2 = imageIdToNameMap.get(i.getNameId2());
+							if (imageName1 == null || imageName2 == null) {
+								return null; //pair not found in map
+							}
+							return imageName1 + ", " + imageName2 + " - " + i.toString();
+						})
+						.filter(Objects::nonNull)
+						.sorted(String.CASE_INSENSITIVE_ORDER)
+						.collect(Collectors.toList());
+
+				if (!info.isEmpty()) {
+//					_log.debug ("AlbumImages.doDup: imageDiffDetails to be added to image_diffs table (" + info.size() + "): " + NL + String.join(NL, info) + NL);
+					_log.debug ("AlbumImages.doDup: imageDiffDetails to be added to image_diffs table (" + _decimalFormat0.format (info.size()) + ")");
+				} else {
+					_log.debug ("AlbumImages.doDup: No imageDiffDetails to be added to image_diffs table");
+				}
+			}
+			if (!toBeAddedToImageDiffsTable.isEmpty()) {
+				int rowsInserted = AlbumImageDiffer.getInstance().insertImageIntoImageDiffs (toBeAddedToImageDiffsTable);
+				_log.debug ("AlbumImages.doDup: imageDiffDetails actually added to database = " + _decimalFormat0.format (rowsInserted) + " items");
+			}
+
 			AlbumProfiling.getInstance ().enterAndTrace (5, "dups.add");
 
 			for (AlbumImagePair imagePair : pairsReady) {
@@ -678,7 +910,6 @@ public class AlbumImages
 
 				final double sinceDays = _form.getHighlightDays (); //TODO - using highlightDays is a HACK
 				final boolean operatorOr = _form.getTagFilterOperandOr (); //TODO - using tagFilterOperandOr is a HACK
-				//debugging
 				long highlightInMillis = _form.getHighlightInMillis (false);
 				_log.debug ("AlbumImages.doDup: since/highlight date/time: " + _dateFormat.format (new Date (highlightInMillis)));
 
@@ -767,31 +998,70 @@ public class AlbumImages
 		_log.debug ("AlbumImages.doDup: dups.size = " + _decimalFormat0.format (dups.size ()) + " pairs");
 
 		//log all duplicate sets
-		if (dups.size () < 800) {
+		if (!dbCompare && dups.size () < 800) {
 			AlbumProfiling.getInstance ().enter (5, "dups.sets");
 
-			Map<String, AlbumImageSet> dupImageMap = new HashMap<> ();
+			//this map is for single pairs only
+			Map<String, AlbumAlbumPair> dupAlbumMap = new HashMap<> ();
 			for (AlbumImagePair pair : dups) {
 				boolean sameBaseName = pair.getImage1 ().equalBase (pair.getImage2 (), collapseGroups);
 				if (!sameBaseName) {
 					String joinedNames = pair.getJoinedNames ();
-					AlbumImageSet dupSet = dupImageMap.get (joinedNames);
+					AlbumAlbumPair dupSet = dupAlbumMap.get (joinedNames);
 					if (dupSet != null) {
-						dupSet.addPair (pair);
+						dupSet.addImagePair (pair);
 					} else {
-						dupImageMap.put (joinedNames, new AlbumImageSet (joinedNames, pair));
+						dupAlbumMap.put (joinedNames, new AlbumAlbumPair(joinedNames, pair));
 					}
 				}
 			}
+
+			//this object holds single and multi-pairs
+			if (!dupAlbumMap.isEmpty()) {
+				AlbumAlbumPairs albumPairs = new AlbumAlbumPairs();
+				albumPairs.addAlbumPairs(dupAlbumMap.values());
+				List<String> albumPairsDetails = albumPairs.getDetailsStrings(2); //only show actual multi-sets (i.e., more than 1 pair)
+
+				_log.debug("AlbumImages.doDup: sortedDupDetailStringSet.size = " + _decimalFormat0.format(albumPairsDetails.size()) + " dup multi sets ----------------------------------------");
+				if (albumPairsDetails.size() > 0 && albumPairsDetails.size() < 800) {
+					_form.addServletError("Info: found duplicate multi sets: " + _decimalFormat0.format(albumPairsDetails.size()));
+					for (String string : albumPairsDetails) {
+						_log.debug(string);
+						_form.addServletError("Info: found duplicate multi sets: " + string);
+					}
+				}
+			}
+
+			/*
+			//this map handles multiple pairs
+			Set<AlbumImageSet> dupImageSets = new HashSet<> ();
+			for (AlbumImageSet set1 : dupAlbumMap.values()) {
+				AlbumImageSet foundSet = null;
+				for (AlbumImageSet set2 : dupImageSets) {
+					if (set2.matchesAtLeastOneImage(set1)) {
+						foundSet = set2;
+						break;
+					}
+				}
+				if (foundSet != null) {
+					foundSet.addPairs(set1.getPairs());
+					dupImageSets.add(foundSet);
+				} else {
+					dupImageSets.add(set1);
+				}
+			}
+*/
+
+			int bh = 1;
 /*
-//			Set<AlbumImageSet> dupImageMap = new HashSet<> ();
-//			Set<Set<String>> dupImageMap = new HashSet<Set<String>> ();
+//			Set<AlbumImageSet> dupAlbumMap = new HashSet<> ();
+//			Set<Set<String>> dupAlbumMap = new HashSet<Set<String>> ();
 			for (AlbumImagePair pair1 : dups) {
 				for (AlbumImagePair pair2 : dups) {
 					if (pair1.matchesAtLeastOneImage (pair2)) {
 //						Set<String> imageSet = null;
 						AlbumImageSet imageSet = null;
-						for (AlbumImageSet set : dupImageMap) {
+						for (AlbumImageSet set : dupAlbumMap) {
 							if (set.matchesAtLeastOneImage (pair1) || set.matchesAtLeastOneImage (pair2)) {
 //							if (pair1.matchesAtLeastOneImage (set) || pair2.matchesAtLeastOneImage (set)) {
 								imageSet = set;
@@ -800,7 +1070,7 @@ public class AlbumImages
 						}
 						if (imageSet == null) {
 							imageSet = new AlbumImageSet ();
-							dupImageMap.add (imageSet);
+							dupAlbumMap.add (imageSet);
 						}
 
 						imageSet.addPairs (pair1, pair2);
@@ -815,64 +1085,63 @@ public class AlbumImages
 /*
 			Set<String> sortedDupDetailStringSet = new TreeSet<> (alphanumComparator);
 //			Set<String> sortedDupDetailStringSet = new TreeSet<String> (VendoUtils.caseInsensitiveStringComparator);
-//			for (Set<String> set : dupImageMap) {
-			for (AlbumImageSet imageSet : dupImageMap.values()) {
+//			for (Set<String> set : dupAlbumMap) {
+			for (AlbumImageSet imageSet : dupAlbumMap.values()) {
 				sortedDupDetailStringSet.add (imageSet.getDetailString());
 			}
-
 */
-			//log/print/display all duplicate sets
-			AlphanumComparator alphanumComparator = new AlphanumComparator ();
-			List<String> sortedDupDetailStringSet = dupImageMap.values().stream()
-					.map(AlbumImageSet::getDetailString)
-					.sorted(alphanumComparator)
-					.collect(Collectors.toList());
 
-			_log.debug ("AlbumImages.doDup: sortedDupDetailStringSet.size = " + _decimalFormat0.format (sortedDupDetailStringSet.size ()) + " dup sets ----------------------------------------");
-			if (sortedDupDetailStringSet.size () > 0 && sortedDupDetailStringSet.size () < 800) {
-				if (!dbCompare) {
-					_form.addServletError ("Info: found duplicate sets: " + _decimalFormat0.format (sortedDupDetailStringSet.size ()));
-				}
-				for (String string : sortedDupDetailStringSet) {
-					_log.debug (string);
-					if (!dbCompare) {
-						_form.addServletError ("Info: found duplicate sets: " + string);
-					}
-				}
-			}
-
-			//log/print/display all exact duplicates
+			//log/print/display all exact/near duplicates
+			Set<AlbumAlbumPair> handledSets = new HashSet<>();
 			List<String> nameOfExactDuplicateThatCanBeDeletedList = new ArrayList<>();
 			List<String> nameOfNearDuplicateThatCanBeDeletedList = new ArrayList<>();
-			for (AlbumImageSet imageSet : dupImageMap.values()) {
+			for (AlbumAlbumPair imageSet : dupAlbumMap.values()) {
 				if (imageSet.secondAlbumRepresentsExactDuplicate()) {
 					String secondBaseNameForSorting = imageSet.getBaseName(1); //select the larger (numerically)
 					_nameOfExactDuplicateThatCanBeDeleted.add(secondBaseNameForSorting);
 					nameOfExactDuplicateThatCanBeDeletedList.add("Info: found albums that can be deleted (exact duplicate pair): [" + secondBaseNameForSorting + "] - " + imageSet.getDetailString());
+					handledSets.add(imageSet);
 				} else if (imageSet.secondAlbumRepresentsNearDuplicate ()) {
 					String secondBaseNameForSorting = imageSet.getBaseName(1); //select the larger (numerically)
 					_nameOfNearDuplicateThatCanBeDeleted.add(secondBaseNameForSorting);
 					nameOfNearDuplicateThatCanBeDeletedList.add("Info: found albums that can be deleted (near duplicate pair): [" + secondBaseNameForSorting + "] - " + imageSet.getDetailString());
+					handledSets.add(imageSet);
 				}
 			}
 			if (!nameOfExactDuplicateThatCanBeDeletedList.isEmpty()) {
-				nameOfExactDuplicateThatCanBeDeletedList.sort(alphanumComparator);
+				nameOfExactDuplicateThatCanBeDeletedList.sort(_alphanumComparator);
 
 				_form.addServletError("Info: found albums that can be deleted (exact duplicate pair): " + nameOfExactDuplicateThatCanBeDeletedList.size());
 				nameOfExactDuplicateThatCanBeDeletedList.forEach(s -> _form.addServletError(s));
 
 				_log.debug ("AlbumImages.doDup: nameOfExactDuplicateThatCanBeDeletedList.size = " + _decimalFormat0.format (nameOfExactDuplicateThatCanBeDeletedList.size ()) + " exact dup sets -----------------------------------");
-				nameOfExactDuplicateThatCanBeDeletedList.forEach(s -> _log.debug(s));
+				nameOfExactDuplicateThatCanBeDeletedList.forEach(_log::debug);
 			}
 
 			if (!nameOfNearDuplicateThatCanBeDeletedList.isEmpty()) {
-				nameOfNearDuplicateThatCanBeDeletedList.sort(alphanumComparator);
+				nameOfNearDuplicateThatCanBeDeletedList.sort(_alphanumComparator);
 
 				_form.addServletError("Info: found albums that can be deleted (near duplicate pair): " + nameOfNearDuplicateThatCanBeDeletedList.size());
 				nameOfNearDuplicateThatCanBeDeletedList.forEach(s -> _form.addServletError(s));
 
 				_log.debug ("AlbumImages.doDup: nameOfNearDuplicateThatCanBeDeletedList.size = " + _decimalFormat0.format (nameOfNearDuplicateThatCanBeDeletedList.size ()) + " near dup sets -----------------------------------");
-				nameOfNearDuplicateThatCanBeDeletedList.forEach(s -> _log.debug(s));
+				nameOfNearDuplicateThatCanBeDeletedList.forEach(_log::debug);
+			}
+
+			//log/print/display all the rest
+			List<String> sortedDupDetailStringSet = dupAlbumMap.values().stream()
+					.filter(i -> !handledSets.contains(i))
+					.map(AlbumAlbumPair::getDetailString)
+					.sorted(_alphanumComparator)
+					.collect(Collectors.toList());
+
+			_log.debug ("AlbumImages.doDup: sortedDupDetailStringSet.size = " + _decimalFormat0.format (sortedDupDetailStringSet.size ()) + " dup sets ----------------------------------------");
+			if (sortedDupDetailStringSet.size () > 0 && sortedDupDetailStringSet.size () < 800) {
+				_form.addServletError ("Info: found duplicate sets: " + _decimalFormat0.format (sortedDupDetailStringSet.size ()));
+				for (String string : sortedDupDetailStringSet) {
+					_log.debug (string);
+					_form.addServletError ("Info: found duplicate sets: " + string);
+				}
 			}
 
 			AlbumProfiling.getInstance ().exit (5, "dups.sets");
@@ -966,6 +1235,37 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().exit (1);
 
 		return _imageDisplayList.size ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//operates directly on _imageDisplayList
+	//checks stuff other than image count; e.g., image numbering must be three digits and must start with "0"
+	public Set<String> removeImagesWithLargeCounts (int maxCountToCompare)
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		//get baseNames to reduce number of calls to getNumMatchingImages() below (only call once per album, instead of once per image)
+		List<String> baseNames = _imageDisplayList.stream()
+													.filter(i -> {
+														String imageDigits = i.getName().replaceAll(".*\\d-", "");
+														return imageDigits.length() == 3 && (imageDigits.startsWith("00") || imageDigits.startsWith("01"));  //image digits must be three and must start in the '0's (e.g. "001")
+													})
+													.map(i -> i.getBaseName(false))
+													.sorted(String.CASE_INSENSITIVE_ORDER)
+													.distinct()
+													.collect(Collectors.toList ());
+
+		Set<String> baseNamesTooLarge = baseNames.stream()
+												.filter(i -> AlbumImageDao.getInstance ().getNumMatchingImages(i, 0) > maxCountToCompare)
+												.collect(Collectors.toSet());
+
+		_imageDisplayList = _imageDisplayList.stream()
+											.filter(i -> !baseNamesTooLarge.contains(i.getBaseName(false)))
+											.collect(Collectors.toList ());
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return baseNamesTooLarge;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1183,8 +1483,10 @@ public class AlbumImages
 
 		StringBuilder sb = new StringBuilder (200);
 		for (int ii = 0; ii < AlbumFormInfo._NumTagParams; ii++) {
-			sb.append ("&tagMode").append (ii).append ("=").append (_form.getTagMode (ii).getSymbol ());
-			sb.append ("&tag").append (ii).append ("=").append (_form.getTag (ii));
+			sb.append (_form.getTagModeHtml (ii));
+			sb.append (_form.getTagHtml (ii));
+//			sb.append ("&tagMode").append (ii).append ("=").append (_form.getTagMode (ii).getSymbol ());
+//			sb.append ("&tag").append (ii).append ("=").append (_form.getTag (ii));
 		}
 		String tagParams = sb.toString ();
 
@@ -1207,7 +1509,7 @@ public class AlbumImages
 			.append ("&highlightDays=").append (_form.getHighlightDays ())
 			.append ("&exifDateIndex=").append (_form.getExifDateIndex ())
 			.append ("&maxStdDev=").append (_form.getMaxStdDev ())
-			.append ("&rootFolder=").append (_form.getRootFolder ())
+//			.append ("&rootFolder=").append (_form.getRootFolder ())
 			.append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 			.append ("&collapseGroups=").append (_form.getCollapseGroups ())
 			.append ("&limitedCompare=").append (_form.getLimitedCompare ())
@@ -1218,8 +1520,8 @@ public class AlbumImages
 			.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 			.append ("&useCase=").append (_form.getUseCase ())
 			.append ("&reverseSort=").append (_form.getReverseSort ())
-			.append ("&screenWidth=").append (_form.getScreenWidth ())
-			.append ("&screenHeight=").append (_form.getScreenHeight ())
+//			.append ("&screenWidth=").append (_form.getScreenWidth ())
+//			.append ("&screenHeight=").append (_form.getScreenHeight ())
 			.append ("&windowWidth=").append (_form.getWindowWidth ())
 			.append ("&windowHeight=").append (_form.getWindowHeight ())
 			.append ("&timestamp=").append (timestamp)
@@ -1263,7 +1565,7 @@ public class AlbumImages
 			.append ("&highlightDays=").append (_form.getHighlightDays ())
 			.append ("&exifDateIndex=").append (_form.getExifDateIndex ())
 			.append ("&maxStdDev=").append (_form.getMaxStdDev ())
-			.append ("&rootFolder=").append (_form.getRootFolder ())
+//			.append ("&rootFolder=").append (_form.getRootFolder ())
 //		  	.append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
 //		  	.append ("&collapseGroups=").append (_form.getCollapseGroups ())
 //		  	.append ("&limitedCompare=").append (_form.getLimitedCompare ())
@@ -1276,8 +1578,8 @@ public class AlbumImages
 //		  	.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 			.append ("&useCase=").append (_form.getUseCase ())
 //		  	.append ("&reverseSort=").append (_form.getReverseSort ())
-			.append ("&screenWidth=").append (_form.getScreenWidth ())
-			.append ("&screenHeight=").append (_form.getScreenHeight ())
+//			.append ("&screenWidth=").append (_form.getScreenWidth ())
+//			.append ("&screenHeight=").append (_form.getScreenHeight ())
 			.append ("&windowWidth=").append (_form.getWindowWidth ())
 			.append ("&windowHeight=").append (_form.getWindowHeight ())
 			.append ("&slice=").append (1)
@@ -1544,8 +1846,8 @@ public class AlbumImages
 
 					int newCols = defaultCols;
 					if (collapseGroups) {
-						if (getNumMatchingImages (image.getBaseName (false), sinceInMillis) !=
-							getNumMatchingImages (image.getBaseName (true), sinceInMillis)) {
+						if (AlbumImageDao.getInstance ().getNumMatchingImages (image.getBaseName (false), sinceInMillis) !=
+							AlbumImageDao.getInstance ().getNumMatchingImages (image.getBaseName (true), sinceInMillis)) {
 							newMode = AlbumMode.DoSampler;
 							newCols = _form.getColumns ();
 							limitedCompare = true;
@@ -1553,7 +1855,7 @@ public class AlbumImages
 
 					} else {
 						//set image line style,  thickness, and color to distinguish near and exact duplicates
-						boolean nearDup = _nameOfNearDuplicateThatCanBeDeleted.contains (image.getBaseName (false));						
+						boolean nearDup = _nameOfNearDuplicateThatCanBeDeleted.contains (image.getBaseName (false));
 						boolean exactDup = _nameOfExactDuplicateThatCanBeDeleted.contains (image.getBaseName (false));
 						imageBorderStyleStr = (nearDup || exactDup ? "dashed" : "solid");
 						imageBorderPixels = (nearDup || exactDup || mode == AlbumMode.DoDup ? 2 : 1);
@@ -1571,8 +1873,8 @@ public class AlbumImages
 					href = generateImageLink (imageName1, imageName1, newMode, newCols, sinceDays, limitedCompare, looseCompare);
 
 					details.append ("(")
-							.append (collapseGroups ? getNumMatchingAlbums(imageName, sinceInMillis) + ":" : "")
-							.append (getNumMatchingImages (imageName, sinceInMillis))
+							.append (collapseGroups ? AlbumImageDao.getInstance ().getNumMatchingAlbums(imageName, sinceInMillis) + ":" : "")
+							.append (AlbumImageDao.getInstance ().getNumMatchingImages (imageName, sinceInMillis))
 							.append (")");
 //					details.append ("(");
 //					if (collapseGroups) {
@@ -1662,9 +1964,10 @@ public class AlbumImages
 					}
 
 					//set columns from image/partner that comes first alphabetically
-					int imageCols = getNumMatchingImages (imageNonUniqueString, 0);
-					int partnerCols = getNumMatchingImages (partnerNonUniqueString, 0);
-					int newCols = (imageName.compareToIgnoreCase (partner.getName ()) < 0 ? imageCols : partnerCols);
+					int imageCols = AlbumImageDao.getInstance ().getNumMatchingImages (imageNonUniqueString, 0);
+					int partnerCols = AlbumImageDao.getInstance ().getNumMatchingImages (partnerNonUniqueString, 0);
+//					int newCols = (imageName.compareToIgnoreCase (partner.getName ()) < 0 ? imageCols : partnerCols);
+					int newCols = 8; //HACK - TODO for now hardcode to 8
 
 					//but prevent using columns = 1
 					if (newCols == 1) {
@@ -1886,32 +2189,75 @@ public class AlbumImages
 		return servletErrorsHtml;
 	}
 
+//TODO get rid of this, call DAO directly
 	///////////////////////////////////////////////////////////////////////////
-	public static int getNumMatchingImages (final String baseName, final long sinceInMillis)
-	{
-		AlbumProfiling.getInstance ().enter (8);
+//	public static int getNumMatchingImages (final String baseName, final long sinceInMillis)
+//	{
+//		AlbumProfiling.getInstance ().enter (8);
+//
+//		int num = AlbumImageDao.getInstance ().getNumMatchingImages (baseName, sinceInMillis);
+//
+////		_log.debug ("AlbumImages.getNumMatchingImages(\"" + baseName + "\"): " + num);
+//
+//		AlbumProfiling.getInstance ().exit (8);
+//
+//		return num;
+//	}
 
-		int num = AlbumImageDao.getInstance ().getNumMatchingImages (baseName, sinceInMillis);
-
-//		_log.debug ("AlbumImages.getNumMatchingImages(\"" + baseName + "\"): " + num);
-
-		AlbumProfiling.getInstance ().exit (8);
-
-		return num;
-	}
+//TODO get rid of this, call DAO directly
+	///////////////////////////////////////////////////////////////////////////
+//	public static int getNumMatchingAlbums (final String baseName, final long sinceInMillis)
+//	{
+//		AlbumProfiling.getInstance ().enter (8);
+//
+//		int num = AlbumImageDao.getInstance ().getNumMatchingAlbums (baseName, sinceInMillis);
+//
+////		_log.debug ("AlbumImages.getNumMatchingAlbums(\"" + baseName + "\"): " + num);
+//
+//		AlbumProfiling.getInstance ().exit (8);
+//
+//		return num;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int getNumMatchingAlbums (final String baseName, final long sinceInMillis)
+	public List<String> getMatchingAlbumsForFilters (final String[] filtersArray, final boolean collapseGroups, final long sinceInMillis)
 	{
-		AlbumProfiling.getInstance ().enter (8);
+		AlbumProfiling.getInstance ().enter (5);
 
-		int num = AlbumImageDao.getInstance ().getNumMatchingAlbums (baseName, sinceInMillis);
+		List<String> filters = VendoUtils.caseInsensitiveSortAndDedup (Arrays.asList (filtersArray));
+//TODO - move this to DAO (as query)??
+//TODO - this probably does not handle wildcards (e.g., '+')
+//TODO - does not work for "*"
+//TODO - does not work for "i" for example!!!!
 
-//		_log.debug ("AlbumImages.getNumMatchingAlbums(\"" + baseName + "\"): " + num);
+		List<String> allMatchingAlbums = new ArrayList<>();
 
-		AlbumProfiling.getInstance ().exit (8);
+//TODO - don't call getImagesFromCache() more than once if more that one filter uses the same subFolder
 
-		return num;
+		for (String filter : filters) {
+			Pattern filterPattern = Pattern.compile ("^" + (filter + "*").replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
+			String subFolder = AlbumImageDao.getInstance().getSubFolderFromImageName(filter);
+			Collection<AlbumImage> allImagesForSubFolder = AlbumImageDao.getInstance().getImagesFromCache(subFolder, null);
+
+			allMatchingAlbums.addAll(allImagesForSubFolder.stream()
+														.map(i -> i.getBaseName(collapseGroups))
+//														.filter(n -> n.toLowerCase().startsWith(filter.toLowerCase()))
+														.filter(filterPattern.asPredicate())
+														.sorted(_alphanumComparator)
+														.distinct()
+														.collect(Collectors.toList()));
+		}
+
+		if (filters.size() > 1) { //re-sort
+			allMatchingAlbums = allMatchingAlbums.stream()
+													.sorted(_alphanumComparator)
+													.distinct()
+													.collect(Collectors.toList());
+		}
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return allMatchingAlbums;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1920,7 +2266,7 @@ public class AlbumImages
 	{
 		StringBuilder sb = new StringBuilder(2048);
 
-		//TODO - check filter for wildcards
+//TODO - check filter for wildcards
 
 		int numImages = _imageDisplayList.size ();
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
@@ -1935,12 +2281,12 @@ public class AlbumImages
 
 		String baseNameDest = form.getFilters (1)[0]; //only uses the first filter
 		String dash = (baseNameDest.contains ("-") ? "" : "-"); //add dash unless already there
-		Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), AlbumImage.getSubFolderFromName (baseNameDest));
-		final String whiteList = "[0-9A-Za-z\\-_]"; //regex - all valid characters for basenames (disallow wildcards)
+		Path imagePath = FileSystems.getDefault ().getPath (rootPath.toString (), AlbumImageDao.getInstance ().getSubFolderFromImageName (baseNameDest));
+		final String whiteList = "[0-9A-Za-z\\-_]"; //regex - all valid characters for baseNames (disallow wildcards)
 
 		//skip if list is already sorted by name
 		List<AlbumImage> byName = new ArrayList<AlbumImage> (_imageDisplayList);
-		Collections.sort (byName, new AlbumImageComparator (AlbumSortType.ByName));
+		byName.sort(new AlbumImageComparator(AlbumSortType.ByName));
 		if (byName.equals (_imageDisplayList)) {
 			_log.debug ("AlbumImages.generateExifSortCommands: image list is already sorted" + NL);
 
@@ -1979,9 +2325,14 @@ public class AlbumImages
 	private static class ImageDuplicateDetails
 	{
 		///////////////////////////////////////////////////////////////////////////
+		//filter is an actual filter, with proper case
 		ImageDuplicateDetails (String filter)
 		{
 			_filter = filter;
+
+			if (_filter == null || _filter.isEmpty()) {
+				throw new IllegalArgumentException ("ImageDuplicateDetails.ctor: invalid values: + " + toString());
+			}
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1994,10 +2345,13 @@ public class AlbumImages
 //			_fileBaseName = _imageBaseName + (_imageBaseName.contains("-") ? "" : "-");
 			_count = countMatchingImages(_filter, imageDisplayList);
 			_averagePixels = getAveragePixels(_filter, imageDisplayList);
+			_medianPixels = getMedianPixels(_filter, imageDisplayList, AlbumOrientation.ShowAny);
+			_medianPixelsPortraitOrientation = getMedianPixels(_filter, imageDisplayList, AlbumOrientation.ShowPortrait);
 			_percentPortrait = getPercentPortrait(_filter, imageDisplayList);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		//filter is an actual filter, with proper case
 		public static List<ImageDuplicateDetails> splitMultipleSubAlbums (String filter, Collection<AlbumImage> imageDisplayList)
 		{
 			List<ImageDuplicateDetails> items = new ArrayList<> ();
@@ -2035,53 +2389,77 @@ public class AlbumImages
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		//filter is an actual filter, with proper case
 		public static AlbumImage findFirstMatchingImage (String filter, Collection<AlbumImage> imageDisplayList)
 		{
-			for (AlbumImage image : imageDisplayList) {
-				if (image.getName().startsWith(filter)) {
-					return image;
-				}
-			}
-
-			return null; //very bad
+			return imageDisplayList.stream()
+//					.filter(i -> i.getBaseName(false).equalsIgnoreCase(filter))
+					.filter(i -> i.getName().startsWith(filter))
+					.findFirst()
+					.orElse(null);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		//filter is an actual filter, with proper case
 		public static Long countMatchingImages (String filter, Collection<AlbumImage> imageDisplayList)
 		{
 			return imageDisplayList.stream()
-								   .filter(i -> i.getName().startsWith(filter))
-								   .count();
+//									.filter(i -> i.getBaseName(false).equalsIgnoreCase(filter))
+									.filter(i -> i.getName().startsWith(filter))
+									.count();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		//filter is an actual filter, with proper case
 		public static Long getAveragePixels (String filter, Collection<AlbumImage> imageDisplayList)
 		{
-			List<Long> pixels = new ArrayList<>();
-			for (AlbumImage image : imageDisplayList) {
-				if (image.getName().startsWith(filter)) {
-					pixels.add(image.getPixels());
-				}
-			}
-
-			return Math.round(pixels.stream()
-									.mapToDouble(i -> i)
-									.average()
-									.getAsDouble());
+			return Math.round (imageDisplayList.stream ()
+//												.filter(i -> i.getBaseName(false).equalsIgnoreCase(filter))
+												.filter(i -> i.getName().startsWith(filter))
+												.map (AlbumImage::getPixels)
+												.mapToDouble (i -> i)
+												.average ()
+												.orElse(0));
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public static Long getPercentPortrait (String filter, Collection<AlbumImage> imageDisplayList) {
-			List<AlbumOrientation> orientations = new ArrayList<>();
-			for (AlbumImage image : imageDisplayList) {
-				if (image.getName().startsWith(filter)) {
-					orientations.add(image.getOrientation());
+		//filter is an actual filter, with proper case
+		public static Long getMedianPixels (String filter, Collection<AlbumImage> imageDisplayList, AlbumOrientation orientation) {
+			List<Double> pixels = imageDisplayList.stream()
+//													.filter(i -> i.getBaseName(false).equalsIgnoreCase(filter))
+													.filter(i -> i.getName().startsWith(filter))
+													.filter(i -> i.matchOrientation(orientation))
+													.map (AlbumImage::getPixels)
+													.mapToDouble (i -> i)
+													.sorted ()
+													.boxed ()
+													.collect (Collectors.toList ());
+
+			double median = 0;
+			if (!pixels.isEmpty()) {
+				int halfSize = pixels.size() / 2;
+				median = pixels.get(halfSize);
+				if (halfSize > 1 && halfSize % 2 == 0) {
+					median = (median + pixels.get(halfSize - 1)) / 2;
 				}
 			}
 
+			return Math.round(median);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		//filter is an actual filter, with proper case
+		public static Long getPercentPortrait (String filter, Collection<AlbumImage> imageDisplayList)
+		{
+			List<AlbumOrientation> orientations = imageDisplayList.stream()
+//																.filter(i -> i.getBaseName(false).equalsIgnoreCase(filter))
+																.filter(i -> i.getName().startsWith(filter))
+																.map(AlbumImage::getOrientation)
+																.collect(Collectors.toList());
+
 			long numPortrait = orientations.stream()
-					.filter(p -> p == AlbumOrientation.ShowPortrait)
-					.count();
+											.filter(p -> p == AlbumOrientation.ShowPortrait)
+											.count();
 
 			return Math.round(100. * (double) numPortrait / (double) orientations.size());
 		}
@@ -2090,18 +2468,18 @@ public class AlbumImages
 		public static boolean doesNumberOfDigitsInBaseNamesMatch (Collection<ImageDuplicateDetails> dups)
 		{
 			return dups.stream()
-					.map(d -> d._digitsInImageBaseName)
-					.distinct()
-					.count() != 1;
+						.map(d -> d._digitsInImageBaseName)
+						.distinct()
+						.count() != 1;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
 		public static long numberOfDifferentSubFolders (Collection<ImageDuplicateDetails> dups)
 		{
 			return dups.stream()
-					.map(d -> d._subFolder)
-					.distinct()
-					.count();
+						.map(d -> d._subFolder)
+						.distinct()
+						.count();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -2116,6 +2494,8 @@ public class AlbumImages
 			sb.append (", ").append (_digitsInImageBaseName);
 //			sb.append (", ").append (_fileBaseName);
 			sb.append (", ").append (_decimalFormat2.format ((_averagePixels / 1e6)) + "MP");
+			sb.append (", ").append (_decimalFormat2.format ((_medianPixels / 1e6)) + "MP");
+			sb.append (", ").append (_decimalFormat2.format ((_medianPixelsPortraitOrientation / 1e6)) + "MP");
 			sb.append (", ").append (_percentPortrait).append("%");
 			sb.append (", ").append (_count);
 
@@ -2131,6 +2511,8 @@ public class AlbumImages
 //		String _fileBaseName;
 		Long _count;
 		Long _averagePixels;
+		Long _medianPixels;
+		Long _medianPixelsPortraitOrientation;
 		Long _percentPortrait;
 	}
 
@@ -2138,7 +2520,7 @@ public class AlbumImages
 	//creates .BAT file with move commands
 	public void generateDuplicateImageRenameCommands ()
 	{
-		_log.debug ("AlbumImages.generateDuplicateImageRenameCommands");
+//		_log.debug ("AlbumImages.generateDuplicateImageRenameCommands");
 
 		StringBuilder sb = new StringBuilder(2048);
 
@@ -2149,18 +2531,35 @@ public class AlbumImages
 //		boolean hasOneFilter = form.getFilters (0).length == 1;
 		String[] filters = form.getFilters ();
 
-		if (form.getMode () != AlbumMode.DoDup || !form.getLooseCompare() || !form.getIgnoreBytes() || numImages == 0 || numImages > 100 || form.filtersHaveWildCards()) {
+		if (form.getMode () != AlbumMode.DoDup || !form.getLooseCompare() || !form.getIgnoreBytes() || numImages == 0 || numImages > 1000 || form.filtersHaveWildCards()) {
+			_log.debug ("AlbumImages.generateDuplicateImageRenameCommands: aborting: not applicable");
+			deleteFileIgnoreException (moveFile);
+			return; //nothing to do
+		}
+
+		List<String> albumsMatchingFilters = getMatchingAlbumsForFilters (filters, false, 0);
+		if (albumsMatchingFilters.size() == 1) {
+			_log.debug ("AlbumImages.generateDuplicateImageRenameCommands: aborting: only one album; nothing to do" + NL);
+			deleteFileIgnoreException (moveFile);
+			return; //nothing to do
+
+		} else if (albumsMatchingFilters.size() > 15) {
+			_log.debug ("AlbumImages.generateDuplicateImageRenameCommands: aborting: too many matching albums (" + albumsMatchingFilters.size () + ") for filters: " +
+									VendoUtils.caseInsensitiveSortAndDedup (Arrays.asList (filters)) + NL);
 			deleteFileIgnoreException (moveFile);
 			return; //nothing to do
 		}
 
 		List<ImageDuplicateDetails> dups = new ArrayList<> ();
-		for (String filter : filters) {
-			List<ImageDuplicateDetails> tmp = ImageDuplicateDetails.splitMultipleSubAlbums (filter, _imageDisplayList);
+//		for (String filter : filters) {
+//			List<ImageDuplicateDetails> tmp = ImageDuplicateDetails.splitMultipleSubAlbums (filter, _imageDisplayList);
+		for (String album : albumsMatchingFilters) {
+			List<ImageDuplicateDetails> tmp = ImageDuplicateDetails.splitMultipleSubAlbums (album, _imageDisplayList);
 			dups.addAll (tmp);
 		}
 
 		if (dups.isEmpty()) {
+			_log.debug ("AlbumImages.generateDuplicateImageRenameCommands: aborting: no dups found" + NL);
 			deleteFileIgnoreException (moveFile);
 			return; //nothing to do
 		}
@@ -2169,14 +2568,18 @@ public class AlbumImages
 			dup.init(_imageDisplayList);
 		}
 
-		long numAlbums = dups.stream()
-							 .map(i -> i._imageBaseName)
-							 .distinct()
-							 .count();
-		if (numAlbums == 1) {
-			deleteFileIgnoreException (moveFile);
-			return; //nothing to do
-		}
+//do we still need this? since we are checking albumsMatchingFilters.size() == 1 above
+//		long numAlbums = dups.stream()
+//							 .map(i -> i._imageBaseName)
+//							 .distinct()
+//							 .count();
+//		if (numAlbums == 1) {
+//			_log.debug ("AlbumImages.generateDuplicateImageRenameCommands: aborting: only one album; nothing to do" + NL);
+//			deleteFileIgnoreException (moveFile);
+//			return; //nothing to do
+//		}
+
+		_log.debug ("AlbumImages.generateDuplicateImageRenameCommands");
 
 		long numTotalImages = dups.stream()
 								  .mapToLong(i -> i._count)
@@ -2186,17 +2589,23 @@ public class AlbumImages
 		List<ImageDuplicateDetails> sorted = dups.stream ()
 				.sorted ((i1, i2) -> {
 
-					//TODO - is comparing average pixel size always right?
+					//TODO - is comparing median pixel size (of only the portrait oriented images) always right?
+					long medianPixelDiff = compareToWithSlop (i1._medianPixelsPortraitOrientation, i2._medianPixelsPortraitOrientation, false, 0.5); //sort in descending order
+					if (medianPixelDiff != 0) {
+						return medianPixelDiff > 0 ? 1 : -1;
+					}
+
+					//compare percent orientation
+					long percentPortraitDiff = i2._percentPortrait - i1._percentPortrait; //sort in descending order
+					final long maxPreferredPercentPortraitDiff = 6; //5; //allowable variation from exact that will still be considered equal
+					if (Math.abs (percentPortraitDiff) >= maxPreferredPercentPortraitDiff) {
+						return percentPortraitDiff > 0 ? 1 : -1;
+					}
+
+					//compare average pixel size - we only get here if there are no portrait oriented images
 					long averagePixelDiff = compareToWithSlop (i1._averagePixels, i2._averagePixels, false, 0.5); //sort in descending order
 					if (averagePixelDiff != 0) {
 						return averagePixelDiff > 0 ? 1 : -1;
-					}
-
-					//compare orientation
-					long percentPortraitDiff = i2._percentPortrait - i1._percentPortrait; //sort in descending order
-					final long maxPreferredPercentPortraitDiff = 5; //allowable variation from exact that will still be considered equal
-					if (Math.abs (percentPortraitDiff) >= maxPreferredPercentPortraitDiff) {
-						return percentPortraitDiff > 0 ? 1 : -1;
 					}
 
 					//compare count
@@ -2232,7 +2641,7 @@ public class AlbumImages
 		String firstBaseName = firstItem._imageBaseName;
 		String destinationBaseName = destinationItem._imageBaseName;
 
-		boolean needsCleanup = !destinationBaseName.equalsIgnoreCase(destinationFilter) && //hack - in this case we end up with extra "1" on numbering
+		boolean needsCleanup = !destinationBaseName.equalsIgnoreCase(destinationFilter) && //hack - in this case we end up with extra "1" (or "2") on numbering
 							   !firstBaseName.equalsIgnoreCase(firstFilter) &&
 							   destinationBaseName.equalsIgnoreCase(firstBaseName);
 
@@ -2240,7 +2649,7 @@ public class AlbumImages
 
 		//handle situation where we have both 2- and 3-digit albums (prefer, for example, Foo28 over Foo101)
 		boolean mismatchedAlbumDigits = ImageDuplicateDetails.doesNumberOfDigitsInBaseNamesMatch(dups);
-		
+
 		sb.append ("REM auto-generated").append (NL);
 		sb.append ("setlocal").append (NL);
 		sb.append ("set REVERSE=0").append (NL);
@@ -2258,11 +2667,12 @@ public class AlbumImages
 
 			String indexString = String.format(indexStringFormat, index);
 			String sourceFileNameWild = ImageDuplicateDetails.appendDash(item._filter) + "*.jpg";
-			String destinatioFileNameWild = ImageDuplicateDetails.appendDash(firstFilter) + indexString + "*.jpg";
-			sb.append("mov ").append(sourceFileNameWild).append(" ").append(destinatioFileNameWild).append(NL);
+			String destinationFileNameWild = ImageDuplicateDetails.appendDash(firstFilter) + indexString + "*.jpg";
+			sb.append("mov ").append(sourceFileNameWild).append(" ").append(destinationFileNameWild).append(NL);
 
 			if (!firstItem._subFolder.equalsIgnoreCase(item._subFolder)) {
-				sb.append("move ").append(destinatioFileNameWild).append(" ..\\").append(firstItem._subFolder).append("\\").append(NL);
+//				sb.append ("drSleep ").append(sleepInSeconds).append (NL);
+				sb.append("move ").append(destinationFileNameWild).append(" ..\\").append(firstItem._subFolder).append("\\").append(NL);
 			}
 
 			index++;
@@ -2270,18 +2680,25 @@ public class AlbumImages
 
 		double sleepInSeconds = (numTotalImages >= 40 ? 1.0 : 0.5);
 
-		if (!firstBaseName.equalsIgnoreCase(destinationBaseName)) { //  || mismatchedAlbumDigits) {
+		if (!firstBaseName.equalsIgnoreCase(destinationBaseName)) { // || mismatchedAlbumDigits) {
 //			browserNeedsRefresh = true;
-			sb.append ("drSleep ").append(sleepInSeconds).append (NL);
+			sb.append("drSleep ").append(sleepInSeconds).append (NL);
 //			sb.append("call mx.bat ").append(destinationBaseName).append(" ").append(firstBaseName).append(NL);
 			sb.append("mov ").append(firstBaseName).append("*.jpg").append(" ").append(destinationBaseName).append("*.jpg").append(NL);
-		}
 
+			String srcSubFolderStr = AlbumImageDao.getInstance ().getSubFolderFromImageName (firstBaseName);
+			String destSubFolderStr = AlbumImageDao.getInstance ().getSubFolderFromImageName (destinationBaseName);
+			if (!srcSubFolderStr.equals(destSubFolderStr)) {
+				sb.append("drSleep ").append(sleepInSeconds).append (NL);
+//				sb.append("cd ..\\").append(srcSubFolderStr).append("\\").append(NL);
+				sb.append("move ..\\").append(srcSubFolderStr).append("\\").append(destinationBaseName + "*").append(" ..\\").append(destSubFolderStr).append("\\").append(NL);
+			}
+		}
 
 		if (!baseNamesDistinct.get(0).equalsIgnoreCase(destinationBaseName) && mismatchedAlbumDigits) {
 //			browserNeedsRefresh = true;
-			sb.append ("drSleep ").append(sleepInSeconds).append (NL);
-//			sb.append ("drSleep 0.5").append (NL);
+			sb.append("drSleep ").append(sleepInSeconds).append (NL);
+//			sb.append("drSleep 0.5").append (NL);
 			sb.append("mov ").append(destinationBaseName).append("-*.jpg").append(" ").append(baseNamesDistinct.get(0)).append("-*.jpg").append(NL);
 		}
 
@@ -2296,11 +2713,28 @@ public class AlbumImages
 
 //TODO this does not work quite right - it will write one row for each pair
 		String optionalCommentForNow = (baseNamesDistinct.size() > 2 ? "REM " : "");
-		for (String baseName : baseNamesDistinct) {
-			if (!destinationBaseName.equalsIgnoreCase(baseName)) {
-				sb.append(optionalCommentForNow).append("if %REVERSE%==1 mov ").append(destinationBaseName).append("*.jpg").append(" ").append(baseName).append("*.jpg").append(NL);
+		if (baseNamesDistinct.size () <= 2) {
+			for (String baseName : baseNamesDistinct) {
+				if (!destinationBaseName.equalsIgnoreCase(baseName)) {
+					Path imagePathSrc = FileSystems.getDefault ().getPath (rootPath.toString (), AlbumImageDao.getInstance ().getSubFolderFromImageName (baseName));
+					Path imagePathDest = FileSystems.getDefault ().getPath (rootPath.toString (), AlbumImageDao.getInstance ().getSubFolderFromImageName (destinationBaseName));
+
+//					sb.append(optionalCommentForNow).append("if %REVERSE%==1 mov ").append(destinationBaseName).append("*.jpg").append(" ").append(baseName).append("*.jpg").append(NL);
+					sb.append(optionalCommentForNow).append("if %REVERSE%==1 (").append(NL);
+					sb.append(optionalCommentForNow).append(" drSleep ").append(sleepInSeconds).append (NL);
+					sb.append(optionalCommentForNow).append(" cd /d ").append (imagePathDest.toString ()).append (NL);
+					sb.append(optionalCommentForNow).append(" mov ").append(destinationBaseName).append("*.jpg").append(" ").append(baseName).append("*.jpg").append(NL);
+
+					if (!imagePathSrc.equals(imagePathDest)) {
+						sb.append(optionalCommentForNow).append(" drSleep ").append(sleepInSeconds).append (NL);
+//						sb.append(optionalCommentForNow).append(" cd /d ").append (imagePathDest.toString ()).append (NL);
+						sb.append(optionalCommentForNow).append(" move ").append(baseName + "*.jpg").append(" ").append(imagePathSrc).append("\\").append(NL);
+					}
+					sb.append(optionalCommentForNow).append(")").append(NL);
+				}
 			}
 		}
+
 //		sb.append("REM call mx.bat ").append(destinationBaseName).append(" ").append(firstBaseName).append(NL);
 //		sb.append("REM call mx.bat ").append(firstBaseName).append(" ").append(destinationBaseName).append(NL);
 
@@ -2474,6 +2908,11 @@ public class AlbumImages
 			}
 		}
 
+		if (clearAll) {
+			_nameOfExactDuplicateThatCanBeDeleted = new HashSet<>();
+			_nameOfNearDuplicateThatCanBeDeleted = new HashSet<>();
+		}
+
 		long totalMem = Runtime.getRuntime ().totalMemory ();
 		long maxMem   = Runtime.getRuntime ().maxMemory ();
 		double memoryUsedPercent = 100 * (double) totalMem / maxMem;
@@ -2507,6 +2946,14 @@ public class AlbumImages
 		return numItemsRemoved;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	//called by AlbumImageDao.getImagesFromCache
+	public static void duplicatesCacheMaintenance ()
+	{
+		_nameOfExactDuplicateThatCanBeDeleted.clear ();
+		_nameOfNearDuplicateThatCanBeDeleted.clear ();
+	}
+
 
 	//members
 	private AlbumFormInfo _form = null;
@@ -2515,17 +2962,20 @@ public class AlbumImages
 
 	private final int _tableBorderPixels = 0; //set to 0 normally, set to 1 for debugging
 
-//	private static long _allCombosNumImages = 0;
+//	private final int _maxAverageDiffUsedByBatFiles = 25; //match value used by imageDiffer (id*.bat) BAT files: set MAX_RGB_DIFFS=/maxRgbDiffs 20
+//	private final int _maxStdDevDiffUsedByBatFiles = 30; //match value used by imageDiffer (id*.bat) BAT files: set MAX_STD_DEV=/maxStdDev 25
+
+	//	private static long _allCombosNumImages = 0;
 	private static List<VPair<Integer, Integer>> _allCombos = null;
 
-	public static final int _nameScaledImageMapMaxSize = 36 * 1024;
-	public static final int _looseCompareMapMaxSize = 24 * 1024 * 1024;
+	public static final int _nameScaledImageMapMaxSize = 24 * 1024;
+	public static final int _looseCompareMapMaxSize = 18 * 1024 * 1024;
 	private static Map<String, ByteBuffer> _nameScaledImageMap = null;
 	private static Map<String, AlbumImagePair> _looseCompareMap = null;
+	private static Set<String> _nameOfExactDuplicateThatCanBeDeleted = new HashSet<> ();
+	private static Set<String> _nameOfNearDuplicateThatCanBeDeleted = new HashSet<> ();
 
 	private static final Set<Long> _previousRequestTimestamps = new HashSet<Long> ();
-	private static final Set<String> _nameOfExactDuplicateThatCanBeDeleted = new HashSet<> ();
-	private static final Set<String> _nameOfNearDuplicateThatCanBeDeleted = new HashSet<> ();
 
 	private static final String _break = "<BR>";
 	private static final String _spacing = "&nbsp;";
@@ -2535,9 +2985,12 @@ public class AlbumImages
 	private static final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0"); //format as integer
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("###,##0.0");
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0.00");
+	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
-	private static AlbumImages _instance = null;
-	private static String _prevRootPath = "";
+	private static final AlphanumComparator _alphanumComparator = new AlphanumComparator();
+
+	private static volatile AlbumImages _instance = null;
+//	private static String _prevRootPath = "";
 	private static ExecutorService _executor = null;
 
 	private static final Logger _log = LogManager.getLogger ();
