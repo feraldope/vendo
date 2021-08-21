@@ -587,7 +587,7 @@ public class VendoUtils
 		double version = 0;
 
 		try {
-			version = Double.valueOf (_osVersion);
+			version = Double.parseDouble(_osVersion);
 		} catch (Exception ee) {
 			System.out.println ("VendoUtils.getOsVersion: " + ee);
 		}
@@ -683,21 +683,21 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String getRequestHeaders (HttpServletRequest request)
 	{
-		StringBuffer sb = new StringBuffer (1000);
+		StringBuilder sb = new StringBuilder(1000);
 
-		sb.append ("Request Method: " + request.getMethod () + NL);
-		sb.append ("Request Protocol: " + request.getProtocol () + NL);
-		sb.append ("Request URI: " + request.getRequestURI () + NL);
+		sb.append("Request Method: ").append(request.getMethod()).append(NL);
+		sb.append("Request Protocol: ").append(request.getProtocol()).append(NL);
+		sb.append("Request URI: ").append(request.getRequestURI()).append(NL);
 
 		Enumeration<String> headerNames = request.getHeaderNames ();
-		sb.append ("Request Headers:" + NL);
+		sb.append("Request Headers:").append(NL);
 		while (headerNames.hasMoreElements ()) {
 			String headerName = headerNames.nextElement ();
-			sb.append (headerName + ": " + request.getHeader (headerName) + NL);
+			sb.append(headerName).append(": ").append(request.getHeader(headerName)).append(NL);
 		}
 
 		Cookie[] cookies = request.getCookies ();
-		sb.append ("Request Cookies:" + NL);
+		sb.append("Request Cookies:").append(NL);
 		if (cookies != null) {
 			for (Cookie cookie : cookies) {
 				sb.append (cookie);
@@ -743,8 +743,8 @@ public class VendoUtils
 	{
 		StringBuilder sb = new StringBuilder ();
 
-		for (int ii = 0; ii < byteArray.length; ii++) {
-			sb.append (String.format ("%02x", byteArray[ii]));
+		for (byte b : byteArray) {
+			sb.append(String.format("%02x", b));
 		}
 
 		return sb.toString ();
@@ -770,7 +770,7 @@ public class VendoUtils
 		}
 
 		if (sort) {
-			Collections.sort (list, (o1, o2) -> o1.toString ().compareToIgnoreCase (o2.toString ()));
+			list.sort((o1, o2) -> o1.toString().compareToIgnoreCase(o2.toString()));
 		}
 
 		return list;
@@ -819,7 +819,7 @@ public class VendoUtils
 	}
 	public static <T> String arrayToString (T[] items, String separator)
 	{
-		StringBuffer sb = new StringBuffer (items.length * 10);
+		StringBuilder sb = new StringBuilder(items.length * 10);
 
 		for (T item : items) {
 			sb.append (separator)
@@ -881,9 +881,7 @@ public class VendoUtils
 	public static <T> Collection<T> dedupCollection (Collection<T> items)
 	{
 		//deduplicate Collection by adding everything to Set
-		Set<T> set = new HashSet<T> ();
-		set.addAll (items);
-		return set;
+		return new HashSet<T>(items);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -905,6 +903,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	// only for positive values
 	public static String unitSuffixScale (double value)
 	{
 		return unitSuffixScale (value, 0);
@@ -913,17 +912,16 @@ public class VendoUtils
 	{
 		final String[] unitSuffixArray = new String[] { "B ", "KB", "MB", "GB", "TB", "PB" };
 		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0.00");
-
-		if (value == 0) {
-			return "0";
-		}
+		final double base = 1024;
 
 		int digitGroups = 0;
-		if (value > 0) {
-			digitGroups = (int) (Math.log10 (value) / Math.log10 (1024));
+		if (value < 1) {
+			return "0";
+		} else {
+			digitGroups = (int) (Math.log10 (value) / Math.log10 (base));
 		}
 
-		String valueString = decimalFormat.format (value / Math.pow (1024, digitGroups)) + " " + unitSuffixArray[digitGroups];
+		String valueString = decimalFormat.format (value / Math.pow (base, digitGroups)) + " " + unitSuffixArray[digitGroups];
 
 		if (fieldWidth > 0) {
 			String format = "%" + fieldWidth + "s";
@@ -962,7 +960,7 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String getRealPathString (Path file)
 	{
-		String realPath = new String ();
+		String realPath;
 		try {
 			realPath = file.toRealPath ().toString ();
 
@@ -979,9 +977,7 @@ public class VendoUtils
 	public static String getCurrentDirectory ()
 	{
 		Path file = FileSystems.getDefault ().getPath ("");
-		String dir = file.toAbsolutePath ().toString ();
-
-		return dir;
+		return file.toAbsolutePath ().toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1013,7 +1009,7 @@ public class VendoUtils
 			List<File> list = Arrays.asList((parent.toFile()).listFiles(File::isFile));
 
 			String wildnameOnly = fileWithMarker.toFile().getName().replace(marker, ".*");
-			Pattern pattern = Pattern.compile(wildnameOnly);
+			Pattern pattern = Pattern.compile(wildnameOnly, Pattern.CASE_INSENSITIVE);
 			fileExists = list.stream().map(File::getName).anyMatch(pattern.asPredicate());
 
 		} catch (Exception ee) {

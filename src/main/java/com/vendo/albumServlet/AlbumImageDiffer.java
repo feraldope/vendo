@@ -815,7 +815,7 @@ public class AlbumImageDiffer
 	//cleanup obsolete rows: rows in image_diffs that are no longer in images
 	public long deleteFromImageDiffs ()
 	{
-		final int nameIdMax = 10 * 1000 * 1000;
+		final int nameIdMax = 10 * 1000 * 1000; //TODO - query this from images table
 		final int nameIdSteps = 10;
 		final int nameIdStep = nameIdMax / nameIdSteps;
 
@@ -1297,8 +1297,8 @@ public class AlbumImageDiffer
 
 	private Map<String, Collection<String>> _directoryCache = new HashMap<String, Collection<String>> ();
 
-	public static final int _maxAverageDiffUsedByBatFiles = 40; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_RGB_DIFFS=/maxRgbDiffs 35
-	public static final int _maxStdDevDiffUsedByBatFiles = 45; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_STD_DEV=/maxStdDev 40
+	public static final int _maxAverageDiffUsedByBatFiles = 25; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_RGB_DIFFS=/maxRgbDiffs 35
+	public static final int _maxStdDevDiffUsedByBatFiles = 30; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_STD_DEV=/maxStdDev 40
 
 	private static BasicDataSource _dataSource = null;
 	private static ExecutorService _executor = null;

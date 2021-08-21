@@ -28,6 +28,9 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.vendo.vendoUtils.VendoUtils.fileExists;
+import static com.vendo.vendoUtils.VendoUtils.sleepMillis;
+
 
 public class AlbumImageDao {
 	///////////////////////////////////////////////////////////////////////////
@@ -572,7 +575,7 @@ public class AlbumImageDao {
 					final long delayMillis = 5;
 					int sleepMillis = (int) (albumImageEvent.getTimestamp() + delayMillis - new GregorianCalendar().getTimeInMillis());
 					if (sleepMillis > 0) {
-						VendoUtils.sleepMillis(sleepMillis);
+						sleepMillis(sleepMillis);
 					}
 
 					if (_Debug) {
@@ -631,6 +634,7 @@ public class AlbumImageDao {
 			WatchDir watchDir = new WatchDir(dir, pattern, recurseSubdirs) {
 				@Override
 				protected void notify(Path dir, WatchEvent<Path> pathEvent) {
+					handlePauseAction();
 					try {
 						if (_Debug) {
 							Path file = pathEvent.context();
@@ -758,12 +762,19 @@ public class AlbumImageDao {
 	{
 //		_log.debug ("AlbumImageDao.handleFileCreate: " + nameNoExt);
 
+		boolean status = false;
+
+		Path imageFile = FileSystems.getDefault().getPath(_rootPath, subFolder, nameNoExt + AlbumFormInfo._ImageExtension);
+		if (!VendoUtils.fileExists(imageFile)) {
+			_log.error("AlbumImageDao.handleFileCreate: image files does not exist \"" + imageFile.toString() + "\"");
+			return status;
+		}
+
 		if (!AlbumImage.isValidImageName(nameNoExt)) {
 			_log.error("AlbumImageDao.handleFileCreate: invalid image name \"" + nameNoExt + "\"");
 		}
 
 		AlbumImage image = null;
-		boolean status = false;
 		try {
 			image = new AlbumImage(nameNoExt, subFolder, true); //this AlbumImage ctor reads image from disk
 			image.createRgbDataFile();
@@ -1570,6 +1581,24 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public String getPauseFilename () {
+		return Paths.get(_rootPath, _pauseFilename).toString();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private void handlePauseAction ()
+	{
+		final Path pauseFilePath = Paths.get(_rootPath, _pauseFilename);
+		if (fileExists (pauseFilePath)) {
+			_log.debug ("AlbumImageDao.handlePauseAction: pause file found: entering pause mode...");
+			while (fileExists (pauseFilePath)) {
+				sleepMillis (_pauseSleepMillis);
+			}
+			_log.debug ("AlbumImageDao.handlePauseAction: pause file not found: exiting pause mode");
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
 	private static class AlbumImagesData
 	{
@@ -1672,6 +1701,9 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 	private Collection<String> _subFolders = null;
 	private Set<String> _subFoldersOverrideSet = null;
+
+	private static final int _pauseSleepMillis = 1000;
+	private static final String _pauseFilename = "albumServer.pause.txt";
 
 	private static volatile AlbumImageDao _instance = null;
 

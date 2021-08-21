@@ -322,8 +322,8 @@ public class AlbumServlet extends HttpServlet
 		   .append ("<TD ALIGN=CENTER>").append (NL)
 		   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (true), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
 		   .append (checkbox ("Reverse Sort", "reverseSort", form.getReverseSort ())).append (_spacing).append (NL)
-		   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_spacing).append (NL)
-		   .append (dropDown ("Duplicate Handling", "duplicateHandling", AlbumDuplicateHandling.getValues (), AlbumDuplicateHandling.SelectNone.toString ())).append (_break).append (NL)
+		   .append (dropDown ("Duplicate Handling", "duplicateHandling", AlbumDuplicateHandling.getValues (), AlbumDuplicateHandling.SelectNone.toString ())).append (_spacing).append (NL)
+		   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_break).append (NL)
 
 		   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth)).append (_spacing).append (NL)
 //		   .append (inputElement ("Since Days", "sinceDays", form.getSinceDays (), numberFieldWidth)).append (_spacing).append (NL)

@@ -251,9 +251,9 @@ public class GetUrl {
 		if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty ()) {
 			displayUsage ("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
 		}
-		_urlHostToBeSkippedValues = Arrays.stream(System.getenv (_urlHostToBeSkippedName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlHostToBeSkippedValues == null ||*/ _urlHostToBeSkippedValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlHostToBeSkippedName + "'", true);
+		_urlHostsToBeSkippedValues = Arrays.stream(System.getenv (_urlHostsToBeSkippedName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlHostsToBeSkippedValues == null ||*/ _urlHostsToBeSkippedValues.isEmpty ()) {
+			displayUsage ("Must specify environment variable '" + _urlHostsToBeSkippedName + "'", true);
 		}
 		//DO NOT SORT - DO NOT CHANGE ORDER FROM FILE
 		_urlKnownHostFragmentsValues = Arrays.stream(System.getenv (_urlKnownHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
@@ -1650,8 +1650,8 @@ public class GetUrl {
 	//NOTE: similar code exists in JHistory.java and GetUrl.java
 	private final static String _urlPathFragmentsName = "URL_PATH_FRAGMENTS";
 	private static List<String> _urlPathFragmentsValues;
-	private final static String _urlHostToBeSkippedName = "URL_HOST_TO_BE_SKIPPED";
-	private static List<String> _urlHostToBeSkippedValues;
+	private final static String _urlHostsToBeSkippedName = "URL_HOSTS_TO_BE_SKIPPED";
+	private static List<String> _urlHostsToBeSkippedValues;
 	private final static String _urlKnownHostFragmentsName = "URL_KNOWN_HOST_FRAGMENTS";
 	private static List<String> _urlKnownHostFragmentsValues;
 	private final static String _urlDeadHostFragmentsName = "URL_DEAD_HOST_FRAGMENTS";

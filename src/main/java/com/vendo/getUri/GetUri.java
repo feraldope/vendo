@@ -31,9 +31,7 @@ import org.jsoup.select.NodeVisitor;
 
 import javax.net.ssl.*;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URL;
+import java.net.*;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -119,6 +117,18 @@ public class GetUri
 					}
 					_switches.add ("/block " + _blockNumber);
 
+				} else if (arg.equalsIgnoreCase("retry") || arg.equalsIgnoreCase("r")) {
+					try {
+						_retryCount = Integer.parseInt(args[++ii]);
+						if (_retryCount < 0) {
+							throw (new NumberFormatException());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
 				} else if (arg.equalsIgnoreCase ("extr1")) {// || arg.equalsIgnoreCase ("lo")) {
 					_extr1 = true;
 
@@ -136,6 +146,9 @@ public class GetUri
 
 				} else if (arg.equalsIgnoreCase ("checkHistoryOnly") || arg.equalsIgnoreCase ("co")) {
 					_checkHistoryOnly = true;
+
+				} else if (arg.equalsIgnoreCase ("noNormalize") || arg.equalsIgnoreCase ("non")) {
+					_normalize = false;
 
 				} else if (arg.equalsIgnoreCase ("noHistory") || arg.equalsIgnoreCase ("noh")) {
 					_noHistory = true;
@@ -258,7 +271,7 @@ public class GetUri
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/prefix <file prefix>] [/pad <number>] [/exten <file extension>] [<start index> <end index> [<step>]] [/destDir <folder>] [/checkHistoryOnly] [/block <block number>] [/ignoreHistory] [/noHistory] [/image] [/imageLinksOnly] [/linksOnly]";
+		msg += "Usage: " + _AppName + " [/debug] [/prefix <file prefix>] [/pad <number>] [/exten <file extension>] [<start index> <end index> [<step>]] [/destDir <folder>] [/checkHistoryOnly] [/block <block number>] [/ignoreHistory] [/noHistory] [/retry <number of times to retry on exception>] [/image] [/imageLinksOnly] [/linksOnly]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -334,62 +347,112 @@ public class GetUri
 			return true;
 		}
 
-		URL url = null;
-		HttpURLConnection conn = null;
-		try {
-			url = new URL (_urlStr);
-			conn = getConnection (_urlStr);
-
-		} catch (Exception ee) {
-			_log.error ("getUrl: error opening url '" + _urlStr + "'");
-			_log.error (ee); //print exception, but no stack trace
-			return false;
-		}
-
-		_log.debug ("downloading: " + url);
+		_log.debug("downloading: " + _urlStr);
 
 		int totalBytesRead = 0;
-		double elapsedSeconds = 0;
+		double elapsedNanos = 0;
+		String wholeFile = "";
 
-		//download URL into byte stream
-		String wholeFile = new String ();
-		try {
-			BufferedInputStream in = new BufferedInputStream (conn.getInputStream ());
-			OutputStream out = null;
-			if (_image) {
-				out = new FileOutputStream (_tempFilename);
-			} else {
-				out = new ByteArrayOutputStream ();
-			}
+		int retryCount = _retryCount;
+		int retrySleepStepMillis = 250; //increase sleep time on each failure
+		int retrySleepMillis = retrySleepStepMillis;
 
-			final int size = 64 * 1024;
-			byte bytes[] = new byte [size];
+		HttpURLConnection conn = null;
+		BufferedInputStream in = null;
+		OutputStream out = null;
 
-			long startNano = System.nanoTime ();
-			while (true) {
-				int bytesRead = in.read (bytes, 0, size);
-				if (bytesRead > 0) {
-					totalBytesRead += bytesRead;
-					out.write (bytes, 0, bytesRead);
+		while (true) {
+			try {
+				conn = getConnection(_urlStr);
 
+				in = new BufferedInputStream(conn.getInputStream());
+				if (_image) {
+					out = new FileOutputStream (_tempFilename);
 				} else {
-					break;
+					out = new ByteArrayOutputStream ();
 				}
+
+				final int size = 64 * 1024;
+				byte[] bytes = new byte[size];
+
+				long startNano = System.nanoTime();
+				while (true) {
+					int imageBytesRead = in.read(bytes, 0, size);
+					if (imageBytesRead > 0) {
+						totalBytesRead += imageBytesRead;
+						out.write(bytes, 0, imageBytesRead);
+//for testing: force invalid image
+//						out.write (bytes, 0, imageBytesRead - 1);
+
+					} else {
+						break;
+					}
+				}
+				elapsedNanos = System.nanoTime() - startNano;
+
+				if (_image) {
+					out.close ();
+				} else {
+					wholeFile = ((ByteArrayOutputStream) out).toString("UTF-8");
+				}
+
+				break; //success
+
+			} catch (Exception ee) {
+				// HTTP Error Codes
+				// 1xx: Informational
+				// 2xx: Success
+				// 3xx: Redirection
+				// 4xx: Client Error
+				// 5xx: Server Error
+
+				// 500: Internal Server Error
+				// 502: Bad Gateway
+				// 503: Service Unavailable
+				// 504: Gateway Timeout
+
+//				final int errorServiceUnavailable = 503;
+//				final int errorGatewayTimeout = 504;
+
+				int responseCode = getResponseCode(conn);
+				_log.error("getUrl: error (" + responseCode + ") reading url: " + _urlStr);
+				_log.error(ee); //print exception, but no stack trace
+
+				boolean retryableCondition = (ee instanceof ConnectException ||
+											ee instanceof SocketException ||
+											ee instanceof SocketTimeoutException ||
+											ee instanceof UnknownHostException ||
+//											(ee instanceof IOException && responseCode == errorServiceUnavailable) ||
+//											(ee instanceof IOException && responseCode == errorGatewayTimeout);
+											(ee instanceof IOException && responseCode >= 500 && responseCode < 510));
+
+//				if (ee instanceof UnknownHostException) {
+//					if (JHistory.isKnownDeadHost(_urlDeadHostFragmentsValues, _urlStr)) {
+//						VendoUtils.printWithColor(_alertColor, "Aborting. This is a known dead host: " + _urlStr);
+//						throw new RuntimeException ("GetUrl.getUrl: Aborting. This is a known dead host.");
+//					}
+//				}
+
+				if (retryableCondition && retryCount >= 0) {
+					_log.debug("******** retries left = " + retryCount + ", sleepMillis = " + retrySleepMillis + " ********");
+
+					closeConnection(_urlStr); //force reconnection on next pass
+
+					sleepMillis(retrySleepMillis);
+
+					retryCount--;
+					retrySleepMillis += retrySleepStepMillis;
+
+
+					continue; //retry
+				}
+
+				return false;
+
+			} finally {
+				if (in != null) { try { in.close (); } catch (Exception ex) { _log.error ("Error closing input stream", ex); } }
+				if (out != null) { try { out.close (); } catch (Exception ex) { _log.error ("Error closing output stream", ex); } }
 			}
-			elapsedSeconds = (double) (System.nanoTime () - startNano) / 1e9;
-
-			in.close ();
-
-			if (_image) {
-				out.close ();
-			} else {
-				wholeFile = new String (((ByteArrayOutputStream) out).toByteArray (), "UTF-8");
-			}
-
-		} catch (Exception ee) {
-			_log.error ("getUrl: error reading url '" + _urlStr + "'");
-			_log.error (ee);
-			return false;
 		}
 
 		closeConnection (_urlStr);
@@ -405,11 +468,10 @@ public class GetUri
 						linkSet.add (link.attr ("abs:src"));
 					}
 				}
-				List<String> linkList = new ArrayList<String> ();
-				linkList.addAll (linkSet);
-				Collections.sort (linkList, VendoUtils.caseInsensitiveStringComparator);
+				List<String> linkList = new ArrayList<String>(linkSet);
+				linkList.sort(VendoUtils.caseInsensitiveStringComparator);
 
-				wholeFile = new String ();
+				wholeFile = "";
 				for (String string  : linkList) {
 					wholeFile += string + NL;
 				}
@@ -423,11 +485,10 @@ public class GetUri
 				for (Element link : linkElements) {
 					linkSet.add (link.attr ("abs:href"));
 				}
-				List<String> linkList = new ArrayList<String> ();
-				linkList.addAll (linkSet);
-				Collections.sort (linkList, VendoUtils.caseInsensitiveStringComparator);
+				List<String> linkList = new ArrayList<String>(linkSet);
+				linkList.sort(VendoUtils.caseInsensitiveStringComparator);
 
-				wholeFile = new String ();
+				wholeFile = "";
 				for (String string : linkList) {
 					if (!string.contains ("/track/")) {
 						wholeFile += string + NL;
@@ -446,7 +507,7 @@ public class GetUri
 //					String imageHost = new String ();
 					String imageHost = _baseUri;
 					String imageDir = "/image/fl/";
-					String imageName = new String ();
+					String imageName = "";
 
 					List<Node> nodeList = new ArrayList<Node> ();
 					NodeVisitor myNodeVisitor = new MyNodeVisitor (nodeList);
@@ -504,10 +565,10 @@ public class GetUri
 
 			//write modified contents to file
 			try {
-				FileOutputStream out = new FileOutputStream (_tempFilename);
+				FileOutputStream out1 = new FileOutputStream (_tempFilename);
 
-				out.write (wholeFile.getBytes ());
-				out.close ();
+				out1.write (wholeFile.getBytes ());
+				out1.close ();
 
 			} catch (Exception ee) {
 				_log.error ("getUrl: error writing output file  '" + _tempFilename + "'");
@@ -516,7 +577,7 @@ public class GetUri
 			}
 		}
 
-		PerfStatsRecord record = new PerfStatsRecord (_filename, totalBytesRead , elapsedSeconds);
+		PerfStatsRecord record = new PerfStatsRecord (_filename, totalBytesRead, elapsedNanos);
 		_perfStats.add (record);
 
 		_log.debug ("Downloaded: " + record.toString2 (), true);
@@ -560,7 +621,7 @@ public class GetUri
 
 				String userAgent = VendoUtils.getUserAgent (true);
 				_httpURLConnection.setRequestProperty ("User-Agent", userAgent);
-				_httpURLConnection.setConnectTimeout (30 * 1000); //milliseconds
+				_httpURLConnection.setConnectTimeout (5 * 1000); //milliseconds
 
 			} catch (Exception ee) {
 				_log.error ("getConnection: error opening url: " + urlStr);
@@ -576,6 +637,34 @@ public class GetUri
 	{
 		_httpURLConnection = null;
 		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static int getResponseCode(HttpURLConnection conn) {
+		int responseCode = 0;
+
+		try {
+			responseCode = conn.getResponseCode();
+
+		} catch (Exception ee) {
+//			_log.error ("getResponseCode: exception:");
+//			_log.error (ee); //print exception, but no stack trace
+		}
+
+		return responseCode;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static void sleepMillis(int milliseconds) {
+		if (milliseconds > 0) {
+			try {
+				Thread.sleep(milliseconds);
+
+			} catch (Exception ee) {
+				_log.debug("Thread.sleep exception", ee);
+				_log.error(ee); //print exception, but no stack trace
+			}
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -774,6 +863,7 @@ public class GetUri
 			_log.debug ("_head = " + _head);
 			_log.debug ("_tail = " + _tail);
 			_log.debug ("_digits = " + _digits);
+			_log.debug ("_prefix = " + _prefix);
 		}
 
 		return true;
@@ -801,18 +891,35 @@ public class GetUri
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+//	public URL getDeNormalizedUrl (URL url) //throws Exception
+//	{
+//		String urlStr = url.toString();
+//		if (!urlStr.contains("://www.")) {
+//			urlStr = urlStr.replaceFirst("://", "://www.");
+//		}
+//		URL deNormalizedUrl = url;
+//		try {
+//			deNormalizedUrl = new URL(urlStr);
+//		} catch (Exception ignore) {
+//		}
+//		return deNormalizedUrl;
+//	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//normalizeUrl2
 	//	collapse multiple slashes into single slash (except for header "http://")
 	//	convert URLs that start with "http://www." to "http://"
 	//	convert URLs that end with ".ext/" to ".ext"
-	private static String normalizeUrl2 (String url)
+	private /*static*/ String normalizeUrl2 (String url)
 	{
 		String header1 = "http://www.";
 		String header2 = "http://";
 
-		if (url.toLowerCase ().startsWith (header1)) {
-			url = header2 + url.substring (header1.length (), url.length ());
-//			System.out.println ("normalizeUrl2: url = '" + url + "'");
+		if (_normalize) {
+			if (url.toLowerCase ().startsWith (header1)) {
+				url = header2 + url.substring (header1.length (), url.length ());
+//				System.out.println ("normalizeUrl2: url = '" + url + "'");
+			}
 		}
 
 		int headerIndex = url.indexOf (header2);
@@ -1103,7 +1210,7 @@ public class GetUri
 			double totalSeconds = 0;
 			for (PerfStatsRecord record : _records) {
 				totalBytes += record._bytesRead;
-				totalSeconds += record._elapsedSeconds;
+				totalSeconds += record._elapsedNanos / 1e9;
 
 				_log.debug (record.toString2 ());
 			}
@@ -1124,15 +1231,15 @@ public class GetUri
 	{
 		///////////////////////////////////////////////////////////////////////////
 		//helper for performance statistics
-		public PerfStatsRecord (String filename, double bytesRead, double elapsedSeconds)
+		public PerfStatsRecord (String filename, double bytesRead, double elapsedNanos)
 		{
 			File file = new File (filename);
 			_filename = file.getName ();
 
 			_bytesRead = bytesRead;
-			_elapsedSeconds = elapsedSeconds;
+			_elapsedNanos = elapsedNanos;
 
-			_bitsPerSec = 8 * _bytesRead / _elapsedSeconds;
+			_bitsPerSec = 8 * _bytesRead / _elapsedNanos;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1154,7 +1261,7 @@ public class GetUri
 		public final String _filename;
 		public final double _bytesRead;
 		public final double _bitsPerSec;
-		public final double _elapsedSeconds;
+		public final double _elapsedNanos;
 	}
 
 	private static class MyNodeVisitor implements NodeVisitor
@@ -1195,6 +1302,7 @@ public class GetUri
 	private int _endIndex = -1;
 	private int _step = -1;
 	private int _blockNumber = 0;
+	private int _retryCount = 5;
 	private boolean _extr1 = false;
 	private boolean _image = false;
 	private boolean _ignoreHistory = false;
@@ -1202,6 +1310,7 @@ public class GetUri
 	private boolean _linksOnly = false;
 	private boolean _imageLinksOnly = false;
 	private boolean _noHistory = false;
+	private boolean _normalize = true; //default behavior is to normalize
 	private String _model = null;
 	private String _baseUri = null;
 	private String _prefix = null;

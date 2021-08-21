@@ -175,6 +175,16 @@ SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 10
 FROM information_schema.tables
 GROUP BY table_schema;
 
+-- counts of all* databases
+select count(*) as count, 'image_counts' as table_name from albumimages.image_counts
+union all
+select count(*) as count, 'image_diffs' as table_name from albumimages.image_diffs
+union all
+select count(*) as count, 'image_folder' as table_name from albumimages.image_folder
+union all
+select count(*) as count, 'images' as table_name from albumimages.images
+
+
 -- images size distribution by 1-char subfolder (for determining which folders to move from D: to C:)
 select lower(substring(name_no_ext,1,1)) as sub_folder1, sum(bytes) / (1024 * 1024 *1024) as giga_bytes, count(*) as count
 from images
@@ -182,8 +192,10 @@ group by sub_folder1
 order by giga_bytes desc
 
 -- size and count of image folders (actual subfolders) (NOTE does not account for drive's block size; just adds raw bytes)
-select sub_folder, (sum(bytes)/(1024*1024*1024)) as GBytes, count(*) as count from images group by sub_folder order by GBytes desc
-select sub_folder, (sum(bytes)/(1024*1024*1024)) as GBytes, count(*) as count from images group by sub_folder order by count desc
+select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count from images group by sub_folder order by GBytes desc
+select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count from images group by sub_folder order by count desc
+--add padding to files size, plus size of .dat file)
+select (sum(bytes * 1.05) + 10500)/(1024*1024*1024) as GBytes, count(*) as count from images order by GBytes desc
 
 -- distribution of images in actual subfolders
 select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by count desc
@@ -475,6 +487,8 @@ select * from image_diffs limit 100
 
 select max(name_id_1), max(name_id_2) from image_diffs
 
+select max(name_id) from images
+
 -- cleanup obsolete rows
 select count(*) from image_diffs
 where (name_id_1 not in (select name_id from images)) OR (name_id_2 not in (select name_id from images))
@@ -492,10 +506,12 @@ where name_id_1 not in (select name_id from images)
 -- where name_id_2 not in (select name_id from images)
 
 -- cleanup likely useless rows
-select avg_diff, count(*) from image_diffs where avg_diff >= 50 group by avg_diff order by avg_diff desc
---delete from image_diffs where avg_diff >= 50
+-- note this might remove useful rows: should only delete when both values > threshold
+    select avg_diff, count(*) from image_diffs where avg_diff >= 50 group by avg_diff order by avg_diff desc
+    --delete from image_diffs where avg_diff >= 50
 
-select std_dev, count(*) from image_diffs where std_dev >= 0 group by std_dev order by std_dev desc
+    select std_dev, count(*) from image_diffs where std_dev >= 50 group by std_dev order by std_dev desc
+    --delete from image_diffs where std_dev >= 50
 
 -- -----------------------------------------------------------------------------
 -- find albums that have a high number of images and a large byte size (and optionally EXIF date)
