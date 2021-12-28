@@ -921,7 +921,13 @@ public class VendoUtils
 			digitGroups = (int) (Math.log10 (value) / Math.log10 (base));
 		}
 
-		String valueString = decimalFormat.format (value / Math.pow (base, digitGroups)) + " " + unitSuffixArray[digitGroups];
+		String valueString = "??";
+		try {
+			valueString = decimalFormat.format(value / Math.pow(base, digitGroups)) + " " + unitSuffixArray[digitGroups];
+
+		} catch (ArrayIndexOutOfBoundsException ex) {
+			//TODO - print/log error
+		}
 
 		if (fieldWidth > 0) {
 			String format = "%" + fieldWidth + "s";

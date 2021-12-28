@@ -128,6 +128,7 @@ public class AlbumFormInfo
 		_forceBrowserCacheRefresh = false;
 
 		_highlightMinPixels = _defaultHighlightMinPixels;
+		_highlightMaxPixels = _defaultHighlightMaxPixels;
 		_highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 		_logLevel = _defaultLogLevel;
 		_maxImageScalePercent = _defaultMaxImageScalePercent;
@@ -262,6 +263,11 @@ public class AlbumFormInfo
 			_log.debug ("AlbumFormInfo.processRequest: property: defaultHighlightMinPixels = " + _defaultHighlightMinPixels);
 		}
 
+		_highlightMaxPixels = _defaultHighlightMaxPixels = getPropertyInt (properties, "defaultHighlightMaxPixels", _defaultHighlightMaxPixels);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultHighlightMaxPixels = " + _defaultHighlightMaxPixels);
+		}
+
 		_highlightMaxKilobytes = _defaultHighlightMaxKilobytes = getPropertyInt (properties, "defaultHighlightMaxKilobytes", _defaultHighlightMaxKilobytes);
 		if (_debugProperties) {
 			_log.debug ("AlbumFormInfo.processRequest: property: defaultHighlightMaxKilobytes = " + _defaultHighlightMaxKilobytes);
@@ -359,7 +365,7 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String cleanFilter (String filter)
+	public String cleanFilter (String debugName, String filter)
 	{
 		if (filter.isEmpty ()) {
 			return filter;
@@ -460,7 +466,7 @@ public class AlbumFormInfo
 			filter = filter.substring (0, filter.length () - 1);
 		}
 
-		_log.debug ("AlbumFormInfo.cleanFilter: filter: \"" + filter + "\"");
+		_log.debug ("AlbumFormInfo.cleanFilter: " + debugName + ": \"" + filter + "\"");
 
 		return filter;
 	}
@@ -468,7 +474,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setFilter1 (String filter)
 	{
-		_filter1 = cleanFilter (filter);
+		_filter1 = cleanFilter ("filter1", filter);
 	}
 
 	public String getFilter1 ()
@@ -479,7 +485,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setFilter2 (String filter)
 	{
-		_filter2 = cleanFilter (filter);
+		_filter2 = cleanFilter ("filter2", filter);
 	}
 
 	public String getFilter2 ()
@@ -490,7 +496,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setFilter3 (String filter)
 	{
-		_filter3 = cleanFilter (filter);
+		_filter3 = cleanFilter ("filter3", filter);
 	}
 
 	public String getFilter3 ()
@@ -599,7 +605,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setExclude1 (String exclude)
 	{
-		_exclude1 = cleanFilter (exclude);
+		_exclude1 = cleanFilter ("exclude1", exclude);
 	}
 
 	public String getExclude1 ()
@@ -610,7 +616,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setExclude2 (String exclude)
 	{
-		_exclude2 = cleanFilter (exclude);
+		_exclude2 = cleanFilter ("exclude2", exclude);
 	}
 
 	public String getExclude2 ()
@@ -621,7 +627,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setExclude3 (String exclude)
 	{
-		_exclude3 = cleanFilter (exclude);
+		_exclude3 = cleanFilter ("exclude3", exclude);
 	}
 
 	public String getExclude3 ()
@@ -1089,6 +1095,12 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public int getHighlightMaxPixels ()
+	{
+		return _highlightMaxPixels;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public int getHighlightMaxKilobytes ()
 	{
 		return _highlightMaxKilobytes;
@@ -1234,6 +1246,7 @@ public class AlbumFormInfo
 	private int _defaultMaxFilters = 500;
 	private int _defaultHighlightDays = 4;
 	private int _defaultHighlightMinPixels = 640;
+	private int _defaultHighlightMaxPixels = 2560;
 	private int _defaultHighlightMaxKilobytes = 1536;
 	private int _defaultLogLevel = 5;
 	private int _defaultMaxImageScalePercent = 150;
@@ -1249,6 +1262,7 @@ public class AlbumFormInfo
 	private String _defaultRootFolder = "jroot";
 //	private String _subFolders = "";
 	private int _highlightMinPixels = _defaultHighlightMinPixels;
+	private int _highlightMaxPixels = _defaultHighlightMaxPixels;
 	private int _highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 	private int _maxColumns = 32;
 	private Collection<String> _servletErrors = new HashSet<String> (); //use set to avoid dups

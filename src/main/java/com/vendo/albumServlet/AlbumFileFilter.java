@@ -124,7 +124,7 @@ public class AlbumFileFilter implements FilenameFilter
 
 			} else if (_includePatterns != null) {
 				for (Pattern includePattern : _includePatterns) {
-					String leadingNonNumericChars = includePattern.pattern ().replaceFirst ("[0-9\\[\\.\\*].*", "");
+					String leadingNonNumericChars = includePattern.pattern ().replaceFirst ("[0-9\\[\\.\\*].*", "").toLowerCase();
 					if (leadingNonNumericChars.startsWith(folder) || folder.startsWith(leadingNonNumericChars)) {
 //						_log.debug ("AlbumFileFilter folderNeedsChecking: folder \"" + folder + "\" matches pattern \"" + includePattern + "\"");
 						status = true;
@@ -239,6 +239,12 @@ public class AlbumFileFilter implements FilenameFilter
 	public boolean isAllFolders ()
 	{
 		return _includeAllFolders;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean isEmpty ()
+	{
+		return _includePatterns == null;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

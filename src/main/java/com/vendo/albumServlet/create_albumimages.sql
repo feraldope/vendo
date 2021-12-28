@@ -185,7 +185,7 @@ union all
 select count(*) as count, 'images' as table_name from albumimages.images
 
 
--- images size distribution by 1-char subfolder (for determining which folders to move from D: to C:)
+-- images size distribution by 1-char subfolder (for determining which folders to move from D: to C:) (SEARCH TODO.TXT for mklink, AlbumServlet)
 select lower(substring(name_no_ext,1,1)) as sub_folder1, sum(bytes) / (1024 * 1024 *1024) as giga_bytes, count(*) as count
 from images
 group by sub_folder1
@@ -208,6 +208,8 @@ select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from 
 select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from images group by sub_folder2 order by count desc
 -- three-char subfolder
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
+-- four-char
+select lower(substring(name_no_ext,1,4)) as sub_folder4, count(*) as count from images group by sub_folder4 order by count desc
 
 -- ONCE a subfolder shows up at the top of the previous query, see how it needs to be split
 -- !!! distribution of images in set of subfolders ('ka', 'ni', etc.)

@@ -7,9 +7,14 @@
       <option name="url" value="https://repo.maven.apache.org/maven2" />
     </remote-repository>
     <remote-repository>
-      <option name="id" value="central" />
-      <option name="name" value="Maven Central repository" />
-      <option name="url" value="https://repo1.maven.org/maven2" />
+      <option name="id" value="apache-commons" />
+      <option name="name" value="Apache Commons" />
+      <option name="url" value="https://mvnrepository.com/artifact/org.apache.commons" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="google-guava" />
+      <option name="name" value="Google Guava" />
+      <option name="url" value="https://mvnrepository.com/artifact/com.google.guava/guava" />
     </remote-repository>
     <remote-repository>
       <option name="id" value="jboss-repo" />
@@ -20,6 +25,16 @@
       <option name="id" value="jboss.community" />
       <option name="name" value="JBoss Community repository" />
       <option name="url" value="https://repository.jboss.org/nexus/content/repositories/public/" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="c6bede00-566f-4a9f-8a0d-d2fa71fbf937" />
+      <option name="name" value="c6bede00-566f-4a9f-8a0d-d2fa71fbf937" />
+      <option name="url" value="https://mvnrepository.com/artifact/com.google.guava/guava" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="google" />
+      <option name="name" value="Google" />
+      <option name="url" value="https://mvnrepository.com/artifact/com.google" />
     </remote-repository>
   </component>
 </project>

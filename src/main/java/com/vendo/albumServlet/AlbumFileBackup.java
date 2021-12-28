@@ -536,13 +536,18 @@ public class AlbumFileBackup
 			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): starting...");
 		}
 
-		Set<AlbumImageFileDetails> coll = new HashSet<AlbumImageFileDetails> ();
+//TODO use AtomicReference? - is this thread-safe?
+		final List<String> lastPathHandled = new ArrayList<>(Collections.singletonList("")); //for debugging (final List<> is hack
+
+		Set<AlbumImageFileDetails> coll = new HashSet<> ();
 
 		try {
 			Files.walkFileTree (folder, new SimpleFileVisitor<Path> () {
 				@Override
 				public FileVisitResult visitFile (Path file, BasicFileAttributes attrs)
 				{
+					lastPathHandled.set(0, file.toString());
+
 					String filename = file.getFileName ().toString ();
 					if (filenamePattern.matcher (filename).matches ()) {
 						long numBytes = attrs.size ();
@@ -557,6 +562,8 @@ public class AlbumFileBackup
 				@Override
 				public FileVisitResult visitFileFailed (Path file, IOException ex)
 				{
+					lastPathHandled.set(0, file.toString());
+
 					if (ex != null) {
 						_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): error: ", new Exception ("visitFileFailed", ex));
 					}
@@ -567,6 +574,8 @@ public class AlbumFileBackup
 				@Override
 				public FileVisitResult postVisitDirectory (Path dir, IOException ex)
 				{
+					lastPathHandled.set(0, dir.toString());
+
 					if (ex != null) {
 						_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): error: ", new Exception ("postVisitDirectory", ex));
 					}
@@ -576,7 +585,9 @@ public class AlbumFileBackup
 			});
 
 		} catch (Exception ex) {
-			throw new AssertionError ("Files#walkFileTree will not throw IOException if the FileVisitor does not");
+//			throw new AssertionError ("Files#walkFileTree(\"" + folder + "\") will not throw IOException if the FileVisitor does not");
+			String hightlight = "******************************************************************************************";
+			_log.error (NL + hightlight + NL + "AlbumFileBackup.getImageFileDetailsFromFileSystem: lastPathHandled = '" + lastPathHandled.get(0) + "'" + NL + hightlight + NL, ex);
 		}
 
 //		_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem (\"" + folder + "\"): coll.size () = " + coll.size ());

@@ -32,7 +32,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 
-public class AlbumImage
+public class AlbumImage implements Comparable<AlbumImage>
 {
 	///////////////////////////////////////////////////////////////////////////
 	//this ctor is used by mybatis
@@ -165,6 +165,14 @@ public class AlbumImage
 		}
 
 		AlbumProfiling.getInstance ().exit (7, subFolder, "ctor");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	@Override
+	//required by Set<VPair<AlbumImage, AlbumImage>>
+	//note compareTo, equals, and hashCode only operate on _name
+	public int compareTo(AlbumImage other) {
+		return getName().compareToIgnoreCase(other.getName()); //TODO - is this correct sense??
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -314,13 +322,13 @@ public class AlbumImage
 	{
 		if (!collapseGroups) {
 			if (_tagString1 == null) {
-				_tagString1 = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
+				_tagString1 = String.join(", ", AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups));
 			}
 			return _tagString1;
 
 		} else { //collapseGroups
 			if (_tagString2 == null) {
-				_tagString2 = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
+				_tagString2 = String.join(", ", AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups));
 			}
 			return _tagString2;
 		}
@@ -529,6 +537,7 @@ public class AlbumImage
 
 		String nameWithExt = getImagePath () + getName () + AlbumFormInfo._RgbDataExtension;
 
+//TODO - convert to try-with-resources
 		ByteBuffer scaledImageData = null;
 		FileInputStream inputStream = null;
 		FileChannel fileChannel = null;

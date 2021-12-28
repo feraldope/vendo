@@ -6,7 +6,6 @@ import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 //import org.apache.logging.log4j.*;
 
@@ -45,8 +44,9 @@ public class AlbumAlbumPairs
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns true if at least one image in either albumPair has the same base name as an albumPair in this set
-	public boolean matchesAtLeastOneImage (Set<AlbumAlbumPair> albumSet1, AlbumAlbumPair albumPair2) {
-		//TODO: improve this brute-force method
+	private boolean matchesAtLeastOneImage (Set<AlbumAlbumPair> albumSet1, AlbumAlbumPair albumPair2)
+	{
+//TODO: improve this brute-force method
 		Set<String> baseNames1 = new HashSet<>();
 		for (AlbumAlbumPair albumpair1 : albumSet1) {
 			baseNames1.add(albumpair1.getBaseName(0));
@@ -60,22 +60,77 @@ public class AlbumAlbumPairs
 		return found;
 	}
 
+/* old version copied (more recently copied from AlbumAlbumPair)
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getDetailsStrings(int minimumPairsSoShow) {
+	//returns true if at least one image in either imagePair has the same base name as an imagePair in this set
+	private boolean matchesAtLeastOneImage (AlbumAlbumPair set2)
+	{
+		//TODO: improve this brute-force method
+		Set<AlbumImage> images1 = new HashSet<>();
+		for (AlbumImagePair imagePair : _imagePairs) {
+			images1.add(imagePair.getImage1());
+			images1.add(imagePair.getImage2());
+		}
+		Set<AlbumImage> images2 = new HashSet<>();
+		for (AlbumImagePair imagePair : set2.getPairs()) {
+			images2.add(imagePair.getImage1());
+			images2.add(imagePair.getImage2());
+		}
+		for (AlbumImage image1 : images1) {
+			for (AlbumImage image2 : images2) {
+				if (image1.getBaseName(false).equalsIgnoreCase(image2.getBaseName(false))) {
+					return true;
+				}
+			}
+
+		}
+
+		return false;
+*/
+/* old way
+		//TODO: improve this brute-force method
+		for (AlbumImagePair pair1 : _imagePairs) {
+			if (pair1.getImage1().equalBase(pair2.getImage1(), false) ||
+				pair1.getImage1().equalBase(pair2.getImage2(), false) ||
+				pair1.getImage2().equalBase(pair2.getImage1(), false) ||
+				pair1.getImage2().equalBase(pair2.getImage2(), false)) {
+				return true;
+			}
+		}
+		return false;
+	}
+*/
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<String> getDetailsStrings(int minimumPairsToShow)
+	{
 		if (_albumSets.isEmpty()) {
-			return Arrays.asList("<no album pairs>");
+			return Collections.singletonList("<no album pairs>");
 		}
 
 		List<String> detailString = new ArrayList<>();
 		for (Set<AlbumAlbumPair> albumPairs : _albumSets) {
-			if (albumPairs.size() >= minimumPairsSoShow) {
-				StringBuffer sb = new StringBuffer();
-				List<String> baseNames = new ArrayList<>();
+			if (albumPairs.size() >= minimumPairsToShow) {
+				Collection<String> baseNames = new TreeSet<> (new AlphanumComparator()); //use set to avoid dups
 				for (AlbumAlbumPair albumPair : albumPairs) {
 					baseNames.add(albumPair.getBaseName(0));
 					baseNames.add(albumPair.getBaseName(1));
 				}
-				detailString.add(VendoUtils.dedupCollection(baseNames).stream().sorted(_alphanumComparator).collect(Collectors.joining(", ")));
+
+				String filters = String.join(",", baseNames);
+				AlbumFormInfo form = AlbumFormInfo.getInstance();
+				String href = AlbumImages.getInstance().generateImageLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
+				StringBuilder html = new StringBuilder();
+//TODO - move to help class/method
+				html.append ("<A HREF=\"")
+					.append (href)
+					.append ("\" ")//.append(NL)
+					.append ("title=\"").append (filters)
+					.append ("\" target=_blank>")//.append (NL)
+					.append (filters)//.append (NL)
+					.append ("</A>");//.append (NL);
+				detailString.add("[" + VendoUtils.dedupCollection(baseNames).size() + "] " + html.toString()
+				);
 			}
 		}
 

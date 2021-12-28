@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -996,7 +997,7 @@ public class AlbumTags
 		final int numChunks = tagFilterChunks.size ();
 		_log.debug ("AlbumTags.checkForOrphanFilters: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
 
-		List<String> allBase1Names = new ArrayList<String> ();
+		List<String> allBase1Names = new ArrayList<> ();
 		for (String subFolder : _albumBase1NameMap.keySet ()) {
 			allBase1Names.addAll (_albumBase1NameMap.get (subFolder));
 		}
@@ -1004,7 +1005,8 @@ public class AlbumTags
 		final ExecutorService executor = AlbumImages.getExecutor ();
 		final CountDownLatch endGate = new CountDownLatch (numChunks);
 
-		HashMap<String, String> orphanMap = new HashMap<String, String> ();
+		HashMap<String, String> orphanMap = new HashMap<> ();
+		final Set<String> orphanSet = new ConcurrentSkipListSet<> ();
 
 		for (final List<TagFilter1> filterChunk : tagFilterChunks) {
 			Runnable task = () -> {
@@ -1014,7 +1016,7 @@ public class AlbumTags
 					int minExpectedMatches = filter.getMinItemCount ();
 
 					int foundMatches = 0;
-					SortedSet<String> remainingFiles = new TreeSet<String> (); //use set to eliminate dups
+					SortedSet<String> remainingFiles = new TreeSet<> (); //use set to eliminate dups
 					for (String base1Name : allBase1Names) {
 						if (filter.accept (null, base1Name)) {
 							foundMatches++;
@@ -1035,8 +1037,7 @@ public class AlbumTags
 							}
 
 							orphanMap.put (tagFilter._filter.toString (), value);
-							printWithColor (_warningColor, "orphan filter: " + tagFilter._filter.toString () + " - tag: " + value +
-												", remaining files: " + remainingFiles.toString ());
+							orphanSet.add ("orphan filter: " + tagFilter._filter.toString () + " - tag: " + value + ", remaining files: " + remainingFiles.toString ());
 						}
 					}
 				}
@@ -1052,15 +1053,17 @@ public class AlbumTags
 			_log.error ("AlbumTags.checkForOrphanFilters: endGate:", ee);
 		}
 
-		List<String> orphanList = orphanMap.keySet ().stream ()
-													 .map (v -> orphanMap.get (v) + ": " + v)
-													 .sorted (VendoUtils.caseInsensitiveStringComparator)
-													 .collect (Collectors.toList ());
+		AtomicInteger count = new AtomicInteger(1);
+		orphanMap.keySet ().stream ()
+				 .map (v -> orphanMap.get (v) + ": " + v)
+				 .sorted (VendoUtils.caseInsensitiveStringComparator)
+				 .forEach(o -> printWithColor (_alertColor, "orphan filter " + count.getAndIncrement() + ": " + o));
 
-//		_log.debug ("AlbumTags.checkForOrphanFilters: orphanList.size() = " + orphanList.size ());
-		for (String orphan : orphanList) {
-			printWithColor (_alertColor, "orphan filter: " + orphan);
-		}
+		count.set(1);
+		orphanSet.stream ()
+				 .sorted (VendoUtils.caseInsensitiveStringComparator)
+				 .forEach(o -> printWithColor (_warningColor, "orphan filter " + count.getAndIncrement() + ": " + o));
+
 
 		AlbumProfiling.getInstance ().exit (5);
 	}
@@ -1144,7 +1147,7 @@ public class AlbumTags
 		return baseNames;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
 	//find all albums that have 0 tags (and minimum <minImageCount> images)
 	private Collection<NameCount> getAlbumsWithNoTags (int minImageCount)
 	{
@@ -1682,7 +1685,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string on error, or if no entries found
-	public String getTagsForBaseName (String baseName, boolean collapseGroups)
+	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups)
 	{
 		List<String> baseNames = new ArrayList<String> ();
 		baseNames.add (baseName);
@@ -1691,7 +1694,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string on error, or if no entries found
-	public String getTagsForBaseNames (Collection<String> baseNames, boolean collapseGroups)
+	public List<String> getTagsForBaseNames (Collection<String> baseNames, boolean collapseGroups)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
@@ -1741,14 +1744,9 @@ public class AlbumTags
 			}
 		}
 
-		//truncate the list
-		int maxTagsShown = 60; //TODO - hardcoded
-		VendoUtils.truncateList (tags, maxTagsShown);
-		String tagStr = VendoUtils.arrayToString (tags.toArray (new String[] {}));
-
 		AlbumProfiling.getInstance ().exit (5);
 
-		return tagStr;
+		return tags;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

@@ -129,6 +129,18 @@ public class GetUri
 						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 
+				} else if (arg.equalsIgnoreCase("historyDays") || arg.equalsIgnoreCase("days")) {
+					try {
+						_historyDays = Integer.parseInt(args[++ii]);
+						if (_historyDays < 0) {
+							throw (new NumberFormatException());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
 				} else if (arg.equalsIgnoreCase ("extr1")) {// || arg.equalsIgnoreCase ("lo")) {
 					_extr1 = true;
 
@@ -208,7 +220,7 @@ public class GetUri
 			//construct URI, which will decode any escaped chars in string
 			URI uri = new URI (_model);
 
-			_baseUri = new String ();
+			_baseUri = "";
 			if (uri.getScheme () != null) {
 				_baseUri += uri.getScheme () + "://";
 			}
@@ -271,7 +283,7 @@ public class GetUri
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/prefix <file prefix>] [/pad <number>] [/exten <file extension>] [<start index> <end index> [<step>]] [/destDir <folder>] [/checkHistoryOnly] [/block <block number>] [/ignoreHistory] [/noHistory] [/retry <number of times to retry on exception>] [/image] [/imageLinksOnly] [/linksOnly]";
+		msg += "Usage: " + _AppName + " [/debug] [/prefix <file prefix>] [/pad <number>] [/exten <file extension>] [<start index> <end index> [<step>]] [/destDir <folder>] [/historyDays <n>] [/checkHistoryOnly] [/block <block number>] [/ignoreHistory] [/noHistory] [/retry <number of times to retry on exception>] [/image] [/imageLinksOnly] [/linksOnly]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -1008,7 +1020,7 @@ public class GetUri
 				Timestamp insertDate = rs.getTimestamp ("insert_date");
 				int days = rs.getInt ("days");
 
-				if (days <= 7) {
+				if (days <= _historyDays) {
 					if (!found) { //print header
 						found = true;
 
@@ -1303,6 +1315,7 @@ public class GetUri
 	private int _step = -1;
 	private int _blockNumber = 0;
 	private int _retryCount = 5;
+	private int _historyDays = 7;
 	private boolean _extr1 = false;
 	private boolean _image = false;
 	private boolean _ignoreHistory = false;
@@ -1315,8 +1328,8 @@ public class GetUri
 	private String _baseUri = null;
 	private String _prefix = null;
 	private String _exten = null;
-	private String _head = new String ();
-	private String _tail = new String ();
+	private String _head = "";
+	private String _tail = "";
 	private String _urlStr = null;
 	private String _filename = null;
 	private String _destDir = null;

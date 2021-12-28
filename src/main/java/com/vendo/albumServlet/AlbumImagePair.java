@@ -11,19 +11,13 @@ import java.util.stream.Collectors;
 //import org.apache.logging.log4j.*;
 
 
-public class AlbumImagePair //implements Comparator<AlbumImage>
+public class AlbumImagePair implements Comparable<AlbumImagePair>
 {
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2)
 	{
 		this (image1, image2, -1, -1, null, null);
 	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source)
-//	{
-//		this (image1, image2, averageDiff, stdDev, source, null);
-//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source, Date lastUpdate)
@@ -37,11 +31,6 @@ public class AlbumImagePair //implements Comparator<AlbumImage>
 		_lastUpdate = lastUpdate;
 		_joinedNames = getJoinedNames (getImage1 (), getImage2 (), false);
 		_joinedNamesPlusAttrs = getJoinedNames (getImage1 (), getImage2 (), true);
-
-//TODO
-//		if (_filter == null || _filter.isEmpty()) {
-//			throw new IllegalArgumentException ("ImageDuplicateDetails.ctor: invalid values: + " + toString());
-//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -109,45 +98,24 @@ public class AlbumImagePair //implements Comparator<AlbumImage>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//returns true if at least one image in either pair has the same base name
-	public boolean matchesAtLeastOneImage (AlbumImagePair pair)
-	{
-		return getImage1 ().equalBase (pair.getImage1 (), false) ||
-				getImage1 ().equalBase (pair.getImage2 (), false) ||
-				getImage2 ().equalBase (pair.getImage1 (), false) ||
-				getImage2 ().equalBase (pair.getImage2 (), false);
+	@Override
+	public int compareTo(AlbumImagePair other) {
+		return getJoinedNamesPlusAttrs ().compareTo (other.getJoinedNamesPlusAttrs ());
 	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//returns true if either image in the pair has the same base name as any base name in the set
-	public boolean matchesAtLeastOneImage (Set<String> baseNames)
-	{
-		return baseNames.contains (getImage1 ().getBaseName (false)) ||
-			   baseNames.contains (getImage2 ().getBaseName (false));
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	@Override
-//	public int compare (AlbumImage image1, AlbumImage image2)
-//	{
-//		//TODO: use alnum compare?
-//		return image1.getName ().compareToIgnoreCase (image2.getName ());
-//	}
 
 	///////////////////////////////////////////////////////////////////////////
     @Override
-    public boolean equals (Object obj)
+    public boolean equals (Object other)
     {
-		if (obj == this) {
+		if (other == this) {
 			return true;
 		}
 
-		if (!(obj instanceof AlbumImagePair)) {
+		if (!(other instanceof AlbumImagePair)) {
 			return false;
 		}
 
-		AlbumImagePair other = (AlbumImagePair) obj;
-		return getJoinedNamesPlusAttrs ().equals (other.getJoinedNamesPlusAttrs ());
+		return getJoinedNamesPlusAttrs ().equals (((AlbumImagePair) other).getJoinedNamesPlusAttrs ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////

@@ -16,12 +16,6 @@ import java.util.stream.Collectors;
 public class AlbumAlbumPair
 {
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumAlbumPair(String joinedNames)
-	{
-		this (joinedNames, null);
-	}
-
-	///////////////////////////////////////////////////////////////////////////
 	public AlbumAlbumPair(String joinedNames, AlbumImagePair imagePair)
 	{
 		_joinedNames = joinedNames;
@@ -116,49 +110,9 @@ public class AlbumAlbumPair
 				(Math.abs (getNumberOfDuplicateMatches() - _numberOfImagesOfEqualSize - _numberOfImagesWhereFirstIsLarger) <= slop));
 	}
 
-/*
 	///////////////////////////////////////////////////////////////////////////
-	//returns true if at least one image in either imagePair has the same base name as an imagePair in this set
-	public boolean matchesAtLeastOneImage (AlbumAlbumPair set2)
+	public String getDetailString()
 	{
-		//TODO: improve this brute-force method
-		Set<AlbumImage> images1 = new HashSet<>();
-		for (AlbumImagePair imagePair : _imagePairs) {
-			images1.add(imagePair.getImage1());
-			images1.add(imagePair.getImage2());
-		}
-		Set<AlbumImage> images2 = new HashSet<>();
-		for (AlbumImagePair imagePair : set2.getPairs()) {
-			images2.add(imagePair.getImage1());
-			images2.add(imagePair.getImage2());
-		}
-		for (AlbumImage image1 : images1) {
-			for (AlbumImage image2 : images2) {
-				if (image1.getBaseName(false).equalsIgnoreCase(image2.getBaseName(false))) {
-					return true;
-				}
-			}
-
-		}
-
-		return false;
-*/
-/* old way
-		//TODO: improve this brute-force method
-		for (AlbumImagePair pair1 : _imagePairs) {
-			if (pair1.getImage1().equalBase(pair2.getImage1(), false) ||
-				pair1.getImage1().equalBase(pair2.getImage2(), false) ||
-				pair1.getImage2().equalBase(pair2.getImage1(), false) ||
-				pair1.getImage2().equalBase(pair2.getImage2(), false)) {
-				return true;
-			}
-		}
-		return false;
-	}
-*/
-
-	///////////////////////////////////////////////////////////////////////////
-	public String getDetailString() {
 		if (_imagePairs.isEmpty()) {
 			return "<no image pairs>";
 		}
@@ -182,9 +136,24 @@ public class AlbumAlbumPair
 			pixelDiffString = "?";
 		}
 
+		String filters = getBaseName(0) + "," + getBaseName(1);
+
+		AlbumFormInfo form = AlbumFormInfo.getInstance();
+		String href = AlbumImages.getInstance().generateImageLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
+		StringBuilder html = new StringBuilder();
+//TODO - move to help class/method
+		html.append ("<A HREF=\"")
+				.append (href)
+				.append ("\" ")//.append(NL)
+				.append ("title=\"").append (filters)
+				.append ("\" target=_blank>")//.append (NL)
+				.append (filters)//.append (NL)
+				.append ("</A>");//.append (NL);
+
 		StringBuffer sb = new StringBuffer ();
-		sb.append (getBaseName(0)).append (", ");
-		sb.append (getBaseName(1)).append (", ");
+//		sb.append (getBaseName(0)).append (", ");
+//		sb.append (getBaseName(1)).append (", ");
+		sb.append (html).append (", ");
 		sb.append (getNumberOfImagesInAlbum1 ()).append (", ");
 		sb.append (getNumberOfImagesInAlbum2 ()).append (", ");
 		sb.append (_imagePairs.size()).append (", ");

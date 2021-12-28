@@ -124,8 +124,8 @@ public class AlbumServlet extends HttpServlet
 		_album.processRequest ();
 
 		String bgColor = _album.getBgColor ();
-		int stringFieldWidth1 = 40;
-		int stringFieldWidth2 = 60;
+		int stringFieldWidth1 = 80;
+		int stringFieldWidth2 = 20;
 		int numberFieldWidth = 2;
 
 		//get tags from database, add blank selection to beginning of list
@@ -279,9 +279,9 @@ public class AlbumServlet extends HttpServlet
 		   .append ("<TR>").append (NL)
 
 		   .append ("<TD ALIGN=RIGHT>").append (NL)
-		   .append (inputElement ("Filter 1", "filter1", form.getFilter1 (), stringFieldWidth2)).append (_break).append (NL)
-		   .append (inputElement ("Filter 2", "filter2", form.getFilter2 (), stringFieldWidth2)).append (_break).append (NL)
-		   .append (inputElement ("Filter 3", "filter3", form.getFilter3 (), stringFieldWidth2)).append (_break).append (NL)
+		   .append (inputElement ("Filter 1", "filter1", form.getFilter1 (), stringFieldWidth1)).append (_break).append (NL)
+		   .append (inputElement ("Filter 2", "filter2", form.getFilter2 (), stringFieldWidth1)).append (_break).append (NL)
+		   .append (inputElement ("Filter 3", "filter3", form.getFilter3 (), stringFieldWidth1)).append (_break).append (NL)
 		   .append ("</TD>").append (NL);
 
 		StringBuilder sb2 = new StringBuilder (4096);
@@ -302,9 +302,9 @@ public class AlbumServlet extends HttpServlet
 		int maxColumns = !isAndroidDevice ? form.getMaxColumns () : form.getMaxColumns () / 3;
 		sb3.append ("<TD ALIGN=CENTER>").append (NL)
 //		   .append ("<TD ALIGN=LEFT>").append (NL)
-		   .append (inputElement ("Exclude 1", "exclude1", form.getExclude1 (), stringFieldWidth1)).append (_break).append (NL)
-		   .append (inputElement ("Exclude 2", "exclude2", form.getExclude2 (), stringFieldWidth1)).append (_break).append (NL)
-		   .append (inputElement ("Exclude 3", "exclude3", form.getExclude3 (), stringFieldWidth1)).append (_break).append (NL)
+		   .append (inputElement ("Exclude 1", "exclude1", form.getExclude1 (), stringFieldWidth2)).append (_break).append (NL)
+		   .append (inputElement ("Exclude 2", "exclude2", form.getExclude2 (), stringFieldWidth2)).append (_break).append (NL)
+		   .append (inputElement ("Exclude 3", "exclude3", form.getExclude3 (), stringFieldWidth2)).append (_break).append (NL)
 		   .append ("</TD>").append (NL)
 		   .append ("</TR>").append (NL)
 		   .append ("</TABLE>").append (NL)

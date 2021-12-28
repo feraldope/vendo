@@ -1,6 +1,39 @@
 Tomcat Configuration Instructions
 
 -------------------------------------------------------------------------------
+12/24/21
+
+IntelliJ dependency errors (maven)
+
+seel also:
+http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+
+Note IntelliJ repo definition seems to be here:
+C:\Users\java\vendo\.idea\jarRepositories.xml
+and
+C:\Users\java\vendo\pom.xml
+
+Settings -> Build, Executon, Deployment -> Build Tools -> Maven -> Repositories
+-> click on any RED dependencies and click Update
+
+also had to rename this away, then run command line build (jb.bat) to repopulate repo
+C:\Users\david\.m2\repository
+
+When adding dependencies to pom.xml, remove the type???
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-jcs3 -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-jcs3</artifactId>
+			<version>3.0</version>
+			<type>pom</type>   <---------------------------------------
+		</dependency>
+
+other debugging:
+ja.bat
+cd C:\Users\java\vendo
+call mvn.cmd clean package -U
+
+-------------------------------------------------------------------------------
 12/20/19
 
 Remoe debug tomcat from IntelliJ

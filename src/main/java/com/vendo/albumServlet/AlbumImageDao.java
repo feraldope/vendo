@@ -897,7 +897,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			}
 			_albumAlbumsCountCache.put(subFolder, albumsCountMap);
 
-			AlbumImages.duplicatesCacheMaintenance ();
+			AlbumImages.duplicatesCacheMaintenance (subFolder);
 
 			//log mis-filed images
 
