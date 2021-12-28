@@ -5,26 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="97c7c55e-57f6-4d7b-90e4-4ee351afb03b" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/jarRepositories.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/jarRepositories.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/00.readme.txt" beforeDir="false" afterPath="$PROJECT_DIR$/00.readme.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumAlbumPair.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumAlbumPair.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumAlbumPairs.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumAlbumPairs.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileBackup.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFileFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumFormInfo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImage.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDao.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImageDiffer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagePair.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImagePair.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumImages.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumServlet.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/AlbumTags.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/album.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/album.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/albumServlet/create_albumimages.sql" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/getUri/GetUri.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/getUri/GetUri.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/vendo/vendoUtils/VendoUtils.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

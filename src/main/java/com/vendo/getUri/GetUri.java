@@ -523,8 +523,12 @@ public class GetUri
 
 					List<Node> nodeList = new ArrayList<Node> ();
 					NodeVisitor myNodeVisitor = new MyNodeVisitor (nodeList);
-					NodeTraversor traversor = new NodeTraversor (myNodeVisitor);
-					traversor.traverse (firstDiv);
+//old way
+//					NodeTraversor traversor = new NodeTraversor (myNodeVisitor);
+//					traversor.traverse (firstDiv);
+//change after bumping jsoup version to 1.14
+					NodeTraversor traversor = new NodeTraversor ();
+					traversor.traverse (myNodeVisitor, firstDiv);
 
 					boolean localDebug = false;
 					for (Node node : nodeList) {
