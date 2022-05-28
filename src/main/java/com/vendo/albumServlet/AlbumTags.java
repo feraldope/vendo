@@ -86,7 +86,7 @@ public class AlbumTags
 
 			//check for switches
 			if (arg.startsWith ("-") || arg.startsWith ("/")) {
-				arg = arg.substring (1, arg.length ());
+				arg = arg.substring (1);
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_Debug = true;
@@ -201,8 +201,6 @@ public class AlbumTags
 		if (AlbumFormInfo._logLevel >= 9) {
 			_log.debug ("AlbumTags ctor");
 		}
-
-//		_rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -296,7 +294,7 @@ public class AlbumTags
 			}
 		}
 
-		List<String> tagFileKeys = new ArrayList<String> (tagFileMap.keySet ());
+		List<String> tagFileKeys = new ArrayList<> (tagFileMap.keySet ());
 		tagFileKeys.sort (VendoUtils.caseInsensitiveStringComparator);
 
 		for (String tag : tagFileKeys) {
@@ -366,7 +364,7 @@ public class AlbumTags
 	private boolean databaseNeedsUpdate ()
 	{
 		String lastUpdateMillisStr = getStringFromConfig ("lastUpdateMillis", "0");
-		long lastUpdateMillis = Long.valueOf (lastUpdateMillisStr);
+		long lastUpdateMillis = Long.parseLong(lastUpdateMillisStr);
 //		_log.debug ("AlbumTags.databaseNeedsUpdate: lastUpdateMillisStr = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)));
 
 		if (lastUpdateMillis < getTagFileTime ()) {
@@ -407,12 +405,12 @@ public class AlbumTags
 		//create map of subFolders and image baseNames for that subFolder
 		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
-		final Set<String> debugCacheMiss = new ConcurrentSkipListSet<String> ();
+		final Map<String, Integer> debugCacheMiss = new ConcurrentHashMap<> ();
 
 		for (final String subFolder : subFolders) {
 			Thread thread = new Thread (() -> {
 				final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder, debugCacheMiss);
-				Set<String> base1NameSet = new HashSet<String> (); //use Set to eliminate duplicates
+				Set<String> base1NameSet = new HashSet<> (); //use Set to eliminate duplicates
 				for (AlbumImage image : images) {
 					base1NameSet.add (image.getBaseName (false));
 				}
@@ -431,7 +429,8 @@ public class AlbumTags
 		}
 
 		if (AlbumFormInfo._logLevel >= 5) {
-			_log.debug ("AlbumTags.generateAlbumBase1NameMap: cacheMiss: folders(" + debugCacheMiss.size () + ") = " + debugCacheMiss);
+			_log.debug ("AlbumTags.generateAlbumBase1NameMap: cacheMiss: folders(" + debugCacheMiss.size () + ") = " +
+					debugCacheMiss.keySet().stream().sorted(VendoUtils.caseInsensitiveStringComparator).collect(Collectors.joining(", ")));
 		}
 
 		AlbumProfiling.getInstance ().exit (5);
@@ -442,9 +441,9 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enterAndTrace (5);
 
-		final Map<String, Set<String>> tagFileMap = new HashMap<String, Set<String>> ();
+		final Map<String, Set<String>> tagFileMap = new HashMap<> ();
 
-		List<String> matchingTagLines = new ArrayList<String> ();
+		List<String> matchingTagLines = new ArrayList<> ();
 		StringBuilder wildTagBuffer = new StringBuilder (200);
 
 		//open tag file (read-only, with read-sharing)
@@ -500,7 +499,7 @@ public class AlbumTags
 			checkForIncorrectSorting (tag, filterArray);
 			checkForDuplicateEntries (tag, filterArray);
 
-			Set<String> filterSet = new HashSet<String> (); //use Set to prevent duplicates in tag file from causing problems downstream
+			Set<String> filterSet = new HashSet<> (); //use Set to prevent duplicates in tag file from causing problems downstream
 
 			//if tag already exists in tagFileMap, add to it
 			if (tagFileMap.containsKey (tag)) {
@@ -531,14 +530,14 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		final Map<String, Set<String>> tagDatabaseMap = new HashMap<String, Set<String>> ();
+		final Map<String, Set<String>> tagDatabaseMap = new HashMap<> ();
 
 		String sql = "select tag, filters from tags_filters";
 		final Map<String, String> tempMap = getStringMapFromDatabase (sql);
 
 		for (String tag : tempMap.keySet ()) {
 			String[] filterArray = tempMap.get (tag).split (", "); //require comma+space as separator
-			Set<String> filters = new HashSet<String> (Arrays.asList (filterArray));
+			Set<String> filters = new HashSet<> (Arrays.asList (filterArray));
 			tagDatabaseMap.put (tag, filters);
 		}
 
@@ -562,13 +561,13 @@ public class AlbumTags
 
 //create map of subFolders and filter strings that match that subFolder
 		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
-		final HashMap<String, Collection<String>> filterStringMap = new HashMap<String, Collection<String>> (subFolders.size ());
+		final HashMap<String, Collection<String>> filterStringMap = new HashMap<> (subFolders.size ());
 {
 		AlbumProfiling.getInstance ().enter (5, "part1");
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
 		for (final String subFolder : subFolders) {
 			Thread thread = new Thread (() -> {
-				final List<String> outFilterList = new ArrayList<String> ();
+				final List<String> outFilterList = new ArrayList<> ();
 				for (String inFilter : inFilterSet) {
 					if (checkForMalformedFilter (inFilter)) {
 						String firstCharsLower = AlbumImageDao.getInstance ().getSubFolderFromImageName (inFilter);
@@ -605,7 +604,7 @@ public class AlbumTags
 
 
 //create map of subFolders and AlbumFileFilter objects that match that subFolder
-		final HashMap<String, AlbumFileFilter> filterMap = new HashMap<String, AlbumFileFilter> (filterStringMap.size ());
+		final HashMap<String, AlbumFileFilter> filterMap = new HashMap<> (filterStringMap.size ());
 {
 		AlbumProfiling.getInstance ().enter (5, "part2");
 		final CountDownLatch endGate = new CountDownLatch (filterStringMap.size ());
@@ -639,8 +638,8 @@ public class AlbumTags
 
 
 //create map of subFolders and images that match the filters in filterMap
-		final HashMap<String, Collection<String>> matchingBase1NameMap = new HashMap<String, Collection<String>> (filterMap.size ());
-		final HashMap<String, Collection<String>> matchingBase2NameMap = new HashMap<String, Collection<String>> (filterMap.size ());
+		final HashMap<String, Collection<String>> matchingBase1NameMap = new HashMap<> (filterMap.size ());
+		final HashMap<String, Collection<String>> matchingBase2NameMap = new HashMap<> (filterMap.size ());
 {
 		AlbumProfiling.getInstance ().enter (5, "part3");
 		final CountDownLatch endGate = new CountDownLatch (filterMap.size ());
@@ -651,8 +650,8 @@ public class AlbumTags
 			if (filter != null) {
 				Thread thread = new Thread (() -> {
 					final Collection<String> folderBase1Names = _albumBase1NameMap.get (subFolder);
-					final Set<String> outBase1Names = new HashSet<String> ();
-					final Set<String> outBase2Names = new HashSet<String> ();
+					final Set<String> outBase1Names = new HashSet<> ();
+					final Set<String> outBase2Names = new HashSet<> ();
 					for (String base1Name : folderBase1Names) {
 						if (filter.accept (null, base1Name)) {
 							outBase1Names.add (base1Name);
@@ -752,7 +751,7 @@ public class AlbumTags
 
 		PrintStream out;
 		try {
-			out = new PrintStream (new File (dumpFile));
+			out = new PrintStream (dumpFile);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumTags.dumpTagData: error accessing file \"" + dumpFile + "\"", ee);
@@ -842,17 +841,17 @@ public class AlbumTags
 //		AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
 
 		//complete list
-		List<String> firstList = new ArrayList<String> (Arrays.asList (filterArray));
+		List<String> firstList = new ArrayList<> (Arrays.asList (filterArray));
 		firstList.sort (VendoUtils.caseInsensitiveStringComparator);
 
 		//pass through set to deduplicate
-		Set<String> set = new HashSet<String> (Arrays.asList (filterArray));
-		List<String> secondList = new ArrayList<String> (set);
+		Set<String> set = new HashSet<> (Arrays.asList (filterArray));
+		List<String> secondList = new ArrayList<> (set);
 		secondList.sort (VendoUtils.caseInsensitiveStringComparator);
 
 //		firstList.removeAll (secondList); //can't use this because it removes dups, so do it by hand
 		for (String item : secondList) {
-			firstList.remove (item); //only removes first occurence
+			firstList.remove (item); //only removes first occurrence
 		}
 
 		if (firstList.size () > 0) {
@@ -931,8 +930,8 @@ public class AlbumTags
 		final Pattern pattern3 = Pattern.compile (".*\\+$"); //ends with plus sign
 		final Pattern pattern4 = Pattern.compile (".*[A-Za-z]$"); //ends with alpha (case insensitive)
 
-		List<String> misMatchedFilters1 = new ArrayList<String> ();
-		Set<String> rawSet = new HashSet<String> ();
+		List<String> misMatchedFilters1 = new ArrayList<> ();
+		Set<String> rawSet = new HashSet<> ();
 		for (String rawName : _rawNames) {
 			boolean match1 = pattern1.matcher (rawName).matches ();
 			boolean match2 = pattern2.matcher (rawName).matches ();
@@ -955,8 +954,8 @@ public class AlbumTags
 					misMatchedFilters1.add (rawName);
 				}
 
-			} else {
-				//catches filters that end with e.g., "*"
+//			} else {
+//				//catches filters that end with e.g., "*"
 //				misMatchedFilters1.add (rawName);
 			}
 
@@ -982,7 +981,7 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enterAndTrace (5);
 
-		List<TagFilter1> tagFilters = new ArrayList<TagFilter1> ();
+		List<TagFilter1> tagFilters = new ArrayList<> ();
 		for (String tag : tagMap.keySet ()) {
 			for (String filterString : tagMap.get (tag)) {
 				AlbumFileFilter filter = new AlbumFileFilter (new String[] {filterString}, null, false, 0);
@@ -1074,14 +1073,14 @@ public class AlbumTags
 	public static <T> Collection<T> subtractCollections (Collection<T> collection1, Collection<T> collection2)
 	{
 		if (collection2 == null) {
-			return (collection1 != null ? (collection1 instanceof Set ? collection1 : new HashSet<T> (collection1)) : new HashSet<T> ());
+			return (collection1 != null ? (collection1 instanceof Set ? collection1 : new HashSet<> (collection1)) : new HashSet<T> ());
 		}
 		if (collection1 == null) {
 			return new HashSet<T> ();
 		}
 
-		Collection<T> newItems = new HashSet<T> (collection1); //do not modify original
-		newItems.removeAll (collection2 instanceof Set ? collection2 : new HashSet<T> (collection2));
+		Collection<T> newItems = new HashSet<> (collection1); //do not modify original
+		newItems.removeAll (collection2 instanceof Set ? collection2 : new HashSet<> (collection2));
 
 		return newItems;
 	}
@@ -1102,7 +1101,7 @@ public class AlbumTags
 										  .map (s -> s._name.toLowerCase () + "+")
 										  .collect (Collectors.toSet ());
 
-		Collection<String> baseNames = new ArrayList<String> ();
+		Collection<String> baseNames = new ArrayList<> ();
 
 		for (String baseNameLower : baseNamesLower) {
 			for (String filter : filters) {
@@ -1132,7 +1131,7 @@ public class AlbumTags
 										  .map (s -> s.toLowerCase () + "+")
 										  .collect (Collectors.toSet ());
 
-		Collection<String> baseNames = new ArrayList<String> ();
+		Collection<String> baseNames = new ArrayList<> ();
 
 		for (String baseNameLower : baseNamesLower) {
 			for (String filter : filters) {
@@ -1163,7 +1162,7 @@ public class AlbumTags
 				"	      from albumtags.base2_names bn" + NL +
 				"	  )" + NL;
 
-		Collection<NameCount> items = new ArrayList<NameCount> ();
+		Collection<NameCount> items = new ArrayList<> ();
 		ResultSet rs = null;
 		try (Connection connection = getConnection ();
 			 PreparedStatement ps = connection.prepareStatement (sql)) {
@@ -1211,7 +1210,7 @@ public class AlbumTags
 					 "        where tags.is_tattoo = 1" + NL +
 					 "  )" + NL;
 
-		Collection<String> items = new ArrayList<String> ();
+		Collection<String> items = new ArrayList<> ();
 		ResultSet rs = null;
 		try (Connection connection = getConnection ();
 			 PreparedStatement ps = connection.prepareStatement (sql)) {
@@ -1489,7 +1488,7 @@ public class AlbumTags
 		String sqlValues = "((select name_id from " + tablePrefix + "_names where name = ?)," +
 						   " (select tag_id from tags where tag = ?))";
 
-		Collection<String> items = new ArrayList<String> (nameTags.size ());
+		Collection<String> items = new ArrayList<> (nameTags.size ());
 
 		for (NameTag nameTag : nameTags) {
 			items.add (nameTag._name);
@@ -1519,7 +1518,7 @@ public class AlbumTags
 
 		String sqlValues = "(?, ?)";
 
-		Collection<String> items = new ArrayList<String> (tagFilters.size ());
+		Collection<String> items = new ArrayList<> (tagFilters.size ());
 
 		for (TagFilter2 tagFilter : tagFilters) {
 			items.add (tagFilter._tag);
@@ -1540,7 +1539,7 @@ public class AlbumTags
 
 		String sqlValues = "(?, ?)";
 
-		Collection<String> items = new ArrayList<String> (2);
+		Collection<String> items = new ArrayList<> (2);
 
 		items.add (name);
 		items.add (value);
@@ -1557,10 +1556,10 @@ public class AlbumTags
 
 		resetTable ("tags_filters");
 
-		Set<TagFilter2> tagFilters = new HashSet<TagFilter2> ();
+		Set<TagFilter2> tagFilters = new HashSet<> ();
 
 		for (String tag : tagMap.keySet ()) {
-			List<String> filterList = new ArrayList<String> (tagMap.get (tag));
+			List<String> filterList = new ArrayList<> (tagMap.get (tag));
 			filterList.sort (VendoUtils.caseInsensitiveStringComparator);
 			String filterStr = VendoUtils.arrayToString (filterList.toArray (new String[] {}));
 			tagFilters.add (new TagFilter2 (tag, filterStr));
@@ -1593,7 +1592,7 @@ public class AlbumTags
 	//used by servlet to load drop-down: returns empty collection on error, or if no entries found
 	public Collection<String> getAllTags ()
 	{
-		Collection<String> items = new LinkedList<String> ();
+		Collection<String> items = new LinkedList<> ();
 		items.add (_noTagsTag);
 		items.add (_noTattoosTag);
 
@@ -1610,7 +1609,7 @@ public class AlbumTags
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		Collection<T> items = new LinkedList<T> ();
+		Collection<T> items = new LinkedList<> ();
 
 		try (Connection connection = getConnection ();
 			Statement statement = connection.createStatement ();
@@ -1644,7 +1643,7 @@ public class AlbumTags
 
 		AlbumProfiling.getInstance ().enter (5, id);
 
-		Map<String, String> items = new HashMap<String, String> ();
+		Map<String, String> items = new HashMap<> ();
 
 		try (Connection connection = getConnection ();
 			 Statement statement = connection.createStatement ();
@@ -1687,7 +1686,7 @@ public class AlbumTags
 	//used by servlet: returns empty string on error, or if no entries found
 	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups)
 	{
-		List<String> baseNames = new ArrayList<String> ();
+		List<String> baseNames = new ArrayList<> ();
 		baseNames.add (baseName);
 		return getTagsForBaseNames (baseNames, collapseGroups);
 	}
@@ -1714,7 +1713,7 @@ public class AlbumTags
 		}
 
 		String sql = sql1 + sql2 + sql3;
-		List<String> tags = new ArrayList<String> ();
+		List<String> tags = new ArrayList<> ();
 
 		ResultSet rs = null;
 		try (Connection connection = getConnection ();
@@ -1768,7 +1767,7 @@ public class AlbumTags
 			_log.debug ("AlbumTags.getNamesForTags: filters = \"" + VendoUtils.arrayToString (filters) + "\"");
 		}
 
-		Collection<String> baseNames = new ArrayList<String> ();
+		Collection<String> baseNames = new ArrayList<> ();
 
 		//short circuit for noTags tag
 		if (VendoUtils.arrayToString (tagsIn).contains (_noTagsTag)) {
@@ -1895,6 +1894,21 @@ public class AlbumTags
 		//if we are collapsing groups, we can do it now to reduce size of returned object
 		if (collapseGroups) {
 			int lengthOriginal = baseNames.size();
+			HashSet<String> baseNamesCollapsed = new HashSet<>();
+			baseNames = baseNames.stream()
+								.sorted(VendoUtils.caseInsensitiveStringComparator)
+								.map(f -> {
+									String baseNameCollapsed = AlbumImage.getBaseName(f) + "+";
+									return baseNamesCollapsed.add(baseNameCollapsed) ? AlbumImage.getBaseName(f, false) : null;
+								})
+								.filter(Objects::nonNull)
+								.collect(Collectors.toList());
+			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal +  " -> " + baseNames.size());
+		}
+
+/*old way
+		if (collapseGroups) {
+			int lengthOriginal = baseNames.size();
 			baseNames = baseNames.stream()
 								.sorted(VendoUtils.caseInsensitiveStringComparator)
 								.map(f -> AlbumImage.getBaseName(f) + "+")
@@ -1902,7 +1916,7 @@ public class AlbumTags
 								.collect(Collectors.toList());
 			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal +  " -> " + baseNames.size());
 		}
-
+*/
 		AlbumProfiling.getInstance ().exit (5);
 
 		return baseNames;
@@ -2177,21 +2191,18 @@ public class AlbumTags
 
 	private int _batchInsertSize = 1000;
 
-	private Object dbLock = new Object ();
-
-//	private String _rootPath = null;
 	private String _tagFilename = null;
 	private String _tagPatternString = null;
 
-	private Map<String, Collection<String>> _albumBase1NameMap = new ConcurrentHashMap<String, Collection<String>> ();
+	private Map<String, Collection<String>> _albumBase1NameMap = new ConcurrentHashMap<> ();
 
-	private Collection<String> _tags = new LinkedList<String> ();
-	private Collection<String> _base1Names = new LinkedList<String> (); //image names with collapseGroups = false
-	private Collection<String> _base2Names = new LinkedList<String> (); //image names with collapseGroups = true
-	private Collection<String> _rawNames = new LinkedList<String> ();
-	private Collection<NameTag> _base1NameTags = new LinkedList<NameTag> ();
-	private Collection<NameTag> _base2NameTags = new LinkedList<NameTag> ();
-	private Collection<NameTag> _rawNameTags = new LinkedList<NameTag> ();
+	private Collection<String> _tags = new LinkedList<> ();
+	private Collection<String> _base1Names = new LinkedList<> (); //image names with collapseGroups = false
+	private Collection<String> _base2Names = new LinkedList<> (); //image names with collapseGroups = true
+	private Collection<String> _rawNames = new LinkedList<> ();
+	private Collection<NameTag> _base1NameTags = new LinkedList<> ();
+	private Collection<NameTag> _base2NameTags = new LinkedList<> ();
+	private Collection<NameTag> _rawNameTags = new LinkedList<> ();
 
 	private static volatile AlbumTags _instance = null;
 

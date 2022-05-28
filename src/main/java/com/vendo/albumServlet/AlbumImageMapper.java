@@ -39,6 +39,8 @@ public interface AlbumImageMapper {
 
 	public Collection<AlbumImageData> selectNamesFromImages (@Param("names") Collection<String> names);
 
+	public int selectMaxNameIdFromImages ();
+
 	//inserts (updates)
 
 	public int insertLastUpdateIntoImageFolder (@Param("sub_folder") String subFolder, @Param("last_update") Timestamp lastUpdate);

@@ -4,10 +4,13 @@ package com.vendo.albumServlet;
 
 import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
-//import org.apache.logging.log4j.*;
+import static com.vendo.albumServlet.AlbumImagePair._alphanumComparator;
 
 
 public class AlbumAlbumPairs
@@ -27,19 +30,138 @@ public class AlbumAlbumPairs
 	///////////////////////////////////////////////////////////////////////////
 	public void addAlbumPair(AlbumAlbumPair albumPair)
 	{
-		Set<AlbumAlbumPair> foundSet = null;
-		for (Set<AlbumAlbumPair> albumSet1 : _albumSets) {
-			if (matchesAtLeastOneImage(albumSet1, albumPair)) {
-				foundSet = albumSet1;
-				albumSet1.add(albumPair);
-				break;
+		boolean localDebug = false;
+
+		if (localDebug) {
+			_log.debug("AlbumAlbumPairs.addAlbumPair: adding pair: " + albumPair);
+			_log.debug("AlbumAlbumPairs.addAlbumPair: all known sets before: ");
+			int count = 0;
+			for (Set<AlbumAlbumPair> albumSet : _albumSets) {
+				_log.debug("AlbumAlbumPairs.addAlbumPair: set" + ++count + ": " + //albumSet);
+						albumSet.stream()
+								.map(AlbumAlbumPair::getImagePairs)
+								.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
+								.flatMap(Collection::stream)
+								.map(i -> i.getBaseName(false))
+								.sorted(_alphanumComparator)
+								.distinct()
+								.collect(Collectors.toList()));
 			}
 		}
-		if (foundSet == null) {
-			HashSet<AlbumAlbumPair> albumSet2 = new HashSet<>();
-			albumSet2.add(albumPair);
-			_albumSets.add(albumSet2);
+
+		int added = 0;
+		for (Set<AlbumAlbumPair> albumSet : _albumSets) {
+			if (matchesAtLeastOneImage(albumSet, albumPair)) {
+				added++;
+				albumSet.add(albumPair);
+			}
 		}
+		if (added == 0) {
+			HashSet<AlbumAlbumPair> albumSetNew = new HashSet<>();
+			albumSetNew.add(albumPair);
+			_albumSets.add(albumSetNew);
+		}
+
+		if (localDebug) {
+			_log.debug("AlbumAlbumPairs.addAlbumPair: all known sets after@1: ");
+			int count = 0;
+			for (Set<AlbumAlbumPair> albumSet : _albumSets) {
+				_log.debug("AlbumAlbumPairs.addAlbumPair: set" + ++count + ": " + //albumSet);
+						albumSet.stream()
+								.map(AlbumAlbumPair::getImagePairs)
+								.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
+								.flatMap(Collection::stream)
+								.map(i -> i.getBaseName(false))
+								.sorted(_alphanumComparator)
+								.distinct()
+								.collect(Collectors.toList()));
+			}
+		}
+
+//		_log.debug("AlbumAlbumPairs.addAlbumPair: all known albums: " + getAllAlbumsAcrossAllMatches());
+
+		//go back over all sets and add any pairs we missed //hack??
+//TODO - this can result in multiple identical Sets (that are later deduped by addServletError())
+		for (Set<AlbumAlbumPair> albumSet1 : _albumSets) {
+			for (AlbumAlbumPair albumPair1 : albumSet1) {
+				for (Set<AlbumAlbumPair> albumSet2 : _albumSets) {
+					if (matchesAtLeastOneImage(albumSet2, albumPair1)) {
+						if (localDebug) { //debug logging
+							if (!albumSet1.contains(albumPair1)) {
+								_log.debug("AlbumAlbumPairs.addAlbumPair: adding pair: " + albumPair1 + " to existing set1: " +
+									albumSet1.stream()
+										.map(AlbumAlbumPair::getImagePairs)
+										.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
+//										.flatMap(Collection::stream)
+//										.map(p -> Arrays.asList(p.getImage1(), p.getImage2()))
+										.flatMap(Collection::stream)
+										.map(i -> i.getBaseName(false))
+										.sorted(_alphanumComparator)
+										.distinct()
+										.collect(Collectors.toList()));
+//										+ " ************************************");
+							}
+							if (!albumSet2.contains(albumPair1)) {
+								_log.debug("AlbumAlbumPairs.addAlbumPair: adding pair: " + albumPair1 + " to existing set2: " +
+									albumSet2.stream()
+										.map(AlbumAlbumPair::getImagePairs)
+										.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
+//										.flatMap(Collection::stream)
+//										.map(p -> Arrays.asList(p.getImage1(), p.getImage2()))
+										.flatMap(Collection::stream)
+										.map(i -> i.getBaseName(false))
+										.sorted(_alphanumComparator)
+										.distinct()
+										.collect(Collectors.toList()));
+//										+ " ************************************");
+							}
+						}
+						albumSet1.add(albumPair1);
+						albumSet2.add(albumPair1);
+					}
+				}
+			}
+		}
+
+		//dedup the EXISTING set contents
+		Set<Set<AlbumAlbumPair>> newAlbumSets = new HashSet<>();
+		newAlbumSets.addAll(_albumSets);
+		if (newAlbumSets.size() != _albumSets.size()) {
+			_log.debug("AlbumAlbumPairs.addAlbumPair: DEDUPING sets *****************************");
+			_albumSets.clear();
+			_albumSets.addAll(newAlbumSets);
+		}
+
+		if (localDebug) {
+			_log.debug("AlbumAlbumPairs.addAlbumPair: all known sets after@2: ");
+			int count = 0;
+			for (Set<AlbumAlbumPair> albumSet : _albumSets) {
+				_log.debug("AlbumAlbumPairs.addAlbumPair: set" + ++count + ": " + //albumSet);
+						albumSet.stream()
+								.map(AlbumAlbumPair::getImagePairs)
+								.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
+								.flatMap(Collection::stream)
+								.map(i -> i.getBaseName(false))
+								.sorted(_alphanumComparator)
+								.distinct()
+								.collect(Collectors.toList()));
+			}
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<String> getAllAlbumsAcrossAllMatches() {
+		 return _albumSets.stream()
+						.flatMap(Collection::stream)
+						.map(AlbumAlbumPair::getImagePairs)
+				 		.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
+//						.flatMap(Collection::stream)
+//						.map(p -> Arrays.asList(p.getImage1(), p.getImage2()))
+						.flatMap(Collection::stream)
+						.map(i -> i.getBaseName(false))
+						.sorted(_alphanumComparator)
+						.distinct()
+						.collect(Collectors.toList());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -87,19 +209,6 @@ public class AlbumAlbumPairs
 
 		return false;
 */
-/* old way
-		//TODO: improve this brute-force method
-		for (AlbumImagePair pair1 : _imagePairs) {
-			if (pair1.getImage1().equalBase(pair2.getImage1(), false) ||
-				pair1.getImage1().equalBase(pair2.getImage2(), false) ||
-				pair1.getImage2().equalBase(pair2.getImage1(), false) ||
-				pair1.getImage2().equalBase(pair2.getImage2(), false)) {
-				return true;
-			}
-		}
-		return false;
-	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	public List<String> getDetailsStrings(int minimumPairsToShow)
@@ -121,14 +230,14 @@ public class AlbumAlbumPairs
 				AlbumFormInfo form = AlbumFormInfo.getInstance();
 				String href = AlbumImages.getInstance().generateImageLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
 				StringBuilder html = new StringBuilder();
-//TODO - move to help class/method
+//TODO - move to helper class/method
 				html.append ("<A HREF=\"")
 					.append (href)
-					.append ("\" ")//.append(NL)
+					.append ("\" ")
 					.append ("title=\"").append (filters)
-					.append ("\" target=_blank>")//.append (NL)
-					.append (filters)//.append (NL)
-					.append ("</A>");//.append (NL);
+					.append ("\" target=_blank>")
+					.append (filters)
+					.append ("</A>");
 				detailString.add("[" + VendoUtils.dedupCollection(baseNames).size() + "] " + html.toString()
 				);
 			}
@@ -137,10 +246,17 @@ public class AlbumAlbumPairs
 		return detailString;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	@Override
+	public String toString() {
+		return "All known albums: " + _albumSets.stream().flatMap(Collection::stream)
+			.map(AlbumAlbumPair::toString)
+			.sorted(_alphanumComparator)
+			.collect(Collectors.joining(", "));
+	}
+
 	//members
 	protected final Set<Set<AlbumAlbumPair>> _albumSets = new HashSet<>();
 
-	private static final AlphanumComparator _alphanumComparator = new AlphanumComparator();
-
-//	protected static Logger _log = LogManager.getLogger ();
+	protected static Logger _log = LogManager.getLogger ();
 }

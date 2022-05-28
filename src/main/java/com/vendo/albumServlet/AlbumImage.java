@@ -241,22 +241,46 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//remove trailing digits (and optionally '-')
+	//expected formats:
+	// Foo01-01 -> will return either Foo01 or Foo
+	// Foo01 -> will return either Foo01 or Foo
+	public static String getBaseName (String name) {
+		return getBaseName(name, true);
+	}
+	public static String getBaseName (String name, boolean collapseGroups)
+	{
+		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
+//		final String regex2 = "\\d*-\\d*$";		//match trailing [digits][dash][digits]
+		final String regex2 = "[\\d-].*$";		//match everything starting with first digit or dash
+
+		String result = name.replaceAll (collapseGroups ? regex2 : regex1, "");
+		return result;
+	}
+
+/* old way
+	///////////////////////////////////////////////////////////////////////////
+	//remove trailing digits (and optionally '-')
 	//expected format: Foo01-01; will return either Foo01 or Foo
 	public static String getBaseName (String name, boolean collapseGroups)
 	{
 		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
 		final String regex2 = "\\d*-\\d*$";	//match trailing [digits][dash][digits]
 
-		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
+		String result = name.replaceAll (collapseGroups ? regex2 : regex1, "");
+		return result;
+//		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
 	}
-
+//BUG: note that the regex for collapseGroups = true is DIFFERENT between these two methods!
 	///////////////////////////////////////////////////////////////////////////
 	//remove trailing digits and any dashes '-'
-	//this version simply removes everything starting with the first digit (collapseGroups is implied)
+	//this version simply removes everything starting with the first digit (collapseGroups = true is implied)
 	public static String getBaseName (String name)
 	{
-		return name.replaceAll ("[\\d-].*$", "");
+		String result = name.replaceAll ("[\\d-].*$", "");
+		return result;
+//		return name.replaceAll ("[\\d-].*$", "");
 	}
+*/
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached

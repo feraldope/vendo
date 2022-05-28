@@ -34,3 +34,6 @@ CREATE TABLE history
 	end_index	INTEGER,
 	step		INTEGER
 );
+CREATE INDEX url_idx on history (url);
+CREATE INDEX insert_date_idx on history (insert_date);
+

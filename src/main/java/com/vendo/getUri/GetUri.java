@@ -278,7 +278,7 @@ public class GetUri
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
+		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
@@ -527,8 +527,9 @@ public class GetUri
 //					NodeTraversor traversor = new NodeTraversor (myNodeVisitor);
 //					traversor.traverse (firstDiv);
 //change after bumping jsoup version to 1.14
-					NodeTraversor traversor = new NodeTraversor ();
-					traversor.traverse (myNodeVisitor, firstDiv);
+//					NodeTraversor traversor = new NodeTraversor ();
+//					traversor.traverse (myNodeVisitor, firstDiv);
+					NodeTraversor.traverse (myNodeVisitor, firstDiv);
 
 					boolean localDebug = false;
 					for (Node node : nodeList) {
@@ -864,7 +865,7 @@ public class GetUri
 			return false;
 		}
 
-		String parts[] = splitLeaf (_model, _blockNumber);
+		String[] parts = splitLeaf (_model, _blockNumber);
 
 		_head = parts[0];
 		if (parts.length > 1) {
@@ -895,7 +896,7 @@ public class GetUri
 		String s1 = VendoUtils.reverse (leaf);
 		String s2 = VendoUtils.replacePattern (s1, pattern, marker, blockNumber);
 		String s3 = VendoUtils.reverse (s2);
-		String parts[] = s3.split (marker);
+		String[] parts = s3.split (marker);
 
 		return parts;
 	}
@@ -1036,7 +1037,7 @@ public class GetUri
 //TODO:
 //					break;
 
-				} else {
+//				} else {
 //System.out.println ("findInHistory: url=" + url + ", insertDate=" + insertDate + ", days=" + days);
 				}
 			}
@@ -1065,9 +1066,9 @@ public class GetUri
 			return false;
 		}
 
-		Collections.sort (_switches, VendoUtils.caseInsensitiveStringComparator);
+		_switches.sort(VendoUtils.caseInsensitiveStringComparator);
 
-		String args = new String ();
+		String args = "";
 		for (String str : _switches) {
 			args += str + " ";
 		}
@@ -1181,9 +1182,9 @@ public class GetUri
 		{
 			Integer value = _dist.get (bytes);
 
-			int count = (value != null ? value.intValue () : 0);
+			int count = (value != null ? value : 0);
 
-			_dist.put (bytes, new Integer (++count));
+			_dist.put (bytes, ++count);
 
 			if (false) { //debug
 				_log.debug ("SizeDist.add - hash dump:");
@@ -1220,7 +1221,7 @@ public class GetUri
 		///////////////////////////////////////////////////////////////////////////
 		public void print ()
 		{
-			Collections.sort (_records, new AlphanumComparator ());
+			_records.sort(new AlphanumComparator());
 
 			double totalBytes = 0;
 			double totalSeconds = 0;

@@ -1,5 +1,33 @@
 Tomcat Configuration Instructions
 
+NOTE: NO PII !!!
+
+-------------------------------------------------------------------------------
+01/19/22
+04/21/18
+07/18/17
+
+NEW VERSION OF JAVA JRE:
+
+Search C:\Users\bin\todo.txt for "When installing new version of Java JRE/JDK"
+
+old:
+	Java Control Panel->Java tab->update "Java Virtual Machine" setting
+	"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8w.exe"
+
+	google: windows tomcat how to specify java folder
+
+	https://stackoverflow.com/questions/4072260/how-to-change-java-version-used-by-tomcat
+
+	-
+
+	NEW VERSION OF JAVA JDK:
+
+	Update this:
+	C:\utils\addJavaPath.bat
+
+	any other files ???
+
 -------------------------------------------------------------------------------
 12/24/21
 
@@ -36,34 +64,12 @@ call mvn.cmd clean package -U
 -------------------------------------------------------------------------------
 12/20/19
 
-Remoe debug tomcat from IntelliJ
+Remote debug tomcat from IntelliJ
 
 https://blog.trifork.com/2014/07/14/how-to-remotely-debug-application-running-on-tomcat-from-within-intellij-idea/
 
 "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8w.exe" //ES//Tomcat8
 -agentlib:jdwp=transport=dt_socket,address=5005,server=y,suspend=n
-
--------------------------------------------------------------------------------
-04/21/18
-07/18/17
-
-NEW VERSION OF JAVA JRE:
-
-Java Control Panel->Java tab->update "Java Virtual Machine" setting
-"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8w.exe"
-
-google: windows tomcat how to specify java folder
-
-https://stackoverflow.com/questions/4072260/how-to-change-java-version-used-by-tomcat
-
--
-
-NEW VERSION OF JAVA JDK:
-
-Update this:
-C:\utils\addJavaPath.bat
-
-any other files ???
 
 -------------------------------------------------------------------------------
 07/15/17
@@ -142,9 +148,11 @@ https://stackoverflow.com/questions/26893297/tomcat-8-throwing-org-apache-catali
 
 -
 
-2) Increase Tomcat/Java memory
+2) Increase Tomcat/Java memory (see also: C:\users\bin\todo.txt)
+"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 36864
+REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 32768
 REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 30720
-"C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 24576
+REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 24576
 REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 12288
 REM "C:\Program Files\Apache Software Foundation\Tomcat 8.5\bin\Tomcat8.exe" //US//tomcat8 --JvmMx 8192
 

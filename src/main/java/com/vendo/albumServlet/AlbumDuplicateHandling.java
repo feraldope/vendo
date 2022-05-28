@@ -39,7 +39,7 @@ public enum AlbumDuplicateHandling
 	private static void init ()
 	{
 		if (_values == null) {
-			List<AlbumStringPair> arrayList = new ArrayList<AlbumStringPair> ();
+			List<AlbumStringPair> arrayList = new ArrayList<> ();
 
 			for (AlbumDuplicateHandling ff : values ()) {
 				arrayList.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));

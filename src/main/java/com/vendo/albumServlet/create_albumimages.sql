@@ -292,9 +292,13 @@ select 'image_counts' as name, count(*) as rows1, max(name_id) as max from image
 select collapse_groups, count(*) from image_counts group by collapse_groups;
 
 -- image counts
-select * from image_counts where base_name like 'Faa%' order by lower(base_name), collapse_groups;
-select * from images where name_no_ext like 'Faa%';
+select * from image_counts where base_name like 'Nat%' order by lower(base_name), collapse_groups;
+select count(*) from image_counts where base_name like 'Nat%' order by lower(base_name), collapse_groups;
+select sum(image_count) from image_counts where base_name like 'Nat%' order by lower(base_name), collapse_groups;
+select * from images where name_no_ext like 'Nat%';
+select count(*) from images where name_no_ext like 'Nat%';
 select * from images where insert_date = (select max(insert_date) from images);
+--delete from image_counts where base_name like 'Nat%'
 
 -- images size in GB
 select count(*), sum(bytes) / (1024 * 1024 * 1024) as GigaBytes
@@ -390,17 +394,17 @@ select RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 40, ' ') as 'names
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff <= 20 and
-      (i1.name_no_ext like 'Jo%' or i2.name_no_ext like 'Jo%')
+where d.avg_diff <= 20 
+     and (i1.name_no_ext like 'Jo%' or i2.name_no_ext like 'Jo%')
 order by count desc
 
 -- image_diffs cleanup
 xx delete from image_diffs where avg_diff >= 19
 xx delete from image_diffs where timestampdiff (hour, last_update, current_timestamp) > 1
 
--- avoid hitting 255 max for column
-select * from image_diffs where count > 250
-update image_diffs set count = 127 where count > 127
+-- avoid hitting 255 max for column (obsolete)
+-- select * from image_diffs where count > 250
+-- update image_diffs set count = 127 where count > 127
 
 --
 select distinct name from albumtags.base1_names where name_id in (
@@ -479,12 +483,6 @@ select 'Min' as name, min(last_update) as last_update from image_diffs
 union all
 select 'Max' as name, max(last_update) as last_update from image_diffs
 
--- rows that no longer have corresponding images
-select count(*)
-from image_diffs
-where (name_id_1 not in (select name_id from images))
-or (name_id_2 not in (select name_id from images))
-
 select * from image_diffs limit 100
 
 select max(name_id_1), max(name_id_2) from image_diffs
@@ -492,22 +490,16 @@ select max(name_id_1), max(name_id_2) from image_diffs
 select max(name_id) from images
 
 -- cleanup obsolete rows
+-- rows that no longer have corresponding images
+-- use D:\Netscape\Program\bin\idCleanup.bat to remove these rows
 select count(*) from image_diffs
 where (name_id_1 not in (select name_id from images)) OR (name_id_2 not in (select name_id from images))
 --delete from image_diffs where (name_id_1 not in (select name_id from images)) OR (name_id_2 not in (select name_id from images))
---Split in two; perhaps quicker?
---delete from image_diffs where name_id_1 not in (select name_id from images)
---delete from image_diffs where name_id_2 not in (select name_id from images)
---Delete in ranges
---delete from image_diffs where name_id_1 > 1000000 and name_id_1 < 2000000 and name_id_1 not in (select name_id from images)
---delete from image_diffs where name_id_2 > 1000000 and name_id_2 < 2000000 and name_id_2 not in (select name_id from images)
 
--- cleanup obsolete rows (break into two parts; perhaps quicker)
-select count(*) from image_diffs
-where name_id_1 not in (select name_id from images)
--- where name_id_2 not in (select name_id from images)
 
 -- cleanup likely useless rows
+select count(*) from image_diffs where avg_diff >= 35 and std_dev >= 35 order by avg_diff desc
+select avg_diff, std_dev from image_diffs where avg_diff >= 30 and std_dev >= 30 order by avg_diff desc
 -- note this might remove useful rows: should only delete when both values > threshold
     select avg_diff, count(*) from image_diffs where avg_diff >= 50 group by avg_diff order by avg_diff desc
     --delete from image_diffs where avg_diff >= 50

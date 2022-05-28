@@ -51,14 +51,14 @@ public class AlbumFormInfo
 	public static AlbumFormInfo getInstance(boolean createNewInstance) {
 		if (createNewInstance) {
 			synchronized (AlbumFormInfo.class) {
-				_log.debug ("AlbumFormInfo.getInstance(" + createNewInstance + ")@1: calling AlbumFormInfo ctor");
+//				_log.debug ("AlbumFormInfo.getInstance(" + createNewInstance + ")@1: calling AlbumFormInfo ctor");
 				_instance = new AlbumFormInfo();
 			}
 
 		} else if (_instance == null) {
 			synchronized (AlbumFormInfo.class) {
 				if (_instance == null) {
-					_log.debug ("AlbumFormInfo.getInstance(" + createNewInstance + ")@2: calling AlbumFormInfo ctor");
+//					_log.debug ("AlbumFormInfo.getInstance(" + createNewInstance + ")@2: calling AlbumFormInfo ctor");
 					_instance = new AlbumFormInfo();
 				}
 			}
@@ -516,7 +516,7 @@ public class AlbumFormInfo
 	//index specifies which filter, 0 means all
 	public String[] getFilters (int index)
 	{
-		List<String> filters = new ArrayList<String> ();
+		List<String> filters = new ArrayList<> ();
 
 		if ((index == 0 || index == 1) && _filter1.length () > 0) {
 			filters.addAll (splitString (_filter1));
@@ -588,7 +588,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public String[] getTags (AlbumTagMode tagMode)
 	{
-		List<String> tags = new ArrayList<String> ();
+		List<String> tags = new ArrayList<> ();
 
 		for (int ii = 0; ii < AlbumFormInfo._NumTagParams; ii++) {
 			if (_tagMode.get (ii) == tagMode && _tagValue.get (ii).length () > 0) {
@@ -639,7 +639,7 @@ public class AlbumFormInfo
 	//sorts (case insensitive) and dedups the list before returning it
 	public String[] getExcludes ()
 	{
-		List<String> excludes = new ArrayList<String> ();
+		List<String> excludes = new ArrayList<> ();
 
 		if (_exclude1.length () > 0) {
 			excludes.addAll (splitString (_exclude1));
@@ -1146,38 +1146,8 @@ public class AlbumFormInfo
 	//handle comma-separated list
 	public static Collection<String> splitString (String string)
 	{
-		String parts[] = string.split (","); //split on commas
-		List<String> list = Arrays.asList (parts);
-		return list;
+		return Arrays.asList (string.split (",")); //split on commas
 	}
-
-//moved to VendoUtils
-	///////////////////////////////////////////////////////////////////////////
-//	public static List<String> caseInsensitiveDedup (List<String> strings)
-//	{
-//		Set<String> deduped = new HashSet<> (strings);
-//
-//		TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
-//		deduped.removeIf (s -> !seen.add (s));
-//
-//		return new ArrayList<> (deduped);
-
-/*old way (didn't sort)
-		List<String> toBeRemoved = new ArrayList<String> ();
-
-		String prevString = "";
-		for (String string : strings) {
-			if (prevString.length () != 0 && prevString.compareToIgnoreCase (string) == 0) {
-				toBeRemoved.add (string);
-			}
-			prevString = string;
-		}
-
-		for (String string : toBeRemoved) {
-			strings.remove (string);
-		}
-*/
-//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static String stripImageExtension (String name)
@@ -1265,15 +1235,15 @@ public class AlbumFormInfo
 	private int _highlightMaxPixels = _defaultHighlightMaxPixels;
 	private int _highlightMaxKilobytes = _defaultHighlightMaxKilobytes;
 	private int _maxColumns = 32;
-	private Collection<String> _servletErrors = new HashSet<String> (); //use set to avoid dups
+	private Collection<String> _servletErrors = new HashSet<> (); //use set to avoid dups
 
 	//parameters from URL
 	private AlbumMode _mode = AlbumMode.DoDir;
 	private String _filter1 = "";
 	private String _filter2 = "";
 	private String _filter3 = "";
-	private List<AlbumTagMode> _tagMode = new ArrayList<AlbumTagMode> ();
-	private List<String> _tagValue = new ArrayList<String> ();
+	private List<AlbumTagMode> _tagMode = new ArrayList<> ();
+	private List<String> _tagValue = new ArrayList<> ();
 	private String _exclude1 = "";
 	private String _exclude2 = "";
 	private String _exclude3 = "";
@@ -1316,6 +1286,7 @@ public class AlbumFormInfo
 
 	public static final String _ImageExtension = ".jpg";
 	public static final String _RgbDataExtension = ".dat";
+	public static final String _AddToFiltersParam = "AddToFilters:";
 	public static final String _DeleteParam1 = "DeleteImage:";
 	public static final String _DeleteParam2 = "DeleteImages:";
 	public static final String _DeleteSuffix = ".delete";

@@ -2,50 +2,23 @@
 
 jcs.default=
 jcs.default.cacheattributes=org.apache.commons.jcs3.engine.CompositeCacheAttributes
-jcs.default.cacheattributes.MaxObjects=2000
+#jcs.default.cacheattributes.MaxObjects=2000
 jcs.default.cacheattributes.MemoryCacheName=org.apache.commons.jcs3.engine.memory.lru.LRUMemoryCache
-jcs.default.cacheattributes.UseMemoryShrinker=true
-jcs.default.cacheattributes.MaxMemoryIdleTimeSeconds=3600
-jcs.default.cacheattributes.ShrinkerIntervalSeconds=60
+jcs.default.cacheattributes.UseMemoryShrinker=false
 jcs.default.cacheattributes.UseDisk=false
 jcs.default.elementattributes=org.apache.commons.jcs3.engine.ElementAttributes
-jcs.default.elementattributes.IsEternal=false
-jcs.default.elementattributes.MaxLife=700
-jcs.default.elementattributes.IsSpool=true
-jcs.default.elementattributes.IsRemote=true
-jcs.default.elementattributes.IsLateral=true
+jcs.default.elementattributes.IsEternal=true
+jcs.default.elementattributes.IsSpool=false
+jcs.default.elementattributes.IsRemote=false
+jcs.default.elementattributes.IsLateral=false
 
 # optional region "testCache1" specific configuration settings
 jcs.region.testCache1=
-jcs.region.testCache1.cacheattributes=org.apache.commons.jcs3.engine.CompositeCacheAttributes
-jcs.region.testCache1.cacheattributes.MaxObjects=20000
-jcs.region.testCache1.cacheattributes.MemoryCacheName=org.apache.commons.jcs3.engine.memory.lru.LRUMemoryCache
-jcs.region.testCache1.cacheattributes.UseMemoryShrinker=true
-jcs.region.testCache1.cacheattributes.ShrinkerIntervalSeconds=30
-jcs.region.testCache1.cacheattributes.MaxMemoryIdleTimeSeconds=300
-jcs.region.testCache1.cacheattributes.MaxSpoolPerRun=100
-jcs.region.testCache1.elementattributes=org.apache.commons.jcs3.engine.ElementAttributes
-jcs.region.testCache1.elementattributes.IsEternal=false
-jcs.region.testCache1.elementattributes.MaxLife=60000
-jcs.region.testCache1.elementattributes.IsSpool=true
-jcs.region.testCache1.elementattributes.IsLateral=true
-jcs.region.testCache1.elementattributes.IsRemote=true
+jcs.region.testCache1.cacheattributes.MaxObjects=30000
 
 # optional region "testCache2" specific configuration settings
 jcs.region.testCache2=
-jcs.region.testCache2.cacheattributes=org.apache.commons.jcs3.engine.CompositeCacheAttributes
-jcs.region.testCache2.cacheattributes.MaxObjects=30000
-jcs.region.testCache2.cacheattributes.MemoryCacheName=org.apache.commons.jcs3.engine.memory.lru.LRUMemoryCache
-jcs.region.testCache2.cacheattributes.UseMemoryShrinker=true
-jcs.region.testCache2.cacheattributes.ShrinkerIntervalSeconds=30
-jcs.region.testCache2.cacheattributes.MaxMemoryIdleTimeSeconds=300
-jcs.region.testCache2.cacheattributes.MaxSpoolPerRun=100
-jcs.region.testCache2.elementattributes=org.apache.commons.jcs3.engine.ElementAttributes
-jcs.region.testCache2.elementattributes.IsEternal=false
-jcs.region.testCache2.elementattributes.MaxLife=60000
-jcs.region.testCache2.elementattributes.IsSpool=true
-jcs.region.testCache2.elementattributes.IsLateral=true
-jcs.region.testCache2.elementattributes.IsRemote=true
+jcs.region.testCache2.cacheattributes.MaxObjects=20000
 
 
 
@@ -85,4 +58,3 @@ jcs.region.testCache2.elementattributes.IsRemote=true
 #jcs.auxiliary.DC.attributes.MaxKeySize=1000000
 #jcs.auxiliary.DC.attributes.OptimizeAtRemoveCount=300000
 #jcs.auxiliary.DC.attributes.ShutdownSpoolTimeLimit=60
-#

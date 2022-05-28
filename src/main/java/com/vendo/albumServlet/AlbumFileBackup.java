@@ -253,10 +253,10 @@ public class AlbumFileBackup
 			return false;
 		}
 
-		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
-		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
-		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
-		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap = new ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> ();
+		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap = new ConcurrentHashMap<> ();
+		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap = new ConcurrentHashMap<> ();
+		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap = new ConcurrentHashMap<> ();
+		ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap = new ConcurrentHashMap<> ();
 
 		getImageFileDetailsFromFileSystem (sourceSubFolders, sourceMap, destMap);
 
@@ -380,8 +380,8 @@ public class AlbumFileBackup
 	private List<String> getSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath)
 	{
 		String rootFolder = rootPath != null ? rootPath + "\\" : "";
-		List<String> list = new ArrayList<String> ();
-		for (String subFolder : new TreeSet<String> (sourceMap.keySet ())) {
+		List<String> list = new ArrayList<> ();
+		for (String subFolder : new TreeSet<> (sourceMap.keySet ())) {
 			list.addAll (sourceMap.get (subFolder).stream ()
 												  .map(v -> rootFolder + subFolder + "\\" + v.getName())
 												  .sorted(VendoUtils.caseInsensitiveStringComparator)
@@ -396,7 +396,7 @@ public class AlbumFileBackup
 //	{
 //		String rootFolder = rootPath != null ? rootPath + "\\" : "";
 //		Map<String, Integer> reduceMap = new HashMap<> ();
-//		for (String subFolder : new TreeSet<String> (sourceMap.keySet ())) {
+//		for (String subFolder : new TreeSet<> (sourceMap.keySet ())) {
 //			Collection<AlbumImageFileDetails> files = sourceMap.get (subFolder);
 //			for (AlbumImageFileDetails file : files) {
 //				String imageBaseName = rootFolder + subFolder + "\\" + getBaseName (file.getName (), collapseGroups);
@@ -409,7 +409,7 @@ public class AlbumFileBackup
 //		}
 //
 //		List<String> reduceList = new ArrayList<> ();
-//		for (String filename : new TreeSet<String> (reduceMap.keySet ())) {
+//		for (String filename : new TreeSet<> (reduceMap.keySet ())) {
 //			reduceList.add (filename + " " + reduceMap.get (filename));
 //		}
 //
@@ -439,7 +439,7 @@ public class AlbumFileBackup
 	///////////////////////////////////////////////////////////////////////////
 	private Collection<String> createDestinationFoldersIfNotExist (Path destRootPath, Collection<String> sourceSubFolders)
 	{
-		ConcurrentHashMap<String, String> didNotCreateMap = new ConcurrentHashMap<String, String> ();
+		ConcurrentHashMap<String, String> didNotCreateMap = new ConcurrentHashMap<> ();
 
 		final CountDownLatch endGate = new CountDownLatch (sourceSubFolders.size ());
 
@@ -460,7 +460,7 @@ public class AlbumFileBackup
 			_log.error ("AlbumFileBackup.createDestinationFoldersIfNotExist: endGate: ", ex);
 		}
 
-		return new ArrayList<String> (didNotCreateMap.keySet ());
+		return new ArrayList<> (didNotCreateMap.keySet ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -625,13 +625,13 @@ public class AlbumFileBackup
 
 				Thread.currentThread ().setName ("diff: " + subFolder);
 
-				final Collection<AlbumImageFileDetails> diffColl = new HashSet<AlbumImageFileDetails> (sourceColl);
+				final Collection<AlbumImageFileDetails> diffColl = new HashSet<> (sourceColl);
 				diffColl.removeAll (destColl);
 				if (diffColl.size () > 0) {
 					diffMap.put (subFolder, diffColl);
 				}
 
-				final Collection<AlbumImageFileDetails> orphanColl = new HashSet<AlbumImageFileDetails> (destColl);
+				final Collection<AlbumImageFileDetails> orphanColl = new HashSet<> (destColl);
 				orphanColl.removeAll (sourceColl);
 				if (orphanColl.size () > 0) {
 					orphanMap.put (subFolder, orphanColl);

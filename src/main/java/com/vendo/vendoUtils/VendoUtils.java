@@ -881,7 +881,13 @@ public class VendoUtils
 	public static <T> Collection<T> dedupCollection (Collection<T> items)
 	{
 		//deduplicate Collection by adding everything to Set
-		return new HashSet<T>(items);
+		Collection<T> deduped = new HashSet<T>(items);
+
+		if (items instanceof List) {
+			return new ArrayList<T>(deduped);
+		}
+
+		return deduped;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1110,6 +1116,18 @@ public class VendoUtils
 		}
 
 		return totalSpace;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String getFullUrlFromRequest(HttpServletRequest request) {
+		StringBuilder requestUrl = new StringBuilder(request.getRequestURL().toString());
+		String queryString = request.getQueryString();
+
+		if (queryString == null) {
+			return requestUrl.toString();
+		} else {
+			return requestUrl.append('?').append(queryString).toString();
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////

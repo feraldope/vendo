@@ -125,7 +125,7 @@ public class AlbumImageDao {
 
 			//to widen the list as far as possible, just take the first letter of each override item
 			_subFoldersOverrideSet = Arrays.stream(subFoldersOverrideStr.toLowerCase().split(","))
-											.map(s -> s.trim().substring(0, 1))
+											.map(s -> s.trim().substring(0, Math.min (s.length(), _subFolderMinLength)))
 											.collect(Collectors.toSet());
 		}
 
@@ -313,8 +313,10 @@ public class AlbumImageDao {
 	//used by CLI
 	private boolean syncFolder(String subFolder)
 	{
+		int subFolderMinLength = Math.min (subFolder.length(), _subFolderMinLength);
 		if (_subFoldersOverrideSet != null && !_subFoldersOverrideSet.isEmpty()) {
-			if (_subFoldersOverrideSet.contains(subFolder.substring(0, 1))) {
+			if (_subFoldersOverrideSet.contains(subFolder.substring(0, subFolderMinLength))) {
+//TODO - this does not work right for e.g., "j"; it skips all j* subfolders (but it does work for "o")
 				_log.debug("AlbumImageDao.syncFolder: syncing subFolder = " + subFolder);
 			} else {
 				return false; //skip
@@ -697,7 +699,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public Collection<AlbumImage> doDir(String subFolder, AlbumFileFilter filter, Set<String> debugNeedsChecking, Set<String> debugCacheMiss)
+	public Collection<AlbumImage> doDir(String subFolder, AlbumFileFilter filter, Set<String> debugNeedsChecking, Map<String, Integer> debugCacheMiss)
 	{
 		AlbumFormInfo form = AlbumFormInfo.getInstance();
 		AlbumOrientation orientation = form.getOrientation();
@@ -766,7 +768,7 @@ public class AlbumImageDao {
 
 		Path imageFile = FileSystems.getDefault().getPath(_rootPath, subFolder, nameNoExt + AlbumFormInfo._ImageExtension);
 		if (!VendoUtils.fileExists(imageFile)) {
-			_log.error("AlbumImageDao.handleFileCreate: image files does not exist \"" + imageFile.toString() + "\"");
+//			_log.error("AlbumImageDao.handleFileCreate: image file does not exist \"" + imageFile.toString() + "\"");
 			return status;
 		}
 
@@ -857,7 +859,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet and AlbumTags CLI
-	public Collection<AlbumImage> getImagesFromCache(String subFolder, Set<String> debugCacheMiss)
+	public Collection<AlbumImage> getImagesFromCache(String subFolder, Map<String, Integer> debugCacheMiss)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -873,13 +875,13 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 		} else {
 //			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache miss for subFolder: " + subFolder);
-			if (debugCacheMiss != null) {
-				debugCacheMiss.add(subFolder);
-			}
 			images = getImagesFromImages(subFolder);
 			long nowInMillis = new GregorianCalendar().getTimeInMillis();
 			imagesData = new AlbumImagesData(images, nowInMillis);
 			_albumImagesDataCache.put(subFolder, imagesData);
+			if (debugCacheMiss != null) {
+				debugCacheMiss.put(subFolder, images.size());
+			}
 
 			Map<String, Integer> imagesCountMap = getImageCountsFromImageCounts(subFolder);
 			_albumImagesCountCache.put(subFolder, imagesCountMap);
@@ -892,7 +894,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 				if (count == null) {
 					albumsCountMap.put(baseNameNoDigits, 0); //start with 0 because the map has every album, and the collapsed-album name (Fh01, Fh02, and Fh)
 				} else {
-					albumsCountMap.put(baseNameNoDigits, ++count); //start with 0 because the map has every album, and the collapsed-album name (Fh01, Fh02, and Fh)
+					albumsCountMap.put(baseNameNoDigits, ++count);
 				}
 			}
 			_albumAlbumsCountCache.put(subFolder, albumsCountMap);
@@ -1025,7 +1027,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 		int numMatchingImages = 0;
 
 		try {
-			String subFolder = /*AlbumImageDao.getInstance ().*/getSubFolderFromImageName(baseName);
+			String subFolder = getSubFolderFromImageName(baseName);
 			Map<String, Integer> imagesCountMap = _albumImagesCountCache.get(subFolder);
 			numMatchingImages = imagesCountMap.get(baseName);
 
@@ -1044,7 +1046,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 		int numMatchingAlbums = 0;
 
 		try {
-			String subFolder = /*AlbumImageDao.getInstance ().*/getSubFolderFromImageName(baseName);
+			String subFolder = getSubFolderFromImageName(baseName);
 			Map<String, Integer> albumsCountMap = _albumAlbumsCountCache.get(subFolder);
 			numMatchingAlbums = albumsCountMap.get(baseName);
 
@@ -1541,7 +1543,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 	///////////////////////////////////////////////////////////////////////////
 	public /*static*/ String getSubFolderFromImageName (String imageName)
 	{
-		/*AlbumImageDao.getInstance().*/getAlbumSubFolders (); //make sure this object has been initialized
+		getAlbumSubFolders (); //make sure this object has been initialized
 
 // TODO - does not handle imageName = "*"
 
@@ -1701,6 +1703,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 	private Collection<String> _subFolders = null;
 	private Set<String> _subFoldersOverrideSet = null;
+	private static final int _subFolderMinLength = 2;
 
 	private static final int _pauseSleepMillis = 1000;
 	private static final String _pauseFilename = "albumServer.pause.txt";
@@ -1709,22 +1712,24 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 	private static Map<Integer, Set<String>> _subFolderByLengthMap = null;
 
-	private static final Map<String, Thread> _handlerThreadMap = new ConcurrentHashMap<> (275);
-	private static final Map<String, Thread> _watcherThreadMap = new ConcurrentHashMap<> (275);
+	private static final int _estimatedNumberOfSubFolders = 275;
 
-	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<> (275);
-	private static final Map<String, Map<String, Integer>> _albumImagesCountCache = new HashMap<> (275);
-	private static final Map<String, Map<String, Integer>> _albumAlbumsCountCache = new HashMap<> (275);
+	private static final Map<String, Thread> _handlerThreadMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
+	private static final Map<String, Thread> _watcherThreadMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
+
+	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<> (_estimatedNumberOfSubFolders);
+	private static final Map<String, Map<String, Integer>> _albumImagesCountCache = new HashMap<> (_estimatedNumberOfSubFolders);
+	private static final Map<String, Map<String, Integer>> _albumAlbumsCountCache = new HashMap<> (_estimatedNumberOfSubFolders);
+
+	private static final Map<String, String> _servletMisFiledImageErrorsMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
 
 	private static final ThreadLocal<Set<String>> _imagesNeedingCountUpdate = ThreadLocal.withInitial(HashSet::new);
-
-	private static final Map<String, String> _servletMisFiledImageErrorsMap = new ConcurrentHashMap<> (275);
 
 	private static final String NL = System.getProperty ("line.separator");
 //	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
 //	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
 
 	private static boolean _Debug = false;
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumImageDao";
 }

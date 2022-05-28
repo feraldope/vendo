@@ -2,7 +2,8 @@
 
 package com.vendo.albumServlet;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
 //import org.apache.logging.log4j.*;
 
@@ -35,7 +36,7 @@ public enum AlbumTagMode
 	private static void init ()
 	{
 		if (_values == null) {
-			List<AlbumStringPair> arrayList = new ArrayList<AlbumStringPair> ();
+			List<AlbumStringPair> arrayList = new ArrayList<> ();
 
 			for (AlbumTagMode ff : values ()) {
 				arrayList.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));

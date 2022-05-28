@@ -908,6 +908,7 @@ public class GetUrl {
 		_model = _model.replaceAll("\\/tn_/", "/");
 		_model = _model.replaceAll("\\/tn-/", "/");
 		_model = _model.replaceAll("\\/p\\/\\d+x\\d+_", "/m");
+		_model = _model.replaceAll("\\/459\\/\\d+", "/1");
 
 		int lastSlash = _model.lastIndexOf('/');
 		if (lastSlash < 0) {

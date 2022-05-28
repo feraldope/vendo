@@ -3,7 +3,10 @@
 package com.vendo.vendoUtils;
 
 //import java.io.*;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
 
 //import org.apache.logging.log4j.*;
 
@@ -15,8 +18,9 @@ public class AlphanumComparatorTest
 	{
 		AlphanumComparatorTest app = new AlphanumComparatorTest ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -25,10 +29,10 @@ public class AlphanumComparatorTest
 	private boolean run () throws Exception
 	{
 		//this collection holds Strings, to test sorting of simple String comparator
-		ArrayList<String> coll1 = new ArrayList<String> ();
+		ArrayList<String> coll1 = new ArrayList<> ();
 
 		//this collection holds an Object, to test sorting of AlphanumComparator
-		ArrayList<TestRecord> coll2 = new ArrayList<TestRecord> ();
+		ArrayList<TestRecord> coll2 = new ArrayList<> ();
 
 		Random random = new Random ();
 
@@ -45,21 +49,19 @@ public class AlphanumComparatorTest
 		}
 
 		System.out.println ("Original order:");
-		for (String str : coll1)
+		for (String str : coll1) {
 			System.out.println (str);
+		}
 
 		System.out.println ("");
 
 		//sort once alphabetically
-		Collections.sort (coll1, new Comparator<String> () {
-			public int compare (String s1, String s2) {
-				return s1.compareToIgnoreCase (s2);
-			}
-		});
+		Collections.sort (coll1, (s1, s2) -> s1.compareToIgnoreCase (s2));
 
 		System.out.println ("Simple sort (case insensitive):");
-		for (String str : coll1)
+		for (String str : coll1) {
 			System.out.println (str);
+		}
 
 		System.out.println ("");
 
@@ -67,8 +69,9 @@ public class AlphanumComparatorTest
 		Collections.sort (coll2, new AlphanumComparator ());
 
 		System.out.println ("Better Sort (number-aware, case insensitive):");
-		for (TestRecord record : coll2)
+		for (TestRecord record : coll2) {
 			System.out.println (record);
+		}
 
 		return true;
 	}
@@ -77,15 +80,17 @@ public class AlphanumComparatorTest
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 //		msg += "Usage: " + _AppName + " [/debug] {/compress | /decompress} [/inFile] <input file> [/outFile] <output file>";
 		msg += "Usage: TBD";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////

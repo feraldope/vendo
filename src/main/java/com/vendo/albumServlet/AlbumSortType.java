@@ -51,8 +51,8 @@ public enum AlbumSortType
 	private static void init ()
 	{
 		if (_values == null || _uiValues == null) {
-			List<AlbumStringPair> pairs = new ArrayList<AlbumStringPair> ();
-			List<AlbumStringPair> uiPairs = new ArrayList<AlbumStringPair> ();
+			List<AlbumStringPair> pairs = new ArrayList<> ();
+			List<AlbumStringPair> uiPairs = new ArrayList<> ();
 
 			for (AlbumSortType ff : values ()) {
 				pairs.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));

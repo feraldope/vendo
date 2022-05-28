@@ -130,7 +130,7 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	{
 		//sort the list of pairs
 		int numPairs = pairs1.size ();
-		List<AlbumImagePair> pairs2 = new ArrayList<AlbumImagePair> (numPairs);
+		List<AlbumImagePair> pairs2 = new ArrayList<> (numPairs);
 		pairs2.addAll (pairs1);
 
 		if (sortType != AlbumSortType.ByNone) {

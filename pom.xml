@@ -60,6 +60,24 @@
 						<fork>true</fork>
 						<!-- following line allows me to use classes from com.sun.xxx -->
 						<compilerArgument>-XDignore.symbol.file</compilerArgument>
+
+<!--
+						<compilerArgument>-Xlint:all,-options,-path</compilerArgument>
+						<compilerArgument>-verbose</compilerArgument>
+						<compilerArgument>-Xlint:deprecation</compilerArgument>
+						<compilerArgument>-Xlint:unchecked</compilerArgument>
+-->
+<!--
+						<compilerArgs>
+							&lt;!&ndash;following line allows me to use classes from com.sun.xxx&ndash;&gt;
+							<arg>-XDignore.symbol.file</arg>
+							<arg>-Xlint:all,-options,-path</arg>
+							<arg>-verbose</arg>
+							<arg>-Xlint:unchecked</arg>
+							<arg>-Xlint:deprecation</arg>
+						</compilerArgs>
+-->
+
 					</configuration>
 				</plugin>
 			</plugins>

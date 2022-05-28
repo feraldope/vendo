@@ -58,6 +58,12 @@ public class AlbumAlbumPair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public List<String> getBaseNames()
+	{
+		return _baseNames;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private int getNumberOfImagesInAlbum1 ()
 	{
 		return _numberOfImagesInAlbum1;
@@ -141,14 +147,14 @@ public class AlbumAlbumPair
 		AlbumFormInfo form = AlbumFormInfo.getInstance();
 		String href = AlbumImages.getInstance().generateImageLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
 		StringBuilder html = new StringBuilder();
-//TODO - move to help class/method
+//TODO - move to helper class/method
 		html.append ("<A HREF=\"")
 				.append (href)
-				.append ("\" ")//.append(NL)
+				.append ("\" ")
 				.append ("title=\"").append (filters)
-				.append ("\" target=_blank>")//.append (NL)
-				.append (filters)//.append (NL)
-				.append ("</A>");//.append (NL);
+				.append ("\" target=_blank>")
+				.append (filters)
+				.append ("</A>");
 
 		StringBuffer sb = new StringBuffer ();
 //		sb.append (getBaseName(0)).append (", ");
@@ -164,6 +170,12 @@ public class AlbumAlbumPair
 //		sb.append (getLastUpdate () != null ? _dateFormat.format (getLastUpdate ()) : "null");
 //
 		return sb.toString ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	@Override
+	public String toString() {
+		return _baseNames.stream().sorted(_alphanumComparator).collect(Collectors.joining(", "));
 	}
 
 	//members

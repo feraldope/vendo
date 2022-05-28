@@ -9,6 +9,7 @@ http://localhost/servlet/AlbumServlet.AlbumServlet
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -105,6 +106,9 @@ public class AlbumServlet extends HttpServlet
 //		String property = "java.util.Arrays.useLegacyMergeSort";
 //		_log.debug (property + " = " + System.getProperty (property));
 
+		String fullUrl = VendoUtils.getFullUrlFromRequest(request);
+		_log.debug ("AlbumServlet.doGet: fullUrl.length = " + fullUrl.length());
+
 //TODO - change CLI to read properties file, too
 		ServletContext context = getServletContext ();
 
@@ -118,7 +122,7 @@ public class AlbumServlet extends HttpServlet
 //		_log.debug ("AlbumServlet.doGet: session id = " + session.getId ());
 //		AlbumDirList.getInstance ().setSessionId (session.getId ());
 
-		_album.processParams (request); //rename files marked for deletion
+		_album.processParams (request, form); //rename files marked for deletion
 		_album = AlbumImages.getInstance (); //force reload of instance in case rootFolder changed
 		_album.setForm (form);
 		_album.processRequest ();
@@ -129,7 +133,7 @@ public class AlbumServlet extends HttpServlet
 		int numberFieldWidth = 2;
 
 		//get tags from database, add blank selection to beginning of list
-		Collection<String> allTags = new ArrayList<String> ();
+		Collection<String> allTags = new ArrayList<> ();
 		allTags.add ("");
 		allTags.addAll (AlbumTags.getInstance ().getAllTags ());
 

@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
@@ -317,7 +318,7 @@ public class AlbumFileRename
 		final String[] filters = new String[] {"*"};
 		final AlbumFileFilter filter = new AlbumFileFilter (filters, null, /*useCase*/ false, /*sinceInMillis*/ 0);
 
-		List<AlbumImage> imageDisplayList = new LinkedList<AlbumImage> ();
+		List<AlbumImage> imageDisplayList = new LinkedList<> ();
 
 		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
 		//debug override
@@ -325,8 +326,8 @@ public class AlbumFileRename
 //		subFolders = Arrays.asList ("u");
 
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
-		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<String> ();
-		final Set<String> debugCacheMiss = new ConcurrentSkipListSet<String> ();
+		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<> ();
+		final Map<String, Integer> debugCacheMiss = new ConcurrentHashMap<>();
 
 		AlbumProfiling.getInstance ().enter (5, "getImageDisplayList.doDir");
 		for (final String subFolder : subFolders) {
@@ -489,8 +490,9 @@ public class AlbumFileRename
 //		VPair<String, String>[] results = new VPair<String, String>[] {};
 //		VPair<String, String>[] results = null;
 //		VPair<?, ?>[] results = new VPair<String, String>[] {};
-		ArrayList<VPair<String, String>> results = new ArrayList<VPair<String, String>> ();
+		ArrayList<VPair<String, String>> results = new ArrayList<> ();
 
+		throw new RuntimeException("moveFiles: not implemented");
 //see:
 //http://stackoverflow.com/questions/7131652/generic-array-creation-error
 
@@ -505,8 +507,9 @@ public class AlbumFileRename
 		for (String infilename : infilenames) {
 			System.out.println (infilename);
 		}
-*/
+
 		return results;
+*/
 	}
 
 	///////////////////////////////////////////////////////////////////////////

@@ -210,6 +210,11 @@ mysql -u root -proot albumimages -e "describe images"
 	</select>
  -->
 
+	<select id="selectMaxNameIdFromImages" resultType="int">
+		select max(name_id)
+		from images
+	</select>
+
 	<insert id="insertLastUpdateIntoImageFolder">
 		insert into image_folder (sub_folder, last_update)
 		values (#{sub_folder}, #{last_update})

@@ -330,7 +330,7 @@ public class AlbumImageDiffer
 		final AtomicInteger sameBaseName = new AtomicInteger (0);
 		final AtomicInteger duplicates = new AtomicInteger (0);
 		final AtomicInteger rowsInserted = new AtomicInteger (0);
-		final Set<String> toBeSkipped = new HashSet<String>();
+		final Set<String> toBeSkipped = new HashSet<>();
 
 		if (_shutdownFlag.get ()) {
 			return;
@@ -361,7 +361,7 @@ public class AlbumImageDiffer
 			Runnable task = () -> {
 				Thread.currentThread ().setName (albumImageDataA.getName ());
 
-				Collection<AlbumImageDiffDetails> imageDiffDetails = new ArrayList<AlbumImageDiffDetails> ();
+				Collection<AlbumImageDiffDetails> imageDiffDetails = new ArrayList<> ();
 
 				Iterator<AlbumImageData> iterB = _idListB.iterator();
 				while (iterB.hasNext ()  && !_shutdownFlag.get ()) {
@@ -459,7 +459,7 @@ public class AlbumImageDiffer
 		_log.debug ("AlbumImageDiffer.run: orientationMismatch = " + _decimalFormat.format (orientationMismatch.get ()));
 		_log.debug ("AlbumImageDiffer.run: sameBaseName        = " + _decimalFormat.format (sameBaseName.get ()));
 		_log.debug ("AlbumImageDiffer.run: duplicates          = " + _decimalFormat.format (duplicates.get ()));
-		_log.debug ("AlbumImageDiffer.run: rowsInserted (new)  = " + _decimalFormat.format (rowsInserted.get () - 2 * duplicates.get ()));
+		_log.debug ("AlbumImageDiffer.run: rowsInserted (new)  = " + _decimalFormat.format (rowsInserted.get () - 2L * duplicates.get ()));
 		_log.debug ("AlbumImageDiffer.run: rowsInserted (all)  = " + _decimalFormat.format (rowsInserted.get () - duplicates.get ()));
 
 		AlbumProfiling.getInstance ().exit (5);
@@ -527,7 +527,7 @@ public class AlbumImageDiffer
 			    	 "order by rand() limit " + _maxRows + ") t)";
 		_log.debug ("AlbumImageDiffer.queryImageIdsNames: sql: " + NL + sql);
 
-		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<AlbumImageData> items = new ArrayList<> ();
 
 		try (Connection connection = getConnection ();
 			 Statement statement = connection.createStatement ();
@@ -563,7 +563,7 @@ public class AlbumImageDiffer
 
 		boolean useFilters = (filters != null && filters.size () > 0);
 
-		Collection<String> baseNames = new HashSet<String> (_maxRows); //use Set to eliminate dups
+		Collection<String> baseNames = new HashSet<> (_maxRows); //use Set to eliminate dups
 
 		{ //---------------------------------------------------------------------
 		AlbumProfiling.getInstance ().enterAndTrace (5, "part1");
@@ -612,8 +612,8 @@ public class AlbumImageDiffer
 		AlbumProfiling.getInstance ().exit (5, "part1");
 		}
 
-		Collection<String> names = new ArrayList<String> ();
-		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<String> names = new ArrayList<> ();
+		Collection<AlbumImageData> items = new ArrayList<> ();
 
 		boolean useFileSystem = true;
 		if (useFileSystem) {
@@ -680,7 +680,7 @@ public class AlbumImageDiffer
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<AlbumImageData> items = new ArrayList<> ();
 
 		if (names.isEmpty ()) {
 			return items;
@@ -709,7 +709,7 @@ public class AlbumImageDiffer
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		Collection<AlbumImageData> items = new ArrayList<AlbumImageData> ();
+		Collection<AlbumImageData> items = new ArrayList<> ();
 
 		if (baseNames.isEmpty ()) {
 			return items;
@@ -815,21 +815,26 @@ public class AlbumImageDiffer
 	//cleanup obsolete rows: rows in image_diffs that are no longer in images
 	public long deleteFromImageDiffs ()
 	{
-		final int nameIdMax = 15 * 1000 * 1000; //TODO - query this from images table
-		final int nameIdSteps = 10;
-		final int nameIdStep = nameIdMax / nameIdSteps;
+		final int oneMillion = 1000 * 1000;
+		int numMillions = 1 + getMaxNameIdFromImages () / oneMillion;
+
+		final int nameIdMax = numMillions * oneMillion;
+		final int nameIdNumSteps = numMillions;
+		final int nameIdStepSize = nameIdMax / nameIdNumSteps;
+
+		_log.debug("AlbumImageDiffer.deleteFromImageDiffs: nameIdMax rounded up to nearest million: " + _decimalFormat.format(nameIdMax));
 
 		long totalRowsDeleted = 0;
 
 		String nameIdColumnFormat = "name_id_%d";
 		String sqlFormat = "delete from image_diffs where %s >= %d and %s < %d and %s not in (select name_id from images)";
 
-		for (int nameId = 0; nameId < nameIdMax; nameId += nameIdStep) {
+		for (int nameId = 0; nameId < nameIdMax; nameId += nameIdStepSize) {
 			for (int nameIdColumnIndex = 1; nameIdColumnIndex <= 2; nameIdColumnIndex++) {
 				AlbumProfiling.getInstance ().enter(5, "deleteFromImageDiffs");
 
 				String nameIdColumn = String.format(nameIdColumnFormat, nameIdColumnIndex);
-				String sql = String.format(sqlFormat, nameIdColumn, nameId, nameIdColumn, (nameId + nameIdStep), nameIdColumn);
+				String sql = String.format(sqlFormat, nameIdColumn, nameId, nameIdColumn, (nameId + nameIdStepSize), nameIdColumn);
 
 				_log.debug("AlbumImageDiffer.deleteFromImageDiffs: sql: " + sql);
 				Instant startInstant = Instant.now();
@@ -953,7 +958,7 @@ public class AlbumImageDiffer
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		Collection<AlbumImageDiffData> items = new ArrayList<AlbumImageDiffData> ();
+		Collection<AlbumImageDiffData> items = new ArrayList<> ();
 
 		final String operatorStr = (operatorOr ? "OR" : "AND");
 		final int sinceMinutes = (int) (sinceDays * 24. * 60.);
@@ -1019,12 +1024,33 @@ public class AlbumImageDiffer
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//used by AlbumImageDiffer CLI
+	public int getMaxNameIdFromImages ()
+	{
+		AlbumProfiling.getInstance ().enter (5);
+
+		int maxNameIdFromImages = 0;
+
+		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+			maxNameIdFromImages = mapper.selectMaxNameIdFromImages ();
+
+		} catch (Exception ee) {
+			_log.error ("AlbumImageDiffer.selectMaxNameIdFromImages(): ", ee);
+		}
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return maxNameIdFromImages;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//returns a random subset
 	private Collection<String> getRandomNamesForBaseNames (Collection<String> baseNames, int maxRows)
 	{
 //		_log.debug ("AlbumImageDiffer.getRandomNamesForBaseNames: baseNames: " + baseNames);
 
-		Collection<String> names = new ArrayList<String> ();
+		Collection<String> names = new ArrayList<> ();
 		final int divisor = 4;
 
 		for (String baseName : baseNames) {
@@ -1048,7 +1074,7 @@ public class AlbumImageDiffer
 	{
 //		_log.debug ("AlbumImageDiffer.getMatchingImageNamesFromFileSystem: baseName: " + baseName);
 
-		Collection<String> files = new ArrayList<String> ();
+		Collection<String> files = new ArrayList<> ();
 
 		String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (baseName);
 		Collection<String> filenames = getDirectoryCache (subFolder);
@@ -1071,7 +1097,7 @@ public class AlbumImageDiffer
 
 //		AlbumProfiling.getInstance ().enterAndTrace(5, subFolder); //cache miss
 
-		Collection<String> filenames = new ArrayList <String> ();
+		Collection<String> filenames = new ArrayList <> ();
 
 		Path folder = FileSystems.getDefault ().getPath (_basePath, _defaultRootFolder, subFolder);
 		try (DirectoryStream <Path> stream = Files.newDirectoryStream (folder, "*.jpg")) {
@@ -1094,7 +1120,7 @@ public class AlbumImageDiffer
 	///////////////////////////////////////////////////////////////////////////
 	private Collection<String> extractQuotedStrings (String string)
 	{
-		Collection<String> list = new ArrayList<String> ();
+		Collection<String> list = new ArrayList<> ();
 
 		final Pattern pattern = Pattern.compile ("'([^']*)'");
         Matcher matcher = pattern.matcher (string);
@@ -1260,8 +1286,6 @@ public class AlbumImageDiffer
 			watchingThread.setName ("watchingThread");
 			watchingThread.start ();
 
-//			thread.join (); //wait for thread to complete
-
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDiffer.watchShutdownFile: exception watching shutdown file", ee);
 		}
@@ -1295,10 +1319,10 @@ public class AlbumImageDiffer
 	private final AtomicBoolean _shutdownFlag = new AtomicBoolean ();
 	private static final String _shutdownFilename = "shutdownImageDiffer.txt";
 
-	private Map<String, Collection<String>> _directoryCache = new HashMap<String, Collection<String>> ();
+	private Map<String, Collection<String>> _directoryCache = new HashMap<> ();
 
-	public static final int _maxAverageDiffUsedByBatFiles = 25; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_RGB_DIFFS=/maxRgbDiffs 35
-	public static final int _maxStdDevDiffUsedByBatFiles = 30; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_STD_DEV=/maxStdDev 40
+	public static final int _maxAverageDiffUsedByBatFiles = 30; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_RGB_DIFFS=/maxRgbDiffs 30
+	public static final int _maxStdDevDiffUsedByBatFiles  = 35; //see pr.bat: match value used by imageDiffer (id*.bat) BAT files: set MAX_STD_DEV=/maxStdDev 35
 
 	private static BasicDataSource _dataSource = null;
 	private static ExecutorService _executor = null;

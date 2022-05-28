@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS base1_names_tags
 	name_id		INT UNSIGNED NOT NULL,
 	PRIMARY KEY	(tag_id, name_id)
 );
+CREATE INDEX tag_id_idx on base1_names_tags (tag_id);
 
 CREATE TABLE IF NOT EXISTS base2_names_tags
 (
@@ -88,6 +89,7 @@ CREATE TABLE IF NOT EXISTS base2_names_tags
 	name_id		INT UNSIGNED NOT NULL,
 	PRIMARY KEY	(tag_id, name_id)
 );
+CREATE INDEX tag_id_idx on base2_names_tags (tag_id);
 
 CREATE TABLE IF NOT EXISTS raw_names_tags
 (
@@ -95,6 +97,7 @@ CREATE TABLE IF NOT EXISTS raw_names_tags
 	name_id		INT UNSIGNED NOT NULL,
 	PRIMARY KEY	(tag_id, name_id)
 );
+CREATE INDEX tag_id_idx on raw_names_tags (tag_id);
 
 CREATE TABLE IF NOT EXISTS tags_filters
 (

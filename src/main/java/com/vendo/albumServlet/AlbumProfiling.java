@@ -43,8 +43,8 @@ public class AlbumProfiling
 				7	//max
 				};
 
-		_recordMap = new HashMap<String, ProfileRecord> (32);
-		_ignorableRecords = new HashSet<ProfileIgnorableRecord> ();
+		_recordMap = new HashMap<> (32);
+		_ignorableRecords = new HashSet<> ();
 		_recordsIgnoredCount = 0;
 		_currentIndex = 0;
 
@@ -396,7 +396,7 @@ public class AlbumProfiling
 /* old way
 		for (ProfileIgnorableRecord ignorableRecord : _ignorableRecords) {
 //			_log.debug ("removeIgnorableRecords: ignorableRecord: " + ignorableRecord);
-			List<ProfileRecord> matchingRecords = new ArrayList<ProfileRecord> ();
+			List<ProfileRecord> matchingRecords = new ArrayList<> ();
 			for (String methodName : _recordMap.keySet ()) {
 				ProfileRecord record = _recordMap.get (methodName);
 				if (record.getCount () == 1) {

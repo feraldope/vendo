@@ -42,7 +42,7 @@ public class AlbumFileFilter implements FilenameFilter
 		}
 
 		if (includeFilters != null && includeFilters.length > 0) {
-			_includePatterns = new ArrayList<Pattern> (includeFilters.length);
+			_includePatterns = new ArrayList<> (includeFilters.length);
 
 			for (String includeFilter : includeFilters) {
 				if (includeFilter.length () != 0) {
@@ -77,7 +77,7 @@ public class AlbumFileFilter implements FilenameFilter
 		}
 
 		if (excludeFilters != null && excludeFilters.length > 0) {
-			_excludePatterns = new ArrayList<Pattern> (excludeFilters.length);
+			_excludePatterns = new ArrayList<> (excludeFilters.length);
 
 			for (String excludeFilter : excludeFilters) {
 				if (excludeFilter.length () != 0) {
