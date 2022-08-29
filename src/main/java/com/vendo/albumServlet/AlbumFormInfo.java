@@ -466,7 +466,8 @@ public class AlbumFormInfo
 			filter = filter.substring (0, filter.length () - 1);
 		}
 
-		_log.debug ("AlbumFormInfo.cleanFilter: " + debugName + ": \"" + filter + "\"");
+		int numFilters = filter.split(",").length;
+		_log.debug ("AlbumFormInfo.cleanFilter: " + debugName + "[" + numFilters + "]: \"" + filter + "\"");
 
 		return filter;
 	}

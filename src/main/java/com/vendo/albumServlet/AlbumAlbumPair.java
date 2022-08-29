@@ -117,7 +117,7 @@ public class AlbumAlbumPair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getDetailString()
+	public String getDetailString(boolean enableHighlight)
 	{
 		if (_imagePairs.isEmpty()) {
 			return "<no image pairs>";
@@ -129,14 +129,17 @@ public class AlbumAlbumPair
 
 		} else if (_numberOfImagesWhereFirstIsLarger == getNumberOfDuplicateMatches ()) {
 			pixelDiffString = ">";
+
 		} else if ((_numberOfImagesWhereFirstIsLarger + _numberOfImagesOfEqualSize) == getNumberOfDuplicateMatches ()) {
 			pixelDiffString = ">=";
 
 		} else if (_numberOfImagesWhereSecondIsLarger == getNumberOfDuplicateMatches ()) {
 			pixelDiffString = "<";
+			enableHighlight = false;
 
 		} else if ((_numberOfImagesWhereSecondIsLarger + _numberOfImagesOfEqualSize) == getNumberOfDuplicateMatches ()) {
 			pixelDiffString = "<=";
+			enableHighlight = false;
 
 		} else {
 			pixelDiffString = "?";
@@ -156,14 +159,20 @@ public class AlbumAlbumPair
 				.append (filters)
 				.append ("</A>");
 
+		if (_imagePairs.size() < 2) {
+			enableHighlight = false;
+		}
+
 		StringBuffer sb = new StringBuffer ();
 //		sb.append (getBaseName(0)).append (", ");
 //		sb.append (getBaseName(1)).append (", ");
 		sb.append (html).append (", ");
+		sb.append (enableHighlight ? "<B>" : "");
 		sb.append (getNumberOfImagesInAlbum1 ()).append (", ");
 		sb.append (getNumberOfImagesInAlbum2 ()).append (", ");
 		sb.append (_imagePairs.size()).append (", ");
 		sb.append (pixelDiffString);
+		sb.append (enableHighlight ? "</B>" : "");
 //		sb.append (getAverageDiff ()).append (", ");
 //		sb.append (getStdDev ()).append (", ");
 //		sb.append (getSource ()).append (", ");

@@ -19,7 +19,7 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 		_modified = modified;
 
 		if (_name == null || _name.isEmpty() || _bytes <= 0 || _modified <= 0) {
-			throw new IllegalArgumentException ("AlbumImageFileDetails.ctor: invalid values: + " + toString());
+			throw new IllegalArgumentException ("AlbumImageFileDetails.ctor: invalid values: " + this);
 
 //			String message = "AlbumImageFileDetails.ctor: invalid values: " + toString();
 //			_log.error(message, new IllegalArgumentException (message));

@@ -383,7 +383,8 @@ public class JpgInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean processImageInfo (Path file) throws Exception {
+	private boolean processImageInfo (Path file) throws Exception
+	{
 //		String filename = file.toAbsolutePath ().normalize ().toString ();
 		String filename = file.getFileName ().toString ();
 

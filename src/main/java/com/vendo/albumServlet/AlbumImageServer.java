@@ -2,11 +2,11 @@
 
 package com.vendo.albumServlet;
 
-import javax.servlet.ServletContextEvent;
-import javax.servlet.ServletContextListener;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import javax.servlet.ServletContextEvent;
+import javax.servlet.ServletContextListener;
 
 
 public class AlbumImageServer implements ServletContextListener
@@ -46,7 +46,7 @@ public class AlbumImageServer implements ServletContextListener
 //		}
 
 		new Thread (() -> {
-			AlbumImageDao.main (new String[] { "/debug" });
+			AlbumImageDao.main (new String[] { "/debug", "/server" });
 		}).start ();
 	}
 

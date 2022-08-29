@@ -1,12 +1,15 @@
 package com.vendo.jpgUtils;
 
-import java.awt.Graphics;
-import java.awt.GraphicsConfiguration;
-import java.awt.GraphicsDevice;
-import java.awt.GraphicsEnvironment;
-import java.awt.HeadlessException;
-import java.awt.Image;
-import java.awt.Transparency;
+import com.sun.image.codec.jpeg.JPEGCodec;
+import com.vendo.vendoUtils.VUncaughtExceptionHandler;
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import sun.awt.image.codec.JPEGImageDecoderImpl;
+
+import javax.imageio.ImageIO;
+import javax.swing.*;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FilenameFilter;
@@ -23,18 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
-import javax.imageio.ImageIO;
-import javax.swing.ImageIcon;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.sun.image.codec.jpeg.JPEGCodec; //deprecated: access restriction: The type 'JPEGCodec' is not API (restriction on required library '...\jre\lib\rt.jar')
-import com.vendo.vendoUtils.VUncaughtExceptionHandler;
-import com.vendo.vendoUtils.VendoUtils;
-
-import sun.awt.image.codec.JPEGImageDecoderImpl; //deprecated: access restriction: The type 'JPEGImageDecoderImpl' is not API (restriction on required library '...\jre\lib\rt.jar')
-
 
 public class JpgUtils
 {
@@ -49,8 +40,9 @@ public class JpgUtils
 	{
 		JpgUtils app = new JpgUtils ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -78,8 +70,9 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("height") || arg.equalsIgnoreCase ("h")) {
 					try {
 						_desiredHeight = Integer.parseInt (args[++ii]);
-						if (_desiredHeight < 0)
+						if (_desiredHeight < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -89,8 +82,9 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("minimumHeight") || arg.equalsIgnoreCase ("minh")) {
 					try {
 						_minimumHeight = Integer.parseInt (args[++ii]);
-						if (_minimumHeight < 0)
+						if (_minimumHeight < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -100,8 +94,9 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("minimumWidth") || arg.equalsIgnoreCase ("minw")) {
 					try {
 						_minimumWidth = Integer.parseInt (args[++ii]);
-						if (_minimumWidth < 0)
+						if (_minimumWidth < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -114,8 +109,9 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("scalePercent") || arg.equalsIgnoreCase ("sc")) {
 					try {
 						_scalePercent = Float.parseFloat (args[++ii]);
-						if (_scalePercent < 0)
+						if (_scalePercent < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -139,8 +135,9 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("width") || arg.equalsIgnoreCase ("w")) {
 					try {
 						_desiredWidth = Integer.parseInt (args[++ii]);
-						if (_desiredWidth < 0)
+						if (_desiredWidth < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -168,29 +165,35 @@ public class JpgUtils
 		}
 
 		//check for required args and handle defaults
-		if (_infilenameWild == null)
+		if (_infilenameWild == null) {
 			displayUsage ("<infile> not specified", true);
+		}
 
 		if (!_queryMode) {
-			if (_scalePercent < 0 && _desiredWidth < 0 && _desiredHeight < 0)
+			if (_scalePercent < 0 && _desiredWidth < 0 && _desiredHeight < 0) {
 				displayUsage ("must specify width, height, or scale", true);
+			}
 		}
 
 //TODO? - extract sourceDir from input file spec??
 
-		if (_sourceDir == null)
+		if (_sourceDir == null) {
 			_sourceDir = getCurrentDirectory ();
+		}
 		_sourceDir = getRealPath (_sourceDir);
 		_sourceDir = appendSlash (_sourceDir);
-		if (!fileExists (_sourceDir))
+		if (!fileExists (_sourceDir)) {
 			displayUsage ("<sourceDir> '" + _sourceDir + "' does not exist", true);
+		}
 
-		if (_destDir == null)
+		if (_destDir == null) {
 			_destDir = getCurrentDirectory ();
+		}
 		_destDir = getRealPath (_destDir);
 		_destDir = appendSlash (_destDir);
-		if (!fileExists (_destDir))
+		if (!fileExists (_destDir)) {
 			displayUsage ("<destDir> '" + _destDir + "' does not exist", true);
+		}
 
 //TODO - fail on illegal combos of /w /h /sc
 
@@ -201,8 +204,9 @@ public class JpgUtils
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 //TODO
 		msg += "Usage: " + _AppName + " [/debug] [/destDir] [/sourceDir] [/height] [/width] [/minimumHeight] [/minimumWidth] [/query] [/scalePercent] [/suffix] <wildname>";
@@ -337,10 +341,11 @@ public class JpgUtils
 				return false;
 			}
 
-			if (imageAttributes._width > imageAttributes._height)
+			if (imageAttributes._width > imageAttributes._height) {
 				newWidth = VendoUtils.roundUp (scaleFactor * imageAttributes._width);
-			else
+			} else {
 				newHeight = VendoUtils.roundUp (scaleFactor * imageAttributes._height);
+			}
 		}
 
 		boolean status = generateScaledImage (infilePath, outfilePath, newWidth, newHeight);
@@ -383,7 +388,6 @@ public class JpgUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//tries to read image from file, using fastest (hopefully) to slowest method
-	@SuppressWarnings("restriction")
 	public static BufferedImage readImage (File file)
 	{
 		if (_Debug) {
@@ -424,6 +428,7 @@ public class JpgUtils
 		} catch (Exception ee) {
 			_log.warn ("JpgUtils.readImage: ImageIO.read failed on " + file.getName () + ": (no more tries)");
 			_log.warn (ee);
+//			System.out.println("del " + file.getName());
 		}
 
 		return image;
@@ -531,8 +536,9 @@ public class JpgUtils
 		long lastModified = infile.lastModified ();
 		boolean status = outfile.setLastModified (lastModified);
 
-		if (!status)
+		if (!status) {
 			_log.warn ("setFileDateTime: File.setLastModified failed for: " + outfilePath);
+		}
 
 		return status;
 	}
@@ -578,8 +584,9 @@ public class JpgUtils
 	private static String appendSlash (String dir) //append slash if necessary
 	{
 		int lastChar = dir.charAt (dir.length () - 1);
-		if (lastChar != '/' && lastChar != '\\')
+		if (lastChar != '/' && lastChar != '\\') {
 			dir += _slash;
+		}
 
 		return dir;
 	}

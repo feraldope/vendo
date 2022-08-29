@@ -192,9 +192,9 @@ group by sub_folder1
 order by giga_bytes desc
 
 -- size and count of image folders (actual subfolders) (NOTE does not account for drive's block size; just adds raw bytes)
-select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count from images group by sub_folder order by GBytes desc
 select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count from images group by sub_folder order by count desc
---add padding to files size, plus size of .dat file)
+select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count from images group by sub_folder order by GBytes desc
+--total size of all folders: add padding to files size, plus size of .dat file)
 select (sum(bytes * 1.05) + 10500)/(1024*1024*1024) as GBytes, count(*) as count from images order by GBytes desc
 
 -- distribution of images in actual subfolders
@@ -202,22 +202,33 @@ select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folde
 select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by sub_folder2
 
 -- distribution of images in 1-, 2-, and 3-char subfolders
--- single-char subfolder (NOTE SORT ASCENDING)
+-- single-char subfolder (NOTE SORT ASCENDING: for single char we want to see which folders are least used)
 select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count asc
 -- two-char subfolder
 select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from images group by sub_folder2 order by count desc
 -- three-char subfolder
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
--- four-char
+-- four-char subfolder
 select lower(substring(name_no_ext,1,4)) as sub_folder4, count(*) as count from images group by sub_folder4 order by count desc
+-- five-char subfolder
+select lower(substring(name_no_ext,1,5)) as sub_folder5, count(*) as count from images group by sub_folder5 order by count desc
 
--- ONCE a subfolder shows up at the top of the previous query, see how it needs to be split
+-- WHEN a subfolder shows up at the top of the previous query, see how it needs to be split
 -- !!! distribution of images in set of subfolders ('ka', 'ni', etc.)
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ka%' group by sub_folder3 order by count desc
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ni%' group by sub_folder3 order by count desc
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'se%' group by sub_folder3 order by count desc
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'sa%' group by sub_folder3 order by count desc
 select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'mi%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ch%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ja%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'li%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'al%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'lu%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'da%' group by sub_folder3 order by count desc
+select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'na%' group by sub_folder3 order by count desc
 
 --STOP Tomcat8 SERVICE FIRST
 --FIRST update DB
@@ -234,15 +245,25 @@ update images set sub_folder = 'jes' where lower(name_no_ext) like 'jes%'
 update images set sub_folder = 'sex' where lower(name_no_ext) like 'sex%'
 update images set sub_folder = 'sar' where lower(name_no_ext) like 'sar%'
 update images set sub_folder = 'sam' where lower(name_no_ext) like 'sam%'
+update images set sub_folder = 'mic' where lower(name_no_ext) like 'mic%'
+update images set sub_folder = 'mia' where lower(name_no_ext) like 'mia%'
+update images set sub_folder = 'cha' where lower(name_no_ext) like 'cha%'
+update images set sub_folder = 'ann' where lower(name_no_ext) like 'ann%'
+update images set sub_folder = 'jan' where lower(name_no_ext) like 'jan%'
+update images set sub_folder = 'lil' where lower(name_no_ext) like 'lil%'
+update images set sub_folder = 'ali' where lower(name_no_ext) like 'ali%'
+update images set sub_folder = 'luc' where lower(name_no_ext) like 'luc%'
+update images set sub_folder = 'dan' where lower(name_no_ext) like 'dan%'
+update images set sub_folder = 'nat' where lower(name_no_ext) like 'nat%'
 --move to one-char subfoler
 update images set sub_folder = 'u' where lower(name_no_ext) like 'u%'
 update images set sub_folder = 'y' where lower(name_no_ext) like 'y%'
 update images set sub_folder = 'w' where lower(name_no_ext) like 'w%'
 update images set sub_folder = 'o' where lower(name_no_ext) like 'o%'
 -- should also do image_counts??
---SECOND move files to new folder
---see todo.txt for IMPORTANT steps to move files (search for mklink and for /F)
---THEN RUN "ud"
+--SECOND move files to new folder on D: and B:
+--see todo.txt for steps to move files (search for !!!IMPORTANT!!!)
+--THEN RUN "ud" to update image counts
 
 
 -- manual cleanup of image_counts (1)
@@ -538,7 +559,7 @@ order by avg_mbytes desc, total_mbytes desc, number_over_size_threshold desc, im
 -- "remove all numeric characters from column mysql"
 -- original from https://stackoverflow.com/questions/11431831/remove-all-numeric-characters-from-column-mysql
 DROP FUNCTION IF EXISTS alphas;
-DELIMITER |
+-- DELIMITER |
 CREATE FUNCTION alphas( str CHAR(64) ) RETURNS CHAR(64)
 BEGIN
   DECLARE i, len SMALLINT DEFAULT 1;
@@ -557,7 +578,7 @@ BEGIN
   RETURN ret;
 -- END |
 END;
-DELIMITER ;
+-- DELIMITER ;
 
 SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
 +----------------------------+
@@ -614,5 +635,11 @@ select count(*) from images
 where (UNIX_TIMESTAMP() - (modified/1000)) <= (120 * 24 * 60 * 60)
 -- limit 100
 
+-- -----------------------------------------------------------------------------
+-- get max date (i.e., newest) from album
+select max(modified), alphas(name_no_ext) as base_name from images where name_no_ext like 'Mar%' group by base_name
+
+SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
+SELECT alphas('12-3ab45cd-e6789fg00000000000000000-00000000000');
 
 */

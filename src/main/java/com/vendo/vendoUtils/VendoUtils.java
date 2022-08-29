@@ -892,9 +892,10 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	public static List<String> caseInsensitiveSortAndDedup (List<String> strings) {
-		Set<String> deduped = new HashSet<>(strings);
+		Set<String> deduped = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+		deduped.addAll(strings);
 
-		TreeSet<String> seen = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+		Set<String> seen = new HashSet<>();
 		deduped.removeIf(s -> !seen.add(s));
 
 		return new ArrayList<>(deduped);

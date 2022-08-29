@@ -227,10 +227,10 @@ public class AlbumTags
 				@Override
 				protected void notify (Path dir, WatchEvent<Path> pathEvent)
 				{
-					if (AlbumFormInfo._logLevel >= 6) {
+					if (AlbumFormInfo._logLevel >= 5) {
 						Path file = pathEvent.context ();
 						Path path = dir.resolve (file);
-						_log.debug ("AlbumTags.WatchDir.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+						_log.debug ("AlbumTags.WatchDir.notify: " + pathEvent.kind ().name () + ": " + path.normalize ());
 					}
 
 					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||

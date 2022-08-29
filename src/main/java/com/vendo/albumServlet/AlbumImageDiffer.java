@@ -785,12 +785,24 @@ public class AlbumImageDiffer
 	//used by AlbumImageDiffer CLI and servlet
 	public Map<String, AlbumImageDiffDetails> getImagesFromImageDiffs (Collection<Integer> nameIds)
 	{
-		AlbumProfiling.getInstance ().enterAndTrace (5);
+		return getImagesFromImageDiffs (nameIds, Integer.MAX_VALUE);
+	}
+	public Map<String, AlbumImageDiffDetails> getImagesFromImageDiffs (Collection<Integer> nameIds, int maxImagesToQuery)
+	{
+		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs: nameIds.size: " + _decimalFormat.format (nameIds.size ()));
 
-//TODO - check if list is TOO long for MariaDB or mybatis???
 		if (nameIds.isEmpty ()) {
 			return new HashMap<> ();
+//NO: too slow
+//		} else if (nameIds.size() > maxImagesToQuery) {
+//			return getAllImagesFromImageDiffs();
+		} else if (nameIds.size() > maxImagesToQuery) {
+			_log.warn ("AlbumImageDiffer.getImagesFromImageDiffs: nameIds.size (" + _decimalFormat.format (nameIds.size()) +
+															") greater than max (" + _decimalFormat.format (maxImagesToQuery) + "): ***** SKIPPING *****");
+			return new HashMap<> ();
 		}
+
+		AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
 
 		List<AlbumImageDiffDetails> list = new LinkedList<> ();
 
@@ -806,7 +818,7 @@ public class AlbumImageDiffer
 
 		AlbumProfiling.getInstance ().exit (5);
 
-//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs): map.size: " + map.size ());
+//		_log.debug ("AlbumImageDiffer.getImagesFromImageDiffs: map.size: " + map.size ());
 
 		return map;
 	}
@@ -1237,7 +1249,7 @@ public class AlbumImageDiffer
 		final Path path = FileSystems.getDefault ().getPath (_basePath, _shutdownFilename);
 
 		if (VendoUtils.fileExists (path)) {
-			System.err.println ("AlbumImageDiffer.watchShutdownFile.notify: file already exists: " + path.normalize ().toString ());
+			System.err.println ("AlbumImageDiffer.watchShutdownFile.notify: file already exists: " + path.normalize ());
 			_shutdownFlag.getAndSet (true);
 
 			if (watchingThread != null) {
@@ -1251,7 +1263,7 @@ public class AlbumImageDiffer
 			Path dir = path.getRoot ().resolve (path.getParent ());
 			String filename = path.getFileName ().toString ();
 
-			_log.info ("AlbumImageDiffer.watchShutdownFile: watching for shutdown file: " + path.normalize ().toString ());
+			_log.info ("AlbumImageDiffer.watchShutdownFile: watching for shutdown file: " + path.normalize ());
 
 			Pattern pattern = Pattern.compile (filename, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
@@ -1264,12 +1276,12 @@ public class AlbumImageDiffer
 					if (_Debug) {
 						Path file = pathEvent.context ();
 						Path path = dir.resolve (file);
-						_log.debug ("AlbumImageDiffer.watchShutdownFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+						_log.debug ("AlbumImageDiffer.watchShutdownFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ());
 					}
 
 					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
 						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
-						System.err.println ("AlbumImageDiffer.watchShutdownFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ().toString ());
+						System.err.println ("AlbumImageDiffer.watchShutdownFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ());
 						_shutdownFlag.getAndSet (true);
 						Thread.currentThread ().interrupt (); //exit thread
 					}
