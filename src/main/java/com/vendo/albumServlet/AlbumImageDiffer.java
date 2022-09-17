@@ -294,6 +294,7 @@ public class AlbumImageDiffer
 			long rowsDeleted = deleteFromImageDiffs();
 
 			long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
+			_log.debug ("Summary:");
 			_log.debug ("AlbumImageDiffer.run: rowsDeleted: " + _decimalFormat.format(rowsDeleted) + ", total elapsed: " + LocalTime.ofNanoOfDay (elapsedNanos));
 
 			AlbumProfiling.getInstance ().exit (5);

@@ -17,6 +17,16 @@
       <option name="url" value="https://mvnrepository.com/artifact/com.google.guava/guava" />
     </remote-repository>
     <remote-repository>
+      <option name="id" value="central" />
+      <option name="name" value="Central Repository" />
+      <option name="url" value="https://mvnrepository.com/repos/central" />
+    </remote-repository>
+    <remote-repository>
+      <option name="id" value="apache-logging" />
+      <option name="name" value="Apache Logging" />
+      <option name="url" value="https://mvnrepository.com/artifact/org.apache.logging.log4j" />
+    </remote-repository>
+    <remote-repository>
       <option name="id" value="jboss-repo" />
       <option name="name" value="JBoss 3rd-party repository" />
       <option name="url" value="https://repository.jboss.org/nexus/content/repositories/thirdparty-releases/" />

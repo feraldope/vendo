@@ -63,7 +63,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_file = null;
 		_pixels = -1;
 //		_count = -1;
-		_hash = 0;
+		_rgbHash = -1;
 		_random = -1;
 		_modifiedString = null;
 		_orientation = AlbumOrientation.ShowAny;
@@ -96,7 +96,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_file = image.getFile ();
 		_pixels = image.getPixels ();
 //		_count = image.getCount ();
-		_hash = image.getHash ();
+		_rgbHash = image.getHash ();
 		_random = image.getRandom ();
 		_orientation = image.getOrientation ();
 
@@ -170,9 +170,42 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	@Override
 	//required by Set<VPair<AlbumImage, AlbumImage>>
-	//note compareTo, equals, and hashCode only operate on _name
-	public int compareTo(AlbumImage other) {
+	//note compareTo only operates on name
+	public int compareTo(AlbumImage other)
+	{
 		return getName().compareToIgnoreCase(other.getName()); //TODO - is this correct sense??
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//calculated on demand and cached
+	@Override
+	public int hashCode ()
+	{
+		if (_hashCode == -1) {
+			_hashCode = Objects.hash(getName(), getNumBytes(), getWidth(), getHeight(), getModified());
+		}
+
+		return _hashCode;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	@Override
+	public boolean equals (Object obj)
+	{
+		if (obj == this) {
+			return true;
+		}
+
+		if (!(obj instanceof AlbumImage)) {
+			return false;
+		}
+
+		AlbumImage other = (AlbumImage) obj;
+		return getName ().compareTo (other.getName ()) == 0 &&
+				getNumBytes () == other.getNumBytes () &&
+				getWidth () == other.getWidth () &&
+				getHeight () == other.getHeight () &&
+				getModified () == other.getModified ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -253,8 +286,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 //		final String regex2 = "\\d*-\\d*$";		//match trailing [digits][dash][digits]
 		final String regex2 = "[\\d-].*$";		//match everything starting with first digit or dash
 
-		String result = name.replaceAll (collapseGroups ? regex2 : regex1, "");
-		return result;
+		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
 	}
 
 /* old way
@@ -468,7 +500,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	//calculated on demand and cached
 	public synchronized long getPixels ()
 	{
-		if (_pixels < 0) {
+		if (_pixels == -1) {
 			_pixels = (long) getWidth () * (long) getHeight ();
 		}
 
@@ -514,20 +546,20 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
 	//currently only used by AlbumImageComparator#compare, for sorting for doDup
-	public synchronized long getHash ()
+	public synchronized long getRgbHash ()
 	{
-		if (_hash == 0) {
-			_hash = getRgbData ().hashCode ();
+		if (_rgbHash == -1) {
+			_rgbHash = getRgbData ().hashCode ();
 		}
 
-		return _hash;
+		return _rgbHash;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
 	public synchronized int getRandom ()
 	{
-		if (_random < 0) {
+		if (_random == -1) {
 			_random = Math.abs (_randomGenerator.nextInt ());
 		}
 
@@ -1084,7 +1116,8 @@ public class AlbumImage implements Comparable<AlbumImage>
 	private int _scale = -1;
 	private int _random = -1;
 //	private int _count = -1;
-	private long _hash = 0;
+	private int _hashCode = -1;
+	private long _rgbHash = -1;
 	private boolean _hasExifDateChecked = false;
 	private boolean _hasExifDate = false;
 	private String[] _exifDateStrings = null;

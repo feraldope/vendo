@@ -166,8 +166,8 @@ public class AlbumAlbumPair
 		StringBuffer sb = new StringBuffer ();
 //		sb.append (getBaseName(0)).append (", ");
 //		sb.append (getBaseName(1)).append (", ");
-		sb.append (html).append (", ");
 		sb.append (enableHighlight ? "<B>" : "");
+		sb.append (html).append (", ");
 		sb.append (getNumberOfImagesInAlbum1 ()).append (", ");
 		sb.append (getNumberOfImagesInAlbum2 ()).append (", ");
 		sb.append (_imagePairs.size()).append (", ");

@@ -12,6 +12,7 @@
 
 package com.vendo.cacheTestJCS;
 
+/*
 import org.apache.commons.jcs3.JCS;
 import org.apache.commons.jcs3.access.CacheAccess;
 import org.apache.commons.jcs3.access.exception.CacheException;
@@ -32,18 +33,21 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+*/
 
 
 //public class CacheTestJCS
-public class CacheTestJCS implements IElementEventHandler
+public class CacheTestJCS //implements IElementEventHandler
 {
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String[] args)
 	{
+/*
 		CacheTestJCS cacheTest = new CacheTestJCS();
 		cacheTest.testCache1();
 
 		JCS.shutdown();
+*/
 	}
 
 /* TODO
@@ -57,6 +61,7 @@ You don't have to put the cache.ccf file in the classpath; instead you can do th
 	///////////////////////////////////////////////////////////////////////////
 	public CacheTestJCS()
 	{
+/*
 		try {
 			cache1 = JCS.getInstance("testCache1");
 			//cache2 = JCS.getInstance("testCache2");
@@ -69,8 +74,10 @@ You don't have to put the cache.ccf file in the classpath; instead you can do th
 		} catch (CacheException e) {
 			System.out.printf("Problem initializing cache: %s%n", e.getMessage());
 		}
+*/
 	}
 
+/*
 	///////////////////////////////////////////////////////////////////////////
 	public void testCache1()
 	{
@@ -244,7 +251,7 @@ You don't have to put the cache.ccf file in the classpath; instead you can do th
 			return String.format("%s is a city in the country %s with a population of %d", name, country, population);
 		}
 	}
-*/
+*
 
 	private CacheAccess<String, ByteBuffer> cache1 = null;
 	//private CacheAccess<String, ByteBuffer> cache2 = null;
@@ -265,4 +272,5 @@ You don't have to put the cache.ccf file in the classpath; instead you can do th
 	public static final String NL = System.getProperty ("line.separator");
 
 	private static Logger _log = LogManager.getLogger ();
+*/
 }

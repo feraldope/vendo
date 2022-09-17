@@ -313,7 +313,7 @@ select 'image_counts' as name, count(*) as rows1, max(name_id) as max from image
 select collapse_groups, count(*) from image_counts group by collapse_groups;
 
 -- image counts
-select * from image_counts where base_name like 'Nat%' order by lower(base_name), collapse_groups;
+select * from image_counts where base_name like 'Tana%' order by lower(base_name), collapse_groups;
 select count(*) from image_counts where base_name like 'Nat%' order by lower(base_name), collapse_groups;
 select sum(image_count) from image_counts where base_name like 'Nat%' order by lower(base_name), collapse_groups;
 select * from images where name_no_ext like 'Nat%';

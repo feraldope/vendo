@@ -3,6 +3,54 @@ Tomcat Configuration Instructions
 NOTE: NO PII !!!
 
 -------------------------------------------------------------------------------
+09/05/22
+12/24/21
+
+IntelliJ dependency errors (maven) external jars / libs
+
+seel also:
+http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
+
+Note IntelliJ repo definition seems to be here:
+C:\Users\java\vendo\.idea\jarRepositories.xml
+and
+C:\Users\java\vendo\pom.xml
+
+Settings -> Build, Executon, Deployment -> Build Tools -> Maven -> Repositories
+-> click on any RED dependencies and click Update
+-> also click on Remote repos and Update, too??? (note runs in background, and takes a long time -- in fact it seems like it is doing nothing, so be very patient)
+
+See also:
+Settings -> Build, Executon, Deployment -> Build Tools -> Maven -> Archetype Catalogs
+
+I also enabled this:
+Settings -> Build, Executon, Deployment -> Build Tools -> Maven -> Runner -> Delegate IDE build/run actions to Maven
+AND THIS (which might have fixed/avoided problem with remote repo):
+Settings -> Build, Executon, Deployment -> Build Tools -> Maven -> Work offline
+
+
+
+also had to rename this away, then run command line build (jb.bat) to repopulate repo
+C:\Users\david\.m2\repository
+OR ??
+mvn clean install
+
+
+When adding dependencies to pom.xml, remove the type???
+		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-jcs3 -->
+		<dependency>
+			<groupId>org.apache.commons</groupId>
+			<artifactId>commons-jcs3</artifactId>
+			<version>3.0</version>
+			<type>pom</type>   <---------------------------------------
+		</dependency>
+
+other debugging:
+ja.bat
+cd C:\Users\java\vendo
+call mvn.cmd clean package -U
+
+-------------------------------------------------------------------------------
 01/19/22
 04/21/18
 07/18/17
@@ -27,39 +75,6 @@ old:
 	C:\utils\addJavaPath.bat
 
 	any other files ???
-
--------------------------------------------------------------------------------
-12/24/21
-
-IntelliJ dependency errors (maven)
-
-seel also:
-http://cwiki.apache.org/confluence/display/MAVEN/DependencyResolutionException
-
-Note IntelliJ repo definition seems to be here:
-C:\Users\java\vendo\.idea\jarRepositories.xml
-and
-C:\Users\java\vendo\pom.xml
-
-Settings -> Build, Executon, Deployment -> Build Tools -> Maven -> Repositories
--> click on any RED dependencies and click Update
-
-also had to rename this away, then run command line build (jb.bat) to repopulate repo
-C:\Users\david\.m2\repository
-
-When adding dependencies to pom.xml, remove the type???
-		<!-- https://mvnrepository.com/artifact/org.apache.commons/commons-jcs3 -->
-		<dependency>
-			<groupId>org.apache.commons</groupId>
-			<artifactId>commons-jcs3</artifactId>
-			<version>3.0</version>
-			<type>pom</type>   <---------------------------------------
-		</dependency>
-
-other debugging:
-ja.bat
-cd C:\Users\java\vendo
-call mvn.cmd clean package -U
 
 -------------------------------------------------------------------------------
 12/20/19

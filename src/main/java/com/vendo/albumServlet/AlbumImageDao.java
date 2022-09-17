@@ -328,7 +328,7 @@ public class AlbumImageDao {
 		if (_subFoldersOverrideSet != null && !_subFoldersOverrideSet.isEmpty()) {
 			if (_subFoldersOverrideSet.contains(subFolder.substring(0, subFolderMinLength))) {
 //TODO - this does not work right for e.g., "j"; it skips all j* subfolders (but it does work for "o")
-				_log.debug("AlbumImageDao.syncFolder: syncing subFolder = " + subFolder);
+				_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): syncing subFolder = " + subFolder);
 			} else {
 				return false; //skip
 			}
@@ -338,11 +338,11 @@ public class AlbumImageDao {
 
 		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImages(subFolder); //result is sorted
 		if (dbImageFileDetails == null || dbImageFileDetails.isEmpty()) {
-			throw new RuntimeException("AlbumImageDao.syncFolder: getImageFileDetailsFromImages(\"" + subFolder + "\") returned null/empty");
+			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImages(" + subFolder + ") returned null/empty");
 		}
 		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem(subFolder, ".jpg"); //result is sorted
 		if (fsImageFileDetails == null || fsImageFileDetails.isEmpty()) {
-			throw new RuntimeException("AlbumImageDao.syncFolder: getImageFileDetailsFromFileSystem(\"" + subFolder + "\") returned null/empty");
+			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty");
 		}
 
 		Set<AlbumImageFileDetails> missingFromFs = new HashSet<>(dbImageFileDetails);
@@ -354,27 +354,27 @@ public class AlbumImageDao {
 		AlbumProfiling.getInstance().exit(4, "part 1");
 
 		if (missingFromFs.size() > 0) {
-			_log.debug("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingFromFs.size() = " + missingFromFs.size() + " (to be removed from database)");
+			_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): missingFromFs.size() = " + missingFromFs.size() + " (to be removed from database)");
 
 			List<String> sorted = missingFromFs.stream()
 												.map(AlbumImageFileDetails::getName)
 												.sorted(String.CASE_INSENSITIVE_ORDER)
 												.collect(Collectors.toList());
 			for (String str : sorted) {
-//				_log.debug ("AlbumImageDao.syncFolder: to be removed from database: " + str);
+//				_log.debug ("AlbumImageDao.syncFolder(" + subFolder + "): to be removed from database: " + str);
 				handleFileDelete(subFolder, str);
 			}
 		}
 
 		if (missingFromDb.size() > 0) {
-			_log.debug("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingFromDb.size() = " + missingFromDb.size() + " (to be added to database)");
+			_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): missingFromDb.size() = " + missingFromDb.size() + " (to be added to database)");
 
 			List<String> sorted = missingFromDb.stream()
 												.map(AlbumImageFileDetails::getName)
 												.sorted(String.CASE_INSENSITIVE_ORDER)
 												.collect(Collectors.toList());
 			for (String str : sorted) {
-//				_log.debug ("AlbumImageDao.syncFolder: to be added to database: " + str);
+//				_log.debug ("AlbumImageDao.syncFolder(" + subFolder + "): to be added to database: " + str);
 				handleFileCreate(subFolder, str);
 			}
 		}
@@ -396,9 +396,21 @@ public class AlbumImageDao {
 
 			if (dbImageCount == null || !dbImageCount.equals(fsImageCount)) {
 				boolean collapseGroups = !endsWithDigitPattern.matcher(fsBaseName).matches();
-				_log.debug("AlbumImageDao.syncFolder: updating image counts: (\"" + subFolder + "\", \"" + fsBaseName + "\", " + collapseGroups + ", " + fsImageCount + ")");
+//				_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): updating image counts: (\"" + subFolder + "\", \"" + fsBaseName + "\", " + collapseGroups + ", " + fsImageCount + ")");
 				updateImageCountsInImageCounts(subFolder, fsBaseName, collapseGroups, fsImageCount);
 			}
+
+			dbImageCounts.remove(fsBaseName); //remove this entry
+		}
+		//dbImageCounts should now only have orphans that need to be deleted from database
+//		_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): dbImageCounts: " + dbImageCounts);
+		for (Map.Entry<String, Integer> dbEntry : dbImageCounts.entrySet()) {
+			String dbBaseName = dbEntry.getKey();
+			int dbImageCount = 0; //set count to 0 to cause entry to be deleted
+
+			boolean collapseGroups = !endsWithDigitPattern.matcher(dbBaseName).matches();
+//			_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): updating image counts: (\"" + subFolder + "\", \"" + dbBaseName + "\", " + collapseGroups + ", " + dbImageCount + ")");
+			updateImageCountsInImageCounts(subFolder, dbBaseName, collapseGroups, dbImageCount);
 		}
 
 		AlbumProfiling.getInstance().exit(4, "part 2");
@@ -421,7 +433,7 @@ public class AlbumImageDao {
 			String nameNoExt = imageFileDetail.getName();
 			if (!AlbumImage.isValidImageName(nameNoExt)) {
 				if (!nameNoExt.startsWith("q-")) { //hack
-					_log.warn("AlbumImageDao.syncFolder: warning: invalid image name \"" + nameNoExt + "\"");
+					_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: invalid image name: " + nameNoExt);
 				}
 			}
 		}
@@ -441,7 +453,7 @@ public class AlbumImageDao {
 		int diff = albumsOriginalCase.size() - albumsLowerCase.size();
 		if (diff != 0) {
 //TODO - print offending albums
-			_log.error("AlbumImageDao.syncFolder: found " + diff + " albums with same name and different case in subFolder: " + subFolder);
+			_log.error("AlbumImageDao.syncFolder(" + subFolder + "): found " + diff + " albums with same name and different case in subFolder: " + subFolder);
 		}
 
 		AlbumProfiling.getInstance().exit(4, "part 5");
@@ -459,7 +471,7 @@ public class AlbumImageDao {
 		AlbumProfiling.getInstance().exit(4, "part 6");
 
 		if (!misFiledStr.isEmpty()) {
-			_log.error("AlbumImageDao.syncFolder: found image files in wrong folder (" + subFolder + "): " + misFiledStr);
+			_log.error("AlbumImageDao.syncFolder(" + subFolder + "): found image files in wrong folder (" + subFolder + "): " + misFiledStr);
 		}
 
 		//validate image names have consistent numbering ----------------------
@@ -495,7 +507,7 @@ public class AlbumImageDao {
 				//complete processing for this baseName
 				String matchList = getMatchList(hasMatches1);
 				if (matchList.length() > 1) {
-					_log.warn("AlbumImageDao.syncFolder: warning: inconsistent numbering: [" + matchList + "] digits: " + prevBaseName1 + " *******");
+					_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: inconsistent numbering: [" + matchList + "] digits: " + prevBaseName1 + " *******");
 				}
 
 				//reset for next baseName
@@ -507,7 +519,7 @@ public class AlbumImageDao {
 				//complete processing for this baseName
 				String matchList = getMatchList(hasMatches2);
 				if (matchList.length() > 1) {
-					_log.warn("AlbumImageDao.syncFolder: warning: inconsistent numbering: [" + matchList + "] digits: " + prevBaseName2);
+					_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: inconsistent numbering: [" + matchList + "] digits: " + prevBaseName2);
 				}
 
 				//reset for next baseName
@@ -545,27 +557,27 @@ public class AlbumImageDao {
 		Collection<AlbumImage> imagesMissingOrBadDatFiles = new HashSet<>();
 
 		if (missingDatFiles.size() > 0) {
-			_log.debug("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingDatFiles.size() = " + missingDatFiles.size() + " (mismatched jpg/dat pairs)");
+			_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): missingDatFiles.size() = " + missingDatFiles.size() + " (mismatched jpg/dat pairs)");
 
 			List<String> sorted = missingDatFiles.stream()
 					.sorted(VendoUtils.caseInsensitiveStringComparator)
 					.collect(Collectors.toList());
 			for (String str : sorted) {
 				String filePath = Paths.get(_rootPath, subFolder, str + ".jpg").toString();
-				_log.debug("AlbumImageDao.syncFolder: warning: missing .dat for: " + filePath);
+				_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): warning: missing .dat for: " + filePath);
 				imagesMissingOrBadDatFiles.add(new AlbumImage(str, subFolder, true)); //this AlbumImage ctor reads image from disk
 			}
 		}
 
 		if (missingJpgFiles.size() > 0) {
-			_log.debug("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", missingJpgFiles.size() = " + missingJpgFiles.size() + " (mismatched jpg/dat pairs)");
+			_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): missingJpgFiles.size() = " + missingJpgFiles.size() + " (mismatched jpg/dat pairs)");
 
 			List<String> sorted = missingJpgFiles.stream()
 					.sorted(VendoUtils.caseInsensitiveStringComparator)
 					.collect(Collectors.toList());
 			for (String str : sorted) {
 				String filePath = Paths.get(_rootPath, subFolder, str + ".dat").toString();
-				_log.warn("AlbumImageDao.syncFolder: warning: missing .jpg for: " + filePath);
+				_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: missing .jpg for: " + filePath);
 			}
 		}
 
@@ -576,7 +588,7 @@ public class AlbumImageDao {
 		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
 			if (fsDatFileDetail.getBytes() != AlbumImage.RgbDatSizeRectagular && fsDatFileDetail.getBytes() != AlbumImage.RgbDatSizeSquare) {
 				String filePath = Paths.get(_rootPath, subFolder, fsDatFileDetail.getName() + ".dat").toString();
-				_log.warn("AlbumImageDao.syncFolder: warning: invalid .dat file size (" + fsDatFileDetail.getBytes() + ") for: " + filePath);
+				_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: invalid .dat file size (" + fsDatFileDetail.getBytes() + ") for: " + filePath);
 				imagesMissingOrBadDatFiles.add(new AlbumImage(fsDatFileDetail.getName(), subFolder, true)); //this AlbumImage ctor reads image from disk
 			}
 		}
@@ -586,14 +598,14 @@ public class AlbumImageDao {
 		// create missing or corrupted dat files --------------------------------
 
 		if (imagesMissingOrBadDatFiles.size() > 0) {
-			_log.debug("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", imagesMissingOrBadDatFiles.size() = " + imagesMissingOrBadDatFiles.size() + " (missing or bad .dat files)");
+			_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): subFolder = " + subFolder + ", imagesMissingOrBadDatFiles.size() = " + imagesMissingOrBadDatFiles.size() + " (missing or bad .dat files)");
 
 			for (AlbumImage image : imagesMissingOrBadDatFiles) {
-				_log.debug("AlbumImageDao.syncFolder: subFolder = " + subFolder + ", creating .dat file: " + image.getName() + ".dat");
+				_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): subFolder = " + subFolder + ", creating .dat file: " + image.getName() + ".dat");
 				try {
 					image.createRgbDataFile();
 				} catch (Exception ee) {
-					_log.error("AlbumImageDao.syncFolder(\"" + subFolder + "\"): exception calling createRgbDataFile()", ee);
+					_log.error("AlbumImageDao.syncFolder(" + subFolder + "): exception calling createRgbDataFile()", ee);
 				}
 			}
 		}
@@ -623,7 +635,7 @@ public class AlbumImageDao {
 					String subFolder2 = dir.getName(dir.getNameCount() - 1).toString();
 
 					if (subFolder1.compareToIgnoreCase(subFolder2) != 0) {
-						_log.warn("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") subFolder mismatch: " + subFolder1 + " != " + subFolder2);
+						_log.warn("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + ") subFolder mismatch: " + subFolder1 + " != " + subFolder2);
 					}
 
 					//give file system a chance to settle
@@ -658,7 +670,7 @@ public class AlbumImageDao {
 						handleFileDelete(subFolder2, path);
 
 					} else {
-						_log.warn("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size() + "): unhandled event: " + pathEvent.kind().name() + " on file: " + path.normalize());
+						_log.warn("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + "/" + queue.size() + "): unhandled event: " + pathEvent.kind().name() + " on file: " + path.normalize());
 					}
 
 					final int intermediateRefreshCountMin = 200;
@@ -667,9 +679,9 @@ public class AlbumImageDao {
 						numHandled = 0;
 						updateImageCounts(subFolder2);
 						if (queue.size() > 0) {
-							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") update image counts: intermediate -----------------------------------------");
+							_log.debug("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + ") update image counts: intermediate -----------------------------------------");
 						} else {
-							_log.debug("AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\") update image counts: queue empty ------------------------------------------");
+							_log.debug("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + ") update image counts: queue empty ------------------------------------------");
 						}
 					}
 
@@ -714,8 +726,8 @@ public class AlbumImageDao {
 
 				@Override
 				protected void overflow(WatchEvent<?> event) {
-					_log.error("AlbumImageDao.WatchDir.overflow(\"" + subFolder1 + "\"): received event: " + event.kind().name() + ", count = " + event.count());
-					_log.error("AlbumImageDao.WatchDir.overflow(\"" + subFolder1 + "\"): ", new Exception("WatchDir overflow(\"" + subFolder1 + "\")"));
+					_log.error("AlbumImageDao.WatchDir.overflow(" + subFolder1 + "): received event: " + event.kind().name() + ", count = " + event.count());
+					_log.error("AlbumImageDao.WatchDir.overflow(" + subFolder1 + "): ", new Exception("WatchDir overflow(" + subFolder1 + ")"));
 
 					restartWatcherThreadsForFolder (subFolder1);
 				}
@@ -727,7 +739,7 @@ public class AlbumImageDao {
 
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.createWatcherThreadsForFolder(\"" + subFolder1 + "\"): exception in continuous mode", ee);
+			_log.error("AlbumImageDao.createWatcherThreadsForFolder(" + subFolder1 + "): exception in continuous mode", ee);
 		}
 
 		return watcherThread;
@@ -832,7 +844,7 @@ public class AlbumImageDao {
 		}
 
 		if (!AlbumImage.isValidImageName(nameNoExt)) {
-			_log.error("AlbumImageDao.handleFileCreate: invalid image name \"" + nameNoExt + "\"");
+			_log.error("AlbumImageDao.handleFileCreate: invalid image name: " + nameNoExt);
 		}
 
 		AlbumImage image = null;
@@ -841,14 +853,14 @@ public class AlbumImageDao {
 			image.createRgbDataFile();
 			status = insertImageIntoImages(image);
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.handleFileCreate(\"" + subFolder + "\", \"" + nameNoExt + "\"): ", ee);
+			_log.error("AlbumImageDao.handleFileCreate(" + subFolder + ", " + nameNoExt + "): ", ee);
 			System.out.println("del " + imageFile);
 		}
 
 		_imagesNeedingCountUpdate.get().add(AlbumImage.getBaseName(nameNoExt, false));
 
 		if (status) {
-			_log.debug("AlbumImageDao.handleFileCreate(\"" + subFolder + "\"): created image: " + image);
+			_log.debug("AlbumImageDao.handleFileCreate(" + subFolder + "): created image: " + image);
 		}
 
 		return status;
@@ -875,7 +887,7 @@ public class AlbumImageDao {
 		_imagesNeedingCountUpdate.get().add(AlbumImage.getBaseName(nameNoExt, false));
 
 		if (status) {
-			_log.debug("AlbumImageDao.handleFileDelete(\"" + subFolder + "\"): deleted image: " + nameNoExt);
+			_log.debug("AlbumImageDao.handleFileDelete(" + subFolder + "): deleted image: " + nameNoExt);
 		}
 
 		return status;
@@ -886,27 +898,28 @@ public class AlbumImageDao {
 	private boolean updateImageCounts(String subFolder)
 	{
 		Set<String> baseNames1 = _imagesNeedingCountUpdate.get(); //baseNames with collapseGroups = false
-
 //TODO temp debugging - why am I never clearing _imagesNeedingCountUpdate ??
-_log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: " + baseNames1);
+// or is it being cleared below with this line: baseNames1.clear();
+
+		_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): baseNames1: " + baseNames1.stream().sorted());
 
 		Set<String> baseNames2 = new HashSet<>();           //baseNames with collapseGroups = true
 
 		int rowsAffected = 0;
 
-		for (String baseName : baseNames1) {
+		for (String baseName : baseNames1.stream().sorted().collect(Collectors.toList())) {
 			baseNames2.add(AlbumImage.getBaseName(baseName + "-01", true)); //HACK - add extra for getBaseName()
 
 			int count = getImageCountFromImages(subFolder, baseName + ".*"); //regex (e.g., Foo01 -> Foo01.*)
 			rowsAffected += updateImageCountsInImageCounts(subFolder, baseName, false, count);
-			_log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
+//			_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
-		baseNames1.clear(); //done with these - offer to GC
+		baseNames1.clear(); //done with these - clear value in _imagesNeedingCountUpdate
 
-		for (String baseName : baseNames2) {
+		for (String baseName : baseNames2.stream().sorted().collect(Collectors.toList())) {
 			int count = getImageCountFromImages(subFolder, baseName + "[0-9].*"); //regex  (e.g., Foo -> Foo[0-9].*)
 			rowsAffected += updateImageCountsInImageCounts(subFolder, baseName, true, count);
-			_log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
+//			_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 
 		if (rowsAffected > 0) {
@@ -1007,13 +1020,13 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 				final StringBuilder sb = new StringBuilder("found image files (" + misFiledImages.size() + ") in wrong folder (" + subFolder + "): " + misFiledImagesStr + NL);
 				messageForSelvlet = sb.toString();
 
-				sb.append("To fix, run:" + NL);
+				sb.append("To fix, run:").append(NL);
 				moveCommands.forEach(sb::append);
 				messageForLog = sb.toString();
 			}
 
 //			AlbumProfiling.getInstance().exit(5, subFolder + ".misFiled");
-//			System.out.println("AlbumImageDao.getImagesFromCache(\"" + subFolder + "\").misFiled: elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()));
+//			System.out.println("AlbumImageDao.getImagesFromCache(" + subFolder + ").misFiled: elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()));
 
 			if (!messageForSelvlet.isEmpty()) {
 				_log.error("AlbumImageDao.getImagesFromCache: " + messageForLog);
@@ -1039,6 +1052,8 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
 	private int updateImageCountsInImageCounts(String subFolder, String baseName, boolean collapseGroups, int count) {
+		_log.debug("AlbumImageDao.updateImageCountsInImageCounts(" + subFolder + "): updating image counts: " + baseName + (count == 0 ? " removed" : " = " + count));
+
 		return count > 0 ?
 				insertImageCountsIntoImageCounts(subFolder, baseName, collapseGroups, count) :
 				deleteImageCountsFromImageCounts(subFolder, baseName);
@@ -1061,12 +1076,12 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			session.commit();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertImageCountsIntoImageCounts(\"" + subFolder + "\", \"" + nameNoExt + "\", " + collapseGroups + ", " + value + "): ", ee);
+			_log.error("AlbumImageDao.insertImageCountsIntoImageCounts(" + subFolder + ", " + nameNoExt + ", " + collapseGroups + ", " + value + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.insertImageCountsIntoImageCounts(\"" + subFolder + "\"): nameNoExt: " + nameNoExt + ", value: " + value);
+//		_log.debug ("AlbumImageDao.insertImageCountsIntoImageCounts(" + subFolder + "): nameNoExt: " + nameNoExt + ", value: " + value);
 
 		return rowsAffected;
 	}
@@ -1084,7 +1099,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			count = mapper.selectImageCountFromImages(subFolder, wildName);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImageCountFromImages(\"" + wildName + "\"): ", ee);
+			_log.error("AlbumImageDao.getImageCountFromImages(" + wildName + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
@@ -1106,7 +1121,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			numMatchingImages = imagesCountMap.get(baseName);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getNumMatchingImages(\"" + baseName + "\"): ", ee);
+			_log.error("AlbumImageDao.getNumMatchingImages(" + baseName + "): ", ee);
 		}
 
 		return numMatchingImages;
@@ -1125,7 +1140,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			numMatchingAlbums = albumsCountMap.get(baseName);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getNumMatchingAlbums(\"" + baseName + "\"): ", ee);
+			_log.error("AlbumImageDao.getNumMatchingAlbums(" + baseName + "): ", ee);
 		}
 
 		return numMatchingAlbums;
@@ -1172,7 +1187,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			albumHasExifData = entry != null && entry;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getAlbumHasExifData(\"" + baseName + "\"): ", ee);
+			_log.error("AlbumImageDao.getAlbumHasExifData(" + baseName + "): ", ee);
 		}
 
 		return albumHasExifData;
@@ -1192,14 +1207,14 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			list = mapper.selectImageCountsFromImageCounts(subFolder);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImageCountsFromImageCounts(\"" + subFolder + "\"): ", ee);
+			_log.error("AlbumImageDao.getImageCountsFromImageCounts(" + subFolder + "): ", ee);
 		}
 
 		Map<String, Integer> map = list.stream().collect(Collectors.toMap(AlbumImageCount::getBaseName, AlbumImageCount::getCount));
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumTags.getImageCountsFromImageCounts(\"" + subFolder + "\"): map.size() = " + map.size ());
+//		_log.debug ("AlbumTags.getImageCountsFromImageCounts(" + subFolder + "): map.size() = " + map.size ());
 
 		return map;
 	}
@@ -1238,6 +1253,23 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
+		Map<String, List<AlbumImageFileDetails>> map1a = imageFileDetails.stream().collect(Collectors.groupingBy(i -> AlbumImage.getBaseName(i.getName(), true)));
+		Map<String, List<AlbumImageFileDetails>> map2a = imageFileDetails.stream().collect(Collectors.groupingBy(i -> AlbumImage.getBaseName(i.getName(), false)));
+
+ 		Map<String, Integer> map1b = map1a.keySet().stream().collect(Collectors.toMap(i -> i, i -> map1a.get(i).size()));
+ 		Map<String, Integer> map2b = map2a.keySet().stream().collect(Collectors.toMap(i -> i, i -> map2a.get(i).size()));
+
+//		_log.debug ("AlbumImageDao.calculateImageCountsFromFileSystem: subFolder: " + subFolder);
+//		_log.debug ("AlbumImageDao.calculateImageCountsFromFileSystem: map1b: " + map1b);
+//		_log.debug ("AlbumImageDao.calculateImageCountsFromFileSystem: map2b: " + map2b);
+
+		map1b.putAll(map2b);
+
+		AlbumProfiling.getInstance().exit(7, subFolder);
+
+		return map1b;
+
+/* old way
 		Map<String, Integer> items = new HashMap<>();
 
 		//set image counts
@@ -1288,6 +1320,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
 		return items;
+*/
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1303,14 +1336,14 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			list = mapper.selectImagesFromImages(subFolder);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImagesFromImages(\"" + subFolder + "\"): ", ee);
+			_log.error("AlbumImageDao.getImagesFromImages(" + subFolder + "): ", ee);
 		}
 
 		list.sort(new AlbumImageComparator(AlbumSortType.ByName));
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getImagesFromImages(\"" + subFolder + "\"): list.size() = " + list.size ());
+//		_log.debug ("AlbumImageDao.getImagesFromImages(" + subFolder + "): list.size() = " + list.size ());
 
 		return list;
 	}
@@ -1331,14 +1364,14 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertLastUpdateIntoImageFolder(\"" + subFolder + "\"): ", ee);
+			_log.error("AlbumImageDao.insertLastUpdateIntoImageFolder(" + subFolder + "): ", ee);
 
 			status = false;
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.insertLastUpdateIntoImageFolder(\"" + subFolder + "\"): updateTimeInMillis = " + _dateFormat.format (new java.util.Date (updateTimeInMillis)) + " (" + updateTimeInMillis + ")");
+//		_log.debug ("AlbumImageDao.insertLastUpdateIntoImageFolder(" + subFolder + "): updateTimeInMillis = " + _dateFormat.format (new java.util.Date (updateTimeInMillis)) + " (" + updateTimeInMillis + ")");
 
 		return status;
 	}
@@ -1358,7 +1391,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			maxInsertMillis = maxInsertDate.getTime ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDao.getMaxInsertDateFromImages(\"" + subFolder + "\"): ", ee);
+			_log.error ("AlbumImageDao.getMaxInsertDateFromImages(" + subFolder + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance ().exit (7, subFolder);
@@ -1407,12 +1440,12 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			lastUpdateMillis = lastUpdateDate.getTime();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getLastUpdateFromImageFolder(\"" + subFolder + "\"): ", ee);
+			_log.error("AlbumImageDao.getLastUpdateFromImageFolder(" + subFolder + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getLastUpdateFromImageFolder(\"" + subFolder + "\"): lastUpdateMillis = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)) + " (" + lastUpdateMillis + ")");
+//		_log.debug ("AlbumImageDao.getLastUpdateFromImageFolder(" + subFolder + "): lastUpdateMillis = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)) + " (" + lastUpdateMillis + ")");
 
 		return lastUpdateMillis;
 	}
@@ -1430,14 +1463,14 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			list = mapper.selectImageFileDetailsFromImages(subFolder);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImageFileDetailsFromImages(\"" + subFolder + "\"): ", ee);
+			_log.error("AlbumImageDao.getImageFileDetailsFromImages(" + subFolder + "): ", ee);
 		}
 
 		Collections.sort(list);
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getImageFileDetailsFromImages(\"" + subFolder + "\"): list.size() = " + list.size ());
+//		_log.debug ("AlbumImageDao.getImageFileDetailsFromImages(" + subFolder + "): list.size() = " + list.size ());
 
 		return list;
 	}
@@ -1466,7 +1499,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 							list.add(new AlbumImageFileDetails(nameNoExt, numBytes, modified));
 						}
 					} catch (Exception ex) {
-						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): visitFile() error on file: " + nameWithExt, ex);//new Exception("visitFileFailed", ex));
+						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): visitFile() error on file: " + nameWithExt, ex);//new Exception("visitFileFailed", ex));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1475,7 +1508,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 				@Override
 				public FileVisitResult visitFileFailed(Path file, IOException ex) {
 					if (ex != null) {
-						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception("visitFileFailed", ex));
+						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): error: ", new Exception("visitFileFailed", ex));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1484,7 +1517,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 				@Override
 				public FileVisitResult postVisitDirectory(Path dir, IOException ex) {
 					if (ex != null) {
-						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): error: ", new Exception("postVisitDirectory", ex));
+						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): error: ", new Exception("postVisitDirectory", ex));
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1499,7 +1532,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getImageFileDetailsFromFileSystem(\"" + subFolder + "\"): list.size() = " + list.size ());
+//		_log.debug ("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): list.size() = " + list.size ());
 
 		return list;
 	}
@@ -1520,7 +1553,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertImageIntoImages(\"" + image + "\"): ", ee);
+			_log.error("AlbumImageDao.insertImageIntoImages(" + image + "): ", ee);
 
 			status = false;
 		}
@@ -1546,7 +1579,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.deleteImageFromImages(\"" + subFolder + "\", \"" + nameNoExt + "\"): ", ee);
+			_log.error("AlbumImageDao.deleteImageFromImages(" + subFolder + ", " + nameNoExt + "): ", ee);
 
 			status = false;
 		}
@@ -1570,7 +1603,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			session.commit();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.deleteImageCountsFromImageCounts(\"" + subFolder + "\", \"" + baseName + "\"): ", ee);
+			_log.error("AlbumImageDao.deleteImageCountsFromImageCounts(" + subFolder + ", " + baseName + "): ", ee);
 		}
 
 //		AlbumProfiling.getInstance ().exit (7);
@@ -1653,7 +1686,7 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 			}
 		}
 
-		_log.error ("AlbumImageDao.getSubFolderFromImageName(): failed to find subFolder for image name \"" + imageName + "\" in map");
+		_log.error ("AlbumImageDao.getSubFolderFromImageName(" + imageName + "): failed to find subFolder for image name in map");
 		return null;
 	}
 
@@ -1681,14 +1714,14 @@ _log.debug("AlbumImageDao.updateImageCounts(\"" + subFolder + "\"): baseNames1: 
 
 		final Path pauseFilePath = Paths.get(_rootPath, _pauseFilename);
 		if (fileExists (pauseFilePath)) {
-			_log.debug ("AlbumImageDao.handlePauseAction(\"" + subFolder + "\"): pause file found: entering pause mode...");
+			_log.debug ("AlbumImageDao.handlePauseAction(" + subFolder + "): pause file found: entering pause mode...");
 //			_pauseModeEnabled.set(true);
 
 			while (fileExists (pauseFilePath)) {
 				sleepMillis (_pauseSleepMillis);
 			}
 
-			_log.debug ("AlbumImageDao.handlePauseAction(\"" + subFolder + "\"): pause file not found: exiting pause mode");
+			_log.debug ("AlbumImageDao.handlePauseAction(" + subFolder + "): pause file not found: exiting pause mode");
 //			_pauseModeEnabled.set(false);
 		}
 	}

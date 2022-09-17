@@ -85,8 +85,8 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			break;
 
 		case ByHash:
-			value1 = image1.getHash ();
-			value2 = image2.getHash ();
+			value1 = image1.getRgbHash ();
+			value2 = image2.getRgbHash ();
 			break;
 
 		case ByRgb:
