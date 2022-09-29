@@ -16,7 +16,6 @@ import java.nio.file.*;
 import java.nio.file.attribute.FileTime;
 import java.sql.*;
 import java.text.DecimalFormat;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -928,7 +927,7 @@ public class AlbumTags
 		final Pattern pattern1 = Pattern.compile (".*[0-9]$"); //ends with digit
 		final Pattern pattern2 = Pattern.compile (".*\\]$"); //ends with square bracket
 		final Pattern pattern3 = Pattern.compile (".*\\+$"); //ends with plus sign
-		final Pattern pattern4 = Pattern.compile (".*[A-Za-z]$"); //ends with alpha (case insensitive)
+		final Pattern pattern4 = Pattern.compile (".*[A-Za-z]$"); //ends with alpha (case-insensitive)
 
 		List<String> misMatchedFilters1 = new ArrayList<> ();
 		Set<String> rawSet = new HashSet<> ();
@@ -1036,7 +1035,7 @@ public class AlbumTags
 							}
 
 							orphanMap.put (tagFilter._filter.toString (), value);
-							orphanSet.add ("orphan filter: " + tagFilter._filter.toString () + " - tag: " + value + ", remaining files: " + remainingFiles.toString ());
+							orphanSet.add ("orphan filter: " + tagFilter._filter + " - tag: " + value + ", remaining files: " + remainingFiles);
 						}
 					}
 				}
@@ -1073,10 +1072,10 @@ public class AlbumTags
 	public static <T> Collection<T> subtractCollections (Collection<T> collection1, Collection<T> collection2)
 	{
 		if (collection2 == null) {
-			return (collection1 != null ? (collection1 instanceof Set ? collection1 : new HashSet<> (collection1)) : new HashSet<T> ());
+			return (collection1 != null ? (collection1 instanceof Set ? collection1 : new HashSet<> (collection1)) : new HashSet<> ());
 		}
 		if (collection1 == null) {
-			return new HashSet<T> ();
+			return new HashSet<> ();
 		}
 
 		Collection<T> newItems = new HashSet<> (collection1); //do not modify original
@@ -2219,7 +2218,7 @@ public class AlbumTags
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+###,##0;-###,##0"); //format integer with +/- sign
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
 	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
-	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
+//	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	private static boolean _Debug = false;
 	private static Logger _log = LogManager.getLogger ();

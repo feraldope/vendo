@@ -15,7 +15,7 @@ public class AlbumImageCount
 		_count = count;
 
 		if (_baseName == null || _baseName.isEmpty() || _count < 1) {
-			throw new IllegalArgumentException ("AlbumImageCount.ctor1: invalid values: + " + toString());
+			throw new IllegalArgumentException ("AlbumImageCount.ctor1: invalid values: + " + this);
 		}
 	}
 

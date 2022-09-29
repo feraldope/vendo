@@ -86,7 +86,7 @@ public class AlbumImageDiffer
 
 			//check for switches
 			if (arg.startsWith ("-") || arg.startsWith ("/")) {
-				arg = arg.substring (1, arg.length ());
+				arg = arg.substring (1);
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_Debug = true;
@@ -875,7 +875,7 @@ public class AlbumImageDiffer
 		return totalRowsDeleted;
 	}
 
-/* unused: currently being implement by the other AlbumImageDiffer.insertImageIntoImageDiffs to handle 'on duplicate key' case
+/* unused: currently being implemented by the other AlbumImageDiffer.insertImageIntoImageDiffs to handle 'on duplicate key' case
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	private boolean insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails)
@@ -1346,6 +1346,6 @@ public class AlbumImageDiffer
 	private static final String _basePath = "D:/Netscape/Program/"; //need trailing slash
 
 	private static boolean _Debug = false;
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumImageDiffer";
 }

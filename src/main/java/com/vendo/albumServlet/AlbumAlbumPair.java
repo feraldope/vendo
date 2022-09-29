@@ -28,8 +28,8 @@ public class AlbumAlbumPair
 							.sorted(_alphanumComparator)
 							.collect(Collectors.toList());
 
-		_numberOfImagesInAlbum1 = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(0), 0);
-		_numberOfImagesInAlbum2 = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(1), 0);
+		_numberOfImagesInAlbum[0] = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(0), 0);
+		_numberOfImagesInAlbum[1] = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(1), 0);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -64,15 +64,9 @@ public class AlbumAlbumPair
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int getNumberOfImagesInAlbum1 ()
+	public int getNumberOfImagesInAlbum (int index)
 	{
-		return _numberOfImagesInAlbum1;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private int getNumberOfImagesInAlbum2 ()
-	{
-		return _numberOfImagesInAlbum2;
+		return _numberOfImagesInAlbum[index];
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -104,7 +98,7 @@ public class AlbumAlbumPair
 	///////////////////////////////////////////////////////////////////////////
 	public boolean secondAlbumRepresentsExactDuplicate ()
 	{
-		return (getNumberOfImagesInAlbum2 () == getNumberOfDuplicateMatches ())
+		return (getNumberOfImagesInAlbum (1) == getNumberOfDuplicateMatches ())
 				&& (_numberOfImagesOfEqualSize + _numberOfImagesWhereFirstIsLarger == getNumberOfDuplicateMatches());
 	}
 
@@ -112,7 +106,7 @@ public class AlbumAlbumPair
 	public boolean secondAlbumRepresentsNearDuplicate ()
 	{
 		final int slop = 2;
-		return ((Math.abs (getNumberOfImagesInAlbum2 () - getNumberOfDuplicateMatches ()) <= slop) &&
+		return ((Math.abs (getNumberOfImagesInAlbum (1) - getNumberOfDuplicateMatches ()) <= slop) &&
 				(Math.abs (getNumberOfDuplicateMatches() - _numberOfImagesOfEqualSize - _numberOfImagesWhereFirstIsLarger) <= slop));
 	}
 
@@ -166,10 +160,10 @@ public class AlbumAlbumPair
 		StringBuffer sb = new StringBuffer ();
 //		sb.append (getBaseName(0)).append (", ");
 //		sb.append (getBaseName(1)).append (", ");
-		sb.append (enableHighlight ? "<B>" : "");
 		sb.append (html).append (", ");
-		sb.append (getNumberOfImagesInAlbum1 ()).append (", ");
-		sb.append (getNumberOfImagesInAlbum2 ()).append (", ");
+		sb.append (enableHighlight ? "<B>" : "");
+		sb.append (getNumberOfImagesInAlbum (0)).append (", ");
+		sb.append (getNumberOfImagesInAlbum (1)).append (", ");
 		sb.append (_imagePairs.size()).append (", ");
 		sb.append (pixelDiffString);
 		sb.append (enableHighlight ? "</B>" : "");
@@ -190,8 +184,7 @@ public class AlbumAlbumPair
 	//members
 	protected final String _joinedNames;
 	protected final List<String> _baseNames;
-	protected final int _numberOfImagesInAlbum1;
-	protected final int _numberOfImagesInAlbum2;
+	protected final Integer[] _numberOfImagesInAlbum = new Integer[2];
 
 	protected int _numberOfDuplicateMatches;
 	protected int _numberOfImagesOfEqualSize;

@@ -21,7 +21,7 @@ public class AlbumImageDifferGen
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String args[])
+	public static void main (String[] args)
 	{
 //TODO - change CLI to read properties file, too
 
@@ -52,7 +52,7 @@ public class AlbumImageDifferGen
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
+	private Boolean processArgs (String[] args)
 	{
 		String destRootName = null;
 
@@ -65,7 +65,7 @@ public class AlbumImageDifferGen
 
 			//check for switches
 			if (arg.startsWith ("-") || arg.startsWith ("/")) {
-				arg = arg.substring (1, arg.length ());
+				arg = arg.substring (1);
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_debug = true;
@@ -140,7 +140,7 @@ public class AlbumImageDifferGen
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void run () throws Exception
+	private void run () //throws Exception
 	{
 		BufferedImage image1Orig = null;
 		BufferedImage image2Orig = null;
@@ -341,7 +341,7 @@ public class AlbumImageDifferGen
 		}
 
 		if (!imageFileName.endsWith (".jpg")) {
-			imageFileName = imageFileName + ".jpg";
+			imageFileName += ".jpg";
 		}
 
 		if (_destRootPath.toString ().toLowerCase ().contains ("netscape")) { //handle AlbumImage case
@@ -363,6 +363,6 @@ public class AlbumImageDifferGen
 //	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
 
 	private static boolean _debug = false;
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumImageDifferGen";
 }

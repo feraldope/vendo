@@ -21,7 +21,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
         _needsCleanupDigits = needsCleanupDigits;
 
         if (_filter == null || _filter.isEmpty()) {
-            throw new IllegalArgumentException ("AlbumImageDuplicateDetails.ctor: invalid values: + " + toString());
+            throw new IllegalArgumentException ("AlbumImageDuplicateDetails.ctor: invalid values: + " + this);
         }
     }
 
@@ -121,22 +121,8 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
                 }
             }
         }
-//old way as example
-//		} else if (numDigits == 3) {
-//			for (int ii = 0; ii < 10; ii++) {
-//				if (findFirstMatchingImage(filter + "-" + ii, imageDisplayList) != null) {
-//					items.add(new AlbumImageDuplicateDetails(filter + "-" + ii, String.valueOf(ii)));
-//				}
-//			}
-//		}
 
         return items;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public static String appendDash (String string)
-    {
-        return string + (string.contains("-") ? "" : "-");
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -149,7 +135,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public static Long countMatchingImages (String filter, Collection<AlbumImage> imageDisplayList)
+    private Long countMatchingImages (String filter, Collection<AlbumImage> imageDisplayList)
     {
         return imageDisplayList.stream()
                 .filter(i -> i.getName().startsWith(filter))
@@ -157,7 +143,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public static Long getAverageAspectRatio (String filter, Collection<AlbumImage> imageDisplayList)
+    private Long getAverageAspectRatio (String filter, Collection<AlbumImage> imageDisplayList)
     {
         return Math.round (imageDisplayList.stream ()
                 .filter(i -> i.getName().startsWith(filter))
@@ -168,7 +154,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public static Long getAveragePixels (String filter, Collection<AlbumImage> imageDisplayList)
+    private Long getAveragePixels (String filter, Collection<AlbumImage> imageDisplayList)
     {
         return Math.round (imageDisplayList.stream ()
                 .filter(i -> i.getName().startsWith(filter))
@@ -179,7 +165,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public static Long getMedianPixels (String filter, Collection<AlbumImage> imageDisplayList, AlbumOrientation orientation) {
+    private Long getMedianPixels (String filter, Collection<AlbumImage> imageDisplayList, AlbumOrientation orientation) {
         List<Double> pixels = imageDisplayList.stream()
                 .filter(i -> i.getName().startsWith(filter))
                 .filter(i -> i.matchOrientation(orientation))
@@ -202,7 +188,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public static Long getPercentPortrait (String filter, Collection<AlbumImage> imageDisplayList)
+    private Long getPercentPortrait (String filter, Collection<AlbumImage> imageDisplayList)
     {
         List<AlbumOrientation> orientations = imageDisplayList.stream()
                 .filter(i -> i.getName().startsWith(filter))
@@ -224,26 +210,6 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
                 .distinct()
                 .count() != 1;
     }
-
-    ///////////////////////////////////////////////////////////////////////////
-//	public static long numberOfDifferentSubFolders (Collection<AlbumImageDuplicateDetails> dups)
-//	{
-//		return dups.stream()
-//					.map(d -> d._subFolder)
-//					.distinct()
-//					.count();
-//	}
-
-    ///////////////////////////////////////////////////////////////////////////
-//	public static String getNeedsCleanupDigits (Collection<AlbumImageDuplicateDetails> dups)
-//	{
-//		for (AlbumImageDuplicateDetails item : dups) {
-//			if (item._needsCleanupDigits != null) {
-//				return item._needsCleanupDigits;
-//			}
-//		}
-//		return null;
-//		}
 
     ///////////////////////////////////////////////////////////////////////////
     @Override

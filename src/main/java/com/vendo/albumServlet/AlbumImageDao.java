@@ -91,7 +91,7 @@ public class AlbumImageDao {
 
 			//check for switches
 			if (arg.startsWith("-") || arg.startsWith("/")) {
-				arg = arg.substring(1, arg.length());
+				arg = arg.substring(1);
 
 				if (arg.equalsIgnoreCase("debug") || arg.equalsIgnoreCase("dbg")) {
 					_Debug = true;
@@ -901,7 +901,7 @@ public class AlbumImageDao {
 //TODO temp debugging - why am I never clearing _imagesNeedingCountUpdate ??
 // or is it being cleared below with this line: baseNames1.clear();
 
-		_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): baseNames1: " + baseNames1.stream().sorted());
+		_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): " + baseNames1.stream().sorted().collect(Collectors.toList()));
 
 		Set<String> baseNames2 = new HashSet<>();           //baseNames with collapseGroups = true
 
@@ -936,7 +936,7 @@ public class AlbumImageDao {
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
-		Collection<AlbumImage> images = null;
+		Collection<AlbumImage> images;
 
 		AlbumImagesData imagesData = _albumImagesDataCache.get(subFolder);
 
@@ -996,7 +996,7 @@ public class AlbumImageDao {
 
 			//NOTE: similar code exists in getImagesFromCache() and syncFolder()
 			String messageForLog = "";
-			String messageForSelvlet = "";
+			String messageForServlet = "";
 			_servletMisFiledImageErrorsMap.remove(subFolder);
 			List<AlbumImage> misFiledImages = images.stream()
 													.filter(i -> !subFolder.equalsIgnoreCase(AlbumImageDao.getInstance().getSubFolderFromImageName(i.getName ())))
@@ -1018,7 +1018,7 @@ public class AlbumImageDao {
 															.collect(Collectors.toList());
 
 				final StringBuilder sb = new StringBuilder("found image files (" + misFiledImages.size() + ") in wrong folder (" + subFolder + "): " + misFiledImagesStr + NL);
-				messageForSelvlet = sb.toString();
+				messageForServlet = sb.toString();
 
 				sb.append("To fix, run:").append(NL);
 				moveCommands.forEach(sb::append);
@@ -1028,9 +1028,9 @@ public class AlbumImageDao {
 //			AlbumProfiling.getInstance().exit(5, subFolder + ".misFiled");
 //			System.out.println("AlbumImageDao.getImagesFromCache(" + subFolder + ").misFiled: elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()));
 
-			if (!messageForSelvlet.isEmpty()) {
+			if (!messageForServlet.isEmpty()) {
 				_log.error("AlbumImageDao.getImagesFromCache: " + messageForLog);
-				_servletMisFiledImageErrorsMap.put(subFolder, "Error: " + messageForSelvlet);
+				_servletMisFiledImageErrorsMap.put(subFolder, "Error: " + messageForServlet);
 			}
 		}
 

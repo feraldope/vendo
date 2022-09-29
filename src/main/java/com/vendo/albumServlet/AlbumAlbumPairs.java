@@ -150,15 +150,17 @@ public class AlbumAlbumPairs
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getAllAlbumsAcrossAllMatches() {
+	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups) {
+		return getAllAlbumsAcrossAllMatches(collapseGroups, Integer.MAX_VALUE);
+	}
+	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups, int maxItemsToReturn) {
 		 return _albumSets.stream()
 						.flatMap(Collection::stream)
 						.map(AlbumAlbumPair::getImagePairs)
 				 		.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
-//						.flatMap(Collection::stream)
-//						.map(p -> Arrays.asList(p.getImage1(), p.getImage2()))
 						.flatMap(Collection::stream)
-						.map(i -> i.getBaseName(false))
+						.map(i -> i.getBaseName(collapseGroups))
+				 		.limit(maxItemsToReturn)
 						.sorted(_alphanumComparator)
 						.distinct()
 						.collect(Collectors.toList());
@@ -208,6 +210,7 @@ public class AlbumAlbumPairs
 		}
 
 		return false;
+	}
 */
 
 	///////////////////////////////////////////////////////////////////////////
@@ -222,8 +225,13 @@ public class AlbumAlbumPairs
 			if (albumPairs.size() >= minimumPairsToShow) {
 				Collection<String> baseNames = new TreeSet<> (new AlphanumComparator()); //use set to avoid dups
 				for (AlbumAlbumPair albumPair : albumPairs) {
-					baseNames.add(albumPair.getBaseName(0));
-					baseNames.add(albumPair.getBaseName(1));
+					baseNames.add(albumPair.getBaseName(0)
+//TODO - clean this up
+							+ " (" + albumPair.getNumberOfImagesInAlbum(0) + ")"
+					);
+					baseNames.add(albumPair.getBaseName(1)
+							+ " (" + albumPair.getNumberOfImagesInAlbum(1) + ")"
+					);
 				}
 
 				String filters = String.join(",", baseNames);
@@ -238,7 +246,7 @@ public class AlbumAlbumPairs
 					.append ("\" target=_blank>")
 					.append (filters)
 					.append ("</A>");
-				detailString.add("[" + VendoUtils.dedupCollection(baseNames).size() + "] " + html.toString()
+				detailString.add("[" + VendoUtils.dedupCollection(baseNames).size() + "] " + html
 				);
 			}
 		}

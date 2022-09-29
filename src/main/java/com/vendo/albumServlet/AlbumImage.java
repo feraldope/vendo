@@ -55,7 +55,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_imagePath = VendoUtils.appendSlash (imagePath);
 
 		_namePlusAttrs = null;
-		_nameFirstLettersLower = null;
+//		_nameFirstLettersLower = null;
 		_baseName1 = null;
 		_baseName2 = null;
 		_tagString1 = null;
@@ -363,14 +363,14 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized String getNameFirstLettersLower ()
-	{
-		if (_nameFirstLettersLower == null) {
-			_nameFirstLettersLower = AlbumImageDao.getInstance ().getSubFolderFromImageName (getName ());
-		}
-
-		return _nameFirstLettersLower;
-	}
+//	public synchronized String getNameFirstLettersLower ()
+//	{
+//		if (_nameFirstLettersLower == null) {
+//			_nameFirstLettersLower = AlbumImageDao.getInstance ().getSubFolderFromImageName (getName ());
+//		}
+//
+//		return _nameFirstLettersLower;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
@@ -451,19 +451,15 @@ public class AlbumImage implements Comparable<AlbumImage>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getScale ()
-	{
-		return _scale;
-	}
+//	public int getScale ()
+//	{
+//		return _scale;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getScaleString ()
 	{
-		if (_scale < 0) {
-			return "??";
-		} else {
-			return Integer.toString (_scale) + "%";
-		}
+		return _scale < 0 ? "??" : _scale + "%";
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -802,17 +798,16 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//only keep R, G, and B data, not A data
-	private static ByteBuffer shrinkRgbData (int[] rawScaledImageData) throws Exception
+	private static ByteBuffer shrinkRgbData (int[] rawScaledImageData) //throws Exception
 	{
 		int numBytes = ((rawScaledImageData.length * 4) * 3) / 4;
 		ByteBuffer buffer = ByteBuffer.allocate (numBytes);
 
-		for (int ii = 0; ii < rawScaledImageData.length; ii++) {
-			int argb = rawScaledImageData[ii];
+		for (int argb : rawScaledImageData) {
 //			buffer.put ((byte) ((argb >> 24) & 0xFF)); //A - ignore A data
 			buffer.put ((byte) ((argb >> 16) & 0xFF)); //R
-			buffer.put ((byte) ((argb >>  8) & 0xFF)); //G
-			buffer.put ((byte) ((argb      ) & 0xFF)); //B
+			buffer.put ((byte) ((argb >> 8)  & 0xFF)); //G
+			buffer.put ((byte) ((argb)       & 0xFF)); //B
 		}
 
 		return buffer;
@@ -972,8 +967,8 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	private boolean isExifDateValid (long exifDate)
 	{
-		final long maxValidExifDate = new GregorianCalendar ().getTimeInMillis () + (30 * 24 * 3600 * 1000); //30 days from now
-		final long minValidExifDate = new GregorianCalendar (1980, 1, 1).getTimeInMillis (); //first second of 1980
+		final long maxValidExifDate = new GregorianCalendar ().getTimeInMillis () + (30L * 24 * 3600 * 1000); //30 days from now
+		final long minValidExifDate = new GregorianCalendar (1980, Calendar.JANUARY, 1).getTimeInMillis (); //first second of 1980
 
 		return (exifDate > minValidExifDate && exifDate < maxValidExifDate);
 	}
@@ -1109,7 +1104,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	private String _baseName2 = null; //for collapseGroups = true
 	private String _tagString1 = null; //for collapseGroups = false
 	private String _tagString2 = null; //for collapseGroups = true
-	private String _nameFirstLettersLower = null;
+//	private String _nameFirstLettersLower = null;
 	private long _pixels = -1;
 	private int _scaledWidth = -1;
 	private int _scaledHeight = -1;
@@ -1145,5 +1140,5 @@ public class AlbumImage implements Comparable<AlbumImage>
 //	private static final String NL = System.getProperty ("line.separator");
 	private static final Random _randomGenerator = new Random ();
 
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 }

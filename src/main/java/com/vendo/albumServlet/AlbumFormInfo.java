@@ -111,6 +111,7 @@ public class AlbumFormInfo
 		_maxFilters = _defaultMaxFilters;
 		_highlightDays = _defaultHighlightDays;
 		_maxStdDev = _defaultMaxStdDev;
+		_minImagesToFlagAsLargeAlbum = _defaultMinImagesToFlagAsLargeAlbum;
 		_exifDateIndex = _defaultExifDateIndex;
 		_tagFilterOperandOr = false;
 		_collapseGroups = false;
@@ -251,6 +252,11 @@ public class AlbumFormInfo
 		_maxFilters = _defaultMaxFilters = getPropertyInt (properties, "defaultMaxFilters", _defaultMaxFilters);
 		if (_debugProperties) {
 			_log.debug ("AlbumFormInfo.processRequest: property: defaultMaxFilters = " + _defaultMaxFilters);
+		}
+
+		_minImagesToFlagAsLargeAlbum = _defaultMinImagesToFlagAsLargeAlbum = getPropertyInt (properties, "defaultMinImagesToFlagAsLargeAlbum", _defaultMinImagesToFlagAsLargeAlbum);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultMinImagesToFlagAsLargeAlbum = " + _defaultMinImagesToFlagAsLargeAlbum);
 		}
 
 		_highlightDays = _defaultHighlightDays = getPropertyInt (properties, "defaultHighlightDays", _defaultHighlightDays);
@@ -416,6 +422,9 @@ public class AlbumFormInfo
 		//remove all white space
 		filter = filter.replaceAll ("[ \t]*", ""); //regex
 
+
+//TODO - this is a comma-separated list of filters, it should really break them up, then clean each one
+
 		//remove all periods
 //		filter = filter.replaceAll ("\\.", ""); //regex
 
@@ -431,10 +440,11 @@ public class AlbumFormInfo
 		//convert colons to commas
 //		filter = filter.replaceAll (":", ","); //regex
 
-		//remove filters that are only "+"
-		if (filter.startsWith ("+")) {
-			filter = filter.substring (1, filter.length ());
+		//remove leading "+" and leading digits
+		while (filter.startsWith ("+") || Character.isDigit(filter.charAt(0))) {
+			filter = filter.substring (1);
 		}
+
 		while (filter.contains (",+")) { //not regex
 			filter = filter.replaceAll (",\\+", ","); //regex
 		}
@@ -460,7 +470,7 @@ public class AlbumFormInfo
 
 		//remove leading and trailing commas
 		if (filter.startsWith (",")) {
-			filter = filter.substring (1, filter.length ());
+			filter = filter.substring (1);
 		}
 		if (filter.endsWith (",")) {
 			filter = filter.substring (0, filter.length () - 1);
@@ -1065,6 +1075,17 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public void setMinImagesToFlagAsLargeAlbum (int minImagesToFlagAsLargeAlbum)
+	{
+		_minImagesToFlagAsLargeAlbum = Math.max (minImagesToFlagAsLargeAlbum, 0);
+	}
+
+	public int getMinImagesToFlagAsLargeAlbum ()
+	{
+		return _minImagesToFlagAsLargeAlbum;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public void setHighlightDays (double highlightDays)
 	{
 		_highlightDays = Math.max (highlightDays, 0);
@@ -1225,6 +1246,7 @@ public class AlbumFormInfo
 	private int _defaultPanels = 60;
 	private int _defaultExifDateIndex = 4; //earliestExifDate
 	private int _defaultProfileLevel = 5;
+	private int _defaultMinImagesToFlagAsLargeAlbum = 60;
 	private boolean _defaultShowRgbData = false;
 
 	//private members
@@ -1258,6 +1280,7 @@ public class AlbumFormInfo
  	private double _highlightDays = _defaultHighlightDays;
 	private long _highlightInMillis = -1;
 	private int _maxStdDev = _defaultMaxStdDev;
+	private int _minImagesToFlagAsLargeAlbum = _defaultMinImagesToFlagAsLargeAlbum;
 	private int _exifDateIndex = _defaultExifDateIndex; //when sorting/comparing EXIF dates, specifies which date to use
 	private boolean _tagFilterOperandOr = false;
 	private boolean _collapseGroups = false;

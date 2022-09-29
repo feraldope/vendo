@@ -71,7 +71,7 @@ public class AlbumServlet extends HttpServlet
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void doPost (HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException
+	public void doPost (HttpServletRequest request, HttpServletResponse response) //throws ServletException, IOException
 	{
 		_log.debug ("--------------- AlbumServlet.doPost ---------------");
 		doGet (request, response);
@@ -152,7 +152,7 @@ public class AlbumServlet extends HttpServlet
 		sb1.append (DOCTYPE).append (NL)
 		   .append ("<HTML>").append (NL)
 		   .append ("<HEAD>").append (NL)
-		   .append ("<TITLE>" + title + "</TITLE>").append (NL)
+		   .append ("<TITLE>").append(title).append("</TITLE>").append (NL)
 		   .append ("</HEAD>").append (NL)
 		   .append ("<BODY onload=\"handleSubmit()\" BGCOLOR=\"").append (bgColor).append ("\">").append (NL);
 
@@ -335,6 +335,7 @@ public class AlbumServlet extends HttpServlet
 		   .append (inputElement ("Highlight Days", "highlightDays", form.getHighlightDays (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth)).append (_spacing).append (NL)
 		   .append (inputElement ("Max StdDev", "maxStdDev", form.getMaxStdDev (), numberFieldWidth)).append (_spacing).append (NL)
+		   .append (inputElement ("Large Album*", "minImagesToFlagAsLargeAlbum", form.getMinImagesToFlagAsLargeAlbum (), numberFieldWidth)).append (_spacing).append (NL)
 //		   .append (inputElement ("Folder", "rootFolder", form.getRootFolder (), 4)).append (_spacing).append (NL)
 
 //		   .append (inputElement ("", "slice", 1, 0)) //form submit always sets slice to 1
@@ -393,11 +394,11 @@ public class AlbumServlet extends HttpServlet
 //			response.setHeader("Pragma","no-cache"); //HTTP 1.0 backward compatibility
 		}
 
-		out.println (sb1.toString ());
-		out.println (sb2.toString ());
-		out.println (sb3.toString ());
+		out.println (sb1);
+		out.println (sb2);
+		out.println (sb3);
 		out.println (html);
-		out.println (sb4.toString ());
+		out.println (sb4);
 
 		AlbumProfiling.getInstance ().exit (1);
 
@@ -619,5 +620,5 @@ public class AlbumServlet extends HttpServlet
 	private static final String DOCTYPE = "<!DOCTYPE HTML>";// PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\n";
 	private static final long serialVersionUID = 1L;
 
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 }
