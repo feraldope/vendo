@@ -313,7 +313,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public int getPropertyInt (Properties properties, String propertyName, int defaultValue)
 	{
-		final String invalidString = new Integer (-1).toString ();
+		final String invalidString = Integer.toString(-1);
 
 		String valueString = properties.getProperty (propertyName, invalidString);
 
@@ -726,10 +726,6 @@ public class AlbumFormInfo
 	public void setColumns (int columns)
 	{
 		_columns = Math.min (Math.max (columns, 1), 32); //avoid issues with doDup
-
-//old way
-//		_columns = Math.max (Columns, 1);
-//		_columns = Math.min (_columns, 32); //avoid issues with doDup
 	}
 
 	public int getColumns ()
@@ -1314,6 +1310,7 @@ public class AlbumFormInfo
 	public static final String _DeleteParam1 = "DeleteImage:";
 	public static final String _DeleteParam2 = "DeleteImages:";
 	public static final String _DeleteSuffix = ".delete";
+	public static final String _ClearCacheParam = "clearCache";
 
 	public static final int _NumTagParams = 9;
 
@@ -1336,5 +1333,5 @@ public class AlbumFormInfo
 	private static final String _albumRoot = "/albumRoot/"; //should match tomcat's server.xml
 	private static final String _server = "/AlbumServlet/AlbumServlet";
 
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 }

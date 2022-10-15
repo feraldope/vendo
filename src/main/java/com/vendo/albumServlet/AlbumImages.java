@@ -121,7 +121,12 @@ public class AlbumImages
 				}
 			}
 
-			//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
+			//crearCache requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
+			if (paramName.startsWith (AlbumFormInfo._ClearCacheParam) && _previousRequestTimestamps.contains (currentTimestamp)) {
+				form.setClearCache(false);
+			}
+
+				//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
 			if ((paramName.startsWith (AlbumFormInfo._DeleteParam1) || paramName.startsWith (AlbumFormInfo._DeleteParam2)) && !_previousRequestTimestamps.contains (currentTimestamp)) {
 				String[] paramValues = request.getParameterValues (paramName);
 				if (paramValues[0].equalsIgnoreCase ("on")) {
@@ -1057,7 +1062,7 @@ public class AlbumImages
 			albumPairs.addAlbumPairs(dupAlbumMap.values());
 
 			//only enable highlights if we have more than one album
-			final boolean enableHighlightForDetailString = albumPairs.getAllAlbumsAcrossAllMatches(true, 2).size() > 1;
+			final boolean enableHighlightForDetailString = albumPairs.getAllAlbumsAcrossAllMatches(true).size() > 1;
 
 			if (!dupAlbumMap.isEmpty()) {
 				List<String> allAlbumsAcrossAllMatches = albumPairs.getAllAlbumsAcrossAllMatches(false);
@@ -2343,6 +2348,11 @@ public class AlbumImages
 		deleteFileIgnoreException (moveFile);
 
 		if (form.getMode () != AlbumMode.DoDir || form.getSortType () != AlbumSortType.ByExif || !hasOneFilter || numImages == 0) {
+
+//TODO - add case for each error, instead of just general "not applicable"
+
+			String error = "AlbumImages.generateExifSortCommands: aborting: not applicable";
+			generateDuplicateImageRenameError (moveFile, error);
 			return;
 		}
 

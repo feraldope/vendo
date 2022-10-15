@@ -348,7 +348,7 @@ public class AlbumServlet extends HttpServlet
 		   .append (checkbox ("Ignore Bytes", "ignoreBytes", form.getIgnoreBytes ())).append (_spacing).append (NL)
 		   .append (checkbox ("EXIF Dates", "useExifDates", form.getUseExifDates ())).append (_spacing).append (NL)
 		   .append (checkbox ("Use Case", "useCase", form.getUseCase ())).append (_spacing).append (NL)
-		   .append (checkbox ("Clear Cache", "clearCache", false /*form.getClearCache ()*/))//.append (_spacing).append (NL)
+		   .append (checkbox ("Clear Cache", AlbumFormInfo._ClearCacheParam, false /*form.getClearCache ()*/))//.append (_spacing).append (NL)
 //		   .append (checkbox ("Debug", "debug", AlbumFormInfo._Debug))
 		   .append ("</TD>").append (NL)
 		   .append ("</TR>").append (NL)

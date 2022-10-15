@@ -166,7 +166,7 @@ public class AlbumAlbumPair
 		sb.append (getNumberOfImagesInAlbum (1)).append (", ");
 		sb.append (_imagePairs.size()).append (", ");
 		sb.append (pixelDiffString);
-		sb.append (enableHighlight ? "</B>" : "");
+		sb.append (enableHighlight ? " ************ </B>" : "");
 //		sb.append (getAverageDiff ()).append (", ");
 //		sb.append (getStdDev ()).append (", ");
 //		sb.append (getSource ()).append (", ");

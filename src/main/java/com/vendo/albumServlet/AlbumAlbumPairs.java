@@ -150,20 +150,29 @@ public class AlbumAlbumPairs
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+//	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups) {
+//		return getAllAlbumsAcrossAllMatches(collapseGroups, Integer.MAX_VALUE);
+//	}
+//	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups, int maxItemsToReturn) {
 	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups) {
-		return getAllAlbumsAcrossAllMatches(collapseGroups, Integer.MAX_VALUE);
-	}
-	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups, int maxItemsToReturn) {
-		 return _albumSets.stream()
+		AlbumProfiling.getInstance ().enterAndTrace (5);
+
+		List<String> allAlbumsAcrossAllMatches =
+		 /*return*/ _albumSets.stream()
 						.flatMap(Collection::stream)
 						.map(AlbumAlbumPair::getImagePairs)
 				 		.map(p -> AlbumImagePair.getImages(p, AlbumSortType.ByName))
 						.flatMap(Collection::stream)
 						.map(i -> i.getBaseName(collapseGroups))
-				 		.limit(maxItemsToReturn)
 						.sorted(_alphanumComparator)
 						.distinct()
+//				 		.limit(maxItemsToReturn) //should be last operation before collect
 						.collect(Collectors.toList());
+
+		_log.debug ("AlbumAlbumPairs.getAllAlbumsAcrossAllMatches: allAlbumsAcrossAllMatches.size = " + allAlbumsAcrossAllMatches.size());
+		AlbumProfiling.getInstance ().exit (5);
+
+		return allAlbumsAcrossAllMatches;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
