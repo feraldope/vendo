@@ -5,6 +5,7 @@ package com.vendo.vendoUtils;
 import com.vendo.win32.ConsoleUtil;
 import com.vendo.win32.Win32;
 import org.apache.commons.lang.ArrayUtils;
+import org.apache.logging.log4j.Logger;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
@@ -440,8 +441,8 @@ public class VendoUtils
 		System.out.println ("compareLists: count: " + count);
 
 		{
-		long startMillis = new Date ().getTime ();
-		compareListsHelper (new ArrayList<String> (), count);
+		long startMillis = new Date().getTime ();
+		compareListsHelper (new ArrayList<String>(), count);
 		long elapsedMillis = new Date ().getTime () - startMillis;
 		System.out.println ("compareLists: ArrayList: elapsed = " + elapsedMillis + " ms");
 		}
@@ -1198,6 +1199,42 @@ public class VendoUtils
 //	};
 
 	///////////////////////////////////////////////////////////////////////////
+	//tries to honor minPerChunk, but never more than maxChunks
+	//returns <chunkSize, numChunks>
+	public static VPair<Integer, Integer> calculateChunks (int maxChunks, int minPerChunk, int numItems)
+	{
+		return calculateChunks (maxChunks, minPerChunk, numItems, null);
+	}
+	public static VPair<Integer, Integer> calculateChunks (int maxChunks, int minPerChunk, int numItems, Logger log)
+	{
+		int numChunks = 0;
+		int chunkSize = 0;
+
+		if (numItems == 0) { //special case
+			numChunks = 0;
+			chunkSize = 1;
+
+		} else if (numItems <= minPerChunk) {
+			numChunks = 1;
+			chunkSize = numItems;
+
+		} else if (numItems <= maxChunks * minPerChunk) {
+			numChunks = numItems / minPerChunk;
+			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
+
+		} else {
+			numChunks = maxChunks;
+			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
+		}
+
+		if (log != null) {
+			log.debug ("VendoUtils.calculateChunks: numItems = " + _decimalFormat0.format (numItems) + ", numChunks = " + _decimalFormat0.format (numChunks) + ", chunkSize = " + _decimalFormat0.format (chunkSize));
+		}
+
+		return VPair.of (chunkSize, numChunks);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static boolean hasConsole ()
 	{
 		return ConsoleUtil.has_console ();
@@ -1242,6 +1279,8 @@ public class VendoUtils
 	private static final String _osVersion = System.getProperty ("os.version"); //e.g., will be "10.0" on Windows 10
 	private static final String _user = System.getProperty ("user.name");
 	private static final String _slash = System.getProperty ("file.separator");
+
+	private static final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0"); //format as integer
 
 //	private static final Logger _log = LogManager.getLogger ();
 

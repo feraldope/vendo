@@ -49,6 +49,7 @@
 
 	</repositories>
 
+<!-- old
 	<build>
 		<pluginManagement>
 			<plugins>
@@ -58,16 +59,16 @@
 					<version>3.8.1</version>
 					<configuration>
 						<fork>true</fork>
-						<!-- following line allows me to use classes from com.sun.xxx -->
+						&lt;!&ndash; following line allows me to use classes from com.sun.xxx &ndash;&gt;
 						<compilerArgument>-XDignore.symbol.file</compilerArgument>
 
-<!--
+&lt;!&ndash;
 						<compilerArgument>-Xlint:all,-options,-path</compilerArgument>
 						<compilerArgument>-verbose</compilerArgument>
 						<compilerArgument>-Xlint:deprecation</compilerArgument>
 						<compilerArgument>-Xlint:unchecked</compilerArgument>
--->
-<!--
+&ndash;&gt;
+&lt;!&ndash;
 						<compilerArgs>
 							&lt;!&ndash;following line allows me to use classes from com.sun.xxx&ndash;&gt;
 							<arg>-XDignore.symbol.file</arg>
@@ -76,15 +77,32 @@
 							<arg>-Xlint:unchecked</arg>
 							<arg>-Xlint:deprecation</arg>
 						</compilerArgs>
--->
+&ndash;&gt;
 
 					</configuration>
 				</plugin>
 			</plugins>
 		</pluginManagement>
 	</build>
+-->
 
-<!--
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>3.8.1</version>
+				<configuration>
+					<fork>true</fork>
+					<!-- following line allows me to use classes from com.sun.xxx -->
+					<compilerArgument>-XDignore.symbol.file</compilerArgument>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+
+<!-- old
 	<build>
 		<plugins>
 			<plugin>
@@ -122,19 +140,19 @@
 			<scope>test</scope>
 		</dependency>
 
-		<!--
-                <dependency>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-api</artifactId>
-                    <version>2.17.1</version>
-                </dependency>
+<!--
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-api</artifactId>
+			<version>2.17.1</version>
+		</dependency>
 
-                <dependency>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-core</artifactId>
-                    <version>2.17.1</version>
-                </dependency>
-        -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-core</artifactId>
+			<version>2.17.1</version>
+		</dependency>
+-->
 
 		<!-- https://mvnrepository.com/artifact/org.apache.logging.log4j/log4j-api -->
 		<dependency>

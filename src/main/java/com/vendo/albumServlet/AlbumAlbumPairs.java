@@ -155,7 +155,7 @@ public class AlbumAlbumPairs
 //	}
 //	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups, int maxItemsToReturn) {
 	public List<String> getAllAlbumsAcrossAllMatches(boolean collapseGroups) {
-		AlbumProfiling.getInstance ().enterAndTrace (5);
+		AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
 
 		List<String> allAlbumsAcrossAllMatches =
 		 /*return*/ _albumSets.stream()
@@ -169,7 +169,8 @@ public class AlbumAlbumPairs
 //				 		.limit(maxItemsToReturn) //should be last operation before collect
 						.collect(Collectors.toList());
 
-		_log.debug ("AlbumAlbumPairs.getAllAlbumsAcrossAllMatches: allAlbumsAcrossAllMatches.size = " + allAlbumsAcrossAllMatches.size());
+		_log.debug ("AlbumAlbumPairs.getAllAlbumsAcrossAllMatches(" + collapseGroups + "): allAlbumsAcrossAllMatches.size = " + allAlbumsAcrossAllMatches.size());
+
 		AlbumProfiling.getInstance ().exit (5);
 
 		return allAlbumsAcrossAllMatches;

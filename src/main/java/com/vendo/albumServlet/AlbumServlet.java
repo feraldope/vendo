@@ -107,7 +107,7 @@ public class AlbumServlet extends HttpServlet
 //		_log.debug (property + " = " + System.getProperty (property));
 
 		String fullUrl = VendoUtils.getFullUrlFromRequest(request);
-		_log.debug ("AlbumServlet.doGet: fullUrl.length = " + fullUrl.length());
+		_log.debug ("AlbumServlet.doGet: fullUrl.length = " + fullUrl.length() + " chars");
 
 //TODO - change CLI to read properties file, too
 		ServletContext context = getServletContext ();

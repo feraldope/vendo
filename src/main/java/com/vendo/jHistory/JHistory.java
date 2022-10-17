@@ -5,7 +5,6 @@
 
 package com.vendo.jHistory;
 
-import com.vendo.albumServlet.AlbumImages;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.vendoUtils.WatchDir;
 import com.vendo.win32.Win32;
@@ -840,7 +839,7 @@ public final class JHistory
 		AtomicBoolean foundStrongMatch = new AtomicBoolean ();
 		final List<MatchData> matchList = new ArrayList<MatchData> ();
 		synchronized (_guHistoryFileContentsLock) {
-			chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _guHistoryFileContents.size ()).getFirst ();
+			chunkSize = VendoUtils.calculateChunks (maxThreads, minPerThread, _guHistoryFileContents.size ()).getFirst ();
 			chunks = ListUtils.partition (_guHistoryFileContents, chunkSize);
 			final int numChunks = chunks.size ();
 			final CountDownLatch endGate = new CountDownLatch (numChunks);

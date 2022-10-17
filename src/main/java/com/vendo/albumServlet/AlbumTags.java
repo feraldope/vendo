@@ -990,7 +990,7 @@ public class AlbumTags
 
 		final int maxThreads = 5 * VendoUtils.getLogicalProcessors ();
 		final int minPerThread = 2000;
-		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, tagFilters.size (), true).getFirst ();
+		final int chunkSize = VendoUtils.calculateChunks (maxThreads, minPerThread, tagFilters.size (), _log).getFirst ();
 		List<List<TagFilter1>> tagFilterChunks = ListUtils.partition (tagFilters, chunkSize);
 		final int numChunks = tagFilterChunks.size ();
 		_log.debug ("AlbumTags.checkForOrphanFilters: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));
@@ -1288,7 +1288,7 @@ public class AlbumTags
 
 		final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
 		final int minPerThread = 1000;
-		final int chunkSize = AlbumImages.calculateChunks (maxThreads, minPerThread, _base1NameTags.size (), true).getFirst ();
+		final int chunkSize = VendoUtils.calculateChunks (maxThreads, minPerThread, _base1NameTags.size (), _log).getFirst ();
 		final List<List<NameTag>> base1NameTagsList = ListUtils.partition ((List<NameTag>) _base1NameTags, chunkSize);
 		final int numChunks = base1NameTagsList.size ();
 		_log.debug ("AlbumTags.updateTagDatabase: numChunks = " + numChunks + ", chunkSize = " + _decimalFormat2.format (chunkSize));

@@ -1296,8 +1296,10 @@ public class AlbumFormInfo
 	//hardcoded values for firefox on 4k monitor reasonable width
 
 //[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowHeight = 2052
-//		[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowWidth = 2211
-	private int _windowWidth = 2211; //(1880 * 55) / 100;
+//[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowWidth = 2211
+//Note: use onTop.exe/l
+//Note: use broswer view page source, then search for windowWidth
+	private int _windowWidth = 2188; //(1880 * 55) / 100;
 	private int _windowHeight = 2052; //980;
 //	private int _windowWidth = (1880 * 55) / 100;
 //	private int _windowHeight = 980;

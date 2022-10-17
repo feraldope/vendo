@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.vendo.albumServlet.AlbumFormInfo._Debug;
 
@@ -386,7 +387,7 @@ public class AlbumImages
 			_log.debug ("AlbumImages.doDir: cacheMiss: folders(" + debugCacheMiss.size () + ") = " +
 					debugCacheMiss.keySet().stream().sorted(_alphanumComparator).collect(Collectors.joining(", ")));
 			if (debugCacheMiss.size() <= 50) {
-				debugCacheMiss.keySet().stream().sorted(_alphanumComparator).forEach(s -> _log.debug("AlbumImages.doDir: cacheMiss: folder: " + s + " -> " + _decimalFormat0.format (debugCacheMiss.get(s))));
+				debugCacheMiss.keySet().stream().sorted(_alphanumComparator).forEach(s -> _log.debug("AlbumImages.doDir: cacheMiss: folder: " + s + " -> " + _decimalFormat0.format (debugCacheMiss.get(s)) + " images"));
 			}
 //			if (imageCountsByFolder.size() <= 30) {
 //				imageCountsByFolder.keySet().stream().sorted(_alphanumComparator).forEach(s -> _log.debug("AlbumImages.doDir: image counts: folders: " + s + " -> " + _decimalFormat0.format (imageCountsByFolder.get(s))));
@@ -504,12 +505,13 @@ public class AlbumImages
 			final long maxPairsToPutInQueue = 3 * 1000 * 1000;
 			final int queueSize = 2 * 1000 * 1000;
 
-			AtomicInteger looseCompareCacheHits = new AtomicInteger (0);
-			AtomicInteger looseCompareCacheMisses = new AtomicInteger (0);
-
-			CacheStats cacheStatsStart = _nameScaledImageCache.stats();
+			CacheStats nameScaledImageCacheStatsStart = _nameScaledImageCache.stats();
 			_nameScaledImageCacheAdded = ConcurrentHashMap.newKeySet();
 			_nameScaledImageCacheEvicted = ConcurrentHashMap.newKeySet();
+
+			CacheStats looseCompareDataCacheStatsStart = _looseCompareDataCache.stats();
+			_looseCompareDataCacheAdded = ConcurrentHashMap.newKeySet();
+			_looseCompareDataCacheEvicted = ConcurrentHashMap.newKeySet();
 
 			final Set<AlbumImagePair> pairsReady = ConcurrentHashMap.newKeySet(1000);
 			final Set<AlbumImageDiffDetails> toBeAddedToImageDiffsTable = ConcurrentHashMap.newKeySet();
@@ -578,7 +580,7 @@ public class AlbumImages
 			_skippedAt5.getAndSet(0);
 			_skippedAt6.getAndSet(0);
 
-			AlbumProfiling.getInstance ().enter/*AndTrace*/ (5, "differ");
+			AlbumProfiling.getInstance ().enter/*AndTrace*/ (5, "dups.differ");
 
 			final List<AlbumImage> imageDisplayList1 = _imageDisplayList.stream().filter(i -> filter1.accept(null, i.getName())).collect(Collectors.toList());
 //			Collections.shuffle(imageDisplayList1);
@@ -731,8 +733,8 @@ public class AlbumImages
 						continue;
 					}
 
-					String joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames (image1, image2, true);
-					AlbumImagePair newPair = _looseCompareMap.get (joinedNamesPlusAttrs);
+					AlbumImagePair stubPair = new AlbumImagePair (image1, image2);
+					AlbumImagePair newPair = _looseCompareDataCache.getIfPresent(stubPair);
 					if (newPair != null) {
 						if (AlbumImage.acceptDiff (newPair.getAverageDiff(), newPair.getStdDev(), AlbumImageDiffer._maxAverageDiffUsedByBatFiles, AlbumImageDiffer._maxStdDevDiffUsedByBatFiles)) { //hardcoded values from BAT files
 //TODO - should we always add here? if so, will update entries to have current timestamp
@@ -746,7 +748,6 @@ public class AlbumImages
 							_log.debug ("AlbumImages.doDup@1: " + newPair.getDetails3String ());
 						}
 
-						looseCompareCacheHits.incrementAndGet();
 						_skippedAt5.incrementAndGet();
 						continue;
 					}
@@ -755,12 +756,9 @@ public class AlbumImages
 						String joinedIds = AlbumImageDiffDetails.getJoinedNameIds(imageNameToIdMap.get(image1.getName()), imageNameToIdMap.get(image2.getName()));
 						AlbumImageDiffDetails imageDiffDetails = imageDiffDetailsFromImageDiffs.get(joinedIds);
 						if (imageDiffDetails != null) {
-//							imageDiffsHits.incrementAndGet();
 							if (AlbumImage.acceptDiff(imageDiffDetails.getAvgDiff(), imageDiffDetails.getStdDev(), maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
 								AlbumImagePair newPair1 = new AlbumImagePair(image1, image2, imageDiffDetails.getAvgDiff(), imageDiffDetails.getStdDev(), AlbumImageDiffer.Mode.OnDemand.name(), imageDiffDetails.getLastUpdate());
-
-								joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames(image1, image2, true);
-								_looseCompareMap.put(joinedNamesPlusAttrs, newPair1);
+								_looseCompareDataCache.put(newPair1, newPair1);
 
 								pairsReady.add(newPair1);
 								_log.debug("AlbumImages.doDup@2: " + newPair1.getDetails3String());
@@ -830,7 +828,9 @@ public class AlbumImages
 			_log.debug("AlbumImages.doDup: " + message);
 			_form.addServletError ("Info: " + message);
 
-			AlbumProfiling.getInstance ().exit (5, "differ");
+			AlbumProfiling.getInstance ().exit (5, "dups.differ");
+
+			AlbumProfiling.getInstance ().enter (5, "dups.logging");
 
 			_log.debug ("AlbumImages.doDup: _skippedAt1.size = " + _decimalFormat0.format (_skippedAt1.get ()) + " (pair already requested)");
 			_log.debug ("AlbumImages.doDup: _skippedAt2.size = " + _decimalFormat0.format (_skippedAt2.get ()) + " (same image)");
@@ -840,30 +840,49 @@ public class AlbumImages
 			_log.debug ("AlbumImages.doDup: _skippedAt6.size = " + _decimalFormat0.format (_skippedAt6.get ()) + " (matched from image_diffs)");
 
 			_log.debug ("AlbumImages.doDup: pairsReady.size = " + _decimalFormat0.format (pairsReady.size ()));
-			_log.debug ("AlbumImages.doDup: looseCompareCache hits / misses = " + _decimalFormat0.format (looseCompareCacheHits.get ()) + " / " + _decimalFormat0.format (looseCompareCacheMisses.get ()));
 
-			CacheStats cacheStatsMinus = _nameScaledImageCache.stats().minus(cacheStatsStart);
-			_log.debug("AlbumImages.doDup: cacheStats = " + cacheStatsMinus);
-			//cacheStats = CacheStats{hitCount=1372215, missCount=13837, loadSuccessCount=2459, loadExceptionCount=0, totalLoadTime=4467912500, evictionCount=0}
+//			_log.debug("AlbumImages.doDup: size = " + _decimalFormat0.format(_nameScaledImageCache.size()));
+//			_log.debug("AlbumImages.doDup: averageLoadPenalty = " + _decimalFormat1.format(nameScaledImageCacheStatsMinus.averageLoadPenalty() / 1e6) + " ms");
+//			_log.debug("AlbumImages.doDup: evictionCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.evictionCount()));
+//			_log.debug("AlbumImages.doDup: hitCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.hitCount()));
+//			_log.debug("AlbumImages.doDup: hitRate = " + nameScaledImageCacheStatsMinus.hitRate());
+//			_log.debug("AlbumImages.doDup: loadCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.loadCount()));
+//			_log.debug("AlbumImages.doDup: loadSuccessCount = " + _decimalFormat0.format(nameScaledImageCacheStatsStart.loadSuccessCount()));
+//			_log.debug("AlbumImages.doDup: missCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.missCount()));
+//			_log.debug("AlbumImages.doDup: missRate = " + nameScaledImageCacheStatsMinus.missRate());
+//			_log.debug("AlbumImages.doDup: totalLoadTime = " + _decimalFormat1.format(nameScaledImageCacheStatsMinus.totalLoadTime() / 1e6) + " ms");
+//			_log.debug("AlbumImages.doDup: requestCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.requestCount()));
 
-			_log.debug("AlbumImages.doDup: size = " + _decimalFormat0.format(_nameScaledImageCache.size()));
-			_log.debug("AlbumImages.doDup: averageLoadPenalty = " + _decimalFormat1.format(cacheStatsMinus.averageLoadPenalty() / 1e6) + " ms");
-			_log.debug("AlbumImages.doDup: evictionCount = " + _decimalFormat0.format(cacheStatsMinus.evictionCount()));
-			_log.debug("AlbumImages.doDup: hitCount = " + _decimalFormat0.format(cacheStatsMinus.hitCount()));
-			_log.debug("AlbumImages.doDup: hitRate = " + cacheStatsMinus.hitRate());
-			_log.debug("AlbumImages.doDup: loadCount = " + _decimalFormat0.format(cacheStatsMinus.loadCount()));
-			_log.debug("AlbumImages.doDup: loadSuccessCount = " + _decimalFormat0.format(cacheStatsMinus.loadSuccessCount()));
-			_log.debug("AlbumImages.doDup: missCount = " + _decimalFormat0.format(cacheStatsMinus.missCount()));
-			_log.debug("AlbumImages.doDup: missRate = " + cacheStatsMinus.missRate());
-			_log.debug("AlbumImages.doDup: totalLoadTime = " + _decimalFormat1.format(cacheStatsMinus.totalLoadTime() / 1e6) + " ms");
-			_log.debug("AlbumImages.doDup: requestCount = " + _decimalFormat0.format(cacheStatsMinus.requestCount()));
+			{
+				CacheStats nameScaledImageCacheStatsMinus = _nameScaledImageCache.stats().minus(nameScaledImageCacheStatsStart);
+				double nameScaledImageCachePercent = 100 * (double) _nameScaledImageCache.size() / _nameScaledImageCacheMaxSize;
+				_log.debug("nameScaledImageCache: " + _decimalFormat1.format(nameScaledImageCachePercent) + "% of " + _decimalFormat0.format(_nameScaledImageCacheMaxSize)
+						+ NL + nameScaledImageCacheStatsMinus);
 
-			_log.debug("DIST: Added:");
-			Map<String, List<AlbumImage>> map1 = _nameScaledImageCacheAdded.stream().collect(Collectors.groupingBy(i -> i.getBaseName(true)));
-			map1.keySet().stream().sorted().forEach(d -> _log.debug("Added: " + d + " -> " + map1.get(d).size() + " images"));
-			_log.debug("DIST: Evicted:");
-			Map<String, List<AlbumImage>> map2 = _nameScaledImageCacheEvicted.stream().collect(Collectors.groupingBy(i -> i.getBaseName(true)));
-			map2.keySet().stream().sorted().forEach(d -> _log.debug("Evicted: " + d + " -> " + map2.get(d).size() + " images"));
+				_log.debug("DIST: Added:");
+				Map<String, List<AlbumImage>> map1 = _nameScaledImageCacheAdded.stream().collect(Collectors.groupingBy(i -> i.getBaseName(true)));
+				map1.keySet().stream().sorted().forEach(d -> _log.debug("Added: " + d + " -> " + _decimalFormat0.format(map1.get(d).size()) + " images"));
+
+				_log.debug("DIST: Evicted:");
+				Map<String, List<AlbumImage>> map2 = _nameScaledImageCacheEvicted.stream().collect(Collectors.groupingBy(i -> i.getBaseName(true)));
+				map2.keySet().stream().sorted().forEach(d -> _log.debug("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size()) + " images"));
+			}
+			{
+				CacheStats looseCompareDataCacheStatsMinus = _looseCompareDataCache.stats().minus(looseCompareDataCacheStatsStart);
+				double looseCompareDataCachePercent = 100 * (double) _looseCompareDataCache.size() / _looseCompareDataCacheMaxSize;
+				_log.debug("looseCompareDataCache: " + _decimalFormat1.format(looseCompareDataCachePercent) + "% of " + _decimalFormat0.format(_looseCompareDataCacheMaxSize)
+						+ NL + looseCompareDataCacheStatsMinus);
+
+				_log.debug("DIST: Added:");
+				Map<String, List<AlbumImage>> map1 = _looseCompareDataCacheAdded.stream().flatMap(p -> Stream.of(p.getImage1(), p.getImage2()))
+						.collect(Collectors.groupingBy(i -> i.getBaseName(true)));
+				map1.keySet().stream().sorted().forEach(d -> _log.debug("Added: " + d + " -> " + _decimalFormat0.format(map1.get(d).size() / 2) + " pairs"));
+
+				_log.debug("DIST: Evicted:");
+				Map<String, List<AlbumImage>> map2 = _looseCompareDataCacheEvicted.stream().flatMap(s -> Stream.of(s.getImage1(), s.getImage2()))
+						.collect(Collectors.groupingBy(i -> i.getBaseName(true)));
+				map2.keySet().stream().sorted().forEach(d -> _log.debug("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size() / 2) + " pairs"));
+			}
 
 //save as example
 //			if (nameScaledImageCacheHitsList != null) {
@@ -879,7 +898,7 @@ public class AlbumImages
 //				_log.debug("AlbumImages.doDup: nameScaledImageCacheMissesDist = " + nameScaledImageCacheMissesDist);
 //			}
 
-			{ //statement block for logging
+			if (true) { //statement block for logging
 				List<String> info = toBeAddedToImageDiffsTable.stream()
 //						.filter(i -> !imageDiffDetailsFromImageDiffs.containsKey(AlbumImageDiffDetails.getJoinedNameIds(i.getNameId1(), i.getNameId2())))
 						.map(i -> {
@@ -904,6 +923,8 @@ public class AlbumImages
 				int rowsInserted = AlbumImageDiffer.getInstance().insertImageIntoImageDiffs (toBeAddedToImageDiffsTable);
 				_log.debug ("AlbumImages.doDup: imageDiffDetails actually added to database = " + _decimalFormat0.format (rowsInserted) + " items");
 			}
+
+			AlbumProfiling.getInstance ().exit (5, "dups.logging");
 
 			AlbumProfiling.getInstance ().enterAndTrace (5, "dups.add");
 
@@ -943,14 +964,13 @@ public class AlbumImages
 													( reverseSort &&  sameBaseName))) {
 								AlbumImagePair pair = new AlbumImagePair (image1, image2, imageDiffItem.getAverageDiff (), imageDiffItem.getStdDev (), imageDiffItem.getSource (), imageDiffItem.getLastUpdate());
 								dups.add (pair);
-								String joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames (image1, image2, true);
-								_looseCompareMap.put (joinedNamesPlusAttrs, pair);
+
+//TODO - need/want this?
+//								_looseCompareDataCache.put (pair, pair);
 							}
 						}
 					}
 				}
-
-				_log.debug ("AlbumImages.doDup: _looseCompareMap = " + _decimalFormat0.format (_looseCompareMap.size ()) + " of " + _decimalFormat0.format (_looseCompareMapMaxSize));
 
 				AlbumProfiling.getInstance ().exit (5, "dups.db");
 
@@ -1302,42 +1322,6 @@ public class AlbumImages
 //
 //		return (int) maxComparisons;
 //	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//tries to honor minPerChunk, but never more than maxChunks
-	//returns <chunkSize, numChunks>
-	public static VPair<Integer, Integer> calculateChunks (int maxChunks, int minPerChunk, int numItems)
-	{
-		return calculateChunks (maxChunks, minPerChunk, numItems, false);
-	}
-	public static VPair<Integer, Integer> calculateChunks (int maxChunks, int minPerChunk, int numItems, boolean verbose)
-	{
-		int numChunks = 0;
-		int chunkSize = 0;
-
-		if (numItems == 0) { //special case
-			numChunks = 0;
-			chunkSize = 1;
-
-		} else if (numItems <= minPerChunk) {
-			numChunks = 1;
-			chunkSize = numItems;
-
-		} else if (numItems <= maxChunks * minPerChunk) {
-			numChunks = numItems / minPerChunk;
-			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
-
-		} else {
-			numChunks = maxChunks;
-			chunkSize = VendoUtils.roundUp ((double) numItems / numChunks);
-		}
-
-		if (verbose) {
-			_log.debug ("AlbumImages.calculateChunks: numItems = " + _decimalFormat0.format (numItems) + ", numChunks = " + _decimalFormat0.format (numChunks) + ", chunkSize = " + _decimalFormat0.format (chunkSize));
-		}
-
-		return VPair.of (chunkSize, numChunks);
-	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public int getNumRows ()
@@ -1702,7 +1686,7 @@ public class AlbumImages
 
 			slice = 1;
 			_form.setSlice (slice);
-			start = 0;//(slice - 1) * (rows * cols);
+			start = 0; //(slice - 1) * (rows * cols);
 			end = start + (rows * cols);
 		}
 
@@ -1938,8 +1922,8 @@ public class AlbumImages
 					//for web color names, see http://www.w3schools.com/colors/colors_names.asp
 					imageBorderColorStr = "black";
 					if (looseCompare) {
-						String joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames (image, partner, true);
-						AlbumImagePair pair = _looseCompareMap.get (joinedNamesPlusAttrs);
+						AlbumImagePair stubPair = new AlbumImagePair (image, partner);
+						AlbumImagePair pair = _looseCompareDataCache.getIfPresent (stubPair);
 						if (pair != null) {
 							extraDiffString += AlbumImage.HtmlNewline + pair.getDetails1String ();
 							int minDiff = pair.getMinDiff ();
@@ -2781,12 +2765,14 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	{
 		if (clearAll) {
 			_nameScaledImageCache = null;
+			_looseCompareDataCache = null;
 		}
 
+		final int expireAfterAccess = 24; //hours
 		if (_nameScaledImageCache == null) {
 			_nameScaledImageCache = CacheBuilder.newBuilder()
 					.maximumSize(_nameScaledImageCacheMaxSize)
-					.expireAfterAccess(4, TimeUnit.HOURS)
+					.expireAfterAccess(expireAfterAccess, TimeUnit.HOURS)
 					.recordStats()
 					.removalListener(new RemovalListener<AlbumImage, ByteBuffer>() {
 						@Override
@@ -2805,28 +2791,50 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 					});
 		}
 
-		if (_looseCompareMap == null) {
-			_looseCompareMap = new ConcurrentHashMap<> (_looseCompareMapMaxSize); //hack
-		}
+		if (_looseCompareDataCache == null) {
+			_looseCompareDataCache = CacheBuilder.newBuilder()
+					.maximumSize(_looseCompareDataCacheMaxSize)
+					.expireAfterAccess(expireAfterAccess, TimeUnit.HOURS)
+					.recordStats()
+					.removalListener(new RemovalListener<AlbumImagePair, AlbumImagePair>() {
+						@Override
+						public void onRemoval(@Nonnull RemovalNotification<AlbumImagePair, AlbumImagePair> removal) {
+							_looseCompareDataCacheEvicted.add(removal.getKey());
+						}
+					})
+//					.weakKeys()
+//					.weakValues()
+					.build (new CacheLoader<AlbumImagePair, AlbumImagePair>() {
+						@Override
+						public AlbumImagePair load(@Nonnull AlbumImagePair imagePair) {
+							_looseCompareDataCacheAdded.add(imagePair);
 
-		if (clearAll) {
-			AlbumProfiling.getInstance ().enter (5);
+							AlbumImage image1 = imagePair.getImage1();
+							AlbumImage image2 = imagePair.getImage2();
 
-			AlbumImageDao.getInstance ().cacheMaintenance ();
+							//the expectation is that this scaled image data was already preloaded into the cache by earlier code
+							ByteBuffer scaledImage1Data = null;
+							try {
+								scaledImage1Data = _nameScaledImageCache.get(image1);
+							} catch (ExecutionException ee) {
+								_log.error("AlbumImages.CacheLoader.load: _nameScaledImageCache.get failed on: " + image1.getName(), ee);
+							}
 
-//			_looseCompareMap.clear ();
-			_looseCompareMap = new ConcurrentHashMap<> (_looseCompareMapMaxSize); //hack
+							//the expectation is that this scaled image data was already preloaded into the cache by earlier code
+							ByteBuffer scaledImage2Data = null;
+							try {
+								scaledImage2Data = _nameScaledImageCache.get(image2);
+							} catch (ExecutionException ee) {
+								_log.error("AlbumImages.CacheLoader.load: _nameScaledImageCache.get failed on: " + image2.getName(), ee);
+							}
 
-			AlbumProfiling.getInstance ().exit (5);
-
-		} else {
-			int numItemsRemoved = 0;
-
-			numItemsRemoved = cacheMaintenance (_looseCompareMap, _looseCompareMapMaxSize);
-			if (numItemsRemoved > 0) {
-				_log.debug ("AlbumImages.cacheMaintenance: _looseCompareMap: " + _decimalFormat0.format (numItemsRemoved) +
-						" items removed, new size = " + VendoUtils.unitSuffixScale (_looseCompareMap.size (), 1) + " / " + VendoUtils.unitSuffixScale (_looseCompareMapMaxSize, 1));
-			}
+							VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
+							int averageDiff = diffPair.getFirst ();
+							int stdDev = diffPair.getSecond ();
+							AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, AlbumImageDiffer.Mode.OnDemand.name (), null);
+							return newPair;
+						}
+					});
 		}
 
 		if (clearAll) {
@@ -2837,11 +2845,7 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 		long totalMem = Runtime.getRuntime ().totalMemory ();
 		long maxMem   = Runtime.getRuntime ().maxMemory ();
 		double memoryUsedPercent = 100 * (double) totalMem / maxMem;
-		double nameScaledImageCachePercent = 100 * (double) _nameScaledImageCache.size () / _nameScaledImageCacheMaxSize;
-		double looseCompareMapPercent = 100 * (double) _looseCompareMap.size () / _looseCompareMapMaxSize;
-		_log.debug ("AlbumImages.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%" +
-				", _nameScaledImageCache: " + _decimalFormat0.format (nameScaledImageCachePercent) + "% of " + _decimalFormat0.format (_nameScaledImageCacheMaxSize) +
-				", _looseCompareMap: " + _decimalFormat0.format (looseCompareMapPercent) + "% of " + _decimalFormat0.format (_looseCompareMapMaxSize));
+		_log.debug ("AlbumImages.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -2970,23 +2974,32 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 				return;
 			}
 
+			//preload the scaled image data before calling _looseCompareDataCache.get below
 			ByteBuffer scaledImage1Data = null;
 			try {
 				scaledImage1Data = _nameScaledImageCache.get(image1);
 			} catch (ExecutionException ee) {
-				_log.error("AlbumImages.diffImages: readScaledImageData failed on: " + image1.getName(), ee);
+				_log.error("AlbumImages.diffImages: _nameScaledImageCache.get failed on: " + image1.getName(), ee);
 			}
 
+			//preload the scaled image data before calling _looseCompareDataCache.get below
 			ByteBuffer scaledImage2Data = null;
 			try {
 				scaledImage2Data = _nameScaledImageCache.get(image2);
 			} catch (ExecutionException ee) {
-				_log.error("AlbumImages.diffImages: readScaledImageData failed on: " + image2.getName(), ee);
+				_log.error("AlbumImages.diffImages: _nameScaledImageCache.get failed on: " + image2.getName(), ee);
 			}
 
-			VPair<Integer, Integer> diffPair = AlbumImage.getScaledImageDiff (scaledImage1Data, scaledImage2Data);
-			int averageDiff = diffPair.getFirst ();
-			int stdDev = diffPair.getSecond ();
+			AlbumImagePair stubPair = new AlbumImagePair (image1, image2);
+			AlbumImagePair diffPair = null;
+			try {
+				diffPair = _looseCompareDataCache.get(stubPair);
+			} catch (ExecutionException ee) {
+				_log.error("AlbumImages.diffImages: _looseCompareDataCache.get failed on: " + stubPair, ee);
+			}
+
+			int averageDiff = diffPair.getAverageDiff ();
+			int stdDev = diffPair.getStdDev ();
 
 			if (AlbumImage.acceptDiff (averageDiff, stdDev, AlbumImageDiffer._maxAverageDiffUsedByBatFiles, AlbumImageDiffer._maxStdDevDiffUsedByBatFiles)) { //hardcoded values from BAT files
 //TODO - should we always add here? if so, will update entries to have current timestamp
@@ -2995,13 +3008,10 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 //				}
 			}
 
-			AlbumImagePair newPair = new AlbumImagePair (image1, image2, averageDiff, stdDev, AlbumImageDiffer.Mode.OnDemand.name (), null);
 			if (AlbumImage.acceptDiff (averageDiff, stdDev, _maxStdDev - 5, _maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
-				_pairsReady.add (newPair);
-				_log.debug ("AlbumImages.doDup@3: " + newPair.getDetails3String ());
+				_pairsReady.add (diffPair);
+				_log.debug ("AlbumImages.doDup@3: " + diffPair.getDetails3String ());
 			}
-			String joinedNamesPlusAttrs = AlbumImagePair.getJoinedNames (image1, image2, true);
-			_looseCompareMap.put (joinedNamesPlusAttrs, newPair);
 		}
 
 		final private BlockingQueue<AlbumImagePair> _queue;
@@ -3104,9 +3114,14 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	private static Set<AlbumImage> _nameScaledImageCacheAdded = null;
 	private static Set<AlbumImage> _nameScaledImageCacheEvicted = null;
 
-	public static final int _nameScaledImageCacheMaxSize = 256 * 1024;
-	public static final int _looseCompareMapMaxSize = 12 * 1024 * 1024;
-	private static Map<String, AlbumImagePair> _looseCompareMap = null;
+	private static LoadingCache<AlbumImagePair, AlbumImagePair> _looseCompareDataCache = null;
+	private static Set<AlbumImagePair> _looseCompareDataCacheAdded = null;
+	private static Set<AlbumImagePair> _looseCompareDataCacheEvicted = null;
+
+	public static final int _nameScaledImageCacheMaxSize = 200 * 1024;
+	public static final int _looseCompareDataCacheMaxSize = 10 * 1024 * 1024;
+//	public static final int _nameScaledImageCacheMaxSize = 256 * 1024;
+//	public static final int _looseCompareDataCacheMaxSize = 12 * 1024 * 1024;
 	private static Map<String, Set<String>> _nameOfExactDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate names
 	private static Map<String, Set<String>> _nameOfNearDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate names
 

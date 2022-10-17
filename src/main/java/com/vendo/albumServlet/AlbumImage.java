@@ -696,7 +696,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 		buffer1.rewind (); //always rewind before using
 		buffer2.rewind (); //always rewind before using
-		final int numBytes = Math.min (buffer1.remaining (), buffer1.remaining ());
+		final int numBytes = Math.min (buffer1.remaining (), buffer2.remaining ());
 
 		double[] diffs = new double[numBytes];
 		try {
@@ -721,7 +721,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		int averageAbsDiff = (int) Math.round (totalAbsDiff / numBytes);
 		int stdDev = (int) Math.round (Math.sqrt (totalSquDiff / numBytes));
 
-		boolean testStdDevFormula = false; //debug
+		final boolean testStdDevFormula = false; //debug
 		if (testStdDevFormula) {
 			int stdDev2 = (int) Math.round (new StandardDeviation ().evaluate (diffs));
 			if (Math.abs (stdDev2 - stdDev) > 2) { //hardcoded value
