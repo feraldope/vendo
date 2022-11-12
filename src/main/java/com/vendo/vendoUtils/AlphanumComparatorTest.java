@@ -14,7 +14,7 @@ import java.util.Random;
 public class AlphanumComparatorTest
 {
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (final String args[]) throws Exception
+	public static void main (final String[] args) throws Exception
 	{
 		AlphanumComparatorTest app = new AlphanumComparatorTest ();
 
@@ -94,7 +94,7 @@ public class AlphanumComparatorTest
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
+	private Boolean processArgs (String[] args)
 	{
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];

@@ -435,10 +435,6 @@ public class AlbumImages
 			return 0;
 		}
 
-//TODO - should be done by AlbumImageDao.getImagesFromCache
-//		_nameOfExactDuplicateThatCanBeDeleted.clear ();
-//		_nameOfNearDuplicateThatCanBeDeleted.clear ();
-
 		AlbumSortType sortType = AlbumSortType.ByNone;
 		if (useExifDates) {
 			sortType = AlbumSortType.ByExif;
@@ -487,6 +483,8 @@ public class AlbumImages
 //			filters2 = new String[] {"*"};
 //		}
 		final AlbumFileFilter filter2 = new AlbumFileFilter (filters2, excludes, useCase, sinceInMillis);
+
+		_duplicatesCache.clear();
 
 		//if looseCompare, determine work to be done
 		int maxComparisons = getMaxComparisons (numImages);
@@ -1075,6 +1073,8 @@ public class AlbumImages
 						dupAlbumMap.put (joinedNames, new AlbumAlbumPair(joinedNames, pair));
 					}
 				}
+				addToDuplicatesCache(_duplicatesCache, pair.getImage1 ().getName());
+				addToDuplicatesCache(_duplicatesCache, pair.getImage2 ().getName());
 			}
 
 			//this object holds single and multi-pairs
@@ -1820,9 +1820,30 @@ public class AlbumImages
 			AlbumProfiling.getInstance ().exit (5, "dateDistribution");
 		}
 
+
+		//go through the slice once to see if any of the images are dups
+		boolean anyDupsInSlice = false;
+		int imageCount = 0;
+		for (int row = 0; row < rows; row++) {
+			for (int col = 0; col < cols; col++) {
+				AlbumImage image = images[start + imageCount];
+				if (findInDuplicatesCache(_duplicatesCache, image.getName ())) {
+					anyDupsInSlice = true;
+					break;
+				}
+				imageCount++;
+				if ((start + imageCount) >= numImages) {
+					break;
+				}
+			}
+			if ((start + imageCount) >= numImages) {
+				break;
+			}
+		}
+
 		Set<AlbumImage> imagesInSlice = new HashSet<> (); //use Set to eliminate duplicates
 		int numMatchesFilter = 0;
-		int imageCount = 0;
+		/*int*/ imageCount = 0;
 		for (int row = 0; row < rows; row++) {
 			sb.append ("<TR>").append (NL);
 
@@ -1856,14 +1877,12 @@ public class AlbumImages
 						}
 
 					} else {
-						//set image line style,  thickness, and color to distinguish near and exact duplicates, etc.
+						//set image line style, thickness, and color to distinguish near and exact duplicates, etc.
 						boolean matches = Arrays.stream(allFilters).anyMatch(image.getBaseName(false)::equalsIgnoreCase);
 //						boolean allmatch = Arrays.stream(allFilters).allMatch(image.getBaseName(false)::equalsIgnoreCase);
 //						boolean matches = anyMatch && !allmatch;
 						numMatchesFilter += (matches ? 1 : 0);
-//						boolean nearDup = _nameOfNearDuplicateThatCanBeDeleted.contains (image.getBaseName (false));
 						boolean nearDup = findInDuplicatesCache(_nameOfNearDuplicateThatCanBeDeleted, image.getBaseName (false));
-//						boolean exactDup = _nameOfExactDuplicateThatCanBeDeleted.contains (image.getBaseName (false));
 						boolean exactDup = findInDuplicatesCache(_nameOfExactDuplicateThatCanBeDeleted, image.getBaseName (false));
 						fontColor = (exactDup ? "lime" : nearDup ? "yellow" : getFontColor (image));
 						imageBorderStyleStr = (nearDup || exactDup ? "dashed" : "solid");
@@ -2002,6 +2021,16 @@ public class AlbumImages
 						    .append (image.hasExifDate() ? "*" : "");
 
 				} else { //mode == AlbumMode.DoDir
+					if (anyDupsInSlice) {
+						//set image line style, thickness, and color to distinguish between dups and non-dups
+						boolean isDup = findInDuplicatesCache(_duplicatesCache, image.getName());
+						fontColor = (isDup ? "black" : "blue");
+						imageBorderStyleStr = (isDup ? "solid" : "dashed");
+						imageBorderPixels = isDup ? 1 : 2;
+						imageBorderColorStr = (isDup ? "black" : "blue");
+						imageOutlineStr = (isDup ? "" : "; outline: " + imageOutlinePixels + "px dotted blue");
+					}
+
 					//drill down to single image
 					imageName = image.getName ();
 					details.append ("(")
@@ -2840,6 +2869,7 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 		if (clearAll) {
 			_nameOfExactDuplicateThatCanBeDeleted = new HashMap<>();
 			_nameOfNearDuplicateThatCanBeDeleted = new HashMap<>();
+			_duplicatesCache = new HashMap<>();
 		}
 
 		long totalMem = Runtime.getRuntime ().totalMemory ();
@@ -2875,14 +2905,18 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	//called by AlbumImageDao.getImagesFromCache
 	public static void duplicatesCacheMaintenance (String subFolder)
 	{
-		Set<String> exactDupSet = _nameOfExactDuplicateThatCanBeDeleted.get (subFolder);
-		if (exactDupSet != null) {
-			exactDupSet.clear();
+		Set<String> exactDupsSet = _nameOfExactDuplicateThatCanBeDeleted.get (subFolder);
+		if (exactDupsSet != null) {
+			exactDupsSet.clear();
 		}
-		Set<String> nearDupSet = _nameOfNearDuplicateThatCanBeDeleted.get (subFolder);
-		if (nearDupSet != null) {
-			nearDupSet.clear();
+		Set<String> nearDupsSet = _nameOfNearDuplicateThatCanBeDeleted.get (subFolder);
+		if (nearDupsSet != null) {
+			nearDupsSet.clear();
 		}
+//		Set<String> allDupsSet = _duplicatesCache.get (subFolder);
+//		if (allDupsSet != null) {
+//			allDupsSet.clear();
+//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -3122,8 +3156,9 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	public static final int _looseCompareDataCacheMaxSize = 10 * 1024 * 1024;
 //	public static final int _nameScaledImageCacheMaxSize = 256 * 1024;
 //	public static final int _looseCompareDataCacheMaxSize = 12 * 1024 * 1024;
-	private static Map<String, Set<String>> _nameOfExactDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate names
-	private static Map<String, Set<String>> _nameOfNearDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate names
+	private static Map<String, Set<String>> _nameOfExactDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate base names
+	private static Map<String, Set<String>> _nameOfNearDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate base names
+	private static Map<String, Set<String>> _duplicatesCache = new HashMap<> (); //key=subfolder, value=set of duplicate images names
 
 	private static final Set<Long> _previousRequestTimestamps = new HashSet<> ();
 

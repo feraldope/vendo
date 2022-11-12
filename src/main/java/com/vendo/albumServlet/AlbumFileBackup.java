@@ -301,13 +301,13 @@ public class AlbumFileBackup
 		String sourceFilename = "fileList." +  timestamp + ".sources." + sourceFileList.size () + "rows.log";
 		Path outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), sourceFilename);
 		int linesWritten = writeSourceFileList (sourceFileList, outputFilePath);
-		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath);
 
 		List<String> orphanFileList = getSourceFileList (orphanMap, _destRootPath);
 		String orphanFilename = "fileList." +  timestamp + ".orphans." + orphanFileList.size () + "rows.log";
 		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphanFilename);
 		linesWritten = writeSourceFileList (orphanFileList, outputFilePath);
-		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath);
 
 //		List<String> orphan2FileList = reduceSourceFileList (orphanMap, _destRootPath, false);
 //		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan2Filename);
@@ -429,7 +429,7 @@ public class AlbumFileBackup
 			}
 
 		} catch (IOException ee) {
-			_log.error ("AlbumFileBackup.writeSourceFileList: error writing output file: " + outputFilePath.toString () + NL);
+			_log.error ("AlbumFileBackup.writeSourceFileList: error writing output file: " + outputFilePath + NL);
 			_log.error (ee); //print exception, but no stack trace
 		}
 
@@ -662,7 +662,7 @@ public class AlbumFileBackup
 	private long copyFiles (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap)
 	{
 		final CountDownLatch endGate = new CountDownLatch (diffMap.keySet ().size ());
-
+		final long numTotalFoldersToCopy = diffMap.keySet ().size ();
 		final long numTotalFilesToCopy = diffMap.values ().stream ().mapToLong (Collection::size).sum ();
 
 		Map<String, Long> diffBytesMap = new HashMap<> ();
@@ -672,11 +672,12 @@ public class AlbumFileBackup
 			diffBytesMap.put (subFolder, diffCollBytes);
 		}
 
-		//NOTE this is the order we create the tasks, but not necessarily the order they start (or run??)
+		//NOTE this is the order we create the tasks, but not necessarily the order they will start (or run??)
 		List<String> foldersSortedByNumBytes = diffBytesMap.keySet ().stream ()
 						.sorted ((f1, f2) -> {
-							long diff = diffBytesMap.get (f2) - diffBytesMap.get (f1); //sort in descending order
-							return diff == 0 ? 0 : diff > 0 ? 1 : -1;
+							return diffBytesMap.get (f2).compareTo(diffBytesMap.get (f1)); //sort in descending order
+//							long diff = diffBytesMap.get (f2) - diffBytesMap.get (f1); //sort in descending order
+//							return diff == 0 ? 0 : diff > 0 ? 1 : -1;
 						})
 						.collect (Collectors.toList ());
 
@@ -697,13 +698,13 @@ public class AlbumFileBackup
 					Path destPath = FileSystems.getDefault ().getPath (_destRootPath.toString (), subFolder, imageFileDetails.getName ());
 
 					if (_testMode) {
-
+						//do not copy
 					} else {
 						try {
 							Files.copy (sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
 							++numSubfolderFilesCopied;
-							numTotalFilesCopied.getAndIncrement ();
+							numTotalFilesCopied.incrementAndGet ();
 
 							if (_verbose) {
 								String stats = "(" + _decimalFormat2.format (numTotalFilesCopied.get ()) + " of " + _decimalFormat2.format (numTotalFilesToCopy) + ")";
@@ -711,13 +712,14 @@ public class AlbumFileBackup
 							}
 
 						} catch (Exception ex) {
-							_log.error ("AlbumFileBackup.copyFiles: Files.copy failed to write to '" + destPath + "'. " + ex.toString ());
+							_log.error ("AlbumFileBackup.copyFiles: Files.copy failed to write to '" + destPath + "'. " + NL + ex);
 						}
 					}
 				}
 
 				if (_debug) {
-					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ":  filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied));
+					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ":  filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied)
+							+ " (" + (endGate.getCount() - 1) + " of " + numTotalFoldersToCopy + " folders remain)");
 				}
 
 				endGate.countDown ();

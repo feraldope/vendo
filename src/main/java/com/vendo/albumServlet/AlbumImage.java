@@ -29,6 +29,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
@@ -407,6 +408,21 @@ public class AlbumImage implements Comparable<AlbumImage>
 	public String getImagePath ()
 	{
 		return _imagePath;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	// getName() returns string in form: <image name><album number>-<image number>.<extension>
+	public int getImageNumber ()
+	{
+		int imageNumber = -1;
+
+		final Pattern pattern = Pattern.compile ("-(\\d+)");
+		Matcher matcher = pattern.matcher (getName());
+		if (matcher.find ()) {
+			imageNumber = Integer.parseInt(matcher.group (1));
+		}
+
+		return imageNumber;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

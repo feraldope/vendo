@@ -3,12 +3,7 @@
 package com.vendo.vendoUtils;
 
 import java.io.IOException;
-import java.nio.file.FileVisitOption;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,7 +18,7 @@ import java.util.stream.Collectors;
 
 public class VFileList
 {
-	public enum ListMode {CompletePath, FileOnly};
+	public enum ListMode {CompletePath, FileOnly}
 
 	///////////////////////////////////////////////////////////////////////////
 	public VFileList (String folderName, List<Pattern> filePatterns, boolean recurseSubdirs)
@@ -44,7 +39,7 @@ public class VFileList
 	{
 		List<Pattern> filePatterns = new ArrayList<Pattern> ();
 
-		wildName = wildName.replace ("*", ".*").trim (); //regex
+		wildName = wildName.replace ("*", ".*").trim (); //convert to regex
 		filePatterns.add (Pattern.compile (wildName, Pattern.CASE_INSENSITIVE));
 
 		return filePatterns;
@@ -67,7 +62,7 @@ public class VFileList
 
 		return getPathList ().stream ()
 							 .map (mode == ListMode.CompletePath ? completePath : fileOnly)
-							 .map (p -> p.toString ())
+							 .map (Path::toString)
 							 .collect (Collectors.toList ());
 	}
 

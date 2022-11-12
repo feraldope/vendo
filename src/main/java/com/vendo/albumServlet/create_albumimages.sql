@@ -415,7 +415,7 @@ select RPAD(CONCAT(i1.name_no_ext, ',', i2.name_no_ext, ','), 40, ' ') as 'names
 from image_diffs d
 join images i1 on i1.name_id = d.name_id_1
 join images i2 on i2.name_id = d.name_id_2
-where d.avg_diff <= 20 
+where d.avg_diff <= 20
      and (i1.name_no_ext like 'Jo%' or i2.name_no_ext like 'Jo%')
 order by count desc
 

@@ -432,9 +432,7 @@ public class AlbumImageDao {
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
 			String nameNoExt = imageFileDetail.getName();
 			if (!AlbumImage.isValidImageName(nameNoExt)) {
-				if (!nameNoExt.startsWith("q-")) { //hack
-					_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: invalid image name: " + nameNoExt);
-				}
+				_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: invalid image name: " + nameNoExt);
 			}
 		}
 
@@ -499,7 +497,8 @@ public class AlbumImageDao {
 			String baseName2 = AlbumImage.getBaseName(nameNoExt, true);
 
 			//skip some known offenders
-			if (nameNoExt.startsWith("q") || nameNoExt.startsWith("x")) {
+//			if (nameNoExt.startsWith("q") || nameNoExt.startsWith("x")) {
+			if (nameNoExt.startsWith("qt")) {
 				continue;
 			}
 

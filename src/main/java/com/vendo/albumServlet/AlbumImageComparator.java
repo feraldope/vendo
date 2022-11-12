@@ -90,14 +90,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			break;
 
 		case ByRgb:
-//			if (true) {
-				value1 = image1.getRgbData ().compareToIgnoreCase (image2.getRgbData ());
-//
-//			} else { // include orientation in comparison
-//				value1 = 4 * image1.getRgbData ().compareToIgnoreCase (image2.getRgbData ());
-//				value1 |= 2 * (image1.isLandscape () ? 1 : 0);
-//				value1 |= 1 * (image2.isLandscape () ? 1 : 0);
-//			}
+			value1 = image1.getRgbData ().compareToIgnoreCase (image2.getRgbData ());
 			break;
 
 		case ByRandom:
@@ -107,6 +100,11 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 
 		case ByExif: //ascending
 			value1 = image1.compareExifDates (image2, _exifDateIndex);
+			break;
+
+		case ByImageNumber: //ascending
+			value1 = image2.getImageNumber ();
+			value2 = image1.getImageNumber ();
 			break;
 
 		case ByName: //nothing to do - will fall through to return comparison of names

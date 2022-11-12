@@ -20,7 +20,8 @@ public enum AlbumSortType
 	ByCount ("Count", true),
 	ByHash ("Hash", true),
 	ByRgb ("RGB", true),
-	ByRandom ("Random", true);
+	ByRandom ("Random", true),
+	ByImageNumber ("Image Number", true);
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumSortType (String name, boolean isVisibleInUi)
