@@ -354,7 +354,7 @@ public class AlbumFileRename
 			boolean status = moveFile(fileNamePair.getFirst(), fileNamePair.getSecond());
 
 			if (status) {
-				_undoCommands.add(fixSlashes("move " + fileNamePair.getSecond() + " " + fileNamePair.getFirst()));
+				_undoCommands.add(VendoUtils.fixSlashes("move " + fileNamePair.getSecond() + " " + fileNamePair.getFirst()));
 				_filesProcessed++;
 			}
 		}
@@ -453,16 +453,17 @@ public class AlbumFileRename
 		return header + ": [showing first " + limit + " of " + list.size() + "]" + NL + string;
 	}
 
+//moved to VendoUtils
 	///////////////////////////////////////////////////////////////////////////
-	//replace all forward slashes with backslashes
-	private String fixSlashes (String path)
-	{
-		if (path.contains("/")) {
-			return path.replaceAll("/", "\\\\"); //regex
-		} else {
-			return path;
-		}
-	}
+//	//replace all forward slashes with backslashes
+//	private String fixSlashes (String path)
+//	{
+//		if (path.contains("/")) {
+//			return path.replaceAll("/", "\\\\"); //regex
+//		} else {
+//			return path;
+//		}
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private String appendSlash (String path)

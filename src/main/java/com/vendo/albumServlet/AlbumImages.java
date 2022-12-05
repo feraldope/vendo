@@ -352,7 +352,7 @@ public class AlbumImages
 
 			AlbumImage[] array = _imageDisplayList.toArray (new AlbumImage[] {});
 			Arrays.parallelSort (array, new AlbumImageComparator (_form));
-			_imageDisplayList = Arrays.asList (array);
+			_imageDisplayList = Arrays.stream (array).collect(Collectors.toList());
 
 			AlbumProfiling.getInstance ().exit (5, "sort " + _form.getSortType ());
 		}
@@ -363,7 +363,7 @@ public class AlbumImages
 
 		if (form.getMode () == AlbumMode.DoDup && !form.getDbCompare()) {
 			if (form.getLooseCompare()) {
-				final int minImagesToFlagAsLargeAlbum = form.getMinImagesToFlagAsLargeAlbum();
+				final int minImagesToFlagAsLargeAlbum = form.getMinImagesToFlagAsLargeAlbum() * (form.isAndroidDevice() ? 10 : 1); //hack - because android is mostly used for q*
 				final int maxNumberOfAlbumsToDisplay = 50;
 
 				Set<String> removed = removeAlbumsWithLargeCounts(minImagesToFlagAsLargeAlbum); //HACK; Note: operates directly on _imageDisplayList
@@ -416,7 +416,7 @@ public class AlbumImages
 		boolean looseCompare = form.getLooseCompare();
 		boolean ignoreBytes = form.getIgnoreBytes();
 		boolean useCase = form.getUseCase();
-		boolean reverseSort = form.getReverseSort(); //reverses sense of limitedCompare
+		boolean reverseSort = form.getReverseSort(); //hack - reverses sense of limitedCompare
 		boolean useExifDates = form.getUseExifDates();
 		int exifDateIndex = form.getExifDateIndex();
 		int maxStdDev = form.getMaxStdDev();
@@ -1626,7 +1626,8 @@ public class AlbumImages
 		boolean isAndroidDevice = _form.isAndroidDevice ();
 
 		String font1 = !isAndroidDevice ? "fontsize10" : "fontsize24";
-		String tableWidthString = !isAndroidDevice ? "100%" : "1600"; //TODO - hardcoded
+		String tableWidthString = !isAndroidDevice ? "100%" : "2200"; //TODO - tablet hardcoded for portrait not landscape
+		_log.debug ("AlbumImages.generateHtml: tableWidthString = " + tableWidthString);
 
 		String tagsMarker = "<tagsMarker>";
 		String servletErrorsMarker = "<servletErrorsMarker>";
@@ -1663,6 +1664,9 @@ public class AlbumImages
 		AlbumMode mode = _form.getMode ();
 		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : 1; //TODO - hardcoded
 		int cols = _form.getColumns ();
+		if (isAndroidDevice) {
+			cols = mode == AlbumMode.DoDir ? 1 : 2; //hack - for android, only 1 or 2 columns (see also AlbumServlet.java)
+		}
 		int rows = getNumRows ();
 		int numSlices = getNumSlices ();
 		int slice = _form.getSlice ();
@@ -1670,6 +1674,7 @@ public class AlbumImages
 		boolean collapseGroups = _form.getCollapseGroups ();
 		//for mode = AlbumMode.DoDup, disable collapseGroups for tags
 		boolean collapseGroupsForTags = mode == AlbumMode.DoDup ? false : collapseGroups;
+		boolean interleaveSort = _form.getInterleaveSort();
 		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling ();
 		String[] allFilters = _form.getFilters();
 
@@ -1760,9 +1765,12 @@ public class AlbumImages
 
 		if (isAndroidDevice) {
 			//using _form.getScreenWidth () did not work
-			tableWidth = (_form.getWindowWidth () > _form.getWindowHeight () ? 2560 : 1600); //hack - hardcode
+//			tableWidth = (_form.getWindowWidth () > _form.getWindowHeight () ? 2560 : 1600); //hack - hardcode
+//			imageWidth = tableWidth / tempCols - (2 * (imageBorderPixels + imageOutlinePixels + padding));
+//			imageHeight = (_form.getWindowWidth () > _form.getWindowHeight () ? 1600 : 2560); //hack - hardcode
+			tableWidth = Math.min(_form.getWindowWidth(), _form.getWindowHeight());
 			imageWidth = tableWidth / tempCols - (2 * (imageBorderPixels + imageOutlinePixels + padding));
-			imageHeight = (_form.getWindowWidth () > _form.getWindowHeight () ? 1600 : 2560); //hack - hardcode
+			imageHeight = Math.max(_form.getWindowWidth (), _form.getWindowHeight ());
 
 		} else {
 			//values for firefox
@@ -1772,7 +1780,10 @@ public class AlbumImages
 //			imageHeight = _form.getWindowHeight () - 60; //for 1440p
 			imageHeight = _form.getWindowHeight () - 80; //for 2160p (4k)
 		}
-		_log.debug ("AlbumImages.generateHtml: isAndroidDevice = " + _form.isAndroidDevice () + ", tableWidth = " + tableWidth + ", imageWidth = " + imageWidth + ", imageHeight = " + imageHeight);
+		if (isAndroidDevice) {
+			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", tableWidth = " + tableWidth + ", imageWidth = " + imageWidth + ", imageHeight = " + imageHeight);
+			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", form.windowWidth = " + _form.getWindowWidth() + ", form.windowHeight = " + _form.getWindowHeight());
+		}
 
 		sb.append ("<TABLE WIDTH=")
 				.append (tableWidth)
@@ -1782,17 +1793,46 @@ public class AlbumImages
 				.append (_tableBorderPixels)
 				.append (">").append (NL);
 
+		if (interleaveSort) {
+			if (mode == AlbumMode.DoDir) { //TODO check for invalid combos and report below
+				Map<String, List<AlbumImage>> map = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(false)));
+				map.keySet().stream().sorted().forEach(d -> map.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName)));
+
+				_imageDisplayList.clear();
+				List<Iterator<AlbumImage>> iters = map.keySet().stream().sorted().map(map::get).map(List::iterator).collect(Collectors.toList());
+				boolean mightHaveMore;
+				do {
+					mightHaveMore = false;
+					for (Iterator<AlbumImage> iter : iters) {
+						if (iter.hasNext()) {
+							_imageDisplayList.add(iter.next());
+							mightHaveMore = true;
+						}
+					}
+				} while (mightHaveMore);
+
+			} else {
+				String message = "Invalid combination ... TBD";
+				_log.debug("AlbumImages.generateHtml: " + message);
+				_form.addServletError("Info: " + message);
+			}
+		}
+
 		AlbumImage[] images = _imageDisplayList.toArray (new AlbumImage[] {});
 
 		String font2 = "fontsize10";
 		if (isAndroidDevice) {
 			font2 = "fontsize24";
+//			font2 = "fontsize28";
 		} else if (imageWidth <= 120) {
 			font2 = "fontsize8";
 		} else if (imageWidth <= 200) {
 			font2 = "fontsize9";
 		} else {
 			font2 = "fontsize10";
+		}
+		if (isAndroidDevice) {
+			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", imageWidth = " + imageWidth + ", font2 = " + font2);
 		}
 
 		//TODO - print map of dates and image counts
@@ -1819,7 +1859,6 @@ public class AlbumImages
 
 			AlbumProfiling.getInstance ().exit (5, "dateDistribution");
 		}
-
 
 		//go through the slice once to see if any of the images are dups
 		boolean anyDupsInSlice = false;

@@ -102,10 +102,10 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			value1 = image1.compareExifDates (image2, _exifDateIndex);
 			break;
 
-		case ByImageNumber: //ascending
-			value1 = image2.getImageNumber ();
-			value2 = image1.getImageNumber ();
-			break;
+//		case ByImageNumber: //ascending
+//			value1 = image2.getImageNumber ();
+//			value2 = image1.getImageNumber ();
+//			break;
 
 		case ByName: //nothing to do - will fall through to return comparison of names
 		}

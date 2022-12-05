@@ -26,12 +26,13 @@ CREATE TABLE IF NOT EXISTS images
 	exifDate1		BIGINT UNSIGNED,
 	exifDate2		BIGINT UNSIGNED,
 	exifDate3		BIGINT UNSIGNED,
-	PRIMARY KEY (name_id, insert_date, name_no_ext, sub_folder)
+	PRIMARY KEY (name_id, insert_date, name_no_ext, sub_folder) --TODO - why PK using insert_date? should be modified
 );
 CREATE INDEX name_id_idx on images (name_id);
 CREATE INDEX sub_folder_idx on images (sub_folder);
 CREATE INDEX name_no_ext_idx on images (name_no_ext);
-CREATE INDEX insert_date_idx on images (insert_date);
+-- CREATE INDEX insert_date_idx on images (insert_date); -- TODO  - why index on insert_date? should be modified
+CREATE INDEX modified_idx on images (modified); -- TODO - why index on insert_date? should be modified
 SHOW COLUMNS FROM images;
 SHOW INDEX FROM images;
 

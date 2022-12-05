@@ -956,6 +956,17 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//replace all forward slashes with backslashes
+	public static String fixSlashes (String path)
+	{
+		if (path.contains("/")) {
+			return path.replaceAll("/", "\\\\"); //regex
+		} else {
+			return path;
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static String quoteString (String string)
 	{
 		return quoteString (string, true);

@@ -129,7 +129,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 				attrs = Files.readAttributes (file, BasicFileAttributes.class);
 
 			} catch (Exception ee) {
-				_log.error ("AlbumImage ctor: error reading file attributes \"" + nameWithExt + "\"");
+				_log.error ("AlbumImage ctor: error reading file attributes \"" + VendoUtils.fixSlashes(_imagePath + nameWithExt) + "\"", ee);
 
 			} finally {
 				_numBytes = attrs.size ();
@@ -141,10 +141,22 @@ public class AlbumImage implements Comparable<AlbumImage>
 			final int h = 1;
 			int[] rgbIntArray = new int [w * h];
 
-			BufferedImage image = JpgUtils.readImage (_file);
-			_width = image.getWidth ();
-			_height = image.getHeight ();
-			image.getRGB (_width / 2, _height / 2, w, h, rgbIntArray, 0, w);
+			int width = -1;
+			int height = -1;
+			try {
+				BufferedImage image = JpgUtils.readImage (_file);
+				width = image.getWidth ();
+				height = image.getHeight ();
+				image.getRGB (width / 2, height / 2, w, h, rgbIntArray, 0, w);
+
+			} catch (Exception ee) {
+				_log.error ("AlbumImage ctor: error reading image file \"" + VendoUtils.fixSlashes(_imagePath + nameWithExt) + "\"", ee);
+				_log.error ("AlbumImage ctor: delete command:" + NL + "del " + VendoUtils.fixSlashes(_imagePath + nameWithExt) + NL);
+
+			} finally {
+				_width = width;
+				_height = height;
+			}
 
 			//convert exact RGB data to String
 			StringBuilder sb = new StringBuilder ();
@@ -1153,7 +1165,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 //	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //format as integer
 
-//	private static final String NL = System.getProperty ("line.separator");
+	private static final String NL = System.getProperty ("line.separator");
 	private static final Random _randomGenerator = new Random ();
 
 	private static final Logger _log = LogManager.getLogger ();

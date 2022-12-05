@@ -847,14 +847,15 @@ public class AlbumImageDao {
 		}
 
 		AlbumImage image = null;
-		try {
+//changed: catch exception in AlbumImage ctor
+//		try {
 			image = new AlbumImage(nameNoExt, subFolder, true); //this AlbumImage ctor reads image from disk
 			image.createRgbDataFile();
 			status = insertImageIntoImages(image);
-		} catch (Exception ee) {
-			_log.error("AlbumImageDao.handleFileCreate(" + subFolder + ", " + nameNoExt + "): ", ee);
-			System.out.println("del " + imageFile);
-		}
+//		} catch (Exception ee) {
+//			_log.error("AlbumImageDao.handleFileCreate(" + subFolder + ", " + nameNoExt + "): ", ee);
+//			System.out.println("del " + imageFile);
+//		}
 
 		_imagesNeedingCountUpdate.get().add(AlbumImage.getBaseName(nameNoExt, false));
 

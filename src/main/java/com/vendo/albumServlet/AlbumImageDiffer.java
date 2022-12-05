@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Date;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -338,8 +339,9 @@ public class AlbumImageDiffer
 		}
 
 		List<Integer> imageIds = Stream.of (_idListA, _idListB).flatMap (Collection::stream).map (AlbumImageData::getNameId).distinct ().collect (Collectors.toList ());
-//		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> existingDiffs = getAllImagesFromImageDiffs ();
 		Map<String, AlbumImageDiffDetails> existingDiffs = getImagesFromImageDiffs (imageIds);
+
+		Map<String, ByteBuffer> scaledImageDataCache = readScaledImageDataIntoCache();
 
 		final CountDownLatch endGate = new CountDownLatch (_idListA.size ());
 		final Iterator<AlbumImageData> iterA = _idListA.iterator();
@@ -352,7 +354,7 @@ public class AlbumImageDiffer
 			}
 			final AlbumImage imageA = new AlbumImage (albumImageDataA.getName (), albumImageDataA.getSubFolder (), false);
 
-			final ByteBuffer scaledImageDataA = imageA.readScaledImageData ();
+			final ByteBuffer scaledImageDataA = scaledImageDataCache.get(albumImageDataA.getName());
 			if (scaledImageDataA == null) {
 				synchronized (toBeSkipped) {
 					toBeSkipped.add(albumImageDataA.getName ());
@@ -386,7 +388,6 @@ public class AlbumImageDiffer
 						continue;
 					}
 
-//					AlbumImageDiffDetails existingDiff = existingDiffs.get (new AlbumImageDiffDetails (albumImageDataA.getNameId(), albumImageDataB.getNameId()));
 					AlbumImageDiffDetails existingDiff = existingDiffs.get (AlbumImageDiffDetails.getJoinedNameIds (albumImageDataA.getNameId (), albumImageDataB.getNameId ()));
 					if (existingDiff != null) {
 						//if this image pair already exists in database, skip diffing them, but still update record in database
@@ -396,7 +397,7 @@ public class AlbumImageDiffer
 						continue;
 					}
 
-					ByteBuffer scaledImageDataB = imageB.readScaledImageData ();
+					final ByteBuffer scaledImageDataB = scaledImageDataCache.get(albumImageDataB.getName());
 					if (scaledImageDataB == null) {
 						synchronized (toBeSkipped) {
 							toBeSkipped.add(albumImageDataB.getName ());
@@ -464,6 +465,32 @@ public class AlbumImageDiffer
 		_log.debug ("AlbumImageDiffer.run: rowsInserted (all)  = " + _decimalFormat.format (rowsInserted.get () - duplicates.get ()));
 
 		AlbumProfiling.getInstance ().exit (5);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Map<String, ByteBuffer> readScaledImageDataIntoCache() {
+		AlbumProfiling.getInstance ().enter(5);
+
+		Set<AlbumImageData> idSetAll = new HashSet<>(_idListA);
+		idSetAll.addAll(_idListB);
+
+		Map<String, ByteBuffer> scaledImageDataCache = new ConcurrentHashMap<>(idSetAll.size());
+
+		_log.debug ("AlbumImageDiffer.readScaledImageDataIntoCache: idSetAll.size = " + _decimalFormat.format (idSetAll.size()));
+
+		idSetAll.stream().parallel().forEach(d -> {
+			final AlbumImage image = new AlbumImage (d.getName (), d.getSubFolder (), false);
+			final ByteBuffer byteBuffer = image.readScaledImageData ();
+			if (byteBuffer != null) {
+				scaledImageDataCache.put(d.getName(), byteBuffer);
+			}
+		});
+
+		_log.debug ("AlbumImageDiffer.readScaledImageDataIntoCache: scaledImageDataCache.size = " + _decimalFormat.format (scaledImageDataCache.size()));
+
+		AlbumProfiling.getInstance ().exit (5);
+
+		return scaledImageDataCache;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -757,30 +784,29 @@ public class AlbumImageDiffer
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
 	//returns a Map because I want to use get() on the result, and Set does not support get()
-	private Map<String, AlbumImageDiffDetails> getAllImagesFromImageDiffs ()
-//	private Map<AlbumImageDiffDetails, AlbumImageDiffDetails> getAllImagesFromImageDiffs ()
-	{
-		AlbumProfiling.getInstance ().enterAndTrace (5);
-
-		List<AlbumImageDiffDetails> list = new LinkedList<> ();
-
-		try (SqlSession session = _sqlSessionFactory.openSession ()) {
-			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			list = mapper.selectAllImagesFromImageDiffs ();
-
-		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.getAllImagesFromImageDiffs(): ", ee);
-		}
-
-//		Map<AlbumImageDiffDetails, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i, i -> i));
-		Map<String, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i.getNameId1 () + "," + i.getNameId2 (), i -> i));
-
-		AlbumProfiling.getInstance ().exit (5);
-
-//		_log.debug ("AlbumImageDiffer.getAllImagesFromImageDiffs): map.size: " + map.size ());
-
-		return map;
-	}
+// not currently used
+//	private Map<String, AlbumImageDiffDetails> getAllImagesFromImageDiffs ()
+//	{
+//		AlbumProfiling.getInstance ().enterAndTrace (5);
+//
+//		List<AlbumImageDiffDetails> list = new LinkedList<> ();
+//
+//		try (SqlSession session = _sqlSessionFactory.openSession ()) {
+//			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
+//			list = mapper.selectAllImagesFromImageDiffs ();
+//
+//		} catch (Exception ee) {
+//			_log.error ("AlbumImageDiffer.getAllImagesFromImageDiffs(): ", ee);
+//		}
+//
+//		Map<String, AlbumImageDiffDetails> map = list.stream ().collect (Collectors.toMap (i -> i.getNameId1 () + "," + i.getNameId2 (), i -> i));
+//
+//		AlbumProfiling.getInstance ().exit (5);
+//
+////		_log.debug ("AlbumImageDiffer.getAllImagesFromImageDiffs): map.size: " + map.size ());
+//
+//		return map;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI and servlet

@@ -76,8 +76,9 @@ public class AlbumFileBackup
 	///////////////////////////////////////////////////////////////////////////
 	private Boolean processArgs (String[] args)
 	{
+		String defaultSubFolderPatternString = ".*";
+		String subFolderPatternString = defaultSubFolderPatternString;
 		String filenamePatternString = ".*";
-		String subFolderPatternString = ".*";
 		String sourceRootName = null;
 		String destRootName = null;
 		double sinceInDays = -1.;
@@ -163,8 +164,9 @@ public class AlbumFileBackup
 		if (!filenamePatternString.toLowerCase ().endsWith ("jpg")) {
 			filenamePatternString += "jpg";
 		}
-		_filenamePattern = Pattern.compile ("^" + filenamePatternString.replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
+		_isPartialBackup = !subFolderPatternString.equals(defaultSubFolderPatternString);
 		_subFolderPattern = Pattern.compile ("^" + subFolderPatternString.replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
+		_filenamePattern = Pattern.compile ("^" + filenamePatternString.replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
 
 		if (sourceRootName == null) {
 			displayUsage ("Must specify source root folder", true);
@@ -193,10 +195,8 @@ public class AlbumFileBackup
 		if (_debug) {
 			String startDateStr = (_sinceInMillis > 0 ? sinceInDays + " (since: " + _dateFormat.format (new Date (_sinceInMillis)) + ")" : "(all days)");
 			_log.debug ("AlbumFileBackup.processArgs: sinceInDays: " + startDateStr);
-			_log.debug ("AlbumFileBackup.processArgs: filenamePatternString: " + filenamePatternString);
-			_log.debug ("AlbumFileBackup.processArgs: subFolderPatternString: " + subFolderPatternString);
-//			_log.debug ("AlbumFileBackup.processArgs: _filenamePattern: " + _filenamePattern.toString ());
-//			_log.debug ("AlbumFileBackup.processArgs: _subFolderPattern: " + _subFolderPattern.toString ());
+			_log.debug ("AlbumFileBackup.processArgs: filenamePatternString: " + filenamePatternString + " => pattern: " + _filenamePattern.toString());
+			_log.debug ("AlbumFileBackup.processArgs: subFolderPatternString: " + subFolderPatternString + " => pattern: " + _subFolderPattern.toString());
 
 			_log.debug ("AlbumFileBackup.processArgs: _sourceRootPath: " + _sourceRootPath.toString ());
 			_log.debug ("AlbumFileBackup.processArgs: _destRootPath: " + _destRootPath.toString ());
@@ -293,18 +293,19 @@ public class AlbumFileBackup
 		System.out.println ("writing file lists...");
 
 		String timestamp = new SimpleDateFormat ("yyyyMMdd.HHmmss").format (new Date ());
+		String partialStub = _isPartialBackup ? ".partial" : "";
 //		String orphan1Filename = "fileList." +  timestamp + ".orphan1.log";
 //		String orphan2Filename = "fileList." +  timestamp + ".orphan2.log";
 //		String orphan3Filename = "fileList." +  timestamp + ".orphan3.log";
 
 		List<String> sourceFileList = getSourceFileList (sourceMap, null);
-		String sourceFilename = "fileList." +  timestamp + ".sources." + sourceFileList.size () + "rows.log";
+		String sourceFilename = "fileList." +  timestamp + partialStub + ".sources." + sourceFileList.size () + "rows.log";
 		Path outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), sourceFilename);
 		int linesWritten = writeSourceFileList (sourceFileList, outputFilePath);
 		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath);
 
 		List<String> orphanFileList = getSourceFileList (orphanMap, _destRootPath);
-		String orphanFilename = "fileList." +  timestamp + ".orphans." + orphanFileList.size () + "rows.log";
+		String orphanFilename = "fileList." +  timestamp + partialStub + ".orphans." + orphanFileList.size () + "rows.log";
 		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphanFilename);
 		linesWritten = writeSourceFileList (orphanFileList, outputFilePath);
 		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath);
@@ -804,6 +805,7 @@ public class AlbumFileBackup
 	private boolean _verbose = false;
 	private boolean _debug = false;
 	private boolean _testMode = false;
+	private boolean _isPartialBackup = false;
 
 	private Path _sourceRootPath = null;
 	private Path _destRootPath = null;
@@ -824,6 +826,6 @@ public class AlbumFileBackup
 	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm"); //Note SimpleDateFormat is not thread safe
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
 
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumFileBackup";
 }

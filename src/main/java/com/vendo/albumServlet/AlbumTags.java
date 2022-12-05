@@ -1154,7 +1154,7 @@ public class AlbumTags
 		String sql = "select ic.base_name as name, ic.image_count as count" + NL +
 				"  from albumimages.image_counts ic" + NL +
 				"  where ic.collapse_groups = 1" + NL +
-				"    and ic.sub_folder not in ('qb', 'qd', 'qf', 'qg', 'qh', 'qi', 'qj', 'qm', 'qq', 'qr', 'qt')" + NL + //hardcoded values
+				"    and ic.sub_folder not in ('qb', 'qd', 'qf', 'qg', 'qi', 'qj', 'qm', 'qq', 'qr', 'qt')" + NL + //hardcoded values
 				"    and ic.image_count >= ?" + NL +
 				"    and ic.base_name not in (" + NL +
 				"	    select bn.name" + NL +

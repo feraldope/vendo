@@ -125,6 +125,7 @@ public class AlbumFormInfo
 		_useCase = false;
 		_clearCache = false;
 		_reverseSort = false;
+		_interleaveSort = false;
 		_sortType = AlbumSortType.ByName;
 		_forceBrowserCacheRefresh = false;
 
@@ -144,13 +145,21 @@ public class AlbumFormInfo
 	{
 		_isServlet = true;
 
-		if (_debugProperties) {
-			List<String> headerNames = Collections.list (request.getHeaderNames ()).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
-			for (String headerName : headerNames) {
+		List<String> headerNames = Collections.list (request.getHeaderNames ()).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
+		for (String headerName : headerNames) {
+			if (_debugProperties) {
 				List<String> headerValues = Collections.list (request.getHeaders (headerName)).stream ().sorted (VendoUtils.caseInsensitiveStringComparator).collect(Collectors.toList ());
 				for (String headerValue : headerValues) {
 					_log.debug ("AlbumFormInfo.processRequest: header: " + headerName + " = " + headerValue);
 				}
+			}
+
+			if (headerName.equals ("user-agent")) {
+				if (_debugProperties) {
+//					Enumeration<String> s1 = request.getHeaders (headerName);
+					_log.debug("AlbumFormInfo.processRequest: got user-agent  = " + request.getHeader(headerName));
+				}
+				setUserAgent(request.getHeader(headerName));
 			}
 		}
 
@@ -900,6 +909,17 @@ public class AlbumFormInfo
 		return _reverseSort;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	public void setInterleaveSort (boolean interleaveSort)
+	{
+		_interleaveSort = interleaveSort;
+	}
+
+	public boolean getInterleaveSort ()
+	{
+		return _interleaveSort;
+	}
+
 //	///////////////////////////////////////////////////////////////////////////
 //	public void setScreenWidth (int screenWidth)
 //	{
@@ -910,7 +930,7 @@ public class AlbumFormInfo
 //
 //	public int getScreenWidth ()
 //	{
-////		return (isAndroidDevice () ? 2 : 1) * _screenWidth; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
+//		return (isAndroidDevice () ? 2 : 1) * _screenWidth; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
 //		return _screenWidth;
 //	}
 //
@@ -924,7 +944,7 @@ public class AlbumFormInfo
 //
 //	public int getScreenHeight ()
 //	{
-////		return (isAndroidDevice () ? 2 : 1) * _screenHeight; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
+//		return (isAndroidDevice () ? 2 : 1) * _screenHeight; //hack - Nexus 7 uses Density Independent Pixel (commonly referred to as dp) and reports half as many pixels
 //		return _screenHeight;
 //	}
 
@@ -965,13 +985,20 @@ public class AlbumFormInfo
 		return _userAgent;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	//userAgent from Samsung Tab = Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36
 	public boolean isAndroidDevice ()
 	{
 //		_log.debug ("AlbumFormInfo.isAndroidDevice: _userAgent = " + _userAgent);
-		return _userAgent.toLowerCase ().contains ("android");
+		return _userAgent.toLowerCase ().contains ("android") || _userAgent.matches(".*X11.*Linux.*");
 	}
 
-//	public boolean isNexus7Device ()
+	///////////////////////////////////////////////////////////////////////////
+//	public boolean isSamsumgTab () //android
+//	{
+//		return _windowWidth == 1608 && _windowHeight == 2263; //hack for Samsung Tab android (as userAgent is unreliable)
+//	}
+//	public boolean isNexus7Device () //android
 //	{
 //		return _userAgent.toLowerCase ().contains ("nexus 7");
 //	}
@@ -1195,37 +1222,39 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String convertWildcardsToRegex (String string)
+	public static String convertWildcardsToRegex (String wildString)
 	{
-		if (!string.endsWith ("*")){
-			string += "*"; //add trailing string
+		String regexString = wildString;
+
+		if (!regexString.endsWith ("*")){
+			regexString += "*"; //add trailing string
 		}
 
-		string = string.replace (".", "[a-z]") //dot/period here means any alpha
-					   .replace ("*", ".*")
-					   .replace (";", "[aeiouy]") //semicolon here means vowel or 'y'
+		regexString = regexString.replace (".", "[a-z]") //dot/period here means any alpha
+							     .replace ("*", ".*")
+							     .replace (";", "[aeiouy]") //semicolon here means vowel or 'y'
 //this syntax doesn't work with MySQL? .replace (":", "[a-z&&[^aeiouy]]") //colon here means any letter except vowel or 'y'
-					   .replace (":", "[b-df-hj-np-tv-xz]") //colon here means any letter except vowel or 'y'
-					   .replace ("+", "[\\d]"); //plus sign here means digit
+							     .replace (":", "[b-df-hj-np-tv-xz]") //colon here means any letter except vowel or 'y'
+							     .replace ("+", "[\\d]"); //plus sign here means digit
 
-		return string;
+		return regexString;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String convertRegexToWildcards (String string)
+	public static String convertRegexToWildcards (String regexString)
 	{
-		string = string.replace (".*", "*")
-					   .replace ("[a-z]", ".") //dot/period here means any alpha
-					   .replace ("[aeiouy]", ";") //semicolon here means vowel or 'y'
+		String wildString = regexString.replace (".*", "*")
+								  	   .replace ("[a-z]", ".") //dot/period here means any alpha
+								  	   .replace ("[aeiouy]", ";") //semicolon here means vowel or 'y'
 //this syntax doesn't work with MySQL? .replace ("[a-z&&[^aeiouy]]", ":") //colon here means any letter except vowel or 'y'
-					   .replace ("[b-df-hj-np-tv-xz]", ":") //colon here means any letter except vowel or 'y'
-					   .replace ("[\\d]", "+"); //plus sign here means digit
+								  	   .replace ("[b-df-hj-np-tv-xz]", ":") //colon here means any letter except vowel or 'y'
+								  	   .replace ("[\\d]", "+"); //plus sign here means digit
 
-		if (string.endsWith ("*")) {
-			string = string.substring (0, string.length () - 1); //remove trailing string
+		if (wildString.endsWith ("*")) {
+			wildString = wildString.substring (0, wildString.length () - 1); //remove trailing string
 		}
 
-		return string;
+		return wildString;
 	}
 
 	//parameters from properties file at "%CATALINA_HOME%"\webapps\AlbumServlet\WEB-INF\classes\album.properties
@@ -1288,6 +1317,7 @@ public class AlbumFormInfo
 	private boolean _useCase = false;
 	private boolean _clearCache = false;
 	private boolean _reverseSort = false;
+	private boolean _interleaveSort = false;
 	private AlbumDuplicateHandling _duplicateHandling = AlbumDuplicateHandling.SelectNone;
 	private AlbumOrientation _orientation = AlbumOrientation.ShowAny;
 	private AlbumSortType _sortType = AlbumSortType.ByName;
@@ -1298,7 +1328,7 @@ public class AlbumFormInfo
 //[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowHeight = 2052
 //[07:30:33 DEBUG] AlbumFormInfo.processRequest: param: windowWidth = 2211
 //Note: use onTop.exe/l
-//Note: use broswer view page source, then search for windowWidth
+//Note: use browser view page source, then search for windowWidth
 	private int _windowWidth = 2188; //(1880 * 55) / 100;
 	private int _windowHeight = 2052; //980;
 //	private int _windowWidth = (1880 * 55) / 100;
