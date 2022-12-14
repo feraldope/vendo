@@ -1341,7 +1341,7 @@ public class GetUri
 	private String _tempFilename = null;
 	private SizeDist _sizeDist = new SizeDist ();
 	private PerfStats _perfStats = new PerfStats ();
-	private Vector<String> _switches = new Vector<String> ();
+	private Vector<String> _switches = new Vector<String> (); //command line arguments
 	private HttpURLConnection _httpURLConnection = null;
 
 	private Connection _dbConnection = null;

@@ -2,21 +2,16 @@
 
 package com.vendo.vendoUtils;
 
-//import java.io.*;
-
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Random;
 
-//import org.apache.logging.log4j.*;
 
-
-public class AlphanumComparatorTest
+public class AlphanumComparatorTest2
 {
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (final String[] args) throws Exception
 	{
-		AlphanumComparatorTest app = new AlphanumComparatorTest ();
+		AlphanumComparatorTest2 app = new AlphanumComparatorTest2 ();
 
 		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
@@ -56,7 +51,7 @@ public class AlphanumComparatorTest
 		System.out.println ("");
 
 		//sort once alphabetically
-		Collections.sort (coll1, (s1, s2) -> s1.compareToIgnoreCase (s2));
+		coll1.sort(String::compareToIgnoreCase);
 
 		System.out.println ("Simple sort (case insensitive):");
 		for (String str : coll1) {
@@ -66,7 +61,7 @@ public class AlphanumComparatorTest
 		System.out.println ("");
 
 		//sort again with number-aware sorter
-		Collections.sort (coll2, new AlphanumComparator ());
+		coll2.sort(new AlphanumComparator());
 
 		System.out.println ("Better Sort (number-aware, case insensitive):");
 		for (TestRecord record : coll2) {

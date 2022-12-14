@@ -55,6 +55,18 @@ import java.util.Comparator;
 //public class AlphanumComparator implements Comparator<String>
 public class AlphanumComparator implements Comparator<Object>
 {
+	public enum SortOrder {Normal, Reverse}
+
+	private final int _sortFactor;
+
+	public AlphanumComparator(SortOrder sortOrder) {
+		_sortFactor = sortOrder == SortOrder.Reverse ? -1 : 1;
+	}
+
+	public AlphanumComparator() {
+		_sortFactor = 1;
+	}
+
 	private final boolean isDigit(char ch)
 	{
 		return ch >= 48 && ch <= 57;
@@ -72,8 +84,9 @@ public class AlphanumComparator implements Comparator<Object>
 			while (marker < slength)
 			{
 				c = s.charAt(marker);
-				if (!isDigit(c))
+				if (!isDigit(c)) {
 					break;
+				}
 				chunk.append(c);
 				marker++;
 			}
@@ -82,8 +95,9 @@ public class AlphanumComparator implements Comparator<Object>
 			while (marker < slength)
 			{
 				c = s.charAt(marker);
-				if (isDigit(c))
+				if (isDigit(c)) {
 					break;
+				}
 				chunk.append(c);
 				marker++;
 			}
@@ -91,6 +105,7 @@ public class AlphanumComparator implements Comparator<Object>
 		return chunk.toString();
 	}
 
+	@Override
 //	public int compare(String s1, String s2)
 	public int compare(Object o1, Object o2)
 	{
@@ -125,7 +140,7 @@ public class AlphanumComparator implements Comparator<Object>
 						result = thisChunk.charAt(i) - thatChunk.charAt(i);
 						if (result != 0)
 						{
-							return result;
+							return _sortFactor * result;
 						}
 					}
 				}
@@ -135,10 +150,11 @@ public class AlphanumComparator implements Comparator<Object>
 				result = thisChunk.compareToIgnoreCase(thatChunk);
 			}
 
-			if (result != 0)
-				return result;
+			if (result != 0) {
+				return _sortFactor * result;
+			}
 		}
 
-		return s1Length - s2Length;
+		return _sortFactor * (s1Length - s2Length);
 	}
 }

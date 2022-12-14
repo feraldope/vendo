@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 
 public class AlbumFileRename
 {
-	private enum Mode {RenameAlbum, RenameImage}
+	private enum Mode {RenameAlbum, RenameImage, Push}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main (String[] args)
@@ -70,6 +70,9 @@ public class AlbumFileRename
 				} else if (arg.equalsIgnoreCase ("mi")) {
 					_mode = Mode.RenameImage;
 
+				} else if (arg.equalsIgnoreCase ("push")) {
+					_mode = Mode.Push;
+
 				} else if (arg.equalsIgnoreCase ("rootPath")) {
 					try {
 						_rootPath = args[++ii];
@@ -113,7 +116,7 @@ public class AlbumFileRename
 				} else if (arg.equalsIgnoreCase ("renum")) {
 					try {
 						_renumDigits = Integer.parseInt (args[++ii]);
-						if (_renumDigits < 0) {
+						if (_renumDigits < 2) {
 							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -145,11 +148,19 @@ public class AlbumFileRename
 			displayUsage ("<inPattern> not specified", true);
 		}
 
-		if (_outPattern == null) {
-			displayUsage("<outPattern> not specified", true);
+		if (_mode == Mode.Push && !_inPattern.endsWith("*")) {
+			_inPattern += "*"; //avoid issues with Command Prompt expanding wildcards
 		}
 
-		if (_inPattern.equalsIgnoreCase(_outPattern)) {
+		if (_outPattern == null) {
+			if (_mode == Mode.Push) {
+				_outPattern = _inPattern;
+			} else {
+				displayUsage("<outPattern> not specified", true);
+			}
+		}
+
+		if (_inPattern.equalsIgnoreCase(_outPattern) && _mode != Mode.Push) {
 			displayUsage("<inPattern> and <outPattern> are the same", true);
 		}
 
@@ -178,6 +189,10 @@ public class AlbumFileRename
 		}
 		_rootPath = appendSlash (_rootPath);
 
+		if (_renumDigits == null) {
+			_renumDigits = 2;
+		}
+
 		if (_Debug) {
 			_log.debug("_rootPath = " + _rootPath);
 			_log.debug("_inPattern = " + _inPattern);
@@ -186,6 +201,7 @@ public class AlbumFileRename
 			_log.debug("_startIndex = " + _startIndex);
 			_log.debug("_endIndex = " + _endIndex);
 			_log.debug("_exactDigits = " + _exactDigits);
+			_log.debug("_renumDigits = " + _renumDigits);
 			_log.debug("_mode = " + _mode);
 //			System.out.println();
 		}
@@ -212,47 +228,52 @@ public class AlbumFileRename
 	///////////////////////////////////////////////////////////////////////////
 	private boolean run ()
 	{
-		final int maxToPrint = 10;
+		final int maxToPrint = 6;
 
 		_sourceSubFolder = appendSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_inPattern));
 		_destSubFolder = appendSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_outPattern));
 
-		_log.debug("_sourceSubFolder = " + _sourceSubFolder);
-		_log.debug("_destSubFolder = " + _destSubFolder);
+		if (_Debug) {
+			_log.debug("_sourceSubFolder = " + _sourceSubFolder);
+			_log.debug("_destSubFolder = " + _destSubFolder);
+		}
 
 		List<String> sourceFileListInRoot = new VFileList(_rootPath, _inPattern, false).getFileList (ListMode.CompletePath);
 		List<String> sourceFileListInSubFolder = new VFileList(_sourceSubFolder, _inPattern, false).getFileList (ListMode.CompletePath);
 
 		List<String> destFileListInRoot = new VFileList(_rootPath, _outPattern, false).getFileList (ListMode.CompletePath);
 		List<String> destFileListInSubFolder = new VFileList(_destSubFolder, _outPattern, false).getFileList (ListMode.CompletePath);
+//TODO - already done? -- get list of files that match the album name
+//TODO - set renum digits minimum based on number of source files
 
-		_log.debug(printListSortedWithLimit("sourceFileListInRoot", sourceFileListInRoot, maxToPrint, NL));
-		_log.debug(printListSortedWithLimit("sourceFileListInSubFolder", sourceFileListInSubFolder, maxToPrint, NL));
+		if (_Debug) {
+			_log.debug(printListSortedWithLimit("sourceFileListInRoot", sourceFileListInRoot, maxToPrint, NL));
+			_log.debug(printListSortedWithLimit("sourceFileListInSubFolder", sourceFileListInSubFolder, maxToPrint, NL));
 
-		_log.debug(printListSortedWithLimit("destFileListInRoot", destFileListInRoot, maxToPrint, NL));
-		_log.debug(printListSortedWithLimit("destFileListInSubFolder", destFileListInSubFolder, maxToPrint, NL));
+			_log.debug(printListSortedWithLimit("destFileListInRoot", destFileListInRoot, maxToPrint, NL));
+			_log.debug(printListSortedWithLimit("destFileListInSubFolder", destFileListInSubFolder, maxToPrint, NL));
+		}
 
 		boolean sourceFilesInRoot = sourceFileListInRoot.size() > 0;
 		boolean sourceFilesInSubFolder = sourceFileListInSubFolder.size() > 0;
 
 		if (!sourceFilesInRoot && !sourceFilesInSubFolder) {
-			System.out.println("Error: no source files found in any of:" + NL
+			System.out.println(NL + "Error: no source files found in any of:" + NL
 					+ _rootPath + NL + _sourceSubFolder);
 			return false;
 
 		} else if (sourceFilesInRoot && sourceFilesInSubFolder) {
-//TODO improve this message
-			System.out.println("Error: source files exist in both root and subFolders:" + NL
-					+ sourceFileListInRoot.stream().sorted().collect(Collectors.joining(NL)) + NL
-					+ sourceFileListInSubFolder.stream().sorted().collect(Collectors.joining(NL)));
+//TODO - fix this error - problem is we found files in both folders that match the album
+			System.out.println(NL + "Error: source files exist in both root and subFolders: THIS ERROR NEEDS TO BE FIXED" + NL
+					+ printListSortedWithLimit("sourceFileListInRoot", sourceFileListInRoot, maxToPrint, NL) + NL
+					+ printListSortedWithLimit("sourceFileListInSubFolder", sourceFileListInSubFolder, maxToPrint, NL));
 			return false;
 		}
 
-		if (destFileListInRoot.size() > 0 || destFileListInSubFolder.size() > 0) {
-//TODO improve this message
-			System.out.println("Error: destination files already exist:" + NL
-					+ destFileListInRoot.stream().sorted().collect(Collectors.joining(NL)) + NL
-					+ destFileListInSubFolder.stream().sorted().collect(Collectors.joining(NL)));
+		if ((_mode != Mode.Push && destFileListInRoot.size() > 0) || destFileListInSubFolder.size() > 0) {
+			System.out.println(NL + "Error: destination files already exist:" + NL
+					+ printListSortedWithLimit("destFileListInRoot", destFileListInRoot, maxToPrint, NL) + NL
+					+ printListSortedWithLimit("destFileListInSubFolder", destFileListInSubFolder, maxToPrint, NL));
 			if (!_force) {
 				return false;
 			}
@@ -269,7 +290,9 @@ public class AlbumFileRename
 			_log.debug(printListSortedWithLimit("The following source files were removed by filter", files, maxToPrint, NL));
 		}
 
-		_log.debug(printListSortedWithLimit("filteredSourceFileList", filteredSourceFileList, maxToPrint, NL));
+		if (_Debug) {
+			_log.debug(printListSortedWithLimit("filteredSourceFileList", filteredSourceFileList, maxToPrint, NL));
+		}
 
 		if (filteredSourceFileList.size() == 0) {
 //TODO improve this message
@@ -278,13 +301,23 @@ public class AlbumFileRename
 		}
 
 		if (filteredSourceFileList.size() == sourceFileListToUse.size()) {
-			_log.info("No files filtered from original source file list");
+			if (_Debug) {
+				_log.info("No files filtered from original source file list");
+			}
+		}
+
+		int calculatedRenumDigits = filteredSourceFileList.size() >= 100 ? 3 : 2;
+		_renumDigits = Math.max(_renumDigits, calculatedRenumDigits);
+		if (_Debug) {
+			_log.info("_renumDigits = " + _renumDigits);
 		}
 
 		List<VPair<String, String>> fileNamePairs = generateFileNamePairs (filteredSourceFileList);
 
-		_log.info("fileNamePairs: [showing first " + maxToPrint + " of " + fileNamePairs.size() + "]");
-		fileNamePairs.stream().sorted().limit(maxToPrint).forEach(System.out::println);
+		if (_Debug) {
+			_log.info("fileNamePairs: [showing first " + maxToPrint + " of " + fileNamePairs.size() + "]");
+			fileNamePairs.stream().sorted().limit(maxToPrint).forEach(System.out::println);
+		}
 
 		try {
 			moveFilesAndUpdateUndoCommands (fileNamePairs);
@@ -294,7 +327,9 @@ public class AlbumFileRename
 		}
 
 		if (!_testMode) {
-			_log.debug(printListSortedWithLimit("undoCommands", _undoCommands, maxToPrint, NL));
+			if (_Debug) {
+				_log.debug(printListSortedWithLimit("undoCommands", _undoCommands, maxToPrint, NL));
+			}
 
 			writeUndoCommandsToFile();
 		}
@@ -376,6 +411,7 @@ public class AlbumFileRename
 		if (_testMode) {
 			System.out.println("TestMode: move " + srcName + " " + destName);
 		} else {
+			System.out.println("move " + srcName + " " + destName);
 			Files.move(src, dest, StandardCopyOption.ATOMIC_MOVE);
 		}
 

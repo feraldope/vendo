@@ -1851,13 +1851,28 @@ public class AlbumImages
 			Map<LocalDate, List<AlbumImage>> map = _imageDisplayList.stream()
 					.collect(Collectors.groupingBy(i -> Instant.ofEpochMilli(i.getModified()).atZone(ZoneId.systemDefault()).toLocalDate()));
 
-			final int maxDatesToPrint = 10;
-			_log.debug("DIST: Top " + maxDatesToPrint + " most recent dates:");
-			map.keySet().stream().sorted(Comparator.reverseOrder()).limit(maxDatesToPrint).forEach(d -> {
+			final int maxItemsToPrint = 10;
+			_log.debug("DIST: Top " + maxItemsToPrint + " most recent dates:");
+			map.keySet().stream().sorted(Comparator.reverseOrder()).limit(maxItemsToPrint).forEach(d -> {
 				_log.debug("DIST: " + d + " -> " + map.get(d).size() + " images");
 			});
 
 			AlbumProfiling.getInstance ().exit (5, "dateDistribution");
+		}
+
+		if (_imageDisplayList.size() < 10 * 1000) {
+			AlbumProfiling.getInstance ().enter (5, "pixelSizeDistribution");
+
+			Map<String, List<AlbumImage>> map = _imageDisplayList.stream()
+					.collect(Collectors.groupingBy(i -> "" + i.getWidth() + "x" + i.getHeight()));
+
+			final int maxItemsToPrint = 10;
+			_log.debug("DIST: Top " + maxItemsToPrint + " sizes in pixels:");
+			map.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint).forEach(d -> {
+				_log.debug("DIST: " + d + " -> " + map.get(d).size() + " images");
+			});
+
+			AlbumProfiling.getInstance ().exit (5, "pixelSizeDistribution");
 		}
 
 		//go through the slice once to see if any of the images are dups

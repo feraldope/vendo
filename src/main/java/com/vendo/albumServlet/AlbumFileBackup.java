@@ -104,6 +104,7 @@ public class AlbumFileBackup
 					} catch (NumberFormatException exception) {
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
+					_commandLineArguments.add("/threads " + _numThreads);
 
 				} else if (arg.equalsIgnoreCase ("pattern") || arg.equalsIgnoreCase ("pat")) {
 					try {
@@ -111,6 +112,7 @@ public class AlbumFileBackup
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
+					_commandLineArguments.add("/pattern " + filenamePatternString);
 
 				} else if (arg.equalsIgnoreCase ("dest") || arg.equalsIgnoreCase ("dst")) {
 					try {
@@ -118,6 +120,7 @@ public class AlbumFileBackup
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
+					_commandLineArguments.add("/dest " + destRootName);
 
 				} else if (arg.equalsIgnoreCase ("sinceDays") || arg.equalsIgnoreCase ("since")) {
 					try {
@@ -130,6 +133,7 @@ public class AlbumFileBackup
 					} catch (NumberFormatException exception) {
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
+					_commandLineArguments.add("/sinceDays " + sinceInDays);
 
 				} else if (arg.equalsIgnoreCase ("source") || arg.equalsIgnoreCase ("src")) {
 					try {
@@ -137,6 +141,7 @@ public class AlbumFileBackup
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
+					_commandLineArguments.add("/source " + sourceRootName);
 
 				} else if (arg.equalsIgnoreCase ("subFolders") || arg.equalsIgnoreCase ("sub")) {
 					try {
@@ -144,6 +149,7 @@ public class AlbumFileBackup
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
+					_commandLineArguments.add("/subFolders " + subFolderPatternString);
 
 				} else if (arg.equalsIgnoreCase ("test") || arg.equalsIgnoreCase ("t")) {
 					_testMode = true;
@@ -422,8 +428,11 @@ public class AlbumFileBackup
 	{
 		int linesWritten = 0;
 
+		String commandLineArguments = _commandLineArguments.stream().sorted(VendoUtils.caseInsensitiveStringComparator).collect(Collectors.joining(" "));
+
 		try (FileOutputStream outputStream = new FileOutputStream (outputFilePath.toFile ());
 			 PrintWriter printWriter = new PrintWriter (outputStream)) {
+			printWriter.write("REM command line args: " + commandLineArguments + NL);
 			for (String sourceFile : sourceFileList) {
 				printWriter.write (sourceFile + NL);
 				++linesWritten;
@@ -594,6 +603,7 @@ public class AlbumFileBackup
 //		_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem (\"" + folder + "\"): coll.size () = " + coll.size ());
 
 		System.out.print (_remainingFoldersToBeRead.decrementAndGet () + ",");
+		System.out.flush();
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 
@@ -814,6 +824,7 @@ public class AlbumFileBackup
 	private Pattern _subFolderPattern;
 
 	private final AtomicInteger _remainingFoldersToBeRead = new AtomicInteger ();
+	private final List<String> _commandLineArguments = new ArrayList<> ();
 
 	private /*static*/ ExecutorService _executor = null;
 
