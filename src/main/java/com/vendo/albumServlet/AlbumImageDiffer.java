@@ -367,7 +367,7 @@ public class AlbumImageDiffer
 				Collection<AlbumImageDiffDetails> imageDiffDetails = new ArrayList<> ();
 
 				Iterator<AlbumImageData> iterB = _idListB.iterator();
-				while (iterB.hasNext ()  && !_shutdownFlag.get ()) {
+				while (iterB.hasNext () && !_shutdownFlag.get ()) {
 					AlbumImageData albumImageDataB = iterB.next ();
 					synchronized (toBeSkipped) {
 						if (toBeSkipped.contains (albumImageDataB.getName ())) {
@@ -391,7 +391,7 @@ public class AlbumImageDiffer
 					AlbumImageDiffDetails existingDiff = existingDiffs.get (AlbumImageDiffDetails.getJoinedNameIds (albumImageDataA.getNameId (), albumImageDataB.getNameId ()));
 					if (existingDiff != null) {
 						//if this image pair already exists in database, skip diffing them, but still update record in database
-						_log.debug ("AlbumImageDiffer.run: skipping duplicate: " + imageA.getName () + ", " + imageB.getName ()  + ", " + existingDiff);
+						_log.debug ("AlbumImageDiffer.run: skipping duplicate: " + imageA.getName () + ", " + imageB.getName () + ", " + existingDiff);
 						imageDiffDetails.add (new AlbumImageDiffDetails (existingDiff.getNameId1 (), existingDiff.getNameId2 (), existingDiff.getAvgDiff (), existingDiff.getStdDev (), 1, getMode (), existingDiff.getLastUpdate ()));
 						duplicates.incrementAndGet ();
 						continue;
@@ -550,9 +550,9 @@ public class AlbumImageDiffer
 
 		//example where clause: "where name_no_ext like 's%' or name_no_ext like 'b%'"
 		String sql = "select name_id, name_no_ext, width, height from albumimages.images where name_id in " + NL +
-			    	 "(select name_id from (select name_id from albumimages.images " + NL +
-			    	 whereClause + NL +
-			    	 "order by rand() limit " + _maxRows + ") t)";
+				 	 "(select name_id from (select name_id from albumimages.images " + NL +
+				 	 whereClause + NL +
+				 	 "order by rand() limit " + _maxRows + ") t)";
 		_log.debug ("AlbumImageDiffer.queryImageIdsNames: sql: " + NL + sql);
 
 		Collection<AlbumImageData> items = new ArrayList<> ();
@@ -866,14 +866,16 @@ public class AlbumImageDiffer
 		long totalRowsDeleted = 0;
 
 		String nameIdColumnFormat = "name_id_%d";
-		String sqlFormat = "delete from image_diffs where %s >= %d and %s < %d and %s not in (select name_id from images)";
+		String sqlFormat = "delete from image_diffs where %s >= %d and %s < %d and %s not in" +
+						   " (select name_id from images where name_id >= %d and name_id < %d)";
 
 		for (int nameId = 0; nameId < nameIdMax; nameId += nameIdStepSize) {
 			for (int nameIdColumnIndex = 1; nameIdColumnIndex <= 2; nameIdColumnIndex++) {
 				AlbumProfiling.getInstance ().enter(5, "deleteFromImageDiffs");
 
 				String nameIdColumn = String.format(nameIdColumnFormat, nameIdColumnIndex);
-				String sql = String.format(sqlFormat, nameIdColumn, nameId, nameIdColumn, (nameId + nameIdStepSize), nameIdColumn);
+				String sql = String.format(sqlFormat, nameIdColumn, nameId, nameIdColumn, (nameId + nameIdStepSize), nameIdColumn,
+																	nameId, (nameId + nameIdStepSize));
 
 				_log.debug("AlbumImageDiffer.deleteFromImageDiffs: sql: " + sql);
 				Instant startInstant = Instant.now();
@@ -952,36 +954,34 @@ public class AlbumImageDiffer
 			connection.setAutoCommit (false);
 
 			int batchCount = 0;
-	        for (AlbumImageDiffDetails item : items) {
-	        	int index = 0;
-	        	statement.setInt (++index, item.getNameId1 ());
-	        	statement.setInt (++index, item.getNameId2 ());
-	        	statement.setInt (++index, Math.min (maxUnsignedByte, item.getAvgDiff ()));
-	        	statement.setInt (++index, Math.min (maxUnsignedByte, item.getStdDev ()));
-	        	statement.setInt (++index, item.getCount ());
-	        	statement.setString (++index, item.getSource ());
-	        	statement.addBatch ();
-	        	batchCount++;
+			for (AlbumImageDiffDetails item : items) {
+				int index = 0;
+				statement.setInt (++index, item.getNameId1 ());
+				statement.setInt (++index, item.getNameId2 ());
+				statement.setInt (++index, Math.min (maxUnsignedByte, item.getAvgDiff ()));
+				statement.setInt (++index, Math.min (maxUnsignedByte, item.getStdDev ()));
+				statement.setInt (++index, item.getCount ());
+				statement.setString (++index, item.getSource ());
+				statement.addBatch ();
+				batchCount++;
 
-	        	if (batchCount % _batchInsertSize == 0 || batchCount == items.size ()) {
-	        		int [] updateCounts = statement.executeBatch ();
-	        		rowsInserted += Arrays.stream (updateCounts).sum ();
+				if (batchCount % _batchInsertSize == 0 || batchCount == items.size ()) {
+					int [] updateCounts = statement.executeBatch ();
+					rowsInserted += Arrays.stream (updateCounts).sum ();
 
-//	        		AlbumProfiling.getInstance ().enter (5, "commit");
-	        		connection.commit ();
-//	        		AlbumProfiling.getInstance ().exit (5, "commit");
-	        	}
-	        }
+					connection.commit ();
+				}
+			}
 
-	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
+			connection.setAutoCommit(true); //TODO - this should be done in finally block, but try-with-resources does not allow it
 
 //		} catch (MySQLIntegrityConstraintViolationException ee) {
 		} catch (SQLIntegrityConstraintViolationException ee) {
 			//ignore as this will catch any duplicate insertions
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs:", ee);
-			_log.error ("AlbumImageDiffer.insertImageIntoImageDiffs: sql:" + NL + sql);
+			_log.error("AlbumImageDiffer.insertImageIntoImageDiffs:", ee);
+			_log.error("AlbumImageDiffer.insertImageIntoImageDiffs: sql:" + NL + sql);
 		}
 
 //		_log.debug ("AlbumImageDiffer.insertImageIntoImageDiffs: rowsInserted: " + rowsInserted);
@@ -1023,7 +1023,7 @@ public class AlbumImageDiffer
 								  " and d.avg_diff <= (3 * " + maxRgbDiff + ") and d.std_dev <= (3 * " + maxStdDev + ")"; //hardcoded values
 
 		String sql = "select i1.name_no_ext as name_no_ext1, i2.name_no_ext as name_no_ext2, d.avg_diff as avg_diff, d.std_dev as std_dev, d.source as source, d.last_update as last_update," + NL +
-				     " case when avg_diff < std_dev then avg_diff else std_dev end as min_diff," + NL +
+					 " case when avg_diff < std_dev then avg_diff else std_dev end as min_diff," + NL +
 					 " case when avg_diff > std_dev then avg_diff else std_dev end as max_diff" + NL +
 					 " from image_diffs d" + NL +
 					 " join images i1 on i1.name_id = d.name_id_1" + NL +
@@ -1098,8 +1098,8 @@ public class AlbumImageDiffer
 			names.addAll (files);
 
 			if (names.size () >= maxRows) {
-	        	break;
-	        }
+				break;
+			}
 		}
 
 		_log.debug ("AlbumImageDiffer.getRandomNamesForBaseNames: names.size(): " + names.size ());
@@ -1143,7 +1143,7 @@ public class AlbumImageDiffer
 			for (Path file : stream) {
 				filenames.add (file.getFileName ().toString ());
 			}
-	    	_directoryCache.put(subFolder, filenames);
+			_directoryCache.put(subFolder, filenames);
 
 		} catch (IOException ee) {
 			_log.error ("AlbumImageDiffer.getDirectoryCache(\"" + subFolder + "\"): error reading file system", ee);
@@ -1153,7 +1153,7 @@ public class AlbumImageDiffer
 
 //		AlbumProfiling.getInstance ().exit (5, subFolder);
 
-	    return filenames;
+		return filenames;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1162,12 +1162,12 @@ public class AlbumImageDiffer
 		Collection<String> list = new ArrayList<> ();
 
 		final Pattern pattern = Pattern.compile ("'([^']*)'");
-        Matcher matcher = pattern.matcher (string);
-        while (matcher.find ()) {
-            list.add(matcher.group (1));
-        }
+		Matcher matcher = pattern.matcher (string);
+		while (matcher.find ()) {
+			list.add(matcher.group (1));
+		}
 
-        return list;
+		return list;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

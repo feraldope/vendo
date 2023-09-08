@@ -652,7 +652,7 @@ public class AlbumFileBackup
 
 				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
 					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + subFolder + ": diffColl.size: " + diffColl.size () +
-								   ", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
+								", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
 				}
 
 				endGate.countDown ();
@@ -687,8 +687,6 @@ public class AlbumFileBackup
 		List<String> foldersSortedByNumBytes = diffBytesMap.keySet ().stream ()
 						.sorted ((f1, f2) -> {
 							return diffBytesMap.get (f2).compareTo(diffBytesMap.get (f1)); //sort in descending order
-//							long diff = diffBytesMap.get (f2) - diffBytesMap.get (f1); //sort in descending order
-//							return diff == 0 ? 0 : diff > 0 ? 1 : -1;
 						})
 						.collect (Collectors.toList ());
 

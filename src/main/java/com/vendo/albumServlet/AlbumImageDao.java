@@ -204,11 +204,13 @@ public class AlbumImageDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void cacheMaintenance() {
-		_albumImagesDataCache.clear();
-		_albumImagesCountCache.clear();
-		_albumAlbumsCountCache.clear();
-		_albumImagesHasExifDataCache.clear();
+	public void cacheMaintenanceImageCache(boolean clearImageCache) {
+		if (clearImageCache) {
+			_albumImagesDataCache.clear();
+			_albumImagesCountCache.clear();
+			_albumAlbumsCountCache.clear();
+			_albumImagesHasExifDataCache.clear();
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -903,7 +905,7 @@ public class AlbumImageDao {
 
 		_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): " + baseNames1.stream().sorted().collect(Collectors.toList()));
 
-		Set<String> baseNames2 = new HashSet<>();           //baseNames with collapseGroups = true
+		Set<String> baseNames2 = new HashSet<>(); //baseNames with collapseGroups = true
 
 		int rowsAffected = 0;
 
@@ -975,7 +977,6 @@ public class AlbumImageDao {
 				_albumAlbumsCountCache.put(subFolder, albumsCountMap);
 
 //new
-
 				Map<String, Boolean> albumHasExifDataMap = new HashMap<>();
 				for (AlbumImage image : images) {
 					if (image.hasExifDate()) {

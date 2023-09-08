@@ -44,63 +44,58 @@ import java.util.stream.Stream;
 import static j2html.TagCreator.*;
 
 
-public final class JHistory
-{
+public final class JHistory {
 	///////////////////////////////////////////////////////////////////////////
-	static
-	{
-		Thread.setDefaultUncaughtExceptionHandler (new UncaughtExceptionHandler () {
+	static {
+		Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 			@Override
-			public void uncaughtException (Thread thread, Throwable ex)
-			{
-				_log.error ("JHistory UncaughtExceptionHandler: ", ex);
-				Thread.currentThread ().interrupt ();
+			public void uncaughtException(Thread thread, Throwable ex) {
+				_log.error("JHistory UncaughtExceptionHandler: ", ex);
+				Thread.currentThread().interrupt();
 			}
 		});
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String[] args)
-	{
-		JHistory app = new JHistory ();
+	public static void main(String[] args) {
+		JHistory app = new JHistory();
 
-		if (!app.processArgs (args)) {
-			System.exit (1); //processArgs displays error
+		if (!app.processArgs(args)) {
+			System.exit(1); //processArgs displays error
 		}
 
-		app.run ();
+		app.run();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String[] args)
-	{
+	private Boolean processArgs(String[] args) {
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
 			//check for switches
-			if (arg.startsWith ("-") || arg.startsWith ("/")) {
-				arg = arg.substring (1, arg.length ());
+			if (arg.startsWith("-") || arg.startsWith("/")) {
+				arg = arg.substring(1, arg.length());
 
-				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
+				if (arg.equalsIgnoreCase("debug") || arg.equalsIgnoreCase("dbg")) {
 					_Debug = true;
 
-				} else if (arg.equalsIgnoreCase ("destDir") || arg.equalsIgnoreCase ("dest")) {
+				} else if (arg.equalsIgnoreCase("destDir") || arg.equalsIgnoreCase("dest")) {
 					try {
 						_destDir = args[++ii];
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					}
 
-				} else if (arg.equalsIgnoreCase ("timeout") || arg.equalsIgnoreCase ("to")) {
+				} else if (arg.equalsIgnoreCase("timeout") || arg.equalsIgnoreCase("to")) {
 					try {
-						_timeoutSeconds = Integer.parseInt (args[++ii]);
+						_timeoutSeconds = Integer.parseInt(args[++ii]);
 						if (_timeoutSeconds < 0) {
-							throw (new NumberFormatException ());
+							throw (new NumberFormatException());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
-						displayUsage ("Missing value for /" + arg, true);
+						displayUsage("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
-						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+						displayUsage("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 
 
@@ -112,7 +107,7 @@ public final class JHistory
 //					}
 
 				} else {
-					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
+					displayUsage("Unrecognized argument '" + args[ii] + "'", true);
 				}
 
 			} else {
@@ -126,109 +121,112 @@ public final class JHistory
 
 				} else {
 */
-					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
+				displayUsage("Unrecognized argument '" + args[ii] + "'", true);
 //				}
 			}
 		}
 
 		//check for required args and handle defaults
 		if (_destDir == null) {
-			_destDir = VendoUtils.getCurrentDirectory ();
+			_destDir = VendoUtils.getCurrentDirectory();
 		}
-		_destDir = VendoUtils.appendSlash (_destDir);
+		_destDir = VendoUtils.appendSlash(_destDir);
 
 		//NOTE: similar code exists in JHistory.java and GetUrl.java
-		_urlPathFragmentsValues = Arrays.stream(System.getenv (_urlPathFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
+		_urlPathFragmentsValues = Arrays.stream(System.getenv(_urlPathFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty()) {
+			displayUsage("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
 		}
-		_urlHostsToBeSkippedValues = Arrays.stream(System.getenv (_urlHostsToBeSkippedName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlHostsToBeSkippedValues == null ||*/ _urlHostsToBeSkippedValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlHostsToBeSkippedName + "'", true);
+		_urlHostsToBeSkippedValues = Arrays.stream(System.getenv(_urlHostsToBeSkippedName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlHostsToBeSkippedValues == null ||*/ _urlHostsToBeSkippedValues.isEmpty()) {
+			displayUsage("Must specify environment variable '" + _urlHostsToBeSkippedName + "'", true);
 		}
 		//DO NOT SORT - DO NOT CHANGE ORDER FROM FILE
-		_urlKnownHostFragmentsValues = Arrays.stream(System.getenv (_urlKnownHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlKnownHostFragmentsValues == null ||*/ _urlKnownHostFragmentsValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlKnownHostFragmentsName + "'", true);
+		_urlKnownHostFragmentsValues = Arrays.stream(System.getenv(_urlKnownHostFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+		if (/*_urlKnownHostFragmentsValues == null ||*/ _urlKnownHostFragmentsValues.isEmpty()) {
+			displayUsage("Must specify environment variable '" + _urlKnownHostFragmentsName + "'", true);
 		}
-		_urlDeadHostFragmentsValues = Arrays.stream(System.getenv (_urlDeadHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (_urlDeadHostFragmentsValues == null || _urlDeadHostFragmentsValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlDeadHostFragmentsName + "'", true);
+		_urlDeadHostFragmentsValues = Arrays.stream(System.getenv(_urlDeadHostFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+		if (_urlDeadHostFragmentsValues == null || _urlDeadHostFragmentsValues.isEmpty()) {
+			displayUsage("Must specify environment variable '" + _urlDeadHostFragmentsName + "'", true);
 		}
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
+	private void displayUsage(String message, Boolean exit) {
 		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/dest <dest dir>]";
-		System.err.println ("Error: " + msg + NL);
+		System.err.println("Error: " + msg + NL);
 
 		if (exit) {
-			System.exit (1);
+			System.exit(1);
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean run ()
-	{
+	private boolean run() {
 		if (_Debug) {
-			_log.debug ("JHistory.run");
+			_log.debug("JHistory.run");
 		}
 
-		readGuHistoryFile(true);
+		if (!readGuHistoryFile(true)) {
+			return false;
+		}
 
-		readJhHistoryFile();
+		if (!readJhHistoryFile()) {
+			return false;
+		}
 
 		Set<String> missingValues = verifyUrlKnownHostFragmentsValues();
 		if (!missingValues.isEmpty()) {
 			_log.error("JHistory.run: verifyUrlKnownHostFragmentsValues() found " + missingValues.size() + " missing values: " + missingValues.toString());
 		}
 
-		_interestingUrls = loadInterestingUrlsFromJhHistory (true);
+		_interestingUrls = loadInterestingUrlsFromJhHistory(true);
 
-		/*Thread watchGuHistoryFileThread =*/ watchGuHistoryFile ();
+		/*Thread watchGuHistoryFileThread =*/
+		watchGuHistoryFile();
 
-		final Queue<StringBuffer> listenerQueue = new LinkedList<> ();
-		ClipboardListener clipboardListener = new ClipboardListener (listenerQueue);
-		clipboardListener.start ();
+		final Queue<StringBuffer> listenerQueue = new LinkedList<>();
+		ClipboardListener clipboardListener = new ClipboardListener(listenerQueue);
+		clipboardListener.start();
 
 		String string;
 		while (true) {
 			try {
 				synchronized (listenerQueue) {
 					//waiting condition - wait until Queue is not empty
-					while (listenerQueue.size () == 0) {
+					while (listenerQueue.size() == 0) {
 						try {
 							if (_trace) {
-								System.out.println ("JHistory.run: queue is empty, waiting");
+								System.out.println("JHistory.run: queue is empty, waiting");
 							}
-							listenerQueue.wait ();
+							listenerQueue.wait();
 						} catch (InterruptedException ex) {
-							ex.printStackTrace ();
+							ex.printStackTrace();
 						}
 					}
-					StringBuffer stringBuffer = listenerQueue.poll ();
-					string = stringBuffer.toString ().trim ();
+					StringBuffer stringBuffer = listenerQueue.poll();
+					string = stringBuffer.toString().trim();
 
 					if (_trace) {
 						System.out.println("JHistory.run: consuming: " + string);
 					}
-					listenerQueue.notify ();
+					listenerQueue.notify();
 				}
 
-				UrlData urlData = parseLine (string);
+				UrlData urlData = parseLine(string);
 				if (urlData != null) {
-					if (urlData.isImage ()) {
+					if (urlData.isImage()) {
 						handleImageUrl(urlData);
-					} else if (urlData.isUrl ()) {
-						if (urlData.isInterestingUrl ()) {
+					} else if (urlData.isUrl()) {
+						if (urlData.isInterestingUrl()) {
 							handleHtmlUrl(urlData);
 						} else {
 							System.out.println(NL + "JHistory.run: ignoring URL; try going to main page");
@@ -237,45 +235,45 @@ public final class JHistory
 				}
 
 			} catch (Exception ee) {
-				_log.error ("JHistory.run: exception", ee);
+				_log.error("JHistory.run: exception", ee);
 			}
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns true if url found, false otherwise
-	private boolean handleImageUrl (UrlData urlData)
-	{
+	private boolean handleImageUrl(UrlData urlData) {
 		boolean status = false;
 
-		String urlNormalizedString = urlData.getNormalizedLine ();
+		String urlNormalizedString = urlData.getNormalizedLine();
 		writeAppendJhHistoryFile(urlNormalizedString);
 
-		System.out.println ("");
+		System.out.println("");
 
-		List<MatchData> matchList = findInGuHistory (urlData);//.getPathBase (), urlNormalizedString);
-		if (matchList.size () > 0) {
-			System.out.println ("Duplicate entry(s) found in history file: " + matchList.size ());
+		List<MatchData> matchList = findInGuHistory(urlData);//.getPathBase (), urlNormalizedString);
+		if (matchList.size() > 0) {
+			System.out.println("Duplicate entry(s) found in history file: " + matchList.size());
 //			System.out.println ("---- " + urlNormalizedString);
-			System.out.print ("---- ");// + urlNormalizedString);
-			short color = isKnownDeadHost (_urlDeadHostFragmentsValues, urlNormalizedString) ? _warningColor : _defaultColor;
-			VendoUtils.printWithColor (color, urlNormalizedString);
+			System.out.print("---- ");// + urlNormalizedString);
+			short color = isKnownDeadHost(_urlDeadHostFragmentsValues, urlNormalizedString) ? _warningColor : _defaultColor;
+			VendoUtils.printWithColor(color, urlNormalizedString);
 
 			int maxLines = (_Debug ? 20 : 6);
-			int lineCount = Math.min (matchList.size (), maxLines);
+			int lineCount = Math.min(matchList.size(), maxLines);
 			for (int ii = 0; ii < lineCount; ii++) {
-				MatchData match = matchList.get (ii);
-				/*short*/ color = (match.getStrength () < 1000 ? _alertColor : _warningColor);
-				System.out.print ("  ");
-				VendoUtils.printWithColor (color, match.getLine (), false);
-				System.out.println (" (" + match.getReverseIndex () + ", " + match.getStrength () + ")");
+				MatchData match = matchList.get(ii);
+				/*short*/
+				color = (match.getStrength() < 1000 ? _alertColor : _warningColor);
+				System.out.print("  ");
+				VendoUtils.printWithColor(color, match.getLine(), false);
+				System.out.println(" (" + match.getReverseIndex() + ", " + match.getStrength() + ")");
 			}
 			status = true;
 
 		} else {
-			System.out.print ("Not found: ");
-			short color = isKnownDeadHost (_urlDeadHostFragmentsValues, urlNormalizedString) ? _warningColor : _highlightColor;
-			VendoUtils.printWithColor (color, urlNormalizedString);
+			System.out.print("Not found: ");
+			short color = isKnownDeadHost(_urlDeadHostFragmentsValues, urlNormalizedString) ? _warningColor : _highlightColor;
+			VendoUtils.printWithColor(color, urlNormalizedString);
 		}
 
 		return status;
@@ -283,8 +281,7 @@ public final class JHistory
 
 	///////////////////////////////////////////////////////////////////////////
 	//generates HTML; returns true if url found, false otherwise
-	private boolean handleHtmlUrl (UrlData urlData1)
-	{
+	private boolean handleHtmlUrl(UrlData urlData1) {
 		boolean status = false;
 
 		String urlNormalizedString = urlData1.getNormalizedLine();
@@ -295,8 +292,8 @@ public final class JHistory
 		VendoUtils.printWithColor(_highlightColor, "Processing URL: " + urlNormalizedString);
 
 		findInJhHistory(urlNormalizedString).stream()
-											.sorted(String.CASE_INSENSITIVE_ORDER)
-											.forEach(s -> VendoUtils.printWithColor(_warningColor, "Previous match: " + s));
+				.sorted(String.CASE_INSENSITIVE_ORDER)
+				.forEach(s -> VendoUtils.printWithColor(_warningColor, "Previous match: " + s));
 
 		List<UrlLinkData> urlLinkDataAll = getUrlLinkData(urlData1, true);
 
@@ -319,8 +316,8 @@ public final class JHistory
 		}
 
 		urlLinkDataNew = urlLinkDataNew.stream()
-										.sorted((u1, u2) -> u1.getBaseUrl().getFile().compareToIgnoreCase(u2.getBaseUrl().getFile()))
-										.collect(Collectors.toList());
+				.sorted((u1, u2) -> u1.getBaseUrl().getFile().compareToIgnoreCase(u2.getBaseUrl().getFile()))
+				.collect(Collectors.toList());
 
 		final String htmlEscapedModifier = VendoUtils.escapeHtmlChars("[bhlmr+]");
 
@@ -328,7 +325,7 @@ public final class JHistory
 		final String nameStr = urlLinkDataAll.iterator().next().getMainTitle().replaceAll(regex, "").replaceAll("\\s", ""); //TODO hack - string processing, and just uses first item in collection
 
 		String albumServetLink = "http://localhost/AlbumServlet/AlbumServlet?mode=doSampler&filter1=" + nameStr + "&filter2=" + nameStr + htmlEscapedModifier +
-									"&windowWidth=2200&windowHeight=2050&panels=4000&columns=8&collapseGroups=on&limitedCompare=true&looseCompare=true&ignoreBytes=true&debug=on#topAnchor";
+				"&windowWidth=2200&windowHeight=2050&panels=4000&columns=8&collapseGroups=on&limitedCompare=true&looseCompare=true&ignoreBytes=true&debug=on#topAnchor";
 		String titleStr = _htmlFilename + " - " + nameStr + " (" + urlLinkDataNew.size() + " new of " + urlLinkDataAll.size() + " total)";
 
 		String html = DOCTYPE + NL;
@@ -337,63 +334,63 @@ public final class JHistory
 			final int totalLinkCount = urlLinkDataNew.size();
 			html += html(
 					head(
-						title(titleStr)
+							title(titleStr)
 					),
 					body(
-						div(attrs("#div0"),
-							h1(titleStr)
-						),
-						div(attrs("#div1"),
-							text("Existing albums: "),
-							a().withText(albumServetLink)
-								.withHref(albumServetLink).withTarget("_blank")
-						),
-						div(attrs("#div2"),
-							urlLinkDataNew.stream().map(u1 ->
-								div(attrs("#div3"),
-									div(attrs("#div4"),
-										h2("(" + linkNumber.getAndIncrement() + "/" + totalLinkCount + ") " + nameStr + " - " + u1.getChildTitle()),
-										a().withText(u1.getAlbumUrlStr())
-											.withHref(u1.getAlbumUrlStr())
-											.withTarget("_blank"),
-										h4("call gu.bat " + u1.getImageUrlStr(0) + " " + nameStr + " && call push.bat")
-									),
-									div(attrs("#div5"),
-										u1.getImageUrlList().stream().map(u2 ->
-											a(img().withSrc(u2)
-													.attr("width=" + getImageDimensionFromName(u2, Dimension.Width, true))
-													.attr("height=" + getImageDimensionFromName(u2, Dimension.Height, true))
+							div(attrs("#div0"),
+									h1(titleStr)
+							),
+							div(attrs("#div1"),
+									text("Existing albums: "),
+									a().withText(albumServetLink)
+											.withHref(albumServetLink).withTarget("_blank")
+							),
+							div(attrs("#div2"),
+									urlLinkDataNew.stream().map(u1 ->
+											div(attrs("#div3"),
+													div(attrs("#div4"),
+															h2("(" + linkNumber.getAndIncrement() + "/" + totalLinkCount + ") " + nameStr + " - " + u1.getChildTitle()),
+															a().withText(u1.getAlbumUrlStr())
+																	.withHref(u1.getAlbumUrlStr())
+																	.withTarget("_blank"),
+															h4("call gu.bat " + u1.getImageUrlStr(0) + " " + nameStr + " && call push.bat")
+													),
+													div(attrs("#div5"),
+															u1.getImageUrlList().stream().map(u2 ->
+																	a(img().withSrc(u2)
+																			.attr("width=" + getImageDimensionFromName(u2, Dimension.Width, true))
+																			.attr("height=" + getImageDimensionFromName(u2, Dimension.Height, true))
+																	)
+																			.withHref(u2.replaceAll("p/\\d+x\\d+_", "m")) //convert thumbnail to image
+																			.withTarget("_blank")
+															).toArray(ContainerTag[]::new)
+													)
 											)
-												.withHref(u2.replaceAll("p/\\d+x\\d+_", "m")) //convert thumbnail to image
-												.withTarget("_blank")
-										).toArray(ContainerTag[]::new)
-									)
-								)
-							).toArray(ContainerTag[]::new)
-						)
-				)
+									).toArray(ContainerTag[]::new)
+							)
+					)
 			).renderFormatted();
 
 		} else { //no new images found
 			html += html(
 					head(
-						title(titleStr)
+							title(titleStr)
 					),
 					body(
-						div(attrs("#div0"),
-							h1(titleStr)
-						),
-						div(attrs("#div1"),
-							text("No new links found for: "),
-							a().withText(urlNormalizedString).withHref(urlNormalizedString).withTarget("_blank")
-						),
-						div(attrs("#div2"),
-							br()
-						),
-						div(attrs("#div3"),
-							text("Existing albums: "),
-							a().withText(albumServetLink).withHref(albumServetLink).withTarget("_blank")
-						)
+							div(attrs("#div0"),
+									h1(titleStr)
+							),
+							div(attrs("#div1"),
+									text("No new links found for: "),
+									a().withText(urlNormalizedString).withHref(urlNormalizedString).withTarget("_blank")
+							),
+							div(attrs("#div2"),
+									br()
+							),
+							div(attrs("#div3"),
+									text("Existing albums: "),
+									a().withText(albumServetLink).withHref(albumServetLink).withTarget("_blank")
+							)
 					)
 			).renderFormatted();
 		}
@@ -407,33 +404,33 @@ public final class JHistory
 			if (!urlLinkDataNew.isEmpty()) {
 				StringBuilder sb = new StringBuilder();
 				sb.append("echo off").append(NL)
-				  .append("REM autogenerated by " + _AppName).append(NL)
+						.append("REM autogenerated by " + _AppName).append(NL)
 //				  .append("title " + nameStr).append(NL)
-				  .append("setlocal").append(NL)
-				  .append("SET DO_INTERMEDIATE_PUSH=YES").append(NL)
-				  .append("IF EXIST ").append(lockFileBase.toString()).append("* SET DO_INTERMEDIATE_PUSH=NO").append(NL)
-				  .append("SET LOCKFILE=").append(lockFileBase.toString()).append(".%RANDOM%").append(NL)
-				  .append("SET do").append(NL)
-				  .append("SET lock").append(NL)
-				  .append("echo running at %DATE% %TIME% ... >> %LOCKFILE%").append(NL)
-				  .append("set NAME=%1").append(NL)
-				  .append("if %NAME%@==@ set NAME=").append(nameStr).append(NL);
+						.append("setlocal").append(NL)
+						.append("SET DO_INTERMEDIATE_PUSH=YES").append(NL)
+						.append("IF EXIST ").append(lockFileBase.toString()).append("* SET DO_INTERMEDIATE_PUSH=NO").append(NL)
+						.append("SET LOCKFILE=").append(lockFileBase.toString()).append(".%RANDOM%").append(NL)
+						.append("SET do").append(NL)
+						.append("SET lock").append(NL)
+						.append("echo running at %DATE% %TIME% ... >> %LOCKFILE%").append(NL)
+						.append("set NAME=%1").append(NL)
+						.append("if %NAME%@==@ set NAME=").append(nameStr).append(NL);
 				int count = 0;
 				for (UrlLinkData urlLinkData : urlLinkDataNew) {
 					sb.append(NL)
-					  .append("echo ").append(++count).append(" of ").append(urlLinkDataNew.size()).append(NL)
-					  .append("call gu.bat ").append(urlLinkData.getImageUrlStr(0)).append(" %NAME%").append(NL)
-					  .append("REM echo on").append(NL);
+							.append("echo ").append(++count).append(" of ").append(urlLinkDataNew.size()).append(NL)
+							.append("call gu.bat ").append(urlLinkData.getImageUrlStr(0)).append(" %NAME%").append(NL)
+							.append("REM echo on").append(NL);
 //					if (count != urlLinkDataNew.size()) {
-						sb.append("IF %DO_INTERMEDIATE_PUSH%==YES echo calling push.bat").append(NL)
-						  .append("IF %DO_INTERMEDIATE_PUSH%==YES call push.bat").append(NL);
+					sb.append("IF %DO_INTERMEDIATE_PUSH%==YES echo calling push.bat").append(NL)
+							.append("IF %DO_INTERMEDIATE_PUSH%==YES call push.bat").append(NL);
 //					}
 				}
 				sb.append(NL)
-				  .append("IF %DO_INTERMEDIATE_PUSH%==NO echo calling push.bat").append(NL)
-				  .append("IF %DO_INTERMEDIATE_PUSH%==NO call push.bat").append(NL)
-				  .append("REM echo on").append(NL)
-				  .append("del %LOCKFILE%").append(NL);
+						.append("IF %DO_INTERMEDIATE_PUSH%==NO echo calling push.bat").append(NL)
+						.append("IF %DO_INTERMEDIATE_PUSH%==NO call push.bat").append(NL)
+						.append("REM echo on").append(NL)
+						.append("del %LOCKFILE%").append(NL);
 				batFileCommands = sb.toString();
 			}
 
@@ -447,34 +444,33 @@ public final class JHistory
 		}
 
 		outputFilePath = FileSystems.getDefault().getPath(_destDir, _htmlFilename);
-		if (writeOutputFile (html, outputFilePath)) {
-			System.out.println ("");
-			_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size () + " links to HTML output file: " + outputFilePath.toString());
+		if (writeOutputFile(html, outputFilePath)) {
+			System.out.println("");
+			_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size() + " links to HTML output file: " + outputFilePath.toString());
 			status = true;
 		}
 
-		String allNewLinks = urlLinkDataNew.stream ().map (u -> u.getImageUrlStr(0))/*.sorted ()*/.collect (Collectors.joining (NL)) + NL;
+		String allNewLinks = urlLinkDataNew.stream().map(u -> u.getImageUrlStr(0))/*.sorted ()*/.collect(Collectors.joining(NL)) + NL;
 		outputFilePath = FileSystems.getDefault().getPath(_destDir, _allNewLinksFilename);
-		if (writeOutputFile (allNewLinks, outputFilePath)) {
-			System.out.println ("");
-			_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size () + " links to link output file: " + outputFilePath.toString());
+		if (writeOutputFile(allNewLinks, outputFilePath)) {
+			System.out.println("");
+			_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size() + " links to link output file: " + outputFilePath.toString());
 			status = true;
 		}
 
-		List<UrlLinkData> urlLinkDataNewDead = urlLinkDataNew.stream().filter(u -> isKnownDeadHost (_urlDeadHostFragmentsValues, u.getImageUrlList().get(0))).collect(Collectors.toList());
-		List<UrlLinkData> urlLinkDataNewNotDead = urlLinkDataNew.stream().filter(u -> !isKnownDeadHost (_urlDeadHostFragmentsValues, u.getImageUrlList().get(0))).collect(Collectors.toList());
+		List<UrlLinkData> urlLinkDataNewDead = urlLinkDataNew.stream().filter(u -> isKnownDeadHost(_urlDeadHostFragmentsValues, u.getImageUrlList().get(0))).collect(Collectors.toList());
+		List<UrlLinkData> urlLinkDataNewNotDead = urlLinkDataNew.stream().filter(u -> !isKnownDeadHost(_urlDeadHostFragmentsValues, u.getImageUrlList().get(0))).collect(Collectors.toList());
 
-		VendoUtils.printWithColor (_highlightColor, "Total links: " + urlLinkDataAll.size ());
-		VendoUtils.printWithColor (_alertColor,     "Old links:   " + (urlLinkDataAll.size () - urlLinkDataNew.size ()));
-		VendoUtils.printWithColor (_warningColor,   "New links:   " + (urlLinkDataNewDead.isEmpty () ? "---" : urlLinkDataNewDead.size ()) + " (known dead)");
-		VendoUtils.printWithColor (_highlightColor, "New links:   " + (urlLinkDataNewNotDead.isEmpty () ? "---" : urlLinkDataNewNotDead.size () + " *****") + " (excluding any known dead)");
+		VendoUtils.printWithColor(_highlightColor, "Total links: " + urlLinkDataAll.size());
+		VendoUtils.printWithColor(_alertColor, "Old links:   " + (urlLinkDataAll.size() - urlLinkDataNew.size()));
+		VendoUtils.printWithColor(_warningColor, "New links:   " + (urlLinkDataNewDead.isEmpty() ? "---" : urlLinkDataNewDead.size()) + " (known dead)");
+		VendoUtils.printWithColor(_highlightColor, "New links:   " + (urlLinkDataNewNotDead.isEmpty() ? "---" : urlLinkDataNewNotDead.size() + " *****") + " (excluding any known dead)");
 
 		return status;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<String> getUrlLinkDataHelper (UrlData urlData1, boolean verbose)
-	{
+	private List<String> getUrlLinkDataHelper(UrlData urlData1, boolean verbose) {
 		List<String> mainLinksList = new ArrayList<>();
 
 		Document document = null;
@@ -483,7 +479,7 @@ public final class JHistory
 		} catch (Exception ee) {
 			//will return empty list below
 //			_log.error("JHistory.getUrlLinkDataHelper: error opening main URL: " + urlData1.getUrl());
-			VendoUtils.printWithColor (_alertColor, "JHistory.getUrlLinkDataHelper: " + getParseError(ee) + " opening main URL: " + urlData1.getUrl());
+			VendoUtils.printWithColor(_alertColor, "JHistory.getUrlLinkDataHelper: " + getParseError(ee) + " opening main URL: " + urlData1.getUrl());
 
 			//try again with denormalized url (if it wasn't already a denormalized url)
 			String deNormalizedUrlStr = urlData1.getDeNormalizedUrl().toString();
@@ -492,9 +488,9 @@ public final class JHistory
 					document = Jsoup.parse(urlData1.getDeNormalizedUrl(), _timeoutSeconds * 1000);
 				} catch (Exception e2) {
 					//will return empty list below
-	//				_log.error("JHistory.getUrlLinkDataHelper: error opening main URL: " + urlData1.getUrl());
+					//				_log.error("JHistory.getUrlLinkDataHelper: error opening main URL: " + urlData1.getUrl());
 					VendoUtils.printWithColor(_alertColor, "JHistory.getUrlLinkDataHelper: " + getParseError(ee) + " opening main URL: " + urlData1.getDeNormalizedUrl());
-			}
+				}
 			}
 		}
 
@@ -536,8 +532,7 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<String> getMainLinksList (UrlData urlData1, boolean verbose)
-	{
+	private List<String> getMainLinksList(UrlData urlData1, boolean verbose) {
 //TODO ?? - do I still need this?
 //		List<String> baseLeafs = Arrays.asList("/galleries/v2/", "/picz/");
 
@@ -561,18 +556,16 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<UrlLinkData> getUrlLinkData (UrlData urlData1, boolean verbose)
-	{
+	private List<UrlLinkData> getUrlLinkData(UrlData urlData1, boolean verbose) {
 		List<String> mainLinksList = getMainLinksList(urlData1, verbose);
 
-		List<UrlLinkData> urlLinkData = getChildLinkData (mainLinksList, verbose);
+		List<UrlLinkData> urlLinkData = getChildLinkData(mainLinksList, verbose);
 
 		return urlLinkData;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private UrlLinkData getChildLinkDataHelper (String mainLink, boolean verbose)
-	{
+	private UrlLinkData getChildLinkDataHelper(String mainLink, boolean verbose) {
 		UrlLinkData urlLinkData = null;
 
 		if (verbose) {
@@ -582,14 +575,14 @@ public final class JHistory
 		URL url = null;
 		Document document = null;
 		try {
-			url = new URL (mainLink);
-			document = Jsoup.parse (url, _timeoutSeconds * 1000);
+			url = new URL(mainLink);
+			document = Jsoup.parse(url, _timeoutSeconds * 1000);
 		} catch (Exception ee) {
 			if (verbose) {
 				System.out.println(""); //just linefeed
 			}
 //			_log.error ("JHistory.getChildLinkDataHelper: error opening child URL: " + url.toString ());
-			VendoUtils.printWithColor (_alertColor, "JHistory.getChildLinkDataHelper: " + getParseError(ee) + " opening child URL: " + url.toString ());
+			VendoUtils.printWithColor(_alertColor, "JHistory.getChildLinkDataHelper: " + getParseError(ee) + " opening child URL: " + url.toString());
 //			System.err.println (ee);
 //			ee.printStackTrace (System.err);
 		}
@@ -599,13 +592,13 @@ public final class JHistory
 			final String tagForChildTitle = "h1"; //works better
 			String childTitle = document.select(tagForChildTitle).text();
 
-			List<String> imageLinksList = document.select ("[src]").stream ()
-													.filter(e -> e.tagName ().equals ("img"))
-													.map (e -> e.attr("abs:src"))
-													.filter (s -> !s.contains ("/preview"))
+			List<String> imageLinksList = document.select("[src]").stream()
+					.filter(e -> e.tagName().equals("img"))
+					.map(e -> e.attr("abs:src"))
+					.filter(s -> !s.contains("/preview"))
 //													.sorted(ignoreImageSizeComparator)
-													.distinct()
-													.collect(Collectors.toList());
+					.distinct()
+					.collect(Collectors.toList());
 			urlLinkData = new UrlLinkData(url, _mainTitle, childTitle, mainLink, imageLinksList);
 		}
 
@@ -613,25 +606,25 @@ public final class JHistory
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<UrlLinkData> getChildLinkData (List<String> mainLinksList, boolean verbose)
-	{
+	private List<UrlLinkData> getChildLinkData(List<String> mainLinksList, boolean verbose) {
 		if (verbose) {
 			long distinctLeafs = mainLinksList.stream()
-												.map(l -> {
-													try {
-														return new URL (l).getFile();
-													} catch (Exception ignored) {}
-													return null;
+					.map(l -> {
+						try {
+							return new URL(l).getFile();
+						} catch (Exception ignored) {
+						}
+						return null;
 //													String leaf = null;
 //													try {
 //														URL url = new URL (l);
 //														return url.getFile();
 //													} catch (Exception ignored) {}
 //													return leaf;
-												})
-												.filter(Objects::nonNull)
-												.distinct()
-												.count();
+					})
+					.filter(Objects::nonNull)
+					.distinct()
+					.count();
 			VendoUtils.printWithColor(_highlightColor, "Processing " + mainLinksList.size() + " links");
 			VendoUtils.printWithColor(_highlightColor, "Found " + distinctLeafs + " distinct leafs");
 
@@ -640,9 +633,10 @@ public final class JHistory
 						.map(l -> {
 							String leaf = null;
 							try {
-								URL url = new URL (l);
+								URL url = new URL(l);
 								return url.getFile();
-							} catch (Exception ignored) {}
+							} catch (Exception ignored) {
+							}
 							return leaf;
 						})
 						.filter(Objects::nonNull)
@@ -655,19 +649,19 @@ public final class JHistory
 		//use map to avoid duplicate image links
 		ConcurrentHashMap<String, UrlLinkData> urlLinkDataMap = new ConcurrentHashMap<>();
 		mainLinksList.stream()
-					.parallel()
-					.forEach(l -> {
-						if (verbose) {
-							System.out.print("."); //no linefeed
+				.parallel()
+				.forEach(l -> {
+					if (verbose) {
+						System.out.print("."); //no linefeed
+					}
+					final UrlLinkData urlLinkData1 = getChildLinkDataHelper(l, verbose);
+					if (urlLinkData1 != null) {
+						final List<String> imageLinksList = urlLinkData1.getImageUrlList();
+						if (imageLinksList != null && imageLinksList.get(0) != null && !urlLinkDataMap.containsKey(imageLinksList.get(0))) {
+							urlLinkDataMap.put(imageLinksList.get(0), urlLinkData1);
 						}
-						final UrlLinkData urlLinkData1 = getChildLinkDataHelper (l, verbose);
-						if (urlLinkData1 != null) {
-							final List<String> imageLinksList = urlLinkData1.getImageUrlList();
-							if (imageLinksList != null && imageLinksList.get(0) != null && !urlLinkDataMap.containsKey(imageLinksList.get(0))) {
-								urlLinkDataMap.put(imageLinksList.get(0), urlLinkData1);
-							}
-						}
-					});
+					}
+				});
 
 		if (false) { //debugging
 			System.out.println(urlLinkDataMap.values().stream()
@@ -683,50 +677,46 @@ public final class JHistory
 
 	///////////////////////////////////////////////////////////////////////////
 	//watch file and call readGuHistoryFile() whenever file changes on disk
-	private Thread watchGuHistoryFile ()
-	{
+	private Thread watchGuHistoryFile() {
 		Thread watchingThread = null;
 		try {
-			Path path = FileSystems.getDefault ().getPath (_destDir, _guHistoryFilename);
-			Path dir = path.getRoot ().resolve (path.getParent ());
-			String filename = path.getFileName ().toString ();
+			Path path = FileSystems.getDefault().getPath(_destDir, _guHistoryFilename);
+			Path dir = path.getRoot().resolve(path.getParent());
+			String filename = path.getFileName().toString();
 
-			_log.info ("JHistory.watchGuHistoryFile: watching history file: " + path.normalize ());
+			_log.info("JHistory.watchGuHistoryFile: watching history file: " + path.normalize());
 
-			Pattern pattern = Pattern.compile (filename, Pattern.CASE_INSENSITIVE);
+			Pattern pattern = Pattern.compile(filename, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
 
-			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
-			{
+			WatchDir watchDir = new WatchDir(dir, pattern, recurseSubdirs) {
 				@Override
-				protected void notify (Path dir, WatchEvent<Path> pathEvent)
-				{
+				protected void notify(Path dir, WatchEvent<Path> pathEvent) {
 					if (_Debug) {
-						Path file = pathEvent.context ();
-						Path path = dir.resolve (file);
-						_log.debug ("JHistory.watchGuHistoryFile.notify: " + pathEvent.kind ().name () + ": " + path.normalize ());
+						Path file = pathEvent.context();
+						Path path = dir.resolve(file);
+						_log.debug("JHistory.watchGuHistoryFile.notify: " + pathEvent.kind().name() + ": " + path.normalize());
 					}
 
-					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
-						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
+					if (pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_MODIFY) ||
+							pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_CREATE)) {
 						readGuHistoryFile(false);
 					}
 				}
 
 				@Override
-				protected void overflow (WatchEvent<?> event)
-				{
-					_log.error ("JHistory.watchGuHistoryFile.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
-					_log.error ("JHistory.watchGuHistoryFile.overflow: ", new Exception ("WatchDir overflow"));
+				protected void overflow(WatchEvent<?> event) {
+					_log.error("JHistory.watchGuHistoryFile.overflow: received event: " + event.kind().name() + ", count = " + event.count());
+					_log.error("JHistory.watchGuHistoryFile.overflow: ", new Exception("WatchDir overflow"));
 				}
 			};
-			watchingThread = new Thread (watchDir);
-			watchingThread.start ();
+			watchingThread = new Thread(watchDir);
+			watchingThread.start();
 
 //			thread.join (); //wait for thread to complete
 
 		} catch (Exception ee) {
-			_log.error ("JHistory.watchGuHistoryFile: exception watching history file", ee);
+			_log.error("JHistory.watchGuHistoryFile: exception watching history file", ee);
 		}
 
 		return watchingThread;
@@ -740,14 +730,24 @@ public final class JHistory
 		Path path = FileSystems.getDefault().getPath(_destDir, _jhHistoryFilename);
 
 		boolean status = true;
+
+		final List<String> processedLines = new ArrayList<>();
 		try (Stream<String> stream = Files.lines (path)) {
 			_jhHistoryFileContents = stream
-//										.filter(s -> !s.startsWith("#"))
-										.map(String::trim)
+//										.filter(s -> !s.startsWith("#")) //NOTE filtered lines will not be in line count
+										.map(s -> {
+											processedLines.add(s);
+											return s.trim();
+										})
+//										.map(String::trim)
 										.collect (Collectors.toSet ());
 
-		} catch (IOException ee) {
-			_log.error ("JHistory.readJhHistoryFile: error reading JH history file \"" + _jhHistoryFilename + "\"", ee);
+//		} catch (IOException ee) {
+		} catch (Exception ee) {
+			int numProcessedLines = processedLines.size();
+			String lastLine = numProcessedLines > 0 ? processedLines.get(numProcessedLines - 1) : "<no lines processed>";
+			_log.error ("JHistory.readJhHistoryFile: error reading JH history file \"" + _jhHistoryFilename + "\"" +
+					" at line number " + numProcessedLines + " for line <" + lastLine + ">", ee);
 			status = false;
 		}
 
@@ -782,7 +782,8 @@ public final class JHistory
 					_guHistoryFileContents = contents;
 					_guHistoryFileModified = historyFileModified;
 				}
-			} catch (IOException ee) {
+//			} catch (IOException ee) {
+			} catch (Exception ee) {
 				_log.error ("JHistory.readGuHistoryFile: error GU reading history file \"" + _guHistoryFilename + "\"", ee);
 				status = false;
 			}

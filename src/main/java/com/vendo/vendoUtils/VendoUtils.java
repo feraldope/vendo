@@ -53,7 +53,7 @@ public class VendoUtils
 
 		//print system properties (sorted)
 		if (skipTest) {
-		    List<String> sorted = System.getProperties ().stringPropertyNames ().stream ()
+			List<String> sorted = System.getProperties ().stringPropertyNames ().stream ()
 																				.map (v -> v + "=" + System.getProperty (v).trim ())
 																				.sorted (caseInsensitiveStringComparator)
 																				.collect (Collectors.toList ());
@@ -66,7 +66,7 @@ public class VendoUtils
 
 		//print environment variables (sorted)
 		if (skipTest) {
-		    List<String> sorted = System.getenv ().entrySet ().stream ()
+			List<String> sorted = System.getenv ().entrySet ().stream ()
 															  .map (v -> v.getKey () + "=" + v.getValue ())
 															  .sorted (caseInsensitiveStringComparator)
 															  .collect (Collectors.toList ());
@@ -79,7 +79,7 @@ public class VendoUtils
 
 		//print command line arguments to Java VM
 		if (skipTest) {
-		    List<String> sorted = ManagementFactory.getRuntimeMXBean ().getInputArguments ().stream ()
+			List<String> sorted = ManagementFactory.getRuntimeMXBean ().getInputArguments ().stream ()
 																							.sorted (caseInsensitiveStringComparator)
 																							.collect (Collectors.toList ());
 
@@ -91,7 +91,7 @@ public class VendoUtils
 
 		//print available character sets (sorted)
 		if (skipTest) {
-		    List<String> sorted = Charset.availableCharsets ().keySet ().stream ()
+			List<String> sorted = Charset.availableCharsets ().keySet ().stream ()
 																		.sorted (caseInsensitiveStringComparator)
 																		.collect (Collectors.toList ());
 
@@ -103,7 +103,7 @@ public class VendoUtils
 
 		//print available time zones (sorted)
 		if (skipTest) {
-		    List<String> sorted = ZoneId.getAvailableZoneIds ().stream ()
+			List<String> sorted = ZoneId.getAvailableZoneIds ().stream ()
 															   .sorted (caseInsensitiveStringComparator)
 															   .collect (Collectors.toList ());
 
@@ -648,9 +648,15 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int roundUp (double x)
+	public static int roundUp (double value) //round up to next int
 	{
-		return (int) Math.ceil (x);
+		return (int) Math.ceil (value);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static long roundUp (long value, long roundTo) //round up to next int, scaled to roundTo
+	{
+		return roundUp ((double) value / (double) roundTo) * roundTo;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -905,9 +911,9 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	public static String getStackTrace (Throwable ex)
 	{
-	    PrintWriter writer = new PrintWriter (new StringWriter ());
-	    ex.printStackTrace (writer);
-	    return writer.toString ();
+		PrintWriter writer = new PrintWriter (new StringWriter ());
+		ex.printStackTrace (writer);
+		return writer.toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1090,7 +1096,7 @@ public class VendoUtils
 
 		try {
 			File file = new File (filename);
-	    	freeSpace = file.getFreeSpace ();
+		 	freeSpace = file.getFreeSpace ();
 
 		} catch (Exception ee) {
 			ee.printStackTrace ();
@@ -1106,7 +1112,7 @@ public class VendoUtils
 //
 //		try {
 //			File file = new File (filename);
-//	    	usableSpace = file.getUsableSpace ();
+//		 	usableSpace = file.getUsableSpace ();
 //
 //		} catch (Exception ee) {
 //			ee.printStackTrace ();
@@ -1122,7 +1128,7 @@ public class VendoUtils
 
 		try {
 			File file = new File (filename);
-	    	totalSpace = file.getTotalSpace ();
+		 	totalSpace = file.getTotalSpace ();
 
 		} catch (Exception ee) {
 			ee.printStackTrace ();

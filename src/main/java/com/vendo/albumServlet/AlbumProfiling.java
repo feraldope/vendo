@@ -306,10 +306,10 @@ public class AlbumProfiling
 			maxMem   /= unitSuffix;
 
 			_log.debug ("AlbumProfiling.print: memory used="  + _decimalFormat1.format (usedMem)  + unitSuffixStr +
-													   " free="  + _decimalFormat1.format (freeMem)  + unitSuffixStr +
-													   " total=" + _decimalFormat1.format (totalMem) + unitSuffixStr +
-													   " max="   + _decimalFormat1.format (maxMem)   + unitSuffixStr +
-													   " util="  + _decimalFormat1.format (util) + "%");
+													" free="  + _decimalFormat1.format (freeMem)  + unitSuffixStr +
+													" total=" + _decimalFormat1.format (totalMem) + unitSuffixStr +
+													" max="   + _decimalFormat1.format (maxMem)   + unitSuffixStr +
+													" util="  + _decimalFormat1.format (util) + "%");
 		}
 
 		//optionally delete this AlbumProfiling instance

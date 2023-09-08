@@ -1346,20 +1346,18 @@ public class AlbumTags
 				String tag = iter.next ();
 				statement.setString (1, tag);
 				statement.setInt (2, tag.toLowerCase ().contains ("tattoo") ? 1 : 0);
-	        	statement.addBatch ();
-	        	batchCount++;
+				statement.addBatch ();
+				batchCount++;
 
-	        	if (batchCount % _batchInsertSize == 0 || !iter.hasNext ()) {
-	        		int [] updateCounts = statement.executeBatch ();
-	        		rowsInserted += Arrays.stream (updateCounts).sum ();
+				if (batchCount % _batchInsertSize == 0 || !iter.hasNext ()) {
+					int [] updateCounts = statement.executeBatch ();
+					rowsInserted += Arrays.stream (updateCounts).sum ();
 
-//        			AlbumProfiling.getInstance ().enter (5, "commit");
-	       			connection.commit ();
-//	       			AlbumProfiling.getInstance ().exit (5, "commit");
-	        	}
-	        }
+					connection.commit ();
+				}
+			}
 
-	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
+			connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
 //		} catch (MySQLIntegrityConstraintViolationException ee) {
 		} catch (SQLIntegrityConstraintViolationException ee) {
@@ -1419,23 +1417,21 @@ public class AlbumTags
 			int batchCount = 0;
  			Iterator<String> iter = items.iterator ();
 			while (iter.hasNext ()) {
-	        	for (int col = 0; col < numColumns; col++) {
-		        	statement.setString (1 + col, iter.next ());
-	        	}
-	        	statement.addBatch ();
-	        	batchCount++;
+				for (int col = 0; col < numColumns; col++) {
+					statement.setString (1 + col, iter.next ());
+				}
+				statement.addBatch ();
+				batchCount++;
 
-	        	if (batchCount % _batchInsertSize == 0 || !iter.hasNext ()) {
-	        		int [] updateCounts = statement.executeBatch ();
-	        		rowsInserted += Arrays.stream (updateCounts).sum ();
+				if (batchCount % _batchInsertSize == 0 || !iter.hasNext ()) {
+					int [] updateCounts = statement.executeBatch ();
+					rowsInserted += Arrays.stream (updateCounts).sum ();
 
-//        			AlbumProfiling.getInstance ().enter (5, "commit");
-	       			connection.commit ();
-//	       			AlbumProfiling.getInstance ().exit (5, "commit");
-	        	}
-	        }
+					connection.commit ();
+				}
+			}
 
-	        connection.setAutoCommit (true); //TODO - should this be done in finally block?
+			connection.setAutoCommit (true); //TODO - should this be done in finally block?
 
 //		} catch (MySQLIntegrityConstraintViolationException ee) {
 		} catch (SQLIntegrityConstraintViolationException ee) {
@@ -1902,7 +1898,7 @@ public class AlbumTags
 								})
 								.filter(Objects::nonNull)
 								.collect(Collectors.toList());
-			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal +  " -> " + baseNames.size());
+			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal + " -> " + baseNames.size());
 		}
 
 /*old way
@@ -1913,7 +1909,7 @@ public class AlbumTags
 								.map(f -> AlbumImage.getBaseName(f) + "+")
 								.distinct()
 								.collect(Collectors.toList());
-			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal +  " -> " + baseNames.size());
+			_log.debug ("AlbumTags.getNamesForTags: collapseGroups reduced baseNames from " + lengthOriginal + " -> " + baseNames.size());
 		}
 */
 		AlbumProfiling.getInstance ().exit (5);

@@ -35,6 +35,7 @@ import java.net.*;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.cert.X509Certificate;
 import java.sql.*;
 import java.util.Date;
@@ -379,7 +380,7 @@ public class GetUri
 
 				in = new BufferedInputStream(conn.getInputStream());
 				if (_image) {
-					out = new FileOutputStream (_tempFilename);
+					out = Files.newOutputStream(Paths.get(_tempFilename));
 				} else {
 					out = new ByteArrayOutputStream ();
 				}
@@ -597,7 +598,8 @@ public class GetUri
 		PerfStatsRecord record = new PerfStatsRecord (_filename, totalBytesRead, elapsedNanos);
 		_perfStats.add (record);
 
-		_log.debug ("Downloaded: " + record.toString2 (), true);
+//		_log.debug ("Downloaded: " + record.toString2 (), true);
+		VendoUtils.printWithColor(_highlightColor, "Downloaded: " + record.toString2 (), true);
 
 		int dist = _sizeDist.add (totalBytesRead);
 		if (dist >= 3) {
@@ -1347,6 +1349,7 @@ public class GetUri
 	private Connection _dbConnection = null;
 
 	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
+	private static final short _highlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;
 //	private static final Short fgHighlightColor = Win32.CONSOLE_BACKGROUND_COLOR_BLACK;
 //	private static final Short bgHighlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;
 

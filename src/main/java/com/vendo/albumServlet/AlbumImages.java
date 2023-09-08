@@ -122,12 +122,17 @@ public class AlbumImages
 				}
 			}
 
-			//crearCache requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
-			if (paramName.startsWith (AlbumFormInfo._ClearCacheParam) && _previousRequestTimestamps.contains (currentTimestamp)) {
-				form.setClearCache(false);
+			//crearDupCache requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
+			if (paramName.startsWith (AlbumFormInfo._ClearDupCacheParam) && _previousRequestTimestamps.contains (currentTimestamp)) {
+				form.setClearDupCache(false);
 			}
 
-				//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
+			//crearCache requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
+			if (paramName.startsWith (AlbumFormInfo._ClearImageCacheParam) && _previousRequestTimestamps.contains (currentTimestamp)) {
+				form.setClearImageCache(false);
+			}
+
+			//delete requests that have same timestamp as previous should be ignored (can happen if user forces browser refresh)
 			if ((paramName.startsWith (AlbumFormInfo._DeleteParam1) || paramName.startsWith (AlbumFormInfo._DeleteParam2)) && !_previousRequestTimestamps.contains (currentTimestamp)) {
 				String[] paramValues = request.getParameterValues (paramName);
 				if (paramValues[0].equalsIgnoreCase ("on")) {
@@ -174,7 +179,8 @@ public class AlbumImages
 		boolean tagFilterOperandOr = _form.getTagFilterOperandOr ();
 		boolean useCase = _form.getUseCase ();
 
-		cacheMaintenance (_form.getClearCache ()); //hack
+		cacheMaintenanceDupCache (_form.getClearDupCache ()); //hack
+		AlbumImageDao.getInstance().cacheMaintenanceImageCache (_form.getClearDupCache ());
 
 //TODO - possible performance enhancement?? if any filter is "*" and operator=AND, set operator to OR
 
@@ -851,36 +857,44 @@ public class AlbumImages
 //			_log.debug("AlbumImages.doDup: totalLoadTime = " + _decimalFormat1.format(nameScaledImageCacheStatsMinus.totalLoadTime() / 1e6) + " ms");
 //			_log.debug("AlbumImages.doDup: requestCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.requestCount()));
 
+			CacheStats nameScaledImageCacheStatsMinus = _nameScaledImageCache.stats().minus(nameScaledImageCacheStatsStart);
+			CacheStats looseCompareDataCacheStatsMinus = _looseCompareDataCache.stats().minus(looseCompareDataCacheStatsStart);
+			_log.debug("AlbumImages.doDup: cache stats" + NL + nameScaledImageCacheStatsMinus + NL + looseCompareDataCacheStatsMinus);
+
+			List<String> scaledImageDetails = new ArrayList<>();
 			{
-				CacheStats nameScaledImageCacheStatsMinus = _nameScaledImageCache.stats().minus(nameScaledImageCacheStatsStart);
 				double nameScaledImageCachePercent = 100 * (double) _nameScaledImageCache.size() / _nameScaledImageCacheMaxSize;
-				_log.debug("nameScaledImageCache: " + _decimalFormat1.format(nameScaledImageCachePercent) + "% of " + _decimalFormat0.format(_nameScaledImageCacheMaxSize)
-						+ NL + nameScaledImageCacheStatsMinus);
+				scaledImageDetails.add("nameScaledImageCache: " + _decimalFormat1.format(nameScaledImageCachePercent) + "% of " + _decimalFormat0.format(_nameScaledImageCacheMaxSize));
 
-				_log.debug("DIST: Added:");
 				Map<String, List<AlbumImage>> map1 = _nameScaledImageCacheAdded.stream().collect(Collectors.groupingBy(i -> i.getBaseName(true)));
-				map1.keySet().stream().sorted().forEach(d -> _log.debug("Added: " + d + " -> " + _decimalFormat0.format(map1.get(d).size()) + " images"));
+				map1.keySet().stream().sorted().forEach(d -> scaledImageDetails.add("Added: " + d + " -> " + _decimalFormat0.format(map1.get(d).size()) + " images"));
 
-				_log.debug("DIST: Evicted:");
 				Map<String, List<AlbumImage>> map2 = _nameScaledImageCacheEvicted.stream().collect(Collectors.groupingBy(i -> i.getBaseName(true)));
-				map2.keySet().stream().sorted().forEach(d -> _log.debug("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size()) + " images"));
+				map2.keySet().stream().sorted().forEach(d -> scaledImageDetails.add("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size()) + " images"));
 			}
+			List<String> looseCompareDetails = new ArrayList<>();
 			{
-				CacheStats looseCompareDataCacheStatsMinus = _looseCompareDataCache.stats().minus(looseCompareDataCacheStatsStart);
 				double looseCompareDataCachePercent = 100 * (double) _looseCompareDataCache.size() / _looseCompareDataCacheMaxSize;
-				_log.debug("looseCompareDataCache: " + _decimalFormat1.format(looseCompareDataCachePercent) + "% of " + _decimalFormat0.format(_looseCompareDataCacheMaxSize)
-						+ NL + looseCompareDataCacheStatsMinus);
+				looseCompareDetails.add("looseCompareDataCache: " + _decimalFormat1.format(looseCompareDataCachePercent) + "% of " + _decimalFormat0.format(_looseCompareDataCacheMaxSize));
 
-				_log.debug("DIST: Added:");
 				Map<String, List<AlbumImage>> map1 = _looseCompareDataCacheAdded.stream().flatMap(p -> Stream.of(p.getImage1(), p.getImage2()))
 						.collect(Collectors.groupingBy(i -> i.getBaseName(true)));
-				map1.keySet().stream().sorted().forEach(d -> _log.debug("Added: " + d + " -> " + _decimalFormat0.format(map1.get(d).size() / 2) + " pairs"));
+				map1.keySet().stream().sorted().forEach(d -> looseCompareDetails.add("Added: " + d + " -> " + _decimalFormat0.format(map1.get(d).size() / 2) + " pairs"));
 
-				_log.debug("DIST: Evicted:");
 				Map<String, List<AlbumImage>> map2 = _looseCompareDataCacheEvicted.stream().flatMap(s -> Stream.of(s.getImage1(), s.getImage2()))
 						.collect(Collectors.groupingBy(i -> i.getBaseName(true)));
-				map2.keySet().stream().sorted().forEach(d -> _log.debug("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size() / 2) + " pairs"));
+				map2.keySet().stream().sorted().forEach(d -> looseCompareDetails.add("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size() / 2) + " pairs"));
 			}
+
+			final int width = 60; //TODO - calculate from data
+			StringBuilder sb = new StringBuilder();
+			int maxItemsToPrint = Math.max(scaledImageDetails.size(), looseCompareDetails.size());
+			for (int ii = 0; ii < maxItemsToPrint; ii++) {
+				sb.append(NL);
+				sb.append(String.format("%-" + width + "s", ii < scaledImageDetails.size() ? scaledImageDetails.get(ii) : " "));
+				sb.append(String.format("%-" + width + "s", ii < looseCompareDetails.size() ? looseCompareDetails.get(ii) : " "));
+			}
+			_log.debug("AlbumImages.doDup: cache activity" + sb);
 
 //save as example
 //			if (nameScaledImageCacheHitsList != null) {
@@ -1272,7 +1286,7 @@ public class AlbumImages
 		List<String> baseNames = _imageDisplayList.stream()
 												   .filter(i -> {
 														String imageDigits = i.getName().replaceAll(".*\\d-", "");
-														return imageDigits.length() == 3 && (imageDigits.startsWith("00") || imageDigits.startsWith("01"));  //image digits must be three and must start in the '0's (e.g. "001")
+														return imageDigits.length() == 3 && (imageDigits.startsWith("00") || imageDigits.startsWith("01")); //image digits must be three and must start in the '0's (e.g. "001")
 												   })
 												   .map(i -> i.getBaseName(false))
 												   .sorted(String.CASE_INSENSITIVE_ORDER)
@@ -1542,18 +1556,18 @@ public class AlbumImages
 			.append ("&maxStdDev=").append (_form.getMaxStdDev ())
 			.append ("&minImagesToFlagAsLargeAlbum=").append (_form.getMinImagesToFlagAsLargeAlbum ())
 //			.append ("&rootFolder=").append (_form.getRootFolder ())
-//		  	.append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
-//		  	.append ("&collapseGroups=").append (_form.getCollapseGroups ())
-//		  	.append ("&limitedCompare=").append (_form.getLimitedCompare ())
+//			.append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
+//			.append ("&collapseGroups=").append (_form.getCollapseGroups ())
+//			.append ("&limitedCompare=").append (_form.getLimitedCompare ())
 			.append (limitedCompareStr)
-//		  	.append ("&dbCompare=").append (_form.getDbCompare ())
+//			.append ("&dbCompare=").append (_form.getDbCompare ())
 //			.append ("&looseCompare=").append (_form.getLooseCompare ())
 			.append (looseCompareStr)
 			.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 			.append ("&useExifDates=").append (_form.getUseExifDates ())
-//		  	.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
+//			.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 			.append ("&useCase=").append (_form.getUseCase ())
-//		  	.append ("&reverseSort=").append (_form.getReverseSort ())
+//			.append ("&reverseSort=").append (_form.getReverseSort ())
 //			.append ("&screenWidth=").append (_form.getScreenWidth ())
 //			.append ("&screenHeight=").append (_form.getScreenHeight ())
 			.append ("&windowWidth=").append (_form.getWindowWidth ())
@@ -1627,7 +1641,7 @@ public class AlbumImages
 
 		String font1 = !isAndroidDevice ? "fontsize10" : "fontsize24";
 		String tableWidthString = !isAndroidDevice ? "100%" : "2200"; //TODO - tablet hardcoded for portrait not landscape
-		_log.debug ("AlbumImages.generateHtml: tableWidthString = " + tableWidthString);
+//		_log.debug ("AlbumImages.generateHtml: tableWidthString = " + tableWidthString);
 
 		String tagsMarker = "<tagsMarker>";
 		String servletErrorsMarker = "<servletErrorsMarker>";
@@ -1812,7 +1826,7 @@ public class AlbumImages
 				} while (mightHaveMore);
 
 			} else {
-				String message = "Invalid combination ... TBD";
+				String message = "Invalid combination: disabling Interleave Sort";
 				_log.debug("AlbumImages.generateHtml: " + message);
 				_form.addServletError("Info: " + message);
 			}
@@ -1835,45 +1849,7 @@ public class AlbumImages
 			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", imageWidth = " + imageWidth + ", font2 = " + font2);
 		}
 
-		//TODO - print map of dates and image counts
-		if (_imageDisplayList.size() < 10 * 1000) {
-			AlbumProfiling.getInstance ().enter (5, "dateDistribution");
-/*TODO
-			List<String> albums = _imageDisplayList.stream()
-					.map(i -> i.getBaseName(false))
-					.distinct()
-					.collect(Collectors.toList());
-
-			List<String> albumsMatchingFilters = getMatchingAlbumsForFilters (albums, false, 0);
-
-			Map<LocalDate, List<AlbumImage>> map = albumsMatchingFilters.stream()
-*/
-			Map<LocalDate, List<AlbumImage>> map = _imageDisplayList.stream()
-					.collect(Collectors.groupingBy(i -> Instant.ofEpochMilli(i.getModified()).atZone(ZoneId.systemDefault()).toLocalDate()));
-
-			final int maxItemsToPrint = 10;
-			_log.debug("DIST: Top " + maxItemsToPrint + " most recent dates:");
-			map.keySet().stream().sorted(Comparator.reverseOrder()).limit(maxItemsToPrint).forEach(d -> {
-				_log.debug("DIST: " + d + " -> " + map.get(d).size() + " images");
-			});
-
-			AlbumProfiling.getInstance ().exit (5, "dateDistribution");
-		}
-
-		if (_imageDisplayList.size() < 10 * 1000) {
-			AlbumProfiling.getInstance ().enter (5, "pixelSizeDistribution");
-
-			Map<String, List<AlbumImage>> map = _imageDisplayList.stream()
-					.collect(Collectors.groupingBy(i -> "" + i.getWidth() + "x" + i.getHeight()));
-
-			final int maxItemsToPrint = 10;
-			_log.debug("DIST: Top " + maxItemsToPrint + " sizes in pixels:");
-			map.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint).forEach(d -> {
-				_log.debug("DIST: " + d + " -> " + map.get(d).size() + " images");
-			});
-
-			AlbumProfiling.getInstance ().exit (5, "pixelSizeDistribution");
-		}
+		_log.debug("AlbumImages.generateHtml: DIST Tables" + generateDistributionTable());
 
 		//go through the slice once to see if any of the images are dups
 		boolean anyDupsInSlice = false;
@@ -1906,7 +1882,7 @@ public class AlbumImages
 
 			for (int col = 0; col < cols; col++) {
 				AlbumImage image = images[start + imageCount];
-				image.calculateScaledSize (imageWidth, imageHeight);
+				image.calculateScaledSize (imageWidth, imageHeight, _form.getMaxImageScalePercent());
 
 				String extraDiffString = "";
 				StringBuilder details = new StringBuilder ();
@@ -2071,8 +2047,8 @@ public class AlbumImages
 							.append ("/")
 							.append (image.getScaleString ())
 							.append (")")
-//						    .append (hasExifDates ? "*" : "");
-						    .append (image.hasExifDate() ? "*" : "");
+//							.append (hasExifDates ? "*" : "");
+							.append (image.hasExifDate() ? "*" : "");
 
 				} else { //mode == AlbumMode.DoDir
 					if (anyDupsInSlice) {
@@ -2091,7 +2067,7 @@ public class AlbumImages
 							.append (image.getScaleString ())
 							.append (")");
 
-					if (cols <= 2) {
+					if (cols <= 3) { //hardcoded
 						details.append (" (")
 								.append (imageCount + 1)
 								.append (" of ")
@@ -2476,8 +2452,8 @@ public class AlbumImages
 				outputStream.flush ();
 				outputStream.close ();
 				if (error.length () > 0) {
-					_log.error ("AlbumImages.generateDuplicateImageRenameError: error written to file: " + moveFile);
-					_log.error ("AlbumImages.generateDuplicateImageRenameError: " + error + NL);
+//					_log.error ("AlbumImages.generateDuplicateImageRenameError: error written to file: " + moveFile);
+					_log.error ("AlbumImages.generateDuplicateImageRenameError: " + error);// + NL);
 				}
 
 			} catch (IOException ee) {
@@ -2844,7 +2820,7 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void cacheMaintenance (boolean clearAll) //hack
+	public static void cacheMaintenanceDupCache (boolean clearAll) //hack
 	{
 		if (clearAll) {
 			_nameScaledImageCache = null;
@@ -2929,31 +2905,32 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 		long totalMem = Runtime.getRuntime ().totalMemory ();
 		long maxMem   = Runtime.getRuntime ().maxMemory ();
 		double memoryUsedPercent = 100 * (double) totalMem / maxMem;
-		_log.debug ("AlbumImages.cacheMaintenance: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%");
+		_log.debug ("AlbumImages.cacheMaintenanceDupCache: memoryUsed: " + _decimalFormat1.format (memoryUsedPercent) + "%");
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	private static <T, V> int cacheMaintenance (Map<T, V> map, int maxSize) //hack
-	{
-		int numItemsRemoved = 0;
-
-		if (map.size () > maxSize) {
-			AlbumProfiling.getInstance ().enter (5);
-
-			int newSize = (19 * maxSize) / 20;
-			numItemsRemoved = map.size () - newSize;
-
-			Iterator<T> iter = map.keySet ().iterator (); //hack - this just randomly removes entries; should use LRU
-			for (int ii = 0; ii < numItemsRemoved; ii++) {
-				iter.next ();
-				iter.remove ();
-			}
-
-			AlbumProfiling.getInstance ().exit (5);
-		}
-
-		return numItemsRemoved;
-	}
+//unused
+//	///////////////////////////////////////////////////////////////////////////
+//	private static <T, V> int cacheMaintenance (Map<T, V> map, int maxSize) //hack
+//	{
+//		int numItemsRemoved = 0;
+//
+//		if (map.size () > maxSize) {
+//			AlbumProfiling.getInstance ().enter (5);
+//
+//			int newSize = (19 * maxSize) / 20;
+//			numItemsRemoved = map.size () - newSize;
+//
+//			Iterator<T> iter = map.keySet ().iterator (); //hack - this just randomly removes entries; should use LRU
+//			for (int ii = 0; ii < numItemsRemoved; ii++) {
+//				iter.next ();
+//				iter.remove ();
+//			}
+//
+//			AlbumProfiling.getInstance ().exit (5);
+//		}
+//
+//		return numItemsRemoved;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//called by AlbumImageDao.getImagesFromCache
@@ -3111,6 +3088,60 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 
 		public static final AlbumImage _DummyImage = new AlbumImage (1, "", "", 0, 0, 0, 0, "", 0, 0, 0, 0);
 		public static final AlbumImagePair DONE_MARKER = new AlbumImagePair(_DummyImage, _DummyImage);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private String generateDistributionTable () {
+		StringBuilder sb = new StringBuilder();
+
+		if (_imageDisplayList.size() < 10 * 1000) {
+			AlbumProfiling.getInstance().enter(5);
+
+			int maxItemsToPrint = 10;
+
+			//date distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
+			List<String> dateDist = new ArrayList<>();
+			Map<LocalDate, List<AlbumImage>> dateMap = _imageDisplayList.stream()
+					.collect(Collectors.groupingBy(i -> Instant.ofEpochMilli(i.getModified()).atZone(ZoneId.systemDefault()).toLocalDate()));
+			dateDist.add("Top " + maxItemsToPrint + " most recent dates");
+			dateMap.keySet().stream().sorted(Comparator.reverseOrder()).limit(maxItemsToPrint)
+					.forEach(d -> dateDist.add(d + " -> " + dateMap.get(d).size() + " images")
+			);
+
+			//size in pixels distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
+			List<String> pixelsDist = new ArrayList<>();
+			Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
+					.collect(Collectors.groupingBy(i -> "" + i.getWidth() + "x" + i.getHeight()));
+			pixelsDist.add("Top " + maxItemsToPrint + " largest by pixels");
+			pixelMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
+					.forEach(p -> pixelsDist.add(p + " -> " + pixelMap.get(p).size() + " images")
+			);
+
+			//size in bytes distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
+			final long roundTo = 100;
+			final long roundToKB = roundTo * 1024;
+			List<String> bytesDist = new ArrayList<>();
+			Map<Long, List<AlbumImage>> bytesMap = _imageDisplayList.stream()
+					.collect(Collectors.groupingBy(i -> VendoUtils.roundUp(i.getNumBytes(), roundToKB)));
+			bytesDist.add("Top " + maxItemsToPrint + " largest by (rounded to " + roundTo + ") KB");
+			bytesMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
+					.forEach(b -> bytesDist.add((VendoUtils.roundUp(b, roundToKB) / 1024) + "KB -> " + bytesMap.get(b).size() + " images")
+			);
+
+			final int width = 30; //TODO - calculate from data
+
+			maxItemsToPrint = Math.max(dateDist.size(), Math.max(pixelsDist.size(), bytesDist.size()));
+			for (int ii = 0; ii < maxItemsToPrint; ii++) {
+				sb.append(NL);
+				sb.append(String.format("%-" + width + "s", ii < dateDist.size() ? dateDist.get(ii) : " "));
+				sb.append(String.format("%-" + width + "s", ii < pixelsDist.size() ? pixelsDist.get(ii) : " "));
+				sb.append(String.format("%-" + width + "s", ii < bytesDist.size() ? bytesDist.get(ii) : " "));
+			}
+
+			AlbumProfiling.getInstance().exit(5);
+		}
+
+		return sb.toString();
 	}
 
 	///////////////////////////////////////////////////////////////////////////

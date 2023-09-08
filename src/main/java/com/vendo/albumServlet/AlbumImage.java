@@ -232,7 +232,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		StringBuffer sb = new StringBuffer (256);
 		sb.append (getName ()).append (", ");
 		sb.append (getWidth ()).append ("x").append (getHeight ()).append (", ");
-		sb.append (getNumBytes () / 1024).append ("KB, ");
+		sb.append (getNumBytes () / 1024).append ("KB, "); //TODO - this division truncates; do we care?
 		if (AlbumFormInfo.getShowRgbData () && AlbumFormInfo.getInstance ().getMode () == AlbumMode.DoDup) { //debugging
 			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
 		}
@@ -868,9 +868,10 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized void calculateScaledSize (int maxImageWidth, int maxImageHeight)
+	public synchronized void calculateScaledSize (int maxImageWidth, int maxImageHeight, int maxImageScalePercent)
 	{
-		double maxImageScaleFactor = (double) AlbumFormInfo._maxImageScalePercent / 100;
+//		double maxImageScaleFactor = (double) AlbumFormInfo._maxImageScalePercent / 100;
+		double maxImageScaleFactor = (double) maxImageScalePercent / 100;
 
 //TODO - collapse these two cases into one
 		if (_width < 0 || _height < 0) {

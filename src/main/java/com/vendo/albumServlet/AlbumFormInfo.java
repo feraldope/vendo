@@ -123,7 +123,8 @@ public class AlbumFormInfo
 		_duplicateHandling = AlbumDuplicateHandling.SelectNone;
 		_orientation = AlbumOrientation.ShowAny;
 		_useCase = false;
-		_clearCache = false;
+		_clearDupCache = false;
+		_clearImageCache = false;
 		_reverseSort = false;
 		_interleaveSort = false;
 		_sortType = AlbumSortType.ByName;
@@ -877,14 +878,25 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void setClearCache (boolean clearCache)
+	public void setClearDupCache (boolean clearDupCache)
 	{
-		_clearCache = clearCache;
+		_clearDupCache = clearDupCache;
 	}
 
-	public boolean getClearCache ()
+	public boolean getClearDupCache ()
 	{
-		return _clearCache;
+		return _clearDupCache;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void setClearImageCache (boolean clearImageCache)
+	{
+		_clearImageCache = clearImageCache;
+	}
+
+	public boolean getClearImageCache ()
+	{
+		return _clearImageCache;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1152,6 +1164,11 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public int getMaxImageScalePercent () {
+		return (isAndroidDevice() ? 2 : 1) * _maxImageScalePercent;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public String getMethod ()
 	{
 		return "get";
@@ -1315,7 +1332,8 @@ public class AlbumFormInfo
 	private boolean _ignoreBytes = false; //optionally tell compare dups to ignore number of bytes
 	private boolean _useExifDates = false; //optionally tell compare dups to use the EXIF date
 	private boolean _useCase = false;
-	private boolean _clearCache = false;
+	private boolean _clearDupCache = false;
+	private boolean _clearImageCache = false;
 	private boolean _reverseSort = false;
 	private boolean _interleaveSort = false;
 	private AlbumDuplicateHandling _duplicateHandling = AlbumDuplicateHandling.SelectNone;
@@ -1342,7 +1360,8 @@ public class AlbumFormInfo
 	public static final String _DeleteParam1 = "DeleteImage:";
 	public static final String _DeleteParam2 = "DeleteImages:";
 	public static final String _DeleteSuffix = ".delete";
-	public static final String _ClearCacheParam = "clearCache";
+	public static final String _ClearDupCacheParam = "clearDupCache";
+	public static final String _ClearImageCacheParam = "clearImageCache";
 
 	public static final int _NumTagParams = 9;
 

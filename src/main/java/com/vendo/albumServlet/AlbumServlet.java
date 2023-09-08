@@ -225,7 +225,7 @@ public class AlbumServlet extends HttpServlet
 			sb1.append ("</style>").append (NL);
 
 			String tableWidthString = !isAndroidDevice ? "100%" : "2200"; //TODO - tablet hardcoded for portrait not landscape
-			_log.debug ("AlbumServlet.doGet: tableWidthString = " + tableWidthString);
+//			_log.debug ("AlbumServlet.doGet: tableWidthString = " + tableWidthString);
 
 //attempt to turn off caching; copied from http://www.w3schools.com/tags/att_input_type.asp
 //			sb1.append ("<META HTTP-EQUIV=\"pragma\" CONTENT=\"no-cache\" />").append (NL)
@@ -325,7 +325,7 @@ public class AlbumServlet extends HttpServlet
 			   .append ("</TD>").append (NL);
 
 			StringBuilder sb2 = new StringBuilder (4096);
-			if (!isAndroidDevice) {
+//			if (!isAndroidDevice) {
 				int numTagParamsToUse = !isAndroidDevice ? AlbumFormInfo._NumTagParams : AlbumFormInfo._NumTagParams / 3;
 				int rows = !isAndroidDevice ? numTagParamsToUse / 3 : numTagParamsToUse;
 				for (int ii = 0; ii < numTagParamsToUse; ii++) {
@@ -338,7 +338,7 @@ public class AlbumServlet extends HttpServlet
 						sb2.append("</TD>").append(NL);
 					}
 				}
-			}
+//			}
 
 			StringBuilder sb3 = new StringBuilder (4096);
 			int maxColumns = !isAndroidDevice ? form.getMaxColumns () : 2; //hack - for android, only 1 or 2 columns (see also AlbumImages.java)
@@ -388,7 +388,8 @@ public class AlbumServlet extends HttpServlet
 			   .append (checkbox ("Ignore Bytes", "ignoreBytes", form.getIgnoreBytes ())).append (_spacing).append (NL)
 			   .append (checkbox ("EXIF Dates", "useExifDates", form.getUseExifDates ())).append (_spacing).append (NL)
 			   .append (checkbox ("Use Case", "useCase", form.getUseCase ())).append (_spacing).append (NL)
-			   .append (checkbox ("Clear Cache", AlbumFormInfo._ClearCacheParam, false /*form.getClearCache ()*/))//.append (_spacing).append (NL)
+			   .append (checkbox ("Clear Image Cache", AlbumFormInfo._ClearImageCacheParam, false /* always reset to false */)).append (_spacing).append (NL)
+			   .append (checkbox ("Clear Dup Cache", AlbumFormInfo._ClearDupCacheParam, false /* always reset to false */))//.append (_spacing).append (NL)
 //			   .append (checkbox ("Debug", "debug", AlbumFormInfo._Debug))
 			   .append ("</TD>").append (NL)
 			   .append ("</TR>").append (NL)
