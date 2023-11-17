@@ -202,6 +202,9 @@ select (sum(bytes * 1.05) + 10500)/(1024*1024*1024) as GBytes, count(*) as count
 select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by count desc
 select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by sub_folder2
 
+-- distribution / count of "q" images (used while moving qqX* to qX*, etc.)
+select substring(name_no_ext,1,3) as first_three, count(*) as count from images where lower(name_no_ext) like 'qq%' group by first_three order by count desc
+
 -- distribution of images in 1-, 2-, and 3-char subfolders
 -- single-char subfolder (NOTE SORT ASCENDING: for single char we want to see which folders are least used)
 select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count asc
@@ -372,6 +375,12 @@ update images set exifDate3 = 0 where exifDate3 is null;
 
 -- mysql equivalent of select 1 from dual
 select 1
+
+-- -----------------------------------------------------------------------------
+-- find longest image names
+
+select base_name, length(base_name) as length from image_counts
+order by length desc
 
 -- -----------------------------------------------------------------------------
 -- select random rows from images table

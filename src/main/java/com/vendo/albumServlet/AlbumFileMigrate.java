@@ -168,7 +168,7 @@ public class AlbumFileMigrate
 		if (_dir == null) {
 			_dir = VendoUtils.getCurrentDirectory ();
 		}
-		_dir = appendSlash (_dir);
+		_dir = VendoUtils.appendSystemSlash (_dir);
 //		if (_Debug)
 //			_log.debug ("_destDir = " + _destDir);
 
@@ -526,31 +526,12 @@ public class AlbumFileMigrate
 		File dir = new File (dirName);
 		String[] filenames = dir.list (filenameFilter);
 
-		dirName = appendSlash (dirName);
+		dirName = VendoUtils.appendSystemSlash (dirName);
 		for (int ii = 0; ii < filenames.length; ii++) {
 			filenames[ii] = dirName + filenames[ii];
 		}
 
 		return filenames;
-	}
-
-//	///////////////////////////////////////////////////////////////////////////
-//	private boolean fileExists (String filename)
-//	{
-//		Path file = FileSystems.getDefault ().getPath (filename);
-//
-//		return Files.exists (file);
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private String appendSlash (String dir) //append slash if necessary
-	{
-		int lastChar = dir.charAt (dir.length () - 1);
-		if (lastChar != '/' && lastChar != '\\') {
-			dir += _slash;
-		}
-
-		return dir;
 	}
 
 
@@ -564,7 +545,7 @@ public class AlbumFileMigrate
 	public static boolean _Debug = false;
 
 	public static final String _AppName = "AlbumFileRename";
-	public static final String _slash = System.getProperty ("file.separator");
+//	public static final String _slash = System.getProperty ("file.separator");
 	public static final String NL = System.getProperty ("line.separator");
 
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer

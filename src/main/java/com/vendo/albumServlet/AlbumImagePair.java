@@ -98,6 +98,18 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//compare on averageDiff, then stdDev, then joinedNames
+	public int compareTo2(AlbumImagePair other) {
+		if (getAverageDiff() != other.getAverageDiff()) {
+			return getAverageDiff() - other.getAverageDiff();
+		} else if (getStdDev() != other.getStdDev()) {
+			return getStdDev() - other.getStdDev();
+		} else {
+			return getJoinedNames().compareToIgnoreCase(other.getJoinedNames());
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public int compareTo(AlbumImagePair other) {
 		return getJoinedNamesPlusAttrs ().compareTo (other.getJoinedNamesPlusAttrs ());
@@ -170,8 +182,8 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	public String getDetails1String ()
 	{
 		StringBuffer sb = new StringBuffer ();
-		sb.append ("Avg/StdDev: ").append (getAverageDiff ()).append ("/").append (getStdDev ()).append (", ");
-		sb.append ("Src: ").append (getSource ()).append (", ");
+		sb.append ("Image diffs: Avg/StdDev: ").append (getAverageDiff ()).append ("/").append (getStdDev ()).append (", ");
+		sb.append ("Source: ").append (getSource ()).append (", ");
 		sb.append ("Updated: ").append (getLastUpdate () != null ? _dateFormat.format (getLastUpdate ()) : "null");
 
 		return sb.toString ();

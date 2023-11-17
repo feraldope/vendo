@@ -76,9 +76,9 @@ public class AlbumFileBackup
 	///////////////////////////////////////////////////////////////////////////
 	private Boolean processArgs (String[] args)
 	{
-		String defaultSubFolderPatternString = ".*";
+		String defaultSubFolderPatternString = "*";
 		String subFolderPatternString = defaultSubFolderPatternString;
-		String filenamePatternString = ".*";
+		String filenamePatternString = "*";
 		String sourceRootName = null;
 		String destRootName = null;
 		double sinceInDays = -1.;

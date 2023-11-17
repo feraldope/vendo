@@ -1018,6 +1018,7 @@ public class AlbumImageDiffer
 			break;
 		}
 
+//TODO - add where clause for includeFilters
 		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
 		String acceptDiffClause = " (d.avg_diff <= " + maxRgbDiff + " " + operatorStr + " d.std_dev <= " + maxStdDev + ")" +
 								  " and d.avg_diff <= (3 * " + maxRgbDiff + ") and d.std_dev <= (3 * " + maxStdDev + ")"; //hardcoded values

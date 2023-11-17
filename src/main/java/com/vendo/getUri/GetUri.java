@@ -727,12 +727,22 @@ public class GetUri
 	///////////////////////////////////////////////////////////////////////////
 	private boolean buildStrings ()
 	{
+//TODO - override - is this right?
+		_exten = _tail;
+
 		int next = _index;
 		do {
 			String filenameNumberFormat = "%0" + _pad + "d";
 			String filenameNumber = String.format (filenameNumberFormat, next++);
 
 			_filename = _destDir + _prefix + filenameNumber + _exten;
+
+//			if (_Debug) {
+//				_log.debug ("next = " + next);
+//				_log.debug ("_index = " + _index);
+//				_log.debug ("_filename = " + _filename);
+//			}
+
 		} while (fileExists (_filename));
 
 		if (_startIndex < 0 || _endIndex < 0) {

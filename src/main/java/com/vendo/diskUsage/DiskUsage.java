@@ -121,7 +121,7 @@ public class DiskUsage
 		}
 
 		try {
-			_rootFolder = FileSystems.getDefault ().getPath (VendoUtils.appendSlash (folderString));
+			_rootFolder = FileSystems.getDefault ().getPath (VendoUtils.appendSystemSlash(folderString));
 		} catch (Exception ee) {
 			System.err.println ("Invalid folder: " + folderString);
 			return false;

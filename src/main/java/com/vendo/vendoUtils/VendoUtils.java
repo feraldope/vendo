@@ -952,10 +952,10 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String appendSlash (String dir) //append slash if necessary
+	public static String appendSystemSlash(String dir) //append slash if necessary
 	{
 		if (!dir.endsWith ("\\") || !dir.endsWith ("/")) {
-			dir += _slash;
+			return dir + _systemSlash;
 		}
 
 		return dir;
@@ -963,7 +963,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//replace all forward slashes with backslashes
-	public static String fixSlashes (String path)
+	public static String toBackSlashes(String path)
 	{
 		if (path.contains("/")) {
 			return path.replaceAll("/", "\\\\"); //regex
@@ -1196,6 +1196,20 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static String deEscapeUrlString (String string) {
+		//Example "&#039;" -> represents char with value 39 (decimal) => close quote
+		final Pattern quote39Pattern = Pattern.compile("(.*?)&#(\\d+);(.*)");
+		Matcher quote39Matcher = quote39Pattern.matcher(string);
+		if (quote39Matcher.find()) {
+			String group2 = quote39Matcher.group(2);
+			char ch = (char) Integer.parseInt(group2);
+			string = quote39Matcher.group(1) + ch + quote39Matcher.group(3);
+		}
+
+		return string;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static final Comparator<String> caseInsensitiveStringComparator = new Comparator<String> ()
 	{
 		@Override
@@ -1295,7 +1309,7 @@ public class VendoUtils
 	private static final String _osName = System.getProperty ("os.name");
 	private static final String _osVersion = System.getProperty ("os.version"); //e.g., will be "10.0" on Windows 10
 	private static final String _user = System.getProperty ("user.name");
-	private static final String _slash = System.getProperty ("file.separator");
+	private static final String _systemSlash = System.getProperty ("file.separator");
 
 	private static final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0"); //format as integer
 

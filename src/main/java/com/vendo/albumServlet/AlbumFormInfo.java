@@ -486,8 +486,15 @@ public class AlbumFormInfo
 			filter = filter.substring (0, filter.length () - 1);
 		}
 
-		int numFilters = filter.split(",").length;
-		_log.debug ("AlbumFormInfo.cleanFilter: " + debugName + "[" + numFilters + "]: \"" + filter + "\"");
+		//collapse duplicates
+		List<String> filterList = Arrays.stream(filter.split (","))
+										.map(String::trim)
+//do not sort							.sorted(VendoUtils.caseInsensitiveStringComparator)
+										.distinct()
+										.collect(Collectors.toList());
+		filter = String.join(",", filterList);
+
+		_log.debug ("AlbumFormInfo.cleanFilter: " + debugName + "[" + filterList.size() + "]: " + filter);
 
 		return filter;
 	}

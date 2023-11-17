@@ -270,6 +270,8 @@ public class AlbumTags
 			return;
 		}
 
+		_log.debug ("AlbumTags.run1: running update...");
+
 		generateAlbumBase1NameMap ();
 
 		Map<String, Set<String>> tagFileMap = readTagFile (_tagFilename, _tagPatternString);
@@ -588,7 +590,7 @@ public class AlbumTags
 				}
 				endGate.countDown ();
 			});
-			thread.setName(subFolder);
+			thread.setName ("generateTagData:" + subFolder);
 			thread.start ();
 		}
 		try {
@@ -988,7 +990,8 @@ public class AlbumTags
 			}
 		}
 
-		final int maxThreads = 5 * VendoUtils.getLogicalProcessors ();
+//		final int maxThreads = 5 * VendoUtils.getLogicalProcessors ();
+		final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
 		final int minPerThread = 2000;
 		final int chunkSize = VendoUtils.calculateChunks (maxThreads, minPerThread, tagFilters.size (), _log).getFirst ();
 		List<List<TagFilter1>> tagFilterChunks = ListUtils.partition (tagFilters, chunkSize);

@@ -130,7 +130,7 @@ public final class JHistory {
 		if (_destDir == null) {
 			_destDir = VendoUtils.getCurrentDirectory();
 		}
-		_destDir = VendoUtils.appendSlash(_destDir);
+		_destDir = VendoUtils.appendSystemSlash(_destDir);
 
 		//NOTE: similar code exists in JHistory.java and GetUrl.java
 		_urlPathFragmentsValues = Arrays.stream(System.getenv(_urlPathFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
@@ -319,13 +319,13 @@ public final class JHistory {
 				.sorted((u1, u2) -> u1.getBaseUrl().getFile().compareToIgnoreCase(u2.getBaseUrl().getFile()))
 				.collect(Collectors.toList());
 
-		final String htmlEscapedModifier = VendoUtils.escapeHtmlChars("[bhlmr+]");
+		final String htmlEscapedModifier = VendoUtils.escapeHtmlChars("[bhlmr+]"); //hardcoded - list of popular single-char album suffixes
 
-		final String regex = "(?i)(picture.*|\\sin\\s.*|\\saka\\s.*)";
+		final String regex = "(?i)(picture.*|\\sin\\s.*|\\saka\\s.*)"; //Huh?
 		final String nameStr = urlLinkDataAll.iterator().next().getMainTitle().replaceAll(regex, "").replaceAll("\\s", ""); //TODO hack - string processing, and just uses first item in collection
 
 		String albumServetLink = "http://localhost/AlbumServlet/AlbumServlet?mode=doSampler&filter1=" + nameStr + "&filter2=" + nameStr + htmlEscapedModifier +
-				"&windowWidth=2200&windowHeight=2050&panels=4000&columns=8&collapseGroups=on&limitedCompare=true&looseCompare=true&ignoreBytes=true&debug=on#topAnchor";
+				"&windowWidth=2200&windowHeight=2050&panels=4000&columns=6&collapseGroups=on&limitedCompare=true&looseCompare=true&ignoreBytes=true&debug=on#topAnchor";
 		String titleStr = _htmlFilename + " - " + nameStr + " (" + urlLinkDataNew.size() + " new of " + urlLinkDataAll.size() + " total)";
 
 		String html = DOCTYPE + NL;

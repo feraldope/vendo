@@ -428,11 +428,11 @@ public class AlbumImages
 		int maxStdDev = form.getMaxStdDev();
 
 		int numImages = 0;
-		if (dbCompare) {
-			numImages = doDir(new String[]{"*"}, excludes, 0); //use "*" here, as filtering will be done below
-		} else {
+//		if (dbCompare) {
+//			numImages = doDir(new String[]{"*"}, excludes, 0); //use "*" here, as filtering will be done below
+//		} else {
 			numImages = doDir(filters, excludes, 0); //ignore sinceInMillis here; it will be honored below
-		}
+//		}
 
 		//since we can't run this combo (way too many diffs), just return no image; it was probably a mistake on user's part
 		if ((form.getFilters ().length == 0 && !dbCompare && looseCompare && ignoreBytes)) {
@@ -505,9 +505,15 @@ public class AlbumImages
 
 		if (looseCompare && !dbCompare) {
 //			final int maxThreads = VendoUtils.getLogicalProcessors () - 1;
-			final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
+//			final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
+			final int maxThreads = 4 * VendoUtils.getLogicalProcessors ();
 			final long maxPairsToPutInQueue = 3 * 1000 * 1000;
-			final int queueSize = 2 * 1000 * 1000;
+//			final int queueSize = 2 * 1000 * 1000;
+			final int queueSize = 500 * 1000;
+//			final int queueSize = 100 * 1000;
+//			final int queueSize = 10 * 1000;
+//			final int queueSize = 1000;
+//			final int queueSize = 100;
 
 			CacheStats nameScaledImageCacheStatsStart = _nameScaledImageCache.stats();
 			_nameScaledImageCacheAdded = ConcurrentHashMap.newKeySet();
@@ -594,23 +600,23 @@ public class AlbumImages
 			}
 //			Collections.shuffle(imageDisplayList2);
 
-			final int maxSizeToAlwaysCompareAllImages = 500;
-			if (imageDisplayList1.size() <= maxSizeToAlwaysCompareAllImages && imageDisplayList2.size() <= maxSizeToAlwaysCompareAllImages) {
-				Set<AlbumImage> imageDisplaySet = new HashSet<>(imageDisplayList1);
-				imageDisplaySet.addAll(imageDisplayList2);
-
-				imageDisplayList1.clear();
-				imageDisplayList1.addAll(imageDisplaySet);
-				imageDisplayList2.clear();
-				imageDisplayList2.addAll(imageDisplaySet);
-			} else {
+//			final int maxSizeToAlwaysCompareAllImages = 500;
+//			if (imageDisplayList1.size() <= maxSizeToAlwaysCompareAllImages && imageDisplayList2.size() <= maxSizeToAlwaysCompareAllImages) {
+//				Set<AlbumImage> imageDisplaySet = new HashSet<>(imageDisplayList1);
+//				imageDisplaySet.addAll(imageDisplayList2);
+//
+//				imageDisplayList1.clear();
+//				imageDisplayList1.addAll(imageDisplaySet);
+//				imageDisplayList2.clear();
+//				imageDisplayList2.addAll(imageDisplaySet);
+//			} else {
 				Collections.shuffle(imageDisplayList1);
 				Collections.shuffle(imageDisplayList2);
-			}
+//			}
 
 			_log.debug("AlbumImages.doDup: _imageDisplayList.size = " + _decimalFormat0.format (_imageDisplayList.size()));
-			_log.debug("AlbumImages.doDup: imageDisplayList1.size = " + _decimalFormat0.format (imageDisplayList1.size()));
-			_log.debug("AlbumImages.doDup: imageDisplayList2.size = " + _decimalFormat0.format (imageDisplayList2.size()));
+			_log.debug("AlbumImages.doDup: imageDisplayList1.size = " + _decimalFormat0.format (imageDisplayList1.size()) + ", filter1 = " + filter1);
+			_log.debug("AlbumImages.doDup: imageDisplayList2.size = " + _decimalFormat0.format (imageDisplayList2.size()) + ", filter2 = " + filter2);
 
 			BlockingQueue<AlbumImagePair> queue = new ArrayBlockingQueue<> (queueSize);
 			List<Thread> threads = new ArrayList<> ();
@@ -953,7 +959,10 @@ public class AlbumImages
 				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.db");
 
 				//generate map of imageNames->images
-				Map<String, AlbumImage> map = _imageDisplayList.stream ().collect (Collectors.toMap (AlbumImage::getName, i -> i));
+				Map<String, AlbumImage> imageMap = _imageDisplayList.stream ().collect (Collectors.toMap (AlbumImage::getName, i -> i));
+				Map<String, AlbumImagePair> bestPairMap = new HashMap<> ();
+				Set<String> foundKeysForDebugging = new TreeSet<>(new AlphanumComparator()); //use set to avoid dups
+				boolean foundKeysForDebuggingShowDetail = false;
 
 				final double sinceDays = _form.getHighlightDays (); //TODO - using highlightDays is a HACK
 				final boolean operatorOr = _form.getTagFilterOperandOr (); //TODO - using tagFilterOperandOr is a HACK
@@ -965,8 +974,8 @@ public class AlbumImages
 				_log.debug ("AlbumImages.doDup: imageDiffData.size(): " + _decimalFormat0.format (imageDiffData.size ()));
 
 				for (AlbumImageDiffData imageDiffItem : imageDiffData) {
-					AlbumImage image1 = map.get (imageDiffItem.getName1 ());
-					AlbumImage image2 = map.get (imageDiffItem.getName2 ());
+					AlbumImage image1 = imageMap.get (imageDiffItem.getName1 ());
+					AlbumImage image2 = imageMap.get (imageDiffItem.getName2 ());
 					//images can be null if excludes was used
 					if (image1 != null && image2 != null && image1.matchOrientation (image2.getOrientation ()) && image1.matchOrientation (orientation)) {
 						//at least one of each pair must be accepted by filter1
@@ -974,13 +983,49 @@ public class AlbumImages
 							boolean sameBaseName = image1.equalBase (image2, collapseGroups);
 							if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
 													( reverseSort &&  sameBaseName))) {
-								AlbumImagePair pair = new AlbumImagePair (image1, image2, imageDiffItem.getAverageDiff (), imageDiffItem.getStdDev (), imageDiffItem.getSource (), imageDiffItem.getLastUpdate());
-								dups.add (pair);
+								AlbumImagePair newPair = new AlbumImagePair (image1, image2, imageDiffItem.getAverageDiff (), imageDiffItem.getStdDev (), imageDiffItem.getSource (), imageDiffItem.getLastUpdate());
+
+								if (dbCompare && !looseCompare) { //TODO - add control by AlbumFormInfo check box
+									//only keep one pair for each album/album
+									String key = newPair.getJoinedNames(); //note collapseGroups = false
+									AlbumImagePair bestPair = bestPairMap.get(key);
+									if (bestPair != null) {
+										if (foundKeysForDebuggingShowDetail) {
+											foundKeysForDebugging.add(key); //too much noise
+										} else {
+											foundKeysForDebugging.add(newPair.getImage1().getBaseName(true) + "," + newPair.getImage2().getBaseName(true)); //note collapseGroups = true
+										}
+										if (newPair.compareTo2(bestPair) < 0) {
+											//we found a better pair
+											dups.remove(bestPair); //TODO - calling remove on List could be slow
+											dups.add(newPair);
+											bestPairMap.replace(key, newPair);
+										}
+									} else {
+										dups.add(newPair);
+										bestPairMap.put(key, newPair);
+									}
+								} else { //always add
+									dups.add(newPair);
+								}
 
 //TODO - need/want this?
 //								_looseCompareDataCache.put (pair, pair);
 							}
 						}
+					}
+				}
+				if (foundKeysForDebuggingShowDetail) { //too much noise
+					foundKeysForDebugging.forEach(key -> {
+						String message = "found one or more keys in bestPairMap: " + key;
+						_log.debug("AlbumImages.doDup: " + message);
+						_form.addServletError("Info: " + message);
+					});
+				} else {
+					if (foundKeysForDebugging.size() > 0) {
+						String message = "found " + foundKeysForDebugging.size() + " entries in bestPairMap";
+						_log.debug("AlbumImages.doDup: " + message);
+						_form.addServletError("Info: " + message);
 					}
 				}
 
@@ -2032,7 +2077,8 @@ public class AlbumImages
 					int imageCols = AlbumImageDao.getInstance ().getNumMatchingImages (imageNonUniqueString, 0);
 					int partnerCols = AlbumImageDao.getInstance ().getNumMatchingImages (partnerNonUniqueString, 0);
 //					int newCols = (imageName.compareToIgnoreCase (partner.getName ()) < 0 ? imageCols : partnerCols);
-					int newCols = 8; //HACK - TODO for now hardcode to 8
+//					int newCols = 8; //HACK - TODO for now hardcode to 8
+					int newCols = _form.getColumns(); //HACK - is this right?
 
 					//but prevent using columns = 1
 					if (newCols == 1) {
@@ -2453,7 +2499,7 @@ public class AlbumImages
 				outputStream.close ();
 				if (error.length () > 0) {
 //					_log.error ("AlbumImages.generateDuplicateImageRenameError: error written to file: " + moveFile);
-					_log.error ("AlbumImages.generateDuplicateImageRenameError: " + error);// + NL);
+					_log.error ("AlbumImages.generateDuplicateImageRenameError: " + error);
 				}
 
 			} catch (IOException ee) {
@@ -2478,6 +2524,12 @@ public class AlbumImages
 		String[] filters = form.getFilters ();
 
 		deleteFileIgnoreException (moveFile);
+
+		//hack - skip this if we only have "q" images
+		boolean qOnlyImages = Arrays.stream(filters).allMatch(s -> s.startsWith("q"));
+		if (qOnlyImages) {
+			return;
+		}
 
 		if (form.getMode () != AlbumMode.DoDup || !form.getLooseCompare() /*|| !form.getIgnoreBytes()*/ || numImages == 0 || numImages > 1000 || form.filtersHaveWildCards()) {
 
@@ -3237,10 +3289,13 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	private static Set<AlbumImagePair> _looseCompareDataCacheAdded = null;
 	private static Set<AlbumImagePair> _looseCompareDataCacheEvicted = null;
 
-	public static final int _nameScaledImageCacheMaxSize = 200 * 1024;
-	public static final int _looseCompareDataCacheMaxSize = 10 * 1024 * 1024;
+//	public static final int _nameScaledImageCacheMaxSize = 200 * 1024;
+//	public static final int _looseCompareDataCacheMaxSize = 10 * 1024 * 1024;
 //	public static final int _nameScaledImageCacheMaxSize = 256 * 1024;
 //	public static final int _looseCompareDataCacheMaxSize = 12 * 1024 * 1024;
+	public static final int _nameScaledImageCacheMaxSize = 320 * 1024;
+	public static final int _looseCompareDataCacheMaxSize = 16 * 1024 * 1024;
+
 	private static Map<String, Set<String>> _nameOfExactDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate base names
 	private static Map<String, Set<String>> _nameOfNearDuplicateThatCanBeDeleted = new HashMap<> (); //key=subfolder, value=set of duplicate base names
 	private static Map<String, Set<String>> _duplicatesCache = new HashMap<> (); //key=subfolder, value=set of duplicate images names

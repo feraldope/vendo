@@ -53,7 +53,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		setExifDates (exifDates);
 
 		_subFolder = subFolder;
-		_imagePath = VendoUtils.appendSlash (imagePath);
+		_imagePath = VendoUtils.appendSystemSlash(VendoUtils.toBackSlashes(imagePath));
 
 		_namePlusAttrs = null;
 //		_nameFirstLettersLower = null;
@@ -114,12 +114,12 @@ public class AlbumImage implements Comparable<AlbumImage>
 		AlbumProfiling.getInstance ().enter (7, subFolder, "ctor");
 
 		String nameWithExt = name + AlbumFormInfo._ImageExtension;
-		String imagePath = AlbumFormInfo.getInstance ().getRootPath (false) + subFolder;
+		String imagePath = VendoUtils.toBackSlashes(AlbumFormInfo.getInstance ().getRootPath (false) + subFolder);
 
 		_nameId = -1;
 		_name = name;
 		_subFolder = subFolder;
-		_imagePath = VendoUtils.appendSlash (imagePath);
+		_imagePath = VendoUtils.appendSystemSlash(imagePath);
 		_file = new File (imagePath, nameWithExt);
 
 		if (readAttrs) {
@@ -129,9 +129,10 @@ public class AlbumImage implements Comparable<AlbumImage>
 				attrs = Files.readAttributes (file, BasicFileAttributes.class);
 
 			} catch (Exception ee) {
-				_log.error ("AlbumImage ctor: error reading file attributes \"" + VendoUtils.fixSlashes(_imagePath + nameWithExt) + "\"", ee);
+				_log.error ("AlbumImage ctor: error reading file attributes \"" + _imagePath + nameWithExt + "\"", ee);
 
 			} finally {
+				assert attrs != null;
 				_numBytes = attrs.size ();
 				_modified = attrs.lastModifiedTime ().toMillis (); //millisecs
 			}
@@ -150,8 +151,8 @@ public class AlbumImage implements Comparable<AlbumImage>
 				image.getRGB (width / 2, height / 2, w, h, rgbIntArray, 0, w);
 
 			} catch (Exception ee) {
-				_log.error ("AlbumImage ctor: error reading image file \"" + VendoUtils.fixSlashes(_imagePath + nameWithExt) + "\"", ee);
-				_log.error ("AlbumImage ctor: delete command:" + NL + "del " + VendoUtils.fixSlashes(_imagePath + nameWithExt) + NL);
+				_log.error ("AlbumImage ctor: error reading image file \"" + _imagePath + nameWithExt + "\"", ee);
+				_log.error ("AlbumImage ctor: delete command:" + NL + "del " + _imagePath + nameWithExt + NL);
 
 			} finally {
 				_width = width;
@@ -239,11 +240,11 @@ public class AlbumImage implements Comparable<AlbumImage>
 		sb.append (getModifiedString ());
 
 		if (full) { //typically true for servlet, false for CLI
-
 			int exifDateIndex = AlbumFormInfo.getInstance ().getExifDateIndex ();
 			String exifDateString = getExifDateString (exifDateIndex);
 			if (exifDateString.length () != 0) {
 				sb.append (HtmlNewline)
+				  .append ("EXIF date: ")
 				  .append (exifDateString);
 			}
 
@@ -617,7 +618,6 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 		String nameWithExt = getImagePath () + getName () + AlbumFormInfo._RgbDataExtension;
 
-//TODO - convert to try-with-resources
 		ByteBuffer scaledImageData = null;
 		FileInputStream inputStream = null;
 		FileChannel fileChannel = null;
@@ -653,38 +653,42 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 //		AlbumProfiling.getInstance ().exit (5);
 
-		validateScaledImageData (scaledImageData, nameWithExt); //emits errors
+		calculateScaledImageDataStatistics (scaledImageData, nameWithExt); //emits errors
 
 		return scaledImageData;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void validateScaledImageData (ByteBuffer scaledImageData, String nameWithExt)
+	public void calculateScaledImageDataStatistics (ByteBuffer scaledImageData, String nameWithExt)
 	{
 //		AlbumProfiling.getInstance ().enter (5); //don't profile; this is called by threads
+//TODO - calculateScaledImageDataStatistics is also called during RGB file creation, and some of this is not needed
 
-		//basic validations
 		if (scaledImageData != null) {
 			scaledImageData.rewind (); //always rewind before using
-			int numBytes = scaledImageData.remaining ();
+			final int numBytes = scaledImageData.remaining ();
 
 			//check for valid size
 			if (!isRgbDatExpectedSize (numBytes)) {
 				String message = "unexpected size (" + numBytes + " bytes) for " + nameWithExt;
-				_log.error ("AlbumImage.validateScaledImageData: " + message);
+				_log.error ("AlbumImage.calculateScaledImageDataStatistics: " + message);
 				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
 			}
 
-			//check for average value out of range
-			int sum = 0;
-			for (int ii = 0; ii < numBytes; ii++) {
-				sum += scaledImageData.get (ii) & 0xFF;
-			}
-			int average = (int) Math.round ((double) sum / numBytes);
-			if (average < 5 || average > 255 - 5) { //hardcoded values
-				String message = "average (" + average + ") out of range for " + nameWithExt;
-				_log.error ("AlbumImage.validateScaledImageData: " + message);
-				AlbumFormInfo.getInstance ().addServletError ("Error: " + message);
+			if (false) {
+				int sum = 0;
+				for (int ii = 0; ii < numBytes; ii++) {
+					sum += scaledImageData.get(ii) & 0xFF;
+				}
+				int averageValue = (int) Math.round((double) sum / numBytes);
+
+				//check for average value out of range
+				final int diff = 5;
+				if (averageValue < diff || averageValue > 255 - diff) { //hardcoded values
+					String message = "average (" + averageValue + ") out of range for " + nameWithExt;
+					_log.error("AlbumImage.calculateScaledImageDataStatistics: " + message);
+					AlbumFormInfo.getInstance().addServletError("Error: " + message);
+				}
 			}
 		}
 
@@ -757,7 +761,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 			}
 		}
 
-		//		AlbumProfiling.getInstance ().exit (5);
+//		AlbumProfiling.getInstance ().exit (5);
 
 		return VPair.of (averageAbsDiff, stdDev);
 	}
@@ -765,6 +769,9 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean acceptDiff (int averageDiff, int stdDev, int maxRgbDiffs, int maxStdDev)
 	{
+		if (maxRgbDiffs < 1) { //if value drops below 1, it messes up the following logic
+			maxRgbDiffs = 1;
+		}
 		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
 		return (averageDiff >= 0 && stdDev >= 0) && //avoid accepting AlbumImagePair objects that have not been inited with diff values
 				(averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 3 * maxRgbDiffs && stdDev <= 3 * maxStdDev; //hardcoded values
@@ -809,7 +816,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 			scaledImageData = shrinkRgbData (rawScaledImageData);
 
-			validateScaledImageData (scaledImageData, nameWithExt); //emits errors
+			calculateScaledImageDataStatistics (scaledImageData, nameWithExt); //emits errors
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImage.createRgbDataFile: error reading/scaling image file \"" + nameWithExt + "\"", ee);

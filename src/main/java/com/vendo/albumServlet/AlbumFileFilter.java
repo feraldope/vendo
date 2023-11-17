@@ -55,10 +55,6 @@ public class AlbumFileFilter implements FilenameFilter
 						break;
 					}
 
-					if (!useCase) {
-						includeFilter = includeFilter.toLowerCase ();
-					}
-
 					includeFilter = AlbumFormInfo.convertWildcardsToRegex (includeFilter);
 
 					if (debugCtor && AlbumFormInfo._Debug) {
@@ -83,10 +79,6 @@ public class AlbumFileFilter implements FilenameFilter
 				if (excludeFilter.length () != 0) {
 					String orinalExcludeFilter = excludeFilter; //in case of error
 
-					if (!useCase) {
-						excludeFilter = excludeFilter.toLowerCase ();
-					}
-
 					excludeFilter = AlbumFormInfo.convertWildcardsToRegex (excludeFilter);
 
 					if (debugCtor && AlbumFormInfo._Debug) {
@@ -108,7 +100,7 @@ public class AlbumFileFilter implements FilenameFilter
 //		_albumImages = AlbumImages.getInstance ();
 
 		if (debugCtor && AlbumFormInfo._Debug) {
-			_log.debug ("AlbumFileFilter ctor: _includeAllFolders = " + new Boolean (_includeAllFolders) + ", _includeAllFiles = " + new Boolean (_includeAllFiles));
+			_log.debug ("AlbumFileFilter ctor: _includeAllFolders = " + _includeAllFolders + ", _includeAllFiles = " + _includeAllFiles);
 		}
 	}
 

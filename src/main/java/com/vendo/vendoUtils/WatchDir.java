@@ -34,14 +34,19 @@
 
 package com.vendo.vendoUtils;
 
+import java.io.IOException;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.nio.file.StandardWatchEventKinds.*;
-import static java.nio.file.LinkOption.*;
-import java.nio.file.attribute.*;
-import java.io.*;
-import java.text.*;
-import java.util.*;
-import java.util.regex.*;
 
 
 public abstract class WatchDir implements Runnable
@@ -68,8 +73,9 @@ public abstract class WatchDir implements Runnable
 				} else if (arg.equalsIgnoreCase ("sleepMillis") || arg.equalsIgnoreCase ("sleep")) {
 					try {
 						_sleepMillis = Integer.parseInt (args[++ii]);
-						if (_sleepMillis < 0)
+						if (_sleepMillis < 0) {
 							throw (new NumberFormatException ());
+						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					} catch (NumberFormatException exception) {
@@ -151,15 +157,17 @@ public abstract class WatchDir implements Runnable
 	///////////////////////////////////////////////////////////////////////////
 	protected static void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
-		if (message != null)
+		String msg = "";
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] [/subdirs] [/sleepMillis <testing delay>] <dir to watch> [<file pattern>]";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -169,7 +177,7 @@ public abstract class WatchDir implements Runnable
 		_keys = new HashMap<WatchKey, Path> ();
 
 		_pattern = pattern;
-		recurseSubdirs = _recurseSubdirs;
+		_recurseSubdirs = recurseSubdirs;
 
 		if (_recurseSubdirs) {
 			System.out.format ("Scanning %s ...\n", dir);
@@ -185,10 +193,9 @@ public abstract class WatchDir implements Runnable
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	@SuppressWarnings ("unchecked")
 	protected <T> WatchEvent<T> asWatchEvent (WatchEvent<?> event) //cast
 	{
-		return event instanceof WatchEvent ? (WatchEvent<T>) event : null;
+		return event != null ? (WatchEvent<T>) event : null;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -252,7 +259,7 @@ public abstract class WatchDir implements Runnable
 			}
 
 			for (WatchEvent<?> event : key.pollEvents ()) {
-				WatchEvent.Kind kind = event.kind ();
+				WatchEvent.Kind<?> kind = event.kind ();
 
 				if (kind == OVERFLOW) {
 					overflow (event);

@@ -100,7 +100,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
             items.add(new AlbumImageDuplicateDetails(filter, null));
             return items;
 
-        } else if (numDigits == 3) {
+        } else if (numDigits == 3) { //TODO - this is too restrictive
             if (digits.startsWith("0")) {
                 return null;
 

@@ -187,7 +187,7 @@ public class AlbumFileRename
 		if (_rootPath == null) {
 			_rootPath = VendoUtils.getCurrentDirectory ();
 		}
-		_rootPath = appendSlash (_rootPath);
+		_rootPath = VendoUtils.appendSystemSlash (_rootPath);
 
 		if (_renumDigits == null) {
 			_renumDigits = 2;
@@ -230,8 +230,8 @@ public class AlbumFileRename
 	{
 		final int maxToPrint = 6;
 
-		_sourceSubFolder = appendSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_inPattern));
-		_destSubFolder = appendSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_outPattern));
+		_sourceSubFolder = VendoUtils.appendSystemSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_inPattern));
+		_destSubFolder = VendoUtils.appendSystemSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_outPattern));
 
 		if (_Debug) {
 			_log.debug("_sourceSubFolder = " + _sourceSubFolder);
@@ -389,7 +389,7 @@ public class AlbumFileRename
 			boolean status = moveFile(fileNamePair.getFirst(), fileNamePair.getSecond());
 
 			if (status) {
-				_undoCommands.add(VendoUtils.fixSlashes("move " + fileNamePair.getSecond() + " " + fileNamePair.getFirst()));
+				_undoCommands.add(VendoUtils.toBackSlashes("move " + fileNamePair.getSecond() + " " + fileNamePair.getFirst()));
 				_filesProcessed++;
 			}
 		}
@@ -489,28 +489,6 @@ public class AlbumFileRename
 		return header + ": [showing first " + limit + " of " + list.size() + "]" + NL + string;
 	}
 
-//moved to VendoUtils
-	///////////////////////////////////////////////////////////////////////////
-//	//replace all forward slashes with backslashes
-//	private String fixSlashes (String path)
-//	{
-//		if (path.contains("/")) {
-//			return path.replaceAll("/", "\\\\"); //regex
-//		} else {
-//			return path;
-//		}
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-	private String appendSlash (String path)
-	{
-		if (path.endsWith("/") || path.endsWith("\\")) {
-			return path;
-		} else {
-			return path + _slash;
-		}
-	}
-
 
 	//members from command line
 	private boolean _testMode = false;
@@ -539,7 +517,6 @@ public class AlbumFileRename
 
 	public static final String _AppName = "AlbumFileRename";
 	public static final String _DefaultExtension = ".jpg";
-	public static final String _slash = System.getProperty ("file.separator");
 	public static final String NL = System.getProperty ("line.separator");
 
 	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer

@@ -31,17 +31,22 @@ import java.util.stream.Collectors;
 
 
 public class GetUrl {
-	public enum FileType {JPG, MPG, WMV, MP4, AVI, Other}
+	public enum FileType {JPG, PNG, MPG, WMV, MP4, AVI, Other}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main(String[] args) {
-		GetUrl app = new GetUrl();
+		try {
+			GetUrl app = new GetUrl();
 
-		if (!app.processArgs(args)) {
-			System.exit(1); //processArgs displays error
+			if (!app.processArgs(args)) {
+				System.exit(1); //processArgs displays error
+			}
+
+			app.run();
+		} catch (Exception ex) {
+			_log.debug("Error in main", ex);
+			_log.error(ex); //print exception, but no stack trace
 		}
-
-		app.run();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -175,6 +180,9 @@ public class GetUrl {
 					_stripHead = true;
 					_switches.add("/strip");
 
+				} else if (arg.equalsIgnoreCase("test")) { // || arg.equalsIgnoreCase ("testMode")) {
+					_TestMode = true;
+
 				} else if (arg.equalsIgnoreCase("noAutoPrefix") || arg.equalsIgnoreCase("noa")) {
 					_autoPrefix = false;
 
@@ -190,7 +198,9 @@ public class GetUrl {
 
 			} else {
 				//check for other args
-				if (_model == null) {
+//				if (_fromFilename == null) {
+//					if (_model == null) {
+				if (_fromFilename == null && _model == null) {
 					_model = arg;
 
 				} else if (_outputPrefix == null) {
@@ -212,12 +222,24 @@ public class GetUrl {
 //			_log.debug ("_destDir = " + _destDir);
 
 		if (_fromFilename != null) {
-			if (!_checkHistoryOnly) {
-				displayUsage("Must specify check if specifying fromFile", true);
-			}
+//			if (!_checkHistoryOnly) {
+//				displayUsage("Must specify check if specifying fromFile", true);
+//			}
 
 			if (!fileExists(_destDir + _fromFilename)) {
 				displayUsage("fromFile not found: '" + _fromFilename + "'", true);
+			}
+
+			if (_outputPrefix == null) {
+				displayUsage("No output file (prefix) specified", true);
+			}
+
+			if (_numberPrefix == null) {
+				_numberPrefix = "";
+			}
+
+			if (_pad < 3) {
+				_pad = 3;
 			}
 
 		} else {
@@ -246,23 +268,25 @@ public class GetUrl {
 			setFileType();
 		}
 
-		//NOTE: similar code exists in JHistory.java and GetUrl.java
-		_urlPathFragmentsValues = Arrays.stream(System.getenv (_urlPathFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
-		}
-		_urlHostsToBeSkippedValues = Arrays.stream(System.getenv (_urlHostsToBeSkippedName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlHostsToBeSkippedValues == null ||*/ _urlHostsToBeSkippedValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlHostsToBeSkippedName + "'", true);
-		}
-		//DO NOT SORT - DO NOT CHANGE ORDER FROM FILE
-		_urlKnownHostFragmentsValues = Arrays.stream(System.getenv (_urlKnownHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (/*_urlKnownHostFragmentsValues == null ||*/ _urlKnownHostFragmentsValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlKnownHostFragmentsName + "'", true);
-		}
-		_urlDeadHostFragmentsValues = Arrays.stream(System.getenv (_urlDeadHostFragmentsName).toLowerCase ().split (",")).map(String::trim).collect(Collectors.toList());
-		if (_urlDeadHostFragmentsValues == null || _urlDeadHostFragmentsValues.isEmpty ()) {
-			displayUsage ("Must specify environment variable '" + _urlDeadHostFragmentsName + "'", true);
+		if (!_TestMode && _fromFilename == null) {
+			//NOTE: similar code exists in JHistory.java and GetUrl.java
+			_urlPathFragmentsValues = Arrays.stream(System.getenv(_urlPathFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+			if (/*_urlPathFragmentsValues == null ||*/ _urlPathFragmentsValues.isEmpty()) {
+				displayUsage("Must specify environment variable '" + _urlPathFragmentsName + "'", true);
+			}
+			_urlHostsToBeSkippedValues = Arrays.stream(System.getenv(_urlHostsToBeSkippedName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+			if (/*_urlHostsToBeSkippedValues == null ||*/ _urlHostsToBeSkippedValues.isEmpty()) {
+				displayUsage("Must specify environment variable '" + _urlHostsToBeSkippedName + "'", true);
+			}
+			//DO NOT SORT - DO NOT CHANGE ORDER FROM FILE
+			_urlKnownHostFragmentsValues = Arrays.stream(System.getenv(_urlKnownHostFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+			if (/*_urlKnownHostFragmentsValues == null ||*/ _urlKnownHostFragmentsValues.isEmpty()) {
+				displayUsage("Must specify environment variable '" + _urlKnownHostFragmentsName + "'", true);
+			}
+			_urlDeadHostFragmentsValues = Arrays.stream(System.getenv(_urlDeadHostFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+			if (_urlDeadHostFragmentsValues == null || _urlDeadHostFragmentsValues.isEmpty()) {
+				displayUsage("Must specify environment variable '" + _urlDeadHostFragmentsName + "'", true);
+			}
 		}
 
 		return true;
@@ -298,16 +322,28 @@ public class GetUrl {
 			return true;
 		}
 
-		if (!parseModel()) {
-			return false;
+		if (_fromFilename != null) {
+			readFromFromFile();
+		}
+
+//		if (_fromFilename == null) {
+			if (!parseModel()) {
+				return false;
+			}
+//		}
+
+		if (_fromFilename != null) {
+			setFileType();
 		}
 
 		if (!parseOutputPrefix()) {
 			return false;
 		}
 
-		if (findInHistory(_base + _headOrig, /*printResults*/ true)) {
-			return false;
+		if (_fromFilename == null) {
+			if (findInHistory(_base + _headOrig, /*printResults*/ true)) {
+				return false;
+			}
 		}
 
 		if (_checkHistoryOnly) {
@@ -326,15 +362,26 @@ public class GetUrl {
 
 		if (_digits >= 4) {
 			knowDigits = true;
-			minDigits = maxDigits = _digits;
+			minDigits = _digits;
+			maxDigits = _digits;
 		}
 
 		if (_overrideDigits > 0) {
 			knowDigits = true;
-			_digits = minDigits = maxDigits = _overrideDigits;
+			_digits = _overrideDigits;
+			minDigits = _overrideDigits;
+			maxDigits = _overrideDigits;
+		}
+
+		if (_fromFilename != null) {
+			knowDigits = true;
+			_digits = 3;
+			minDigits = 3;
+			maxDigits = 3;
 		}
 
 		int count = 0;
+		_fromFileIndex = 0;
 		while (true) {
 			handlePauseAction();
 			buildTempString();
@@ -360,6 +407,7 @@ public class GetUrl {
 				if (knowDigits) {
 					count++;
 					_index++;
+					_fromFileIndex++;
 				}
 			}
 
@@ -374,7 +422,9 @@ public class GetUrl {
 			}
 
 			if (count > 0 && !_TestMode) {
-				writeHistory();
+				if (_fromFilename == null) {
+					writeHistory();
+				}
 				sleepMillis(_sleepMillis);
 			}
 
@@ -385,12 +435,22 @@ public class GetUrl {
 				}
 			}
 
+			if (_fromFilename != null){
+				_fromFileIndex++;
+			}
+
 			if (knowDigits) {
 				_index++;
 			}
 
-			if ((_index - lastGoodIndex) > _maxMissedFiles) {
-				break;
+			if (_fromFilename == null) {
+				if ((_index - lastGoodIndex) > _maxMissedFiles) {
+					break;
+				}
+			} else {
+				if (_fromFileIndex >= _fromFileContents.size()) {
+					break;
+				}
 			}
 		}
 
@@ -400,7 +460,9 @@ public class GetUrl {
 		}
 
 //		if (!_TestMode) {
-//			writeHistory ();
+//			if (_fromFilename == null) {
+//				writeHistory();
+//			}
 //		}
 
 		_perfStats.print(Instant.now()); //end stats timing and print all records
@@ -410,6 +472,11 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean getUrl() {
+		if (_fromFilename != null) {
+			parseModel();
+//			_model = _fromFileContents.get(_fromFileIndex);
+		}
+
 		buildStrings();
 
 		//if we have already attempted to get this URL, just return previous results
@@ -420,8 +487,8 @@ public class GetUrl {
 		}
 
 		//check here, and check again below
-		if (fileExists(_filename)) {
-			VendoUtils.printWithColor(_alertColor, "File already exists@1: " + _filename);
+		if (fileExists(_outputFilename)) {
+			VendoUtils.printWithColor(_alertColor, "File already exists@1: " + _outputFilename);
 			throw new RuntimeException ("GetUrl.getUrl@1: destination file already exists");
 //			return false;
 		}
@@ -535,7 +602,7 @@ public class GetUrl {
 			return false;
 		}
 
-		PerfStatsRecord record = new PerfStatsRecord(_filename, totalBytesRead, imageElapsedNanos, imageSize._width, imageSize._height);
+		PerfStatsRecord record = new PerfStatsRecord(_outputFilename, totalBytesRead, imageElapsedNanos, imageSize._width, imageSize._height);
 		_perfStats.add(record);
 
 //TODO
@@ -557,16 +624,16 @@ public class GetUrl {
 		}
 
 		//checked above, now check again
-		if (fileExists(_filename)) {
-			VendoUtils.printWithColor(_alertColor, "File already exists@2: " + _filename);
+		if (fileExists(_outputFilename)) {
+			VendoUtils.printWithColor(_alertColor, "File already exists@2: " + _outputFilename);
 			throw new RuntimeException ("GetUrl.getUrl@2: destination file already exists");
 //			return false;
 		}
 
-		boolean status = moveFile(_tempFilename, _filename);
+		boolean status = moveFile(_tempFilename, _outputFilename);
 
 		if (!status) { //move failed, try copying file
-			status = copyFile(_tempFilename, _filename, true);
+			status = copyFile(_tempFilename, _outputFilename, true);
 		}
 
 //		if (status)
@@ -660,8 +727,13 @@ public class GetUrl {
 		String filenameNumberFormat = "%0" + _pad + "d";
 		String filenameNumber = String.format(filenameNumberFormat, _index);
 
-		_urlStr = _base + _headOrig + _numberPrefix + urlNumber + _tailOrig;
-		_filename = _destDir + _outputPrefix + _headUsed + filenameNumber + "." + _extension;
+		if (_fromFilename == null) {
+			_urlStr = _base + _headOrig + _numberPrefix + urlNumber + _tailOrig;
+			_outputFilename = _destDir + _outputPrefix + _headUsed + filenameNumber + "." + _extension;
+		} else {
+			_urlStr = _model;
+			_outputFilename = _destDir + _outputPrefix /*+ _headUsed*/ + filenameNumber + "." + _extension;
+		}
 
 //		if (_Debug) {
 //			_log.debug ("_urlStr = " + _urlStr);
@@ -678,6 +750,7 @@ public class GetUrl {
 			case Other:
 				return true;
 			case JPG:
+			case PNG:
 				return validImage(filename, imageSize);
 			case MPG:
 			case WMV:
@@ -704,8 +777,11 @@ public class GetUrl {
 			imageSize._width = width;
 			imageSize._height = height;
 
-			if (width <= 200 || height <= 200) {
-				VendoUtils.printWithColor(_warningColor, "Image too small (" + width + " x " + height + ")");
+			final int minDimension = 280;
+			if (width < minDimension || height < minDimension) {
+//				VendoUtils.printWithColor(_warningColor, "Image too small (" + width + " x " + height + "), skipping");
+				VendoUtils.printWithColor(_warningColor, "Image too small, skipping: " +
+						"(" + width + " x " + height + ") is less than minimum dimension (" + minDimension + ")");
 				return false; //not an image
 			}
 
@@ -902,13 +978,19 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean parseModel() {
+		if (_fromFilename != null) {
+			_model = _fromFileContents.get(_fromFileIndex);
+		}
+
+		_model = VendoUtils.deEscapeUrlString(_model);
+
 		_model = _model.replaceAll("\\.thumb\\.jpg", ".jpg");
-		_model = _model.replaceAll("\\/thumbs\\/", "/");
-		_model = _model.replaceAll("\\/tn\\/", "/");
-		_model = _model.replaceAll("\\/tn_/", "/");
-		_model = _model.replaceAll("\\/tn-/", "/");
-		_model = _model.replaceAll("\\/p\\/\\d+x\\d+_", "/m");
-		_model = _model.replaceAll("\\/459\\/\\d+", "/1");
+		_model = _model.replaceAll("/thumbs/", "/");
+		_model = _model.replaceAll("/tn/", "/");
+		_model = _model.replaceAll("/tn_/", "/");
+		_model = _model.replaceAll("/tn-/", "/");
+		_model = _model.replaceAll("/p/\\d+x\\d+_", "/m");
+		_model = _model.replaceAll("/459/\\d+", "/1");
 
 		int lastSlash = _model.lastIndexOf('/');
 		if (lastSlash < 0) {
@@ -931,7 +1013,8 @@ public class GetUrl {
 		}
 
 		//process tail
-		_extension = _tailOrig = parts1[1];
+		_extension = parts1[1];
+		_tailOrig = _extension;
 		String[] parts2 = _tailOrig.toLowerCase().split("\\."); //regex
 		if (parts2.length == 2) {
 			_extension = parts2[1];
@@ -951,9 +1034,14 @@ public class GetUrl {
 		}
 
 		//how many digits did we remove? (subtract length of _numberPrefix)
-		_digits = remainder.length() - (_headOrig.length() + _tailOrig.length()) - _numberPrefix.length();
+		if (_fromFilename != null) {
+			_digits = 3;
+		} else {
+			_digits = remainder.length() - (_headOrig.length() + _tailOrig.length()) - _numberPrefix.length();
+		}
 
 		if (_Debug) {
+			_log.debug("_model = " + _model);
 			_log.debug("_base = " + _base);
 			_log.debug("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
 			if (!"jpg".equalsIgnoreCase(_tailOrig)) {
@@ -1017,7 +1105,7 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String[] splitLeaf(String leaf, int blockNumber) {
+	private String[] splitLeaf(String leaf, int blockNumber) {
 		final String pattern = "[0-9]+"; //sequence of digits
 		final String marker = "::::";
 
@@ -1026,6 +1114,10 @@ public class GetUrl {
 		String s2 = VendoUtils.replacePattern(s1, pattern, marker, blockNumber);
 		String s3 = VendoUtils.reverse(s2);
 		String[] parts = s3.split(marker);
+
+		if (_fromFilename != null && parts.length == 1) {
+			parts = leaf.split("\\.");
+		}
 
 		return parts;
 	}
@@ -1101,8 +1193,35 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private boolean readFromFromFile() {
+		List<String> fromFileContents = new ArrayList<>();
+		try (BufferedReader reader = new BufferedReader(new FileReader(_destDir + _fromFilename))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				fromFileContents.add(line);
+			}
+
+		} catch (IOException ee) {
+			_log.error("readFromFile: error reading from file \"" + _fromFilename + "\"");
+			_log.error(ee); //print exception, but no stack trace
+			return false;
+		}
+
+		for (String fromFileContent : fromFileContents) {
+//			_model = fromFileContent;
+//
+//			if (parseModel()) { //parseModel prints error
+//				_fromFileContents.add(fromFileContent);
+//			}
+			_fromFileContents.add(fromFileContent);
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private boolean findInHistoryFromFile() {
-		Vector<String> fromFileContents = new Vector<String>();
+		List<String> fromFileContents = new ArrayList<>();
 		try (BufferedReader reader = new BufferedReader(new FileReader(_destDir + _fromFilename))) {
 			String line;
 			while ((line = reader.readLine()) != null) {
@@ -1179,6 +1298,8 @@ public class GetUrl {
 
 		if (model.endsWith(".jpg") || model.endsWith(".jpeg")) {
 			_fileType = FileType.JPG;
+		} else if (model.endsWith(".png")) {
+			_fileType = FileType.PNG;
 		} else if (model.endsWith(".mpg")) {
 			_fileType = FileType.MPG;
 		} else if (model.endsWith(".wmv")) {
@@ -1489,8 +1610,10 @@ public class GetUrl {
 			String numberStr = parts1[0].replaceAll("\\D+", ""); //replace all non-digits (with empty string)
 
 			int nextNumber = 1 + Integer.parseInt(numberStr);
-			if ((nextNumber % 10) == 0) {
-				nextNumber++;
+			if (_fromFilename == null) {
+				if ((nextNumber % 10) == 0) {
+					nextNumber++;
+				}
 			}
 
 			String format = "%0" + numberStr.length() + "d";
@@ -1619,7 +1742,6 @@ public class GetUrl {
 	private boolean _ignoreHistory = false;
 	private boolean _checkHistoryOnly = false;
 	private boolean _wroteHistory = false;
-	private String _fromFilename = null;
 	private String _model = null;
 	private String _numberPrefix = null;
 	private String _outputPrefix = null;
@@ -1629,7 +1751,7 @@ public class GetUrl {
 	private String _tailOrig = null;
 	private String _extension = null; //excluding "."
 	private String _urlStr = null;
-	private String _filename = null;
+	private String _outputFilename = null;
 	private String _destDir = null;
 	private String _tempFilename = null;
 	private Instant _globalStartInstant;
@@ -1640,6 +1762,11 @@ public class GetUrl {
 	private Vector<String> _switches = new Vector<> ();
 	private Vector<String> _historyFileContents = new Vector<> ();
 	private HttpURLConnection _httpURLConnection = null;
+
+	private int _fromFileIndex = 0;
+	private String _fromFilename = null;
+	private List<String> _fromFileContents = new ArrayList<>();
+
 	private static final String _historyFilename = "gu.history.txt";
 	private static final String _slash = System.getProperty ("file.separator");
 	private static final Integer _pid = ProcessUtils.getWin32ProcessId ();

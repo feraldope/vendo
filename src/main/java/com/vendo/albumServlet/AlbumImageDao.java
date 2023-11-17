@@ -23,6 +23,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -123,15 +124,34 @@ public class AlbumImageDao {
 		//...
 
 		if (!subFoldersOverrideStr.isEmpty()) {
-			if (subFoldersOverrideStr.contains("*")) {
-				displayUsage("Error: does not currently support wildcards in subfolders: " + subFoldersOverrideStr + NL +
-										" but comma separated list is supported, for example: ud /sub \"an,kar\" or even ud /sub \"a,k\"", true);
+			List<String> subFolderOverrides = Arrays.stream(subFoldersOverrideStr.toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
+
+			for (String subFolderOverride : subFolderOverrides) {
+				boolean foundMatch = false;
+				if (subFolderOverride.contains("*")) {
+					Pattern pattern = Pattern.compile(subFolderOverride.replaceAll("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
+
+					for (final String subFolder : getAlbumSubFolders()) {
+						Matcher matcher = pattern.matcher(subFolder);
+						if (matcher.matches()) {
+							foundMatch = true;
+							_subFoldersOverrideSet.add(subFolder);
+						}
+					}
+
+				} else { // no wildcard
+					if (getAlbumSubFolders().contains(subFolderOverride)) {
+						foundMatch = true;
+						_subFoldersOverrideSet.add(subFolderOverride);
+					}
+				}
+
+				if (!foundMatch) {
+					displayUsage("No matching subfolder found for \"" + subFolderOverride + "\".", true);
+				}
 			}
 
-			//to widen the list as far as possible, just take the first letter of each override item
-			_subFoldersOverrideSet = Arrays.stream(subFoldersOverrideStr.toLowerCase().split(","))
-											.map(s -> s.trim().substring(0, Math.min (s.length(), _subFolderMinLength)))
-											.collect(Collectors.toSet());
+			_log.debug("AlbumImageDao.processArgs: subFoldersOverrides = " + _subFoldersOverrideSet.stream().sorted().collect(Collectors.joining(",")));
 		}
 
 		return true;
@@ -145,7 +165,7 @@ public class AlbumImageDao {
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/subFolders <comma separated list of subfolders; only first letter of each is used>] [/syncOnly]";
+		msg += "Usage: " + _AppName + " [/debug] [/subFolders <comma separated list of subfolders; * wildcard allowed>] [/syncOnly]";
 		System.err.println("Error: " + msg + NL);
 
 		if (exit) {
@@ -294,21 +314,10 @@ public class AlbumImageDao {
 	public synchronized Collection<String> getAlbumSubFolders()
 	{
 		if (_subFolders == null) {
-			List<File> list = Arrays.asList(new File(_rootPath).listFiles(File::isDirectory));
+			List<File> list = Arrays.asList(Objects.requireNonNull(new File(_rootPath).listFiles(File::isDirectory)));
 			_subFolders = list.stream()
 								.map(v -> v.getName().toLowerCase())
 								.collect(Collectors.toList());
-
-//NOTE: now we handle this down in syncFolders
-//			//intersect override with actual folders to filter out any non-existent ones
-//			if (_subFoldersOverride != null) {
-//				_subFolders = Arrays.stream(_subFoldersOverride.toLowerCase().split("\\s*,\\s*"))
-//									.distinct()
-//									.filter(_subFolders::contains)
-//									.collect(Collectors.toList());
-//			}
-
-//			_log.debug ("AlbumImageDao.getAlbumSubFolders: subFolders: " + _subFolders);
 
 			_subFolderByLengthMap = new HashMap<>();
 			for (String subFolder : _subFolders) {
@@ -324,12 +333,10 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private boolean syncFolder(String subFolder) //throws Exception
+	private boolean syncFolder(String subFolder)
 	{
-		int subFolderMinLength = Math.min (subFolder.length(), _subFolderMinLength);
 		if (_subFoldersOverrideSet != null && !_subFoldersOverrideSet.isEmpty()) {
-			if (_subFoldersOverrideSet.contains(subFolder.substring(0, subFolderMinLength))) {
-//TODO - this does not work right for e.g., "j"; it skips all j* subfolders (but it does work for "o")
+			if (_subFoldersOverrideSet.contains(subFolder)) {
 				_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): syncing subFolder = " + subFolder);
 			} else {
 				return false; //skip
@@ -339,12 +346,14 @@ public class AlbumImageDao {
 		AlbumProfiling.getInstance().enter(4, "part 1");
 
 		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImages(subFolder); //result is sorted
-		if (dbImageFileDetails == null || dbImageFileDetails.isEmpty()) {
-			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImages(" + subFolder + ") returned null/empty");
+		if (/*dbImageFileDetails == null ||*/ dbImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
+//			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImages(" + subFolder + ") returned null/empty");
+			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImages(" + subFolder + ") returned null/empty");
 		}
 		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem(subFolder, ".jpg"); //result is sorted
-		if (fsImageFileDetails == null || fsImageFileDetails.isEmpty()) {
-			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty");
+		if (/*fsImageFileDetails == null ||*/ fsImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
+//			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty");
+			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty");
 		}
 
 		Set<AlbumImageFileDetails> missingFromFs = new HashSet<>(dbImageFileDetails);
@@ -702,26 +711,35 @@ public class AlbumImageDao {
 
 //			_log.debug ("AlbumImageDao.createWatcherThreadsForFolder: watching folder: " + dir.normalize ().toString ());
 
-			final Pattern pattern = Pattern.compile(".*\\" + AlbumFormInfo._ImageExtension, Pattern.CASE_INSENSITIVE);
+			final Pattern allPattern = Pattern.compile(".*");
+			final Pattern imagePattern = Pattern.compile(".*\\" + AlbumFormInfo._ImageExtension, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
 
-			WatchDir watchDir = new WatchDir(dir, pattern, recurseSubdirs) {
+			WatchDir watchDir = new WatchDir(dir, allPattern, recurseSubdirs) {
 				@Override
 				protected void notify(Path dir, WatchEvent<Path> pathEvent) {
 					handlePauseAction(subFolder1);
-					try {
-//						if (_Debug) {
-//							Path file = pathEvent.context();
-//							Path path = dir.resolve(file);
-//							String subFolder = dir.getName(dir.getNameCount() - 1).toString();
+
+					String filename = pathEvent.context().toString();
+					if (imagePattern.matcher(filename).matches()) {
+						try {
+//							if (_Debug) {
+//								Path file = pathEvent.context();
+//								Path path = dir.resolve(file);
+//								String subFolder = dir.getName(dir.getNameCount() - 1).toString();
 //
-//							_log.debug("AlbumImageDao.WatchDir.notify(\"" + subFolder + "\"/" + queue.size() + "): " + pathEvent.kind().name() + ": " + path.normalize().toString());
-//						}
+//								_log.debug("AlbumImageDao.WatchDir.notify(\"" + subFolder + "\"/" + queue.size() + "): " + pathEvent.kind().name() + ": " + path.normalize().toString());
+//							}
+							queue.put(new AlbumImageEvent(dir, pathEvent));
 
-						queue.put(new AlbumImageEvent(dir, pathEvent));
-
-					} catch (Exception ee) {
-						_log.error("AlbumImageDao.WatchDir.notify: ", ee);
+						} catch (Exception ee) {
+							_log.error("AlbumImageDao.WatchDir.notify(" + subFolder1 + "): ", ee);
+						}
+					} else if (!pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_DELETE)) {
+						if (!hasKnownFileExtension(filename)) {
+							String filePath = dir.resolve(pathEvent.context()).toString();
+							_log.warn("AlbumImageDao.WatchDir.notify(" + subFolder1 + "): unexpected file for " + pathEvent.kind() + ": " + filePath);
+						}
 					}
 				}
 
@@ -1498,9 +1516,11 @@ public class AlbumImageDao {
 							long modified = attrs.lastModifiedTime().toMillis();
 
 							list.add(new AlbumImageFileDetails(nameNoExt, numBytes, modified));
+						} else if (!hasKnownFileExtension(nameWithExt)) {
+							_log.warn("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): visitFile() unexpected file: " + file);
 						}
 					} catch (Exception ex) {
-						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): visitFile() error on file: " + nameWithExt, ex);//new Exception("visitFileFailed", ex));
+						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): visitFile() error on file: " + file, ex);
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -1692,6 +1712,16 @@ public class AlbumImageDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public boolean hasKnownFileExtension (String filename)
+	{
+		final Pattern pattern = Pattern.compile("(.*\\" + AlbumFormInfo._ImageExtension
+													 + "|.*\\" + AlbumFormInfo._RgbDataExtension
+													 + "|.*\\" + AlbumFormInfo._DeleteSuffix + ")",
+												Pattern.CASE_INSENSITIVE);
+		return pattern.matcher(filename).matches();
+	}
+
+		///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
 	//returns comma separated list of indexes that have true in the passed-in List
 	private static String getMatchList (List<Boolean> hasMatches)
@@ -1894,8 +1924,8 @@ public class AlbumImageDao {
 	private final String _rootPath;
 
 	private Collection<String> _subFolders = null;
-	private Set<String> _subFoldersOverrideSet = null;
-	private static final int _subFolderMinLength = 2;
+	private final Set<String> _subFoldersOverrideSet = new TreeSet<>();
+//	private static final int _subFolderMinLength = 2;
 
 	private static final int _pauseSleepMillis = 1000;
 //	private Thread _pauseThread = null;
@@ -1906,7 +1936,7 @@ public class AlbumImageDao {
 
 	private static Map<Integer, Set<String>> _subFolderByLengthMap = null;
 
-	private static final int _estimatedNumberOfSubFolders = 275;
+	private static final int _estimatedNumberOfSubFolders = 300;
 
 	private static final Map<String, Thread> _handlerThreadMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
 	private static final Map<String, Thread> _watcherThreadMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);

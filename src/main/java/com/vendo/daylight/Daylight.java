@@ -86,7 +86,7 @@ public class Daylight
 		}
 
 		try {
-			_dataFile = FileSystems.getDefault ().getPath (VendoUtils.appendSlash (inputFile));
+			_dataFile = FileSystems.getDefault ().getPath (VendoUtils.appendSystemSlash(inputFile));
 		} catch (Exception ee) {
 			System.err.println ("Invalid input file: " + inputFile);
 			return false;
