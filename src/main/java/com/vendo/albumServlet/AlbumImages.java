@@ -1855,7 +1855,7 @@ public class AlbumImages
 		if (interleaveSort) {
 			if (mode == AlbumMode.DoDir) { //TODO check for invalid combos and report below
 				Map<String, List<AlbumImage>> map = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(false)));
-				map.keySet().stream().sorted().forEach(d -> map.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName)));
+				map.keySet().stream().sorted().forEach(d -> map.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName, _form.getReverseSort())));
 
 				_imageDisplayList.clear();
 				List<Iterator<AlbumImage>> iters = map.keySet().stream().sorted().map(map::get).map(List::iterator).collect(Collectors.toList());

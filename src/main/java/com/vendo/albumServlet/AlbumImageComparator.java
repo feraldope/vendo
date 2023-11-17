@@ -20,6 +20,15 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public AlbumImageComparator (AlbumSortType sortType, boolean reverseSort)
+	{
+		_sortType = sortType;
+		_sortFactor = reverseSort ? -1 : 1;
+
+		_exifDateIndex = 0;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public AlbumImageComparator (AlbumSortType sortType, int exifDateIndex)
 	{
 		_sortType = sortType;
@@ -32,7 +41,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 	public AlbumImageComparator (AlbumFormInfo form)
 	{
 		_sortType = form.getSortType ();
-		_sortFactor = (form.getReverseSort () ? -1 : 1);
+		_sortFactor = form.getReverseSort () ? -1 : 1;
 
 		_exifDateIndex = form.getExifDateIndex ();
 	}
