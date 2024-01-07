@@ -91,7 +91,7 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	///////////////////////////////////////////////////////////////////////////
 	public static String getJoinedNames (AlbumImage image1, AlbumImage image2, boolean includeAttrs)
 	{
-		return Arrays.stream (new AlbumImage[] { image1, image2 })
+		return Arrays.stream (new AlbumImage[] {image1, image2})
 					.map (i -> includeAttrs ? i.getNamePlusAttrs () : i.getBaseName (false))
 					.sorted (_alphanumComparator) //sort numerically
 					.collect (Collectors.joining (","));

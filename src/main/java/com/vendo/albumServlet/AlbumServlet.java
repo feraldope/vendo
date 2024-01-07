@@ -373,9 +373,10 @@ public class AlbumServlet extends HttpServlet
 //			   .append (inputElement ("Since Days", "sinceDays", form.getSinceDays (), numberFieldWidth)).append (_spacing).append (NL)
 			   .append (inputElement ("Max Filters", "maxFilters", form.getMaxFilters (), numberFieldWidth)).append (_spacing).append (NL)
 			   .append (inputElement ("Highlight Days", "highlightDays", form.getHighlightDays (), numberFieldWidth)).append (_spacing).append (NL)
-			   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth)).append (_spacing).append (NL)
+//			   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth)).append (_spacing).append (NL)
 			   .append (inputElement ("Max StdDev", "maxStdDev", form.getMaxStdDev (), numberFieldWidth)).append (_spacing).append (NL)
 			   .append (inputElement ("Large Album*", "minImagesToFlagAsLargeAlbum", form.getMinImagesToFlagAsLargeAlbum (), numberFieldWidth)).append (_spacing).append (NL)
+			   .append (inputElement ("Near BorW*", "colorNearlyBlackOrWhite", form.getColorNearlyBlackOrWhite (), numberFieldWidth)).append (_spacing).append (NL)
 //			   .append (inputElement ("Folder", "rootFolder", form.getRootFolder (), 4)).append (_spacing).append (NL)
 
 //			   .append (inputElement ("", "slice", 1, 0)) //form submit always sets slice to 1

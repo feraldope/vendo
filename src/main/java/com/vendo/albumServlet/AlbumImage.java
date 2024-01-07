@@ -28,6 +28,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.List;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -163,7 +164,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 			StringBuilder sb = new StringBuilder ();
 			Formatter formatter = new Formatter (sb, Locale.US);
 			for (int i : rgbIntArray) {
-				formatter.format("%08x", i); //note: writing integers
+				formatter.format("%08x", i); //note: writing integers - pixel data is four bytes : [A channel][R][G][B] and A channel is always 0xFF ??
 			}
 			_rgbData = sb.toString ();
 			formatter.close ();
@@ -235,7 +236,8 @@ public class AlbumImage implements Comparable<AlbumImage>
 		sb.append (getWidth ()).append ("x").append (getHeight ()).append (", ");
 		sb.append (getNumBytes () / 1024).append ("KB, "); //TODO - this division truncates; do we care?
 		if (AlbumFormInfo.getShowRgbData () && AlbumFormInfo.getInstance ().getMode () == AlbumMode.DoDup) { //debugging
-			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
+//			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
+			sb.append (getRgbData ()).append (", ");
 		}
 		sb.append (getModifiedString ());
 
@@ -522,6 +524,16 @@ public class AlbumImage implements Comparable<AlbumImage>
 */
 
 	///////////////////////////////////////////////////////////////////////////
+	public String getPixelsAsString () //always [larger]x[smaller] - ignores orientation
+	{
+		if (getWidth() >= getHeight()) {
+			return "" + getWidth() + "x" + getHeight();
+		} else {
+			return "" + getHeight() + "x" + getWidth();
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
 	public synchronized long getPixels ()
 	{
@@ -560,11 +572,11 @@ public class AlbumImage implements Comparable<AlbumImage>
 	{
 		if (getOrientation () == AlbumOrientation.ShowAny) {
 			//if we do not know the orientation, verify that the size is one of the valid values
-			return size == RgbDatSizeSquare || size == RgbDatSizeRectagular;
+			return size == _RgbDatSizeSquare || size == _RgbDatSizeRectagular;
 		} else if (getOrientation () == AlbumOrientation.ShowSquare) {
-			return size == RgbDatSizeSquare;
+			return size == _RgbDatSizeSquare;
 		} else {
-			return size == RgbDatSizeRectagular;
+			return size == _RgbDatSizeRectagular;
 		}
 	}
 
@@ -604,9 +616,34 @@ public class AlbumImage implements Comparable<AlbumImage>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//calculate min and max values on demand and cache
+	public synchronized boolean isImageNearlyBlackOrWhite (AlbumFormInfo form)
+	{
+		if (_rgbMinColor < 0 || _rgbMaxColor < 0) {
+			final int bytesPerInteger = 8;
+			int numInts = getRgbData().length() / bytesPerInteger;
+
+			List<Long> bytes = new LinkedList<>();
+			for (int i = 0; i < numInts; i++) {
+				long int1 = Long.parseLong(getRgbData().substring(bytesPerInteger * i, bytesPerInteger * i + bytesPerInteger), 16);
+//				bytes.add((int1 >> 24) & 0xFF); //A - ignore A data
+				bytes.add((int1 >> 16) & 0xFF); //R
+				bytes.add((int1 >> 8)  & 0xFF); //G
+				bytes.add((int1)       & 0xFF); //B
+			}
+
+			_rgbMinColor = bytes.stream().min(Long::compareTo).orElse(Long.MAX_VALUE).intValue();
+			_rgbMaxColor = bytes.stream().max(Long::compareTo).orElse(0L).intValue();
+		}
+
+		final int maxToAllow = form.getColorNearlyBlackOrWhite();
+		return (_rgbMinColor > 256 - maxToAllow) || (_rgbMaxColor < maxToAllow);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static boolean isValidImageName (String name) //name without extension
 	{
-		final Pattern goodPattern = Pattern.compile ("^[A-Za-z]{2,}\\d{2,}\\-\\d{2,}$"); //regex - match: [2 or more alpha][2 or more digits][dash][2 or more digits]
+		final Pattern goodPattern = Pattern.compile ("^[A-Za-z]{2,}\\d{2,}-\\d{2,}$"); //regex - match: [2 or more alpha][2 or more digits][dash][2 or more digits]
 
 		return goodPattern.matcher (name).matches ();
 	}
@@ -774,7 +811,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		}
 		//for consistent behavior, this logic should be duplicated in both AlbumImageDiffer#selectNamesFromImageDiffs and AlbumImage#acceptDiff
 		return (averageDiff >= 0 && stdDev >= 0) && //avoid accepting AlbumImagePair objects that have not been inited with diff values
-				(averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 3 * maxRgbDiffs && stdDev <= 3 * maxStdDev; //hardcoded values
+			   (averageDiff <= maxRgbDiffs || stdDev <= maxStdDev) && averageDiff <= 3 * maxRgbDiffs && stdDev <= 3 * maxStdDev; //hardcoded values
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -791,13 +828,14 @@ public class AlbumImage implements Comparable<AlbumImage>
 		int scaledWidth = 0;
 		int scaledHeight = 0;
 		if (getOrientation () == AlbumOrientation.ShowLandScape) {
-			scaledWidth = RgbDatDimRectLarge;
-			scaledHeight = RgbDatDimRectSmall;
+			scaledWidth = _RgbDatDimRectLarge;
+			scaledHeight = _RgbDatDimRectSmall;
 		} else if (getOrientation () == AlbumOrientation.ShowPortrait) {
-			scaledWidth = RgbDatDimRectSmall;
-			scaledHeight = RgbDatDimRectLarge;
+			scaledWidth = _RgbDatDimRectSmall;
+			scaledHeight = _RgbDatDimRectLarge;
 		} else { //AlbumOrientation.ShowSquare
-			scaledWidth = scaledHeight = RgbDatDimSquare;
+			scaledWidth = _RgbDatDimSquare;
+			scaledHeight = _RgbDatDimSquare;
 		}
 
 		ByteBuffer scaledImageData = null;
@@ -939,7 +977,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		long earliestExifDate = Long.MAX_VALUE;
 		long latestExifDate = 0;
 
-		for (int ii = 0; ii < NumFileExifDates; ii++) {
+		for (int ii = 0; ii < _NumFileExifDates; ii++) {
 			if (!isExifDateValid (_exifDates[ii])) {
 				_exifDates[ii] = 0;
 			}
@@ -961,7 +999,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		if (!_hasExifDateChecked) {
 			_hasExifDateChecked = true;
 
-			for (int ii = 0; ii < NumFileExifDates; ii++) {
+			for (int ii = 0; ii < _NumFileExifDates; ii++) {
 				if (_exifDates[ii] > 0) {
 					_hasExifDate = true;
 					break;
@@ -1015,7 +1053,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	private synchronized String getExifDateString (int exifDateIndex)
 	{
 		if (_exifDateStrings == null) {
-			_exifDateStrings = new String[NumExifDates];
+			_exifDateStrings = new String[_NumExifDates];
 		}
 
 		if (_exifDateStrings[exifDateIndex] == null) {
@@ -1071,7 +1109,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		long[] exifDates = new long[NumExifDates];
+		long[] exifDates = new long[_NumExifDates];
 
 		Metadata metadata = null;
 		try {
@@ -1149,6 +1187,8 @@ public class AlbumImage implements Comparable<AlbumImage>
 //	private int _count = -1;
 	private int _hashCode = -1;
 	private long _rgbHash = -1;
+	private int _rgbMinColor = -1;
+	private int _rgbMaxColor = -1;
 	private boolean _hasExifDateChecked = false;
 	private boolean _hasExifDate = false;
 	private String[] _exifDateStrings = null;
@@ -1156,14 +1196,14 @@ public class AlbumImage implements Comparable<AlbumImage>
 	private AlbumOrientation _orientation = AlbumOrientation.ShowAny;
 
 	//for rgbDatFile
-	public static final int RgbDatDimRectSmall = 96;
-	public static final int RgbDatDimRectLarge = 144;
-	public static final int RgbDatSizeRectagular = (RgbDatDimRectSmall * RgbDatDimRectLarge * 3) / 4;
-	public static final int RgbDatDimSquare = 120;
-	public static final int RgbDatSizeSquare = (RgbDatDimSquare * RgbDatDimSquare * 3) / 4;
+	public static final int _RgbDatDimRectSmall = 96;
+	public static final int _RgbDatDimRectLarge = 144;
+	public static final int _RgbDatSizeRectagular = (_RgbDatDimRectSmall * _RgbDatDimRectLarge * 3) / 4;
+	public static final int _RgbDatDimSquare = 120;
+	public static final int _RgbDatSizeSquare = (_RgbDatDimSquare * _RgbDatDimSquare * 3) / 4;
 
-	public static final int NumExifDates = 6;		//4 exif dates read from database + 2 calculated
-	public static final int NumFileExifDates = 4;	//4 exif dates read from database + 2 calculated
+	public static final int _NumExifDates = 6;		//4 exif dates read from database + 2 calculated
+	public static final int _NumFileExifDates = 4;	//4 exif dates read from database + 2 calculated
 
 //	public static final int SubFolderLength = 2;	//expected length of sub_folder column in various database tables
 

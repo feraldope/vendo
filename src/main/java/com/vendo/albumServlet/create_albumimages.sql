@@ -279,7 +279,7 @@ delete from image_counts where image_count = 0;
 select * from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$' order by base_name;
 -- delete from image_counts where base_name rlike '^[A-Za-z]{1}[a-z]+$';
 
-delete from image_counts where base_name like 'Ho%Fu%';
+-- delete from image_counts where base_name like 'Ho%Fu%';
 -- delete from images where name_no_ext like 'xbf%';
 
 -- subquery: first letter of name in lowercase
@@ -597,9 +597,28 @@ SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
 | abcdefg                    |
 +----------------------------+
 
+SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
+SELECT alphas('12-3ab45cd-e6789fg00000000000000000-00000000000');
+
 -- -----------------------------------------------------------------------------
--- "How to Optimize MySQL Tables and Defragment to Recover Space"
--- https://www.thegeekstuff.com/2016/04/mysql-optimize-table/
+-- find all new images within 120 days
+select count(*) from images
+-- select *,  UNIX_TIMESTAMP(), (UNIX_TIMESTAMP() - (modified/1000)), FROM_UNIXTIME(modified/1000) from images
+where (UNIX_TIMESTAMP() - (modified/1000)) <= (120 * 24 * 60 * 60)
+-- limit 100
+
+-- -----------------------------------------------------------------------------
+-- get max date (i.e., newest) from album
+select max(modified), alphas(name_no_ext) as base_name from images where name_no_ext like 'Mar%' group by base_name
+
+
+-- -----------------------------------------------------------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------------------------------------------------------
+-- -----------------------------------------------------------------------------------------------------------------------------
+-- MariaDB tuning
+-- https://mariadb.com/kb/en/optimization-and-tuning/
 
 -- see dbInfo.bat
 
@@ -631,25 +650,46 @@ from information_schema.tables
 where table_schema in ('albumimages', 'albumtags')
 order by table_schema, table_name
 
-REM database files on disk
-tdir/s "C:\Program Files\MariaDB 10.4\data\albumimages"
-tdir/s "C:\Program Files\MariaDB 10.4\data\albumtags"
-
 REM backups
 tdir/s A:\Netscape.data.backup\sql
 
--- -----------------------------------------------------------------------------
--- find all new images within 120 days
-select count(*) from images
--- select *,  UNIX_TIMESTAMP(), (UNIX_TIMESTAMP() - (modified/1000)), FROM_UNIXTIME(modified/1000) from images
-where (UNIX_TIMESTAMP() - (modified/1000)) <= (120 * 24 * 60 * 60)
--- limit 100
+-- from https://mariadb.com/kb/en/mariadb-memory-allocation/
+-- NOTE some values are max_int, max_short, etc.
+-- Non-default variables
+select information_schema.system_variables.variable_name,information_schema.system_variables.default_value,global_variables.variable_value 
+from information_schema.system_variables,information_schema.global_variables 
+where system_variables.variable_name=global_variables.variable_name 
+and system_variables.default_value <> global_variables.variable_value 
+and system_variables.default_value <> 0
+order by information_schema.system_variables.variable_name
 
--- -----------------------------------------------------------------------------
--- get max date (i.e., newest) from album
-select max(modified), alphas(name_no_ext) as base_name from images where name_no_ext like 'Mar%' group by base_name
+--example explain; to use \G, need to run mysql.exe from command line (see todo.txt)
+EXPLAIN
+delete from image_diffs where name_id_1 >= 0 and name_id_1 < 1000000 and name_id_1 not in (select name_id from images where name_id >= 0 and name_id < 1000000)
 
-SELECT alphas('123ab45cde6789fg0000000000000000000000000000');
-SELECT alphas('12-3ab45cd-e6789fg00000000000000000-00000000000');
+--only for MyISAM ??
+show global status like 'Key%'
+
+-- Add up Data_length + Index_length for all the InnoDB tables. Set innodb_buffer_pool_size to no more than 110% of that total.
+SHOW TABLE STATUS 
+
+SHOW GLOBAL VARIABLES
+SHOW GLOBAL VARIABLES like 'key%'
+SHOW GLOBAL VARIABLES like 'max%'
+
+-- size of all databases
+select table_schema, table_name,
+round(data_length / 1024) as data_length_kb,
+round(index_length / 1024) as index_length_kb,
+round((data_length + index_length) / 1024) as total_kb
+from information_schema.tables
+where table_schema in ('albumimages', 'albumtags')
+order by table_schema, table_name
+
+-- From doc: Add up Data_length + Index_length for all the InnoDB tables. Set innodb_buffer_pool_size to no more than 110% of that total.
+-- size of all databases
+SELECT table_schema "DB Name", ROUND(SUM(data_length + index_length) / 1024 / 1024, 1) "DB Size in MB"
+FROM information_schema.tables
+GROUP BY table_schema;
 
 */

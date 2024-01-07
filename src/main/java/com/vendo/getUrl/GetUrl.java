@@ -481,8 +481,7 @@ public class GetUrl {
 
 		//if we have already attempted to get this URL, just return previous results
 		if (_resultsMap.contains(_urlStr)) {
-//			if (_Debug)
-//				_log.debug ("found '" + _urlStr + "'");
+			VendoUtils.printWithColor(_warningColor, "Found in resultsMap, skipping: " + _urlStr);
 			return _resultsMap.getStatus(_urlStr);
 		}
 
@@ -578,7 +577,6 @@ public class GetUrl {
 					closeConnection(_urlStr); //force reconnection on next pass
 
 					sleepMillis(retrySleepMillis);
-
 					retryCount--;
 					retrySleepMillis += retrySleepStepMillis;
 
@@ -1058,7 +1056,7 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean parseOutputPrefix() {
-		if (!_model.toLowerCase().endsWith(".jpg")) { //this processing only applies to specific file types
+		if (!hasImageExtension(_model)) { //this processing only applies to specific file types
 			return true;
 		}
 
@@ -1093,6 +1091,15 @@ public class GetUrl {
 
 		if (!_outputPrefix.contains("-")) {
 			_outputPrefix += "-"; //add trailing dash if none found
+		}
+
+//		//error on name too long for database
+		String exampleImageName = _outputPrefix + StringUtils.repeat('0', 4); //three '0's for pad=3, and then one more
+		if (exampleImageName.length() > _maxImageNameLengthFromDbSchema) {
+			String message = "Image name length (" + exampleImageName.length() + ") exceeds length in database schema for: " + exampleImageName;
+			VendoUtils.printWithColor(_alertColor, message);
+			throw new RuntimeException ("GetUrl.parseOutputPrefix: " + message);
+//			return false;
 		}
 
 		VendoUtils.printWithColor(color, "_outputPrefix = " + _outputPrefix);
@@ -1213,7 +1220,9 @@ public class GetUrl {
 //			if (parseModel()) { //parseModel prints error
 //				_fromFileContents.add(fromFileContent);
 //			}
-			_fromFileContents.add(fromFileContent);
+			if (!fromFileContent.startsWith("#")) { //skip comments
+				_fromFileContents.add(fromFileContent);
+			}
 		}
 
 		return true;
@@ -1341,6 +1350,11 @@ public class GetUrl {
 				_log.error(ee); //print exception, but no stack trace
 			}
 		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static boolean hasImageExtension (String fileName) {
+		return fileName.toLowerCase().endsWith ("jpg") || fileName.toLowerCase().endsWith ("jpeg") || fileName.toLowerCase().endsWith ("png");
 	}
 
 	private static class ImageSize {
@@ -1624,9 +1638,8 @@ public class GetUrl {
 		///////////////////////////////////////////////////////////////////////////
 		private List<String> getFileList(String dirName, final String nameWild) {
 			//digits in following pattern prevent e.g. "Foo01" from matching "FooBar01"
-//save old code until tested.
-// 			Pattern pattern = Pattern.compile(nameWild + "[0-9][0-9].*" + "\\" + _extension, Pattern.CASE_INSENSITIVE);
-			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + _extension, Pattern.CASE_INSENSITIVE);
+//			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + _extension, Pattern.CASE_INSENSITIVE);
+			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + "jpg", Pattern.CASE_INSENSITIVE); //hardcoded extension
 
 			if (_classDebug) {
 				System.out.println("GetUrl.getFileList: dirName = " + dirName + ", nameWild = " + nameWild + ", pattern = " + pattern.pattern());
@@ -1645,8 +1658,6 @@ public class GetUrl {
 //			if (_classDebug) {
 //				System.out.println ("GetUrl.getFileList: files = " + files);
 //			}
-//save old code until tested.
-//			return (files != null ? Arrays.asList(dir.list(filenameFilter)) : new ArrayList<String>());
 			return (files != null ? Arrays.asList(files) : new ArrayList<String>());
 		}
 
@@ -1771,6 +1782,8 @@ public class GetUrl {
 	private static final String _slash = System.getProperty ("file.separator");
 	private static final Integer _pid = ProcessUtils.getWin32ProcessId ();
 	private static Logger _log = LogManager.getLogger (GetUrl.class);
+
+	private static final int _maxImageNameLengthFromDbSchema = 40; //hardcoded
 
 	private final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm:ss"); //note this wraps values >= 60 minutes
 

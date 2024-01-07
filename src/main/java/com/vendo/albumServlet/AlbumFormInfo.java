@@ -112,6 +112,7 @@ public class AlbumFormInfo
 		_highlightDays = _defaultHighlightDays;
 		_maxStdDev = _defaultMaxStdDev;
 		_minImagesToFlagAsLargeAlbum = _defaultMinImagesToFlagAsLargeAlbum;
+		_colorNearlyBlackOrWhite = _defaultColorNearlyBlackOrWhite;
 		_exifDateIndex = _defaultExifDateIndex;
 		_tagFilterOperandOr = false;
 		_collapseGroups = false;
@@ -267,6 +268,11 @@ public class AlbumFormInfo
 		_minImagesToFlagAsLargeAlbum = _defaultMinImagesToFlagAsLargeAlbum = getPropertyInt (properties, "defaultMinImagesToFlagAsLargeAlbum", _defaultMinImagesToFlagAsLargeAlbum);
 		if (_debugProperties) {
 			_log.debug ("AlbumFormInfo.processRequest: property: defaultMinImagesToFlagAsLargeAlbum = " + _defaultMinImagesToFlagAsLargeAlbum);
+		}
+
+		_colorNearlyBlackOrWhite = _defaultColorNearlyBlackOrWhite = getPropertyInt (properties, "defaultColorNearlyBlackOrWhite", _defaultColorNearlyBlackOrWhite);
+		if (_debugProperties) {
+			_log.debug ("AlbumFormInfo.processRequest: property: defaultColorNearlyBlackOrWhite = " + _defaultColorNearlyBlackOrWhite);
 		}
 
 		_highlightDays = _defaultHighlightDays = getPropertyInt (properties, "defaultHighlightDays", _defaultHighlightDays);
@@ -727,7 +733,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public void setExifDateIndex (int exifDateIndex)
 	{
-		if (exifDateIndex < 0 || exifDateIndex >= AlbumImage.NumExifDates) {
+		if (exifDateIndex < 0 || exifDateIndex >= AlbumImage._NumExifDates) {
 			exifDateIndex = _defaultExifDateIndex;
 		}
 
@@ -1102,7 +1108,7 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean getShowRgbData ()
 	{
-		return _showRgbData;
+		return _showRgbData; //enable this in the properties file
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1125,6 +1131,17 @@ public class AlbumFormInfo
 	public int getMinImagesToFlagAsLargeAlbum ()
 	{
 		return _minImagesToFlagAsLargeAlbum;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void setColorNearlyBlackOrWhite (int colorNearlyBlackOrWhite)
+	{
+		_colorNearlyBlackOrWhite = Math.max (colorNearlyBlackOrWhite, 0);
+	}
+
+	public int getColorNearlyBlackOrWhite ()
+	{
+		return _colorNearlyBlackOrWhite;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1296,6 +1313,7 @@ public class AlbumFormInfo
 	private int _defaultExifDateIndex = 4; //earliestExifDate
 	private int _defaultProfileLevel = 5;
 	private int _defaultMinImagesToFlagAsLargeAlbum = 60;
+	private int _defaultColorNearlyBlackOrWhite = 16;
 	private boolean _defaultShowRgbData = false;
 
 	//private members
@@ -1330,6 +1348,7 @@ public class AlbumFormInfo
 	private long _highlightInMillis = -1;
 	private int _maxStdDev = _defaultMaxStdDev;
 	private int _minImagesToFlagAsLargeAlbum = _defaultMinImagesToFlagAsLargeAlbum;
+	private int _colorNearlyBlackOrWhite = _defaultColorNearlyBlackOrWhite;
 	private int _exifDateIndex = _defaultExifDateIndex; //when sorting/comparing EXIF dates, specifies which date to use
 	private boolean _tagFilterOperandOr = false;
 	private boolean _collapseGroups = false;
@@ -1367,6 +1386,7 @@ public class AlbumFormInfo
 	public static final String _DeleteParam1 = "DeleteImage:";
 	public static final String _DeleteParam2 = "DeleteImages:";
 	public static final String _DeleteSuffix = ".delete";
+	public static final String _GenerateImagesDiff = "GenerateImagesDiffParam:";
 	public static final String _ClearDupCacheParam = "clearDupCache";
 	public static final String _ClearImageCacheParam = "clearImageCache";
 

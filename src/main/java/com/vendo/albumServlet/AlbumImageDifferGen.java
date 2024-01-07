@@ -2,6 +2,7 @@
 
 package com.vendo.albumServlet;
 
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,6 +15,8 @@ import java.nio.file.Path;
 
 public class AlbumImageDifferGen
 {
+	public enum FileType {InputFile, OutputFile}
+
 	///////////////////////////////////////////////////////////////////////////
 	static
 	{
@@ -55,6 +58,9 @@ public class AlbumImageDifferGen
 	private Boolean processArgs (String[] args)
 	{
 		String destRootName = null;
+		String imageFilenameIn1 = null;
+		String imageFilenameIn2 = null;
+		String imageFilenameOut = null;
 
 //		for (int ii = 0; ii < args.length; ii++) {
 //			_log.debug("AlbumImageDifferGen.processArgs: arg: " + args[ii]);
@@ -83,14 +89,14 @@ public class AlbumImageDifferGen
 
 			} else {
 				//check for other args
-				if (_imageFilenameIn1 == null) {
-					_imageFilenameIn1 = arg;
+				if (imageFilenameIn1 == null) {
+					imageFilenameIn1 = arg;
 
-				} else if (_imageFilenameIn2 == null) {
-					_imageFilenameIn2 = arg;
+				} else if (imageFilenameIn2 == null) {
+					imageFilenameIn2 = arg;
 
-				} else if (_imageFilenameOut == null) {
-					_imageFilenameOut = arg;
+				} else if (imageFilenameOut == null) {
+					imageFilenameOut = arg;
 
 				} else {
 					displayUsage ("Unrecognized argument '" + args[ii] + "'", true);
@@ -105,19 +111,27 @@ public class AlbumImageDifferGen
 			_destRootPath = FileSystems.getDefault ().getPath (destRootName);
 		}
 
-		if (_imageFilenameIn1 == null || _imageFilenameIn2 == null || _imageFilenameOut == null) {
-			displayUsage ("Incorrect usage", true);
+		if (imageFilenameIn1 == null || imageFilenameIn2 == null || imageFilenameOut == null) {
+			displayUsage ("Must specify three file names", true);
 		}
 
-		_imageFilenameIn1 = processImageFilename (_imageFilenameIn1);
-		_imageFilenameIn2 = processImageFilename (_imageFilenameIn2);
-		_imageFilenameOut = processImageFilename (_imageFilenameOut);
+		if (imageFilenameIn1.equals(imageFilenameIn2) || imageFilenameOut == null) {
+			displayUsage ("Input files can not be the same", true);
+		}
+
+		_imageFilenameIn1 = processImageFilename (imageFilenameIn1, FileType.InputFile);
+		_imageFilenameIn2 = processImageFilename (imageFilenameIn2, FileType.InputFile);
+		_imageFilenameOut = processImageFilename (imageFilenameOut, FileType.OutputFile);
 
 		if (_debug) {
 			_log.debug("AlbumImageDifferGen.processArgs: _destRootPath: " + _destRootPath);
 			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameIn1: " + _imageFilenameIn1);
 			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameIn2: " + _imageFilenameIn2);
 			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameOut: " + _imageFilenameOut);
+		}
+
+		if (_imageFilenameIn1 == null || _imageFilenameIn2 == null || _imageFilenameOut == null) {
+			displayUsage ("See previous error", true);
 		}
 
 		return true;
@@ -333,23 +347,34 @@ public class AlbumImageDifferGen
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String processImageFilename (String imageFileName)
+	//returns full path to file
+	//returns null if an input file does not exist, or an output file already exists
+	private String processImageFilename (String imageFileName, FileType fileType)
 	{
-		imageFileName = imageFileName.trim ();
-		if (imageFileName.endsWith (",")) { //strip trailing ","
-			imageFileName = imageFileName.substring (0, imageFileName.length () - 1);
+		String newImageFileName = imageFileName.trim ();
+
+		if (newImageFileName.endsWith (",")) { //strip trailing ","
+			newImageFileName = newImageFileName.substring (0, newImageFileName.length () - 1);
 		}
 
-		if (!imageFileName.endsWith (".jpg")) {
-			imageFileName += ".jpg";
+		if (!newImageFileName.endsWith (".jpg")) {
+			newImageFileName += ".jpg";
 		}
 
 		if (_destRootPath.toString ().toLowerCase ().contains ("netscape")) { //handle AlbumImage case
-			String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (imageFileName);
-			imageFileName = FileSystems.getDefault ().getPath (_destRootPath.toString (), "jroot", subFolder, imageFileName).toString ();
+			String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (newImageFileName);
+			newImageFileName = FileSystems.getDefault ().getPath (_destRootPath.toString (), "jroot", subFolder, newImageFileName).toString ();
 		}
 
-		return imageFileName;
+		if (fileType == FileType.InputFile && !VendoUtils.fileExists(newImageFileName)) {
+			_log.error ("AlbumImageDifferGen.processImageFilename: input file does not exist: \"" + newImageFileName + "\"");
+			newImageFileName = null;
+		} else if (fileType == FileType.OutputFile && VendoUtils.fileExists(newImageFileName)) {
+			_log.error ("AlbumImageDifferGen.processImageFilename: output file already exists: \"" + newImageFileName + "\"");
+			newImageFileName = null;
+		}
+
+		return newImageFileName;
 	}
 
 		//members

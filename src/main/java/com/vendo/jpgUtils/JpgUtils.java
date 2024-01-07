@@ -260,22 +260,27 @@ public class JpgUtils
 			return true;
 		}
 
-		final CountDownLatch endGate = new CountDownLatch (filenames.length);
+		if (false) { //HACK - disable threading (useful when trying to process too many large files at once, to avoid OOM condition)
+			for (final String filename : filenames) {
+				compressFile(filename);
+			}
 
-		for (final String filename : filenames) {
-			Thread thread = new Thread () {
-				@Override
-				public void run () {
-					compressFile (filename);
-					endGate.countDown ();
-				}
-			};
-			thread.start ();
-		}
-		try {
-			endGate.await ();
-		} catch (Exception ee) {
-			_log.error ("JpgUtils.run: endGate:", ee);
+		} else {
+			final CountDownLatch endGate = new CountDownLatch (filenames.length);
+
+			for (final String filename : filenames) {
+				Thread thread = new Thread(() -> {
+					compressFile(filename);
+					endGate.countDown();
+				});
+				thread.start();
+			}
+
+			try {
+				endGate.await();
+			} catch (Exception ee) {
+				_log.error("JpgUtils.run: endGate:", ee);
+			}
 		}
 
 		return true;
@@ -435,7 +440,7 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean generateScaledImage (String inFilename, String outFilename, int desiredWidth, int desiredHeight)
+	public static boolean generateScaledImage (String inFilename, String outFilename, int desiredWidth, int desiredHeight)
 	{
 		if (_Debug) {
 			_log.trace ("JpgUtils.generateScaledImage(" + inFilename + ", " + outFilename + ", " + desiredWidth + ", " + desiredHeight + ")");

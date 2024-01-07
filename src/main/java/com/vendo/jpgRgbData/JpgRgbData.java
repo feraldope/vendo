@@ -321,13 +321,13 @@ public class JpgRgbData
 		int scaledWidth = 0;
 		int scaledHeight = 0;
 		if (orientation == AlbumOrientation.ShowLandScape) {
-			scaledWidth = AlbumImage.RgbDatDimRectLarge;
-			scaledHeight = AlbumImage.RgbDatDimRectSmall;
+			scaledWidth = AlbumImage._RgbDatDimRectLarge;
+			scaledHeight = AlbumImage._RgbDatDimRectSmall;
 		} else if (orientation == AlbumOrientation.ShowPortrait) {
-			scaledWidth = AlbumImage.RgbDatDimRectSmall;
-			scaledHeight = AlbumImage.RgbDatDimRectLarge;
+			scaledWidth = AlbumImage._RgbDatDimRectSmall;
+			scaledHeight = AlbumImage._RgbDatDimRectLarge;
 		} else { //AlbumOrientation.ShowSquare
-			scaledWidth = scaledHeight = AlbumImage.RgbDatDimSquare;
+			scaledWidth = scaledHeight = AlbumImage._RgbDatDimSquare;
 		}
 
 		final int hints = BufferedImage.SCALE_FAST;

@@ -1080,6 +1080,20 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static String getFileNameFromPath (String fullPath)
+	{
+		try {
+			Path path = FileSystems.getDefault ().getPath (fullPath);
+			return path.getFileName ().toString ();
+
+		} catch (Exception ee) {
+			ee.printStackTrace ();
+		}
+
+		return fullPath;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static double getDiskPercentFull (String filename)
 	{
 		long freeBytes = VendoUtils.getFreeDiskSpace (filename);

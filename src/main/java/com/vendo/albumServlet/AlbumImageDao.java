@@ -596,7 +596,7 @@ public class AlbumImageDao {
 		AlbumProfiling.getInstance().enter(4, "part 9");
 
 		for (AlbumImageFileDetails fsDatFileDetail : fsDatFileDetails) {
-			if (fsDatFileDetail.getBytes() != AlbumImage.RgbDatSizeRectagular && fsDatFileDetail.getBytes() != AlbumImage.RgbDatSizeSquare) {
+			if (fsDatFileDetail.getBytes() != AlbumImage._RgbDatSizeRectagular && fsDatFileDetail.getBytes() != AlbumImage._RgbDatSizeSquare) {
 				String filePath = Paths.get(_rootPath, subFolder, fsDatFileDetail.getName() + ".dat").toString();
 				_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: invalid .dat file size (" + fsDatFileDetail.getBytes() + ") for: " + filePath);
 				imagesMissingOrBadDatFiles.add(new AlbumImage(fsDatFileDetail.getName(), subFolder, true)); //this AlbumImage ctor reads image from disk
