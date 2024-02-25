@@ -223,7 +223,7 @@ public class AlbumFileBackup
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] /source <source folder> /dest <destination folder> [/subFolders <wildName>] [/pattern <wildName>] [/threads <num threads>]";
+		msg += "Usage: " + _AppName + " [/debug] [/verbose] /source <source folder> /dest <destination folder> [/subFolders <wildName>] [/pattern <wildName>] [/threads <num threads>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -542,9 +542,9 @@ public class AlbumFileBackup
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
 		final Instant startInstant = Instant.now ();
-		if (_verbose) {
-			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): starting...");
-		}
+//		if (_verbose) {
+//			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): starting...");
+//		}
 
 //TODO use AtomicReference? - is this thread-safe?
 		final List<String> lastPathHandled = new ArrayList<>(Collections.singletonList("")); //for debugging (final List<> is hack
@@ -607,12 +607,12 @@ public class AlbumFileBackup
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 
-		if (_verbose) {
-			Duration duration = Duration.between (startInstant, Instant.now ());
-			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): complete" +
-							", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter) +
-							", remaining folders: " + _remainingFoldersToBeRead.get ());
-		}
+//		if (_verbose) {
+//			Duration duration = Duration.between (startInstant, Instant.now ());
+//			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): complete" +
+//							", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter) +
+//							", remaining folders: " + _remainingFoldersToBeRead.get ());
+//		}
 
 		return coll;
 	}

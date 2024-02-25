@@ -401,7 +401,7 @@ public class JpgUtils
 
 		BufferedImage image = null;
 
-		//first try faster, deprecated Sun class: sun.awt.image.codec.JPEGImageDecoderImpl
+		//first try faster, deprecated Sun class: sun.awt.image.codec.JPEGImageDecoderImpl (from jai-codec-1.1.3.jar)
 		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing
 			//note this prints errors directly to stderr; e.g., "Corrupt JPEG data: bad Huffman code" "Corrupt JPEG data: premature end of data segment"
 			image = new JPEGImageDecoderImpl (inputStream).decodeAsBufferedImage ();
@@ -412,7 +412,7 @@ public class JpgUtils
 			_log.warn (ee);
 		}
 
-		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec
+		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec (from jai-codec-1.1.3.jar)
 		//note use of this method requires changes to pom.xml: <arg>-XDignore.symbol.file</arg>
 		//                                       or build.xml: <compilerarg value="-XDignore.symbol.file"/>
 		try (InputStream inputStream = Files.newInputStream (file.toPath (), StandardOpenOption.READ)) { //open file read-only, with read-sharing

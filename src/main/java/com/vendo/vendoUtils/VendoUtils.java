@@ -4,7 +4,7 @@ package com.vendo.vendoUtils;
 
 import com.vendo.win32.ConsoleUtil;
 import com.vendo.win32.Win32;
-import org.apache.commons.lang.ArrayUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.logging.log4j.Logger;
 
 import javax.servlet.http.Cookie;

@@ -64,6 +64,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_tagString2 = null;
 		_file = null;
 		_pixels = -1;
+		_bytesPerPixel = -1;
 //		_count = -1;
 		_rgbHash = -1;
 		_random = -1;
@@ -97,6 +98,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_tagString2 = image.getTagString (true);
 		_file = image.getFile ();
 		_pixels = image.getPixels ();
+		_bytesPerPixel = image.getBytesPerPixel ();
 //		_count = image.getCount ();
 		_rgbHash = image.getHash ();
 		_random = image.getRandom ();
@@ -235,6 +237,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		sb.append (getName ()).append (", ");
 		sb.append (getWidth ()).append ("x").append (getHeight ()).append (", ");
 		sb.append (getNumBytes () / 1024).append ("KB, "); //TODO - this division truncates; do we care?
+		sb.append (VendoUtils.unitSuffixScale(getBytesPerPixel ())).append (", ");
 		if (AlbumFormInfo.getShowRgbData () && AlbumFormInfo.getInstance ().getMode () == AlbumMode.DoDup) { //debugging
 //			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
 			sb.append (getRgbData ()).append (", ");
@@ -548,6 +551,19 @@ public class AlbumImage implements Comparable<AlbumImage>
 	public int compareToByPixels (AlbumImage other)
 	{
 		return AlbumImages.compareToWithSlop (getPixels(), other.getPixels(), true, 0.5);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//calculated on demand and cached
+	public synchronized long getBytesPerPixel () //really bytes squared per pixel
+	{
+		if (_bytesPerPixel == -1) {
+//			double bytesPerPixel = 1000. * getNumBytes() / (getWidth () * getHeight ());
+			double bytesPerPixel = (double) getNumBytes() * (double) getNumBytes() / ((double) getWidth () * (double) getHeight ());
+			_bytesPerPixel = (long) bytesPerPixel;
+		}
+
+		return _bytesPerPixel;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1180,6 +1196,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	private String _tagString2 = null; //for collapseGroups = true
 //	private String _nameFirstLettersLower = null;
 	private long _pixels = -1;
+	private long _bytesPerPixel = -1;
 	private int _scaledWidth = -1;
 	private int _scaledHeight = -1;
 	private int _scale = -1;

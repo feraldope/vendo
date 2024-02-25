@@ -1639,7 +1639,7 @@ public class AlbumImages
 
 		//apparently we only propagate the sortType if it is by size (bytes or pixels); otherwise we use the default sortType
 		AlbumSortType sortType = _form.getSortType ();
-		String sortTypeStr = (sortType == AlbumSortType.BySizeBytes || sortType == AlbumSortType.BySizePixels) ? "&sortType=" + sortType.getSymbol () : "";
+		String sortTypeStr = sortType.isPropagateValueToDrillDowns() ? "&sortType=" + sortType.getSymbol () : "";
 
 		StringBuilder sb = new StringBuilder (200);
 		sb.append ("?mode=").append (mode.getSymbol ())

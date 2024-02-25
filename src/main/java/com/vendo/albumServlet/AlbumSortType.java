@@ -11,23 +11,25 @@ import java.util.List;
 public enum AlbumSortType
 {
 	//Enum (name, visibleInUi)
-	ByNone ("None", false),
-	ByName ("Name", true),
-	ByDate ("Date", true),
-	ByExif ("EXIF", true),
-	BySizeBytes ("Size (bytes)", true),
-	BySizePixels ("Size (pixels)", true),
-	ByCount ("Count", true),
-	ByHash ("Hash", true),
-	ByRgb ("RGB", true),
-	ByRandom ("Random", true);
-//	ByImageNumber ("Image Number", true);
+	ByNone ("None", false, false),
+	ByName ("Name", true, false),
+	ByDate ("Date", true, false),
+	ByExif ("EXIF", true, false),
+	BySizeBytes ("Size (bytes)", true, true),
+	BySizePixels ("Size (pixels)", true, true),
+	ByBytesPerPixel ("Bytes/pixel", true, true),
+	ByCount ("Count", true, false),
+	ByHash ("Hash", true, false),
+	ByRgb ("RGB", true, false),
+	ByRandom ("Random", true, false);
+//	ByImageNumber ("Image Number", true, false);
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumSortType (String name, boolean isVisibleInUi)
+	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns)
 	{
 		_value = new AlbumStringPair (name, "by" + name);
 		_isVisibleInUi = isVisibleInUi;
+		_propagateValueToDrillDowns = propagateValueToDrillDowns;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -46,6 +48,12 @@ public enum AlbumSortType
 	public boolean isVisibleInUi ()
 	{
 		return _isVisibleInUi;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean isPropagateValueToDrillDowns ()
+	{
+		return _propagateValueToDrillDowns;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -96,6 +104,7 @@ public enum AlbumSortType
 	//members
 	private final AlbumStringPair _value;
 	private final boolean _isVisibleInUi;
+	private final boolean _propagateValueToDrillDowns;
 
 	private static AlbumStringPair[] _values;
 	private static AlbumStringPair[] _uiValues;

@@ -62,24 +62,19 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			value2 = image2.getModified ();
 			break;
 
+		case BySizePixels: //descending
+			value1 = image1.getPixels ();
+			value2 = image2.getPixels ();
+			break;
+
 		case BySizeBytes: //descending
 			value1 = image1.getNumBytes ();
 			value2 = image2.getNumBytes ();
 			break;
 
-		case BySizePixels: //descending
-		{
-//			long w1 = image1.getWidth ();
-//			long h1 = image1.getHeight ();
-//			long w2 = image2.getWidth ();
-//			long h2 = image2.getHeight ();
-//
-//			//ignore differences in orientation only
-//			if (!(w1 == w2 && h1 == h2) && !(w1 == h2 && h1 == w2)) {
-				value1 = image1.getPixels ();
-				value2 = image2.getPixels ();
-//			}
-		}
+		case ByBytesPerPixel: //descending
+			value1 = image1.getBytesPerPixel ();
+			value2 = image2.getBytesPerPixel ();
 			break;
 
 		case ByCount: //descending

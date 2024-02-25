@@ -139,6 +139,8 @@ public class AlbumAlbumPair
 			pixelDiffString = "?";
 		}
 
+		pixelDiffString += " (" + _numberOfImagesWhereFirstIsLarger + ", " + _numberOfImagesOfEqualSize + ", " + _numberOfImagesWhereSecondIsLarger + ")";
+
 		String filters = getBaseName(0) + "," + getBaseName(1);
 
 		AlbumFormInfo form = AlbumFormInfo.getInstance();
