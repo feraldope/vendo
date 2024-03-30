@@ -1,32 +1,44 @@
 package com.vendo.jRetirement;
 
 import com.opencsv.bean.CsvBindByName;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+//public class CsvFundsBean implements Comparator<CsvFundsBean> {
+//public class CsvFundsBean implements Comparable<CsvFundsBean> {
 public class CsvFundsBean {
 
+    ///////////////////////////////////////////////////////////////////////////
     public CsvFundsBean() {
     }
 
+    ///////////////////////////////////////////////////////////////////////////
     protected double parseNumberAmount(String stringValue) {
-        while (stringValue.startsWith("$") || stringValue.startsWith("+") || stringValue.startsWith("-")) {
-            stringValue = stringValue.substring(1);
+        if (StringUtils.isBlank(stringValue)) {
+            return 0.;
         }
 
-        double doubleValue = Double.parseDouble(stringValue);
+        return Double.parseDouble(stringValue.replaceFirst("\\$", ""));
+    }
 
-        return doubleValue;
+    ///////////////////////////////////////////////////////////////////////////
+    public boolean isRoth() {
+        return rothAccountNames.contains(getAccountName());
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    public boolean isPendingActivity() {
+        return JRetirement.pendingActivityString.equals(getSymbol());
     }
 
     ///////////////////////////////////////////////////////////////////////////
     public String getAccountNumber() {
         return accountNumber;
     }
-
     public void setAccountNumber(String accountNumber) {
         this.accountNumber = accountNumber;
     }
@@ -35,7 +47,6 @@ public class CsvFundsBean {
     public String getAccountName() {
         return accountName;
     }
-
     public void setAccountName(String accountName) {
         this.accountName = accountName;
     }
@@ -44,7 +55,6 @@ public class CsvFundsBean {
     public String getSymbol() {
         return symbol;
     }
-
     public void setSymbol(String symbol) {
         this.symbol = symbol;
     }
@@ -53,7 +63,6 @@ public class CsvFundsBean {
     public String getDescription() {
         return description;
     }
-
     public void setDescription(String description) {
         this.description = description;
     }
@@ -62,7 +71,6 @@ public class CsvFundsBean {
     public String getQuantity() {
         return quantity;
     }
-
     public void setQuantity(String quantity) {
         this.quantity = quantity;
     }
@@ -71,7 +79,6 @@ public class CsvFundsBean {
     public String getLastPrice() {
         return lastPrice;
     }
-
     public void setLastPrice(String lastPrice) {
         this.lastPrice = lastPrice;
     }
@@ -80,17 +87,14 @@ public class CsvFundsBean {
     public String getLastPriceChange() {
         return lastPriceChange;
     }
-
     public void setLastPriceChange(String lastPriceChange) {
         this.lastPriceChange = lastPriceChange;
     }
 
     ///////////////////////////////////////////////////////////////////////////
     public Double getCurrentValue() {
-//        return currentValue;
         return parseNumberAmount(currentValue);
     }
-
     public void setCurrentValue(String currentValue) {
         this.currentValue = currentValue;
     }
@@ -99,7 +103,6 @@ public class CsvFundsBean {
     public String getTodaysGainLossDollar() {
         return todaysGainLossDollar;
     }
-
     public void setTodaysGainLossDollar(String todaysGainLossDollar) {
         this.todaysGainLossDollar = todaysGainLossDollar;
     }
@@ -108,7 +111,6 @@ public class CsvFundsBean {
     public String getTodaysGainLossPercent() {
         return todaysGainLossPercent;
     }
-
     public void setTodaysGainLossPercent(String todaysGainLossPercent) {
         this.todaysGainLossPercent = todaysGainLossPercent;
     }
@@ -117,7 +119,6 @@ public class CsvFundsBean {
     public String getTotalGainLossDollar() {
         return totalGainLossDollar;
     }
-
     public void setTotalGainLossDollar(String totalGainLossDollar) {
         this.totalGainLossDollar = totalGainLossDollar;
     }
@@ -126,7 +127,6 @@ public class CsvFundsBean {
     public String getTotalGainLossPercent() {
         return totalGainLossPercent;
     }
-
     public void setTotalGainLossPercent(String totalGainLossPercent) {
         this.totalGainLossPercent = totalGainLossPercent;
     }
@@ -135,7 +135,6 @@ public class CsvFundsBean {
     public String getPercentOfAccount() {
         return percentOfAccount;
     }
-
     public void setPercentOfAccount(String percentOfAccount) {
         this.percentOfAccount = percentOfAccount;
     }
@@ -144,7 +143,6 @@ public class CsvFundsBean {
     public String getCostBasisTotal() {
         return costBasisTotal;
     }
-
     public void setCostBasisTotal(String costBasisTotal) {
         this.costBasisTotal = costBasisTotal;
     }
@@ -153,7 +151,6 @@ public class CsvFundsBean {
     public String getAverageCostBasis() {
         return averageCostBasis;
     }
-
     public void setAverageCostBasis(String averageCostBasis) {
         this.averageCostBasis = averageCostBasis;
     }
@@ -162,16 +159,8 @@ public class CsvFundsBean {
     public String getType() {
         return type;
     }
-
     public void setType(String type) {
         this.type = type;
-    }
-
-    static List<String> rothAccountNames = new ArrayList<>(Arrays.asList("ROTH IRA", "FIS 401(K) PLAN"));
-
-    ///////////////////////////////////////////////////////////////////////////
-    public boolean isRoth() {
-        return rothAccountNames.contains(getAccountName());
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -196,7 +185,6 @@ public class CsvFundsBean {
 //                ", Type='" + getType() + '\'' +
                 '}';
     }
-
 
     ///////////////////////////////////////////////////////////////////////////
     @Override
@@ -260,4 +248,6 @@ public class CsvFundsBean {
     @CsvBindByName (column = "Cost Basis Total")          private String costBasisTotal;
     @CsvBindByName (column = "Average Cost Basis")        private String averageCostBasis;
     @CsvBindByName (column = "Type")                      private String type;
+
+    private static final List<String> rothAccountNames = new ArrayList<>(Arrays.asList("ROTH IRA", "FIS 401(K) PLAN"));
 }
