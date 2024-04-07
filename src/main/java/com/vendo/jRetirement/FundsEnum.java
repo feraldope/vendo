@@ -1,51 +1,58 @@
 package com.vendo.jRetirement;
 
 public enum FundsEnum {
-    PendingActivity ("Pending Activity", "Pending Activity",           FundType.Other,     ManagementStyle.NA,     "Pending Activity",       "Pending Activity"),
+    VBIAX ("VBIAX",   "VANGUARD BALANCED INDEX ADMIRAL",               "0.070", FundType.StockFund, ManagementStyle.Index,  "Moder-Alloc",        "Large Growth"),
+    VBTLX ("VBTLX",   "VANGUARD TOTAL BOND MARKET INDEX ADMIRAL",      "0.050", FundType.BondFund,  ManagementStyle.Index,  "Intermed Core Bond", "Bond Intermed"),
+    FCASH ("FCASH**", "HELD IN FCASH",                                 "0.420", FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
+    SPAXX ("SPAXX**", "HELD IN MONEY MARKET",                          "0.420", FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
+    VMFXX ("VMFXX",   "VANGUARD FED RESERVE MMKT INVESTOR CL",         "0.110", FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
+    VUSXX ("VUSXX",   "VANGUARD TREASURY MMKT INV CL",                 "0.090", FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
+    FXAIX ("FXAIX",   "FIDELITY 500 INDEX FUND",                       "0.015", FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Growth"),
+    FZROX ("FZROX",   "FIDELITY ZERO TOTAL MARKET INDEX",              "0.000", FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Growth"),
+    FLCSX ("FLCSX",   "FIDELITY LARGE CAP STOCK",                      "0.760", FundType.StockFund, ManagementStyle.Active, "Large Blend",        "Large Blend"),
+    VIG   ("VIG",     "VANGUARD SPECIALIZED FUNDS DIV APP ETF",        "0.060", FundType.StockETF,  ManagementStyle.Index,  "Large Blend",        "Large Blend"),
+    VTI   ("VTI",     "VANGUARD INDEX FDS VANGUARD TOTAL STK MKT ETF", "0.030", FundType.StockETF,  ManagementStyle.Index,  "Large Blend",        "Large Blend"),
+    VYM   ("VYM",     "VANGUARD WHITEHALL FDS HIGH DIV YLD",           "0.060", FundType.StockETF,  ManagementStyle.Index,  "Large Value",        "Large Value"),
+    VBR   ("VBR",     "VANGUARD SMALL CAP VALUE ETF",                  "0.070", FundType.StockETF,  ManagementStyle.Index,  "Small Value",        "Small Value"),
+    VHT   ("VHT",     "VANGUARD WORLD FD HEALTH CAR ETF",              "0.100", FundType.StockETF,  ManagementStyle.Active, "Health",             "Large Growth"),
+    VGHAX ("VGHAX",   "VANGUARD HEALTH CARE ADMIRAL SHS",              "0.034", FundType.StockFund, ManagementStyle.Active, "Health",             "Large Growth"),
+    VIMAX ("VIMAX",   "VANGUARD MID CAP INDEX ADMIRAL SHS",            "0.050", FundType.StockFund, ManagementStyle.Index,  "Mid-Cap Blend",      "Mid Blend"),
+    VPMAX ("VPMAX",   "VANGUARD PRIMECAP ADMIRAL CLASS",               "0.310", FundType.StockFund, ManagementStyle.Active, "Large Blend",        "Large Blend"),
+    VSMAX ("VSMAX",   "VANGUARD SMALL-CAP INDEX ADMIRAL",              "0.050", FundType.StockFund, ManagementStyle.Index,  "Small Blend",        "Small Blend"),
+    FLMVX ("FLMVX",   "JPM MIDCAP VALUE L",                            "0.750", FundType.StockFund, ManagementStyle.Active, "Mid-Cap Value",      "Mid Value"),
+    VMGRX ("VMGRX",   "VANG MIDCAP GRTH INV",                          "0.370", FundType.StockFund, ManagementStyle.Active, "Mid-Cap Growth",     "Mid Growth"),
+    VFIAX ("VFIAX",   "VANGUARD 500 INDEX ADMIRAL",                    "0.040", FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Growth"),
+    VGHCX ("VGHCX",   "VANGUARD HEALTH CARE INVESTOR",                 "0.340", FundType.StockFund, ManagementStyle.Active, "Health",             "Large Growth"),
+    FSPHX ("FSPHX",   "FIDELITY SELECT HEALTH CARE",                   "0.690", FundType.StockFund, ManagementStyle.Active, "Health",             "Large Growth"),
+    IYH   ("IYH",     "ISHARES U.S. HEALTHCARE ETF",                   "0.400", FundType.StockFund, ManagementStyle.Index,  "Health",             "Large Growth"),
+    FBND  ("FBND",    "FIDELITY TOTAL BOND ETF",                       "0.450", FundType.BondETF,   ManagementStyle.Active, "Intermed Core Bond", "Bond Intermed"),
+    FIGB  ("FIGB",    "FIDELITY INVESTMENT GRADE BOND ETF",            "0.450", FundType.BondETF,   ManagementStyle.Active, "Intermed Core Bond", "Bond Intermed"),
+    FLDR  ("FLDR",    "FIDELITY LOW DURATION BOND FACTOR ETF",         "0.150", FundType.BondETF,   ManagementStyle.Index,  "Ultrashort Bond",    "Bond Ultrashort"),
+    VWENX ("VWENX",   "VANG WELLINGTON ADM",                           "0.180", FundType.StockFund, ManagementStyle.Active, "Moder-Alloc",        "Large Blend"),
+    //unusual naming from FIS 401K
+    N31617E778 ("31617E778", "FID BLUE CHP GR CP A",                   "0.690", FundType.StockFund, ManagementStyle.Active, "Large Growth",       "Large Growth"),
+    N857444624 ("857444624", "SS S&P 500 INDEX II",                    "0.160", FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Blend"),
+    N85744A687 ("85744A687", "SS GACEQ EXUS IDX II",                   "0.050", FundType.StockFund, ManagementStyle.Index,  "International",      "International"),
+    N857480552 ("857480552", "SS RSL SMMDCP IDX II",                   "0.030", FundType.StockFund, ManagementStyle.Index,  "Mid-Cap Blend",      "Mid Blend"),
+    //we need to be able to parse these lines
+    PendingActivity ("Pending Activity", "Pending Activity",           "-N/A-", FundType.Other,     ManagementStyle.NA,     "Pending Activity",   "Pending Activity");
 
-    VBIAX ("VBIAX",   "VANGUARD BALANCED INDEX ADMIRAL",               FundType.StockFund, ManagementStyle.Index,  "Moder-Alloc",            "Large Growth"),
-    VBTLX ("VBTLX",   "VANGUARD TOTAL BOND MARKET INDEX ADMIRAL",      FundType.BondFund,  ManagementStyle.Index,  "Intermed Core Bond",     "Bond Intermed"),
-    FCASH ("FCASH**", "HELD IN FCASH",                                 FundType.Cash,      ManagementStyle.NA,     "Money Market",           "Money Market"),
-    SPAXX ("SPAXX**", "HELD IN MONEY MARKET",                          FundType.Cash,      ManagementStyle.NA,     "Money Market",           "Money Market"),
-    VMFXX ("VMFXX",   "VANGUARD FED RESERVE MMKT INVESTOR CL",         FundType.Cash,      ManagementStyle.NA,     "Money Market",           "Money Market"),
-    VUSXX ("VUSXX",   "VANGUARD TREASURY MMKT INV CL",                 FundType.Cash,      ManagementStyle.NA,     "Money Market",           "Money Market"),
-    FXAIX ("FXAIX",   "FIDELITY 500 INDEX FUND",                       FundType.StockFund, ManagementStyle.Index,  "Large Blend",            "Large Growth"),
-    FZROX ("FZROX",   "FIDELITY ZERO TOTAL MARKET INDEX",              FundType.StockFund, ManagementStyle.Index,  "Large Blend",            "Large Growth"),
-    FLCSX ("FLCSX",   "FIDELITY LARGE CAP STOCK",                      FundType.StockFund, ManagementStyle.Active, "Large Blend",            "Large Blend"),
-    VIG   ("VIG",     "VANGUARD SPECIALIZED FUNDS DIV APP ETF",        FundType.StockETF,  ManagementStyle.Index,  "Large Blend",            "Large Blend"),
-    VTI   ("VTI",     "VANGUARD INDEX FDS VANGUARD TOTAL STK MKT ETF", FundType.StockETF,  ManagementStyle.Index,  "Large Blend",            "Large Blend"),
-    VYM   ("VYM",     "VANGUARD WHITEHALL FDS HIGH DIV YLD",           FundType.StockETF,  ManagementStyle.Index,  "Large Value",            "Large Value"),
-    VBR   ("VBR",     "VANGUARD SMALL CAP VALUE ETF",                  FundType.StockETF,  ManagementStyle.Index,  "Small Value",            "Small Value"),
-    VHT   ("VHT",     "VANGUARD WORLD FD HEALTH CAR ETF",              FundType.StockETF,  ManagementStyle.Active, "Health",                 "Large Growth"),
-    VGHAX ("VGHAX",   "VANGUARD HEALTH CARE ADMIRAL SHS",              FundType.StockFund, ManagementStyle.Active, "Health",                 "Large Growth"),
-    VIMAX ("VIMAX",   "VANGUARD MID CAP INDEX ADMIRAL SHS",            FundType.StockFund, ManagementStyle.Index,  "Mid-Cap Blend",          "Mid Blend"),
-    VPMAX ("VPMAX",   "VANGUARD PRIMECAP ADMIRAL CLASS",               FundType.StockFund, ManagementStyle.Active, "Large Blend",            "Large Blend"),
-    VSMAX ("VSMAX",   "VANGUARD SMALL-CAP INDEX ADMIRAL",              FundType.StockFund, ManagementStyle.Index,  "Small Blend",            "Small Blend"),
-    FLMVX ("FLMVX",   "JPM MIDCAP VALUE L",                            FundType.StockFund, ManagementStyle.Active, "Mid-Cap Value",          "Mid Value"),
-    VMGRX ("VMGRX",   "VANG MIDCAP GRTH INV",                          FundType.StockFund, ManagementStyle.Active, "Mid-Cap Growth",         "Mid Growth"),
-    VFIAX ("VFIAX",   "VANGUARD 500 INDEX ADMIRAL",                    FundType.StockFund, ManagementStyle.Index,  "Large Blend",            "Large Growth"),
-    VGHCX ("VGHCX",   "VANGUARD HEALTH CARE INVESTOR",                 FundType.StockFund, ManagementStyle.Active, "Health",                 "Large Growth"),
-    FSPHX ("FSPHX",   "FIDELITY SELECT HEALTH CARE",                   FundType.StockFund, ManagementStyle.Active, "Health",                 "Large Growth"),
-    IYH   ("IYH",     "ISHARES U.S. HEALTHCARE ETF",                   FundType.StockFund, ManagementStyle.Index,  "Health",                 "Large Growth"),
-    FBND  ("FBND",    "FIDELITY TOTAL BOND ETF",                       FundType.BondETF,   ManagementStyle.Active, "Intermed Core Bond",     "Bond Intermed"),
-    FIGB  ("FIGB",    "FIDELITY INVESTMENT GRADE BOND ETF",            FundType.BondETF,   ManagementStyle.Active, "Intermed Core Bond",     "Bond Intermed"),
-    FLDR  ("FLDR",    "FIDELITY LOW DURATION BOND FACTOR ETF",         FundType.BondETF,   ManagementStyle.Index,  "Ultrashort Bond",        "Bond Ultrashort"),
-//unusual naming from FIS 401K
-    N31617E778 ("31617E778", "FID BLUE CHP GR CP A",                   FundType.StockFund, ManagementStyle.Active, "Large Growth",           "Large Growth"),
-    N857444624 ("857444624", "SS S&P 500 INDEX II",                    FundType.StockFund, ManagementStyle.Index,  "Large Blend",            "Large Blend"),
-    N85744A687 ("85744A687", "SS GACEQ EXUS IDX II",                   FundType.StockFund, ManagementStyle.Index,  "International",          "International"),
-    N857480552 ("857480552", "SS RSL SMMDCP IDX II",                   FundType.StockFund, ManagementStyle.Index,  "Mid-Cap Blend",          "Mid Blend");
 
+    public enum FundOwner {Other, Primary, Secondary}
     public enum FundType {Other, BondETF, BondFund, Cash, StockETF, StockFund}
-    public enum ManagementStyle {Other, NA, Active, Index}
+    public enum ManagementStyle {NA, Active, Index}
 
-    final String morningStarUrlFormat = "https://www.morningstar.com/funds/xnas/%s/quote";
 
     ///////////////////////////////////////////////////////////////////////////
-    FundsEnum (String symbol, String description, FundType fundType, ManagementStyle managementStyle, String category, String investmentStyle)
+    FundsEnum (String symbol, String description, String expenseRatio, FundType fundType, ManagementStyle managementStyle, String category, String investmentStyle)
     {
+//        if (symbol.endsWith("**")) { //cleanup for example 'SPAXX**'
+//            symbol = symbol.substring(0, symbol.length() - 2);
+//        }
+
         this.symbol = symbol;
         this.description = description;
+        this.expenseRatio = expenseRatio;
         this.fundType = fundType;
         this.managementStyle = managementStyle;
         this.category = category;               //from MorningStar.com
@@ -116,6 +123,12 @@ public enum FundsEnum {
     }
 
     ///////////////////////////////////////////////////////////////////////////
+    public String getExpenseRatio ()
+    {
+        return expenseRatio;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
     public String getCategory ()
     {
         return category;
@@ -130,11 +143,10 @@ public enum FundsEnum {
     ///////////////////////////////////////////////////////////////////////////
     public String getURL ()
     {
-        if (getSymbol().startsWith("857")) { //hack - special handling for some 401K entries
-            return String.format(morningStarUrlFormat, getDescription());
-        } else {
-            return String.format(morningStarUrlFormat, getSymbol());
-        }
+        StringBuilder url = new StringBuilder("https://www.google.com/search?q=");
+        url.append(getFundFamily()).append("+")
+           .append(getSymbol()).append("+stars");
+        return url.toString();
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -184,6 +196,7 @@ public enum FundsEnum {
     private final String symbol;
     private final String fundFamily;
     private final String description;
+    private final String expenseRatio; //adjusted expense ratio, if applies
     private final FundType fundType;
     private final ManagementStyle managementStyle;
     private final String category;

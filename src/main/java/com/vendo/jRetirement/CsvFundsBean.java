@@ -8,8 +8,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-//public class CsvFundsBean implements Comparator<CsvFundsBean> {
-//public class CsvFundsBean implements Comparable<CsvFundsBean> {
+
 public class CsvFundsBean {
 
     ///////////////////////////////////////////////////////////////////////////
@@ -95,6 +94,9 @@ public class CsvFundsBean {
     public Double getCurrentValue() {
         return parseNumberAmount(currentValue);
     }
+    public String getCurrentValueString() {
+        return currentValue;
+    }
     public void setCurrentValue(String currentValue) {
         this.currentValue = currentValue;
     }
@@ -140,7 +142,13 @@ public class CsvFundsBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public String getCostBasisTotal() {
+    public Double getCostBasisTotal() {
+        if ("--".equals(costBasisTotal) || "n/a".equalsIgnoreCase(costBasisTotal)) {
+            return 0.;
+        }
+        return parseNumberAmount(costBasisTotal);
+    }
+    public String getCostBasisTotalString() {
         return costBasisTotal;
     }
     public void setCostBasisTotal(String costBasisTotal) {
@@ -167,21 +175,21 @@ public class CsvFundsBean {
     @Override
     public String toString() {
         return "CsvFundsBean{" +
-//                "AccountNumber='" + getAccountNumber + '\'' +
-                "AccountName='" + getAccountName() + '\'' +
+                "AccountNumber='" + getAccountNumber() + '\'' +
+                ", AccountName='" + getAccountName() + '\'' +
                 ", Symbol='" + getSymbol() + '\'' +
                 ", Description='" + getDescription() + '\'' +
 //                ", Quantity='" + getQuantity() + '\'' +
 //                ", LastPrice='" + getLastPrice + '\'' +
 //                ", LastPriceChange='" + getLastPriceChange + '\'' +
-                ", CurrentValue='" + getCurrentValue() + '\'' +
+                ", CurrentValue='" + getCurrentValueString() + '\'' +
 //                ", TodaysGainLossDollar='" + getTodaysGainLossDollar + '\'' +
 //                ", TodaysGainLossPercent='" + getTodaysGainLossPercent + '\'' +
 //                ", TotalGainLossDollar='" + getTotalGainLossDollar + '\'' +
 //                ", TotalGainLossPercent='" + getTotalGainLossPercent + '\'' +
 //                ", PercentOfAccount='" + getPercentOfAccount() + '\'' +
-//                ", CostBasisTotal='" + getCostBasisTotal + '\'' +
-//                ", AverageCostBasis='" + getAverageCostBasis + '\'' +
+                ", CostBasisTotal='" + getCostBasisTotalString() + '\'' +
+//                ", AverageCostBasis='" + getAverageCostBasis() + '\'' +
 //                ", Type='" + getType() + '\'' +
                 '}';
     }

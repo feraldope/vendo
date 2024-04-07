@@ -2630,7 +2630,7 @@ public class AlbumImages
 		for (String album : albumsMatchingFilters) {
 			List<AlbumImageDuplicateDetails> dupDetails = AlbumImageDuplicateDetails.splitMultipleSubAlbums (album, _imageDisplayList);
 			if (dupDetails == null) {
-				String error = "AlbumImages.generateDuplicateImageRenameCommands: aborting: dupDetails = null for album = " + album;
+				String error = "AlbumImages.generateDuplicateImageRenameCommands: aborting: dupDetails = null for album = " + album + " (might be 3 digits and starts from 0xx)";
 				generateDuplicateImageRenameError (moveFile, error);
 				return;
 			}

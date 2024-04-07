@@ -13,12 +13,22 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.text.DecimalFormat;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static com.vendo.jRetirement.FundsEnum.*;
 
 
 public final class JRetirement {
@@ -146,54 +156,64 @@ public final class JRetirement {
 
 		List<CsvFundsBean> records = processFile(sourcePath);
 
-		long dateDownloaded = parseDateDownloaded();
-		Date temp = new Date(dateDownloaded); //TODO
+		final Instant dateDownloaded = parseDateDownloadedField();
+		System.out.println ("Date Downloaded: " + dateTimeFormatter.format(dateDownloaded));
 
-		System.out.println();
-		System.out.println("Roth Accounts -----------------------------------------------------------");
+		int rowsPersisted = persistRecordsToDatabase(records, dateDownloaded);
+		System.out.println ("Rows Persisted to Database: " + rowsPersisted);
+
+		System.out.println(NL + "Roth Accounts -----------------------------------------------------------");
 		printDistribution(records, rothAccounts, false, false);
 
-		System.out.println();
-		System.out.println("Traditional Accounts ----------------------------------------------------");
+		System.out.println(NL + "Traditional Accounts ----------------------------------------------------");
 		printDistribution(records, traditionalAccounts, false, true);
 
-		System.out.println();
-		System.out.println("All Accounts ------------------------------------------------------------");
-		printDistribution(records, allAccounts, true, false);
+		System.out.println(NL + "All Accounts ------------------------------------------------------------");
+		printDistribution(records, allAccounts, true, true);
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private List<CsvFundsBean> processFile(Path inputCsvFilePath) {
-		List<CsvFundsBean> records = new ArrayList<>();
+		List<CsvFundsBean> records;
 		try {
 			records = generateFilteredRecordList(inputCsvFilePath, true);
 
-			System.out.println();
-			System.out.println("Filtered records:");
+			//data integrity check - we should have 4 or more accounts in the file
+			final int expectedAccounts = 4; //hardcoded
+			Set<String> accounts = Objects.requireNonNull(records).stream()
+					.map(CsvFundsBean::getAccountName)
+					.collect(Collectors.toSet());
+			if (accounts.size() < expectedAccounts) {
+				System.out.println(NL + "Error: " + (expectedAccounts - accounts.size()) + " missing accounts. Found accounts: " + String.join(", ", accounts));
+				return null;
+			}
+
+			if (false) { //print URLs
+				System.out.println(NL + "URLs:");
+				List<FundsEnum> funds = new ArrayList<>(Arrays.asList(values())).stream()
+						.filter(f -> !pendingActivityString.equals(f.getSymbol()))
+						.sorted ((f1, f2) -> f1.getSymbol().compareToIgnoreCase(f2.getSymbol()))
+						.collect (Collectors.toList ());
+				funds.forEach(f -> System.out.println("[" + f.getExpenseRatio() + "] " + f.getSymbol() + " -> " + f.getURL()));
+			}
+
+			System.out.println(NL + "Filtered records:");
 			records.forEach(System.out::println);
 
-			System.out.println();
-			System.out.println("Read file: " + inputCsvFilePath);
+			System.out.println(NL + "Read file: " + inputCsvFilePath);
 			System.out.println("Records found: " + records.size());
 
 			List <CsvFundsBean> pendingActivity = records.stream().filter(CsvFundsBean::isPendingActivity).collect(Collectors.toList());
 			if (!pendingActivity.isEmpty()) {
-				System.out.println();
-				System.out.println("Pending Activity:");
+				System.out.println(NL + "Pending Activity:");
 				pendingActivity.forEach(System.out::println);
-			}
-
-			if (false) { //print URLs
-				List<FundsEnum> funds = new ArrayList<>(Arrays.asList(FundsEnum.values()));
-				funds.forEach(f -> {
-					System.out.println(f.getSymbol() + " -> " + f.getURL());
-				});
 			}
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
+			return null;
 		}
 
 		return records;
@@ -217,11 +237,18 @@ public final class JRetirement {
 					continue;
 				}
 
-				FundsEnum fund = FundsEnum.getValue(record.getSymbol());
+				FundOwner fundOwner = determineFundOwner(record.getAccountNumber());
+
+				FundsEnum fund = getValue(record.getSymbol());
 //				String groupBy = fund.getFundFamily() + "." + fund.getStyle();
 //				String groupBy = fund.getFundFamily() + "." + fund.getCategory();
 //				String groupBy = fund.getFundFamily() + "." + fund.getFundType() + "." + fund.getCategory();
-				String groupBy = StringUtils.rightPad(fund.getSymbol(), 5, ' ') + " => " + fund.getFundFamily()
+				String groupBy = ""
+						+ "[" + fund.getExpenseRatio() + "] "
+						+ "[" + fundOwner + "] "
+						+ StringUtils.rightPad(fund.getSymbol(), 5, ' ')
+						+ " => " + fund.getFundFamily()
+//						+ "." + fundOwner
 						+ "." + fund.getFundType()
 						+ "." + fund.getManagementStyle()
 						+ "." + fund.getCategory();
@@ -274,7 +301,7 @@ public final class JRetirement {
 				List<Integer> percents = Arrays.asList(2, 3, 4);
 				for (Integer percent : percents) {
 					double withdrawalPercent = percent * totalAllFunds / 100;
-					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent));
+					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent, " <<< divide by 2 for 2024"));
 				}
 			}
 
@@ -314,6 +341,7 @@ public final class JRetirement {
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
+			return false;
 		}
 
 		return true;
@@ -321,7 +349,6 @@ public final class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	static class FundResult {
-		///////////////////////////////////////////////////////////////////////////
 		FundResult(String label, double total, double percent) {
 			this(label, total, percent, "");
 		}
@@ -365,7 +392,7 @@ public final class JRetirement {
 		final double percent;
 		final String specialNote;
 
-		private static final int lengthOfSymbol = 1; //hardcoded - i.e., "$" or "%"
+		private static final int lengthOfSymbol = 1; //hardcoded; i.e., "$" or "%"
 		private static final int defaultFieldLength = 20; //hardcoded
 		private static final String space2 = "  "; //hardcoded
 	}
@@ -376,7 +403,8 @@ public final class JRetirement {
 		final List<String> accountsToSkip = new ArrayList<>(Arrays.asList("Fixed Annuity", "Individual - 529 - TOD"));
 		final List<String> skippedRecords = new ArrayList<>();
 
-		List<CsvFundsBean> records = new ArrayList<>();
+		List<CsvFundsBean> records;
+
 		try {
 			records = csvBeanBuilder(inputCsvFilePath, CsvFundsBean.class).stream()
 					.filter(r -> {
@@ -394,6 +422,7 @@ public final class JRetirement {
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
+			return null;
 		}
 
 		if (printSkippedRecords && !skippedRecords.isEmpty()) {
@@ -406,7 +435,7 @@ public final class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	public List<CsvFundsBean> csvBeanBuilder(Path path, Class<? extends CsvFundsBean> clazz) {
-		List<CsvFundsBean> records = new ArrayList<>();
+		List<CsvFundsBean> records;
 
 		try {
 			Reader reader = getReaderFromStringList(readAllValidLines(path, true));
@@ -417,6 +446,7 @@ public final class JRetirement {
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
+			return null;
 		}
 
 		return records;
@@ -433,6 +463,12 @@ public final class JRetirement {
 		final List<String> skippedLines = new ArrayList<>();
 
 		List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8).stream()
+			.map(l -> {
+				if (!l.isEmpty() && l.charAt(0) > 'Z') { //hack - remove unicode (?) garbage at beginning of file that prevents successful parsing of first column
+					l = l.substring(1);
+				}
+				return l;
+			})
 			.map(l -> l.contains(pendingActivityString) ? repairPendingActivityLine(l) : l)
 			.filter(l -> {
 				boolean keepLine = true;
@@ -458,11 +494,36 @@ public final class JRetirement {
 			System.out.println("JRetirement.readAllValidLines:");
 			skippedLines.stream().sorted().forEach(l -> {
 				int charsToPrint = Math.min(l.length(), maxCharsToPrint);
-				System.out.println(l.substring(0, charsToPrint));
+				boolean truncated = l.length() > charsToPrint;
+				System.out.println(l.substring(0, charsToPrint) + (truncated ? "*" : ""));
 			});
 		}
 
 		return lines;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static FundOwner determineFundOwner(String accountNumber) {
+		FundOwner fundOwner;
+
+		switch (accountNumber) {
+			default:
+				fundOwner = FundOwner.Other;
+				break;
+
+			case "239929111":
+			case "242813142":
+			case "85918":
+				fundOwner = FundOwner.Primary;
+				break;
+
+			case "239971093":
+			case "239971099":
+				fundOwner = FundOwner.Secondary;
+				break;
+		}
+
+		return fundOwner;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -474,15 +535,16 @@ public final class JRetirement {
 	//for some reason, these lines have fewer commas than the rest of the data lines, and the value needs to be shifted one column to the right
 	private String repairPendingActivityLine(String line) {
 		if (line.contains(pendingActivityString)) {
-			line = line.replaceAll(pendingActivityString, pendingActivityString + ",");
+			line = line.replaceAll(pendingActivityString, pendingActivityString + ","); //add comma to shift columns right
 			int missingCommas = csvExpectedCommas - countCommas(line);
 			if (missingCommas > 0) {
-				line += StringUtils.rightPad("", missingCommas, ',');
+				line += StringUtils.rightPad("", missingCommas, ','); //pad with missing commas so parser can parse
 			}
 		}
 		return line;
 	}
 
+/* original - keep for now
 	///////////////////////////////////////////////////////////////////////////
 	private long parseDateDownloaded() throws Exception {
 		final Pattern datePattern = Pattern.compile(".*(\\d{2}/\\d{2}/\\d{4} \\d{1,2}:\\d{2} [A-Z]{2}).*");
@@ -497,6 +559,23 @@ public final class JRetirement {
 		Date date = dateFormat.parse(dateString);
 		return date.getTime ();
 	}
+*/
+
+	///////////////////////////////////////////////////////////////////////////
+	private Instant parseDateDownloadedField() throws Exception {
+		final Pattern datePattern = Pattern.compile(".*(\\d{2}/\\d{2}/\\d{4} \\d{1,2}:\\d{2} [A-Z]{2}).*");
+		final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a");
+
+		assert(dateDownloadedList.size() == 1); //must be only one
+
+		//go ahead and throw an exception if any of this fails
+		Matcher dateMatcher = datePattern.matcher(dateDownloadedList.get(0));
+		dateMatcher.find();
+		String dateString = dateMatcher.group(1);
+		LocalDateTime localDateTime = LocalDateTime.parse(dateString, dateTimeFormatter);
+		Instant instant = localDateTime.atZone(ZoneId.systemDefault()).toInstant();
+		return instant;
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//to sort filenames by embedded date (newest first), with this date format in file name: path1\path2\Portfolio_Positions_Feb-24-2024.csv
@@ -510,12 +589,13 @@ public final class JRetirement {
 			try {
 				time1 = parseDateTimeFromFilename(filename1);
 				time2 = parseDateTimeFromFilename(filename2);
-				return (int) (time1 - time2); //sort newest first
+
+				return Long.compare(time1, time2); //sort newest first
 			} catch(Exception ex) {
 				System.err.println("PortfolioFilenameComparatorByDateReverse.compare: failed to parse date from filename: <" +
 						(time1 == 0 ? filename1 : filename2) + ">");
 			}
-			return filename1.compareToIgnoreCase(filename2); //fallback if parsing fails
+			return filename1.compareToIgnoreCase(filename2); //fallback if date parsing fails
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -529,14 +609,83 @@ public final class JRetirement {
 			dateMatcher.find();
 			String dateString = dateMatcher.group(1);
 			Date date = dateFormat.parse(dateString);
-			filenameToDateMap.put(filename, date.getTime());
+			long time = date.getTime();
+			filenameToDateMap.put(filename, time);
 
-			return date.getTime ();
+			return time;
 		}
 
 		final Map<String, Long> filenameToDateMap = new HashMap<>();
 		final Pattern datePattern = Pattern.compile("Portfolio.*_([A-Z][a-z]{2}-\\d{2}-\\d{4}).*");
 		final FastDateFormat dateFormat = FastDateFormat.getInstance ("MMM-dd-yyyy"); // Note SimpleDateFormat is not thread safe
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private int persistRecordsToDatabase(List<CsvFundsBean> records, Instant dateDownloaded) throws Exception {
+		int rowsPersisted = 0;
+
+		try (Connection connection = connectDatabase()) {
+			if (records != null) {
+				for (CsvFundsBean record : records) {
+					if (persistRecordToDatabase(connection, record, dateDownloaded)) {
+						++rowsPersisted;
+					}
+				}
+			}
+		}
+
+		return rowsPersisted;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean persistRecordToDatabase(Connection connection, CsvFundsBean record, Instant dateDownloaded)
+	{
+		final String sql = "insert into retirement (downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis)" + NL +
+						   " values (?, ?, ?, ?, ?, ?, ?)";
+
+		final java.sql.Timestamp timestamp = java.sql.Timestamp.from(dateDownloaded);
+
+		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+			int index = 1;
+			stmt.setTimestamp(index++, timestamp);
+			stmt.setString(index++, record.getAccountNumber());
+			stmt.setString(index++, record.getAccountName());
+			stmt.setString(index++, record.getSymbol());
+			stmt.setString(index++, record.getDescription());
+			stmt.setDouble(index++, record.getCurrentValue());
+			stmt.setDouble(index++, record.getCostBasisTotal());
+
+			stmt.executeUpdate ();
+
+		} catch (SQLIntegrityConstraintViolationException ex) {
+			if (!ex.getMessage().matches("Duplicate entry.*PRIMARY.*")) { //we expect to get duplicate entries because we aren't checking before persisting (which is a TODO)
+				System.out.println("persistRecordToDatabase: ignoring duplicate record: " + record);
+			}
+			return false;
+
+		} catch (Exception ex) {
+			System.err.println("persistRecordToDatabase: error from Connection.prepareStatement(" + sql + ") or PreparedStatement.executeUpdate");
+			System.err.println(ex);
+			return false;
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Connection connectDatabase () throws Exception
+	{
+		//TODO - move connection info to properties file, with hard-coded defaults
+		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
+		final String dbUrl = "jdbc:mysql://localhost/retirement";
+		final String dbUser = "root";
+		final String dbPass = "root";
+
+		Class.forName (jdbcDriver);
+
+		Connection dbConnection = DriverManager.getConnection (dbUrl, dbUser, dbPass);
+
+		return dbConnection;
 	}
 
 
@@ -558,6 +707,8 @@ public final class JRetirement {
 
 	private static final DecimalFormat decimalFormat1 = new DecimalFormat ("###,##0.0");
 	private static final DecimalFormat decimalFormat2 = new DecimalFormat ("###,##0.00");
+
+	private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss").withZone(ZoneId.systemDefault());
 
 	//global members
 	public static String pendingActivityString = "Pending Activity";
