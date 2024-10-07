@@ -28,8 +28,8 @@ public class AlbumAlbumPair
 							.sorted(_alphanumComparator)
 							.collect(Collectors.toList());
 
-		_numberOfImagesInAlbum[0] = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(0), 0);
-		_numberOfImagesInAlbum[1] = AlbumImageDao.getInstance ().getNumMatchingImages (_baseNames.get(1), 0);
+		_numberOfImagesInAlbum[0] = AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (_baseNames.get(0), 0);
+		_numberOfImagesInAlbum[1] = AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (_baseNames.get(1), 0);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -117,26 +117,15 @@ public class AlbumAlbumPair
 			return "<no image pairs>";
 		}
 
-		String pixelDiffString;
-		if (_numberOfImagesOfEqualSize == getNumberOfDuplicateMatches ()) {
-			pixelDiffString = "=";
-
-		} else if (_numberOfImagesWhereFirstIsLarger == getNumberOfDuplicateMatches ()) {
-			pixelDiffString = ">";
-
-		} else if ((_numberOfImagesWhereFirstIsLarger + _numberOfImagesOfEqualSize) == getNumberOfDuplicateMatches ()) {
-			pixelDiffString = ">=";
-
-		} else if (_numberOfImagesWhereSecondIsLarger == getNumberOfDuplicateMatches ()) {
-			pixelDiffString = "<";
-			enableHighlight = false;
-
-		} else if ((_numberOfImagesWhereSecondIsLarger + _numberOfImagesOfEqualSize) == getNumberOfDuplicateMatches ()) {
-			pixelDiffString = "<=";
-			enableHighlight = false;
-
-		} else {
-			pixelDiffString = "?";
+		String pixelDiffString = "";
+		if (_numberOfImagesWhereFirstIsLarger > 0) {
+			pixelDiffString += ">";
+		}
+		if (_numberOfImagesOfEqualSize > 0) {
+			pixelDiffString += "=";
+		}
+		if (_numberOfImagesWhereSecondIsLarger > 0) {
+			pixelDiffString += "<";
 		}
 
 		pixelDiffString += " (" + _numberOfImagesWhereFirstIsLarger + ", " + _numberOfImagesOfEqualSize + ", " + _numberOfImagesWhereSecondIsLarger + ")";

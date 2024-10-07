@@ -372,7 +372,7 @@ public class AlbumTags
 			return true;
 		}
 
-		if (lastUpdateMillis < AlbumImageDao.getInstance ().getMaxLastUpdateFromImageFolder ()) {
+		if (lastUpdateMillis < AlbumImageDao.getInstance ().getMaxLastUpdateFromImageFolderTable ()) {
 			return true;
 		}
 

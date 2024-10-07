@@ -13,37 +13,37 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImageComparator (AlbumSortType sortType)
 	{
-		_sortType = sortType;
-		_sortFactor = 1;
+		this.sortType = sortType;
+		sortFactor = 1;
 
-		_exifDateIndex = 0;
+		exifDateIndex = 0;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImageComparator (AlbumSortType sortType, boolean reverseSort)
 	{
-		_sortType = sortType;
-		_sortFactor = reverseSort ? -1 : 1;
+		this.sortType = sortType;
+		sortFactor = reverseSort ? -1 : 1;
 
-		_exifDateIndex = 0;
+		exifDateIndex = 0;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImageComparator (AlbumSortType sortType, int exifDateIndex)
 	{
-		_sortType = sortType;
-		_sortFactor = 1;
+		this.sortType = sortType;
+		sortFactor = 1;
 
-		_exifDateIndex = exifDateIndex;
+		this.exifDateIndex = exifDateIndex;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public AlbumImageComparator (AlbumFormInfo form)
 	{
-		_sortType = form.getSortType ();
-		_sortFactor = form.getReverseSort () ? -1 : 1;
+		sortType = form.getSortType ();
+		sortFactor = form.getReverseSort () ? -1 : 1;
 
-		_exifDateIndex = form.getExifDateIndex ();
+		exifDateIndex = form.getExifDateIndex ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -53,9 +53,9 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 		long value1 = 0;
 		long value2 = 0;
 
-		switch (_sortType) {
+		switch (sortType) {
 		default:
-			throw new RuntimeException ("AlbumImageComparator.compare: invalid sortType \"" + _sortType + "\"");
+			throw new RuntimeException ("AlbumImageComparator.compare: invalid sortType \"" + sortType + "\"");
 
 		case ByDate: //descending
 			value1 = image1.getModified ();
@@ -68,8 +68,17 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			break;
 
 		case BySizeBytes: //descending
-			value1 = image1.getNumBytes ();
-			value2 = image2.getNumBytes ();
+			if (AlbumFormInfo.getInstance().getMode() == AlbumMode.DoSampler) {
+				boolean collapseGroups = AlbumFormInfo.getInstance().getCollapseGroups();
+				String imageName1 = image1.getBaseName(collapseGroups);
+				String imageName2 = image2.getBaseName(collapseGroups);
+
+				value1 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName1, 0);
+				value2 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName2, 0);
+			} else {
+				value1 = image1.getNumBytes ();
+				value2 = image2.getNumBytes ();
+			}
 			break;
 
 		case ByBytesPerPixel: //descending
@@ -83,8 +92,8 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			String imageName1 = image1.getBaseName (collapseGroups);
 			String imageName2 = image2.getBaseName (collapseGroups);
 
-			value1 = AlbumImageDao.getInstance().getNumMatchingImages (imageName1, 0);
-			value2 = AlbumImageDao.getInstance().getNumMatchingImages (imageName2, 0);
+			value1 = AlbumImageDao.getInstance().getNumMatchingImagesFromCache (imageName1, 0);
+			value2 = AlbumImageDao.getInstance().getNumMatchingImagesFromCache (imageName2, 0);
 		}
 			break;
 
@@ -98,12 +107,12 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 			break;
 
 		case ByRandom:
-			value1 = _random ^ image1.getRandom ();
-			value2 = _random ^ image2.getRandom ();
+			value1 = random ^ image1.getRandom ();
+			value2 = random ^ image2.getRandom ();
 			break;
 
 		case ByExif: //ascending
-			value1 = image1.compareExifDates (image2, _exifDateIndex);
+			value1 = image1.compareExifDates (image2, exifDateIndex);
 			break;
 
 //		case ByImageNumber: //ascending
@@ -115,21 +124,21 @@ public class AlbumImageComparator implements Comparator<AlbumImage>
 		}
 
 		if (value1 < value2) {
-			return _sortFactor;
+			return sortFactor;
 		} else if (value1 > value2) {
-			return -_sortFactor;
+			return -sortFactor;
 		} else {
 			//string compare needs to be case-insensitive to achieve case-insensitive order in the browser
-			return _sortFactor * image1.getName ().compareToIgnoreCase (image2.getName ());
+			return sortFactor * image1.getName ().compareToIgnoreCase (image2.getName ());
 		}
 	}
 
 	//members
-	private final AlbumSortType _sortType;
-	private final int _sortFactor;
+	private final AlbumSortType sortType;
+	private final int sortFactor;
 
-	private final int _exifDateIndex;
-	private final int _random = new Random ().nextInt ();
+	private final int exifDateIndex;
+	private final int random = new Random ().nextInt ();
 
-//	private static Logger _log = LogManager.getLogger ();
+//	private static Logger log = LogManager.getLogger ();
 }

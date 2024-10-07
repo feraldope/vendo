@@ -412,7 +412,7 @@ public class JpgInfo
 		}
 
 		if (!(_ignoreSmallerThan > 0 && (width < _ignoreSmallerThan || height < _ignoreSmallerThan))) {
-			String details = filename + " " + orientation + " " + width + "x" + height + ", " + VendoUtils.unitSuffixScale (numBytes);
+			String details = filename + " " + orientation + " " + width + "x" + height + ", " + VendoUtils.unitSuffixScaleBytes(numBytes);
 			VendoUtils.printWithColor (color, details);
 		}
 

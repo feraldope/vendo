@@ -6,6 +6,10 @@
 
 package com.vendo.diskUsage;
 
+import com.vendo.vendoUtils.VendoUtils;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -15,11 +19,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
-import com.vendo.vendoUtils.VendoUtils;
 
 
 class DiskUsageTask implements Runnable
@@ -52,7 +51,7 @@ class DiskUsageTask implements Runnable
 					long size = size (folder);
 					if (size >= _threshold) {
 						_numMatchingFolders.getAndIncrement ();
-						System.out.println (VendoUtils.unitSuffixScale (size, _fieldWidth) + "  " + VendoUtils.getRealPathString (folder));
+						System.out.println (VendoUtils.unitSuffixScaleBytes(size, _fieldWidth) + "  " + VendoUtils.getRealPathString (folder));
 					}
 				}
 			}

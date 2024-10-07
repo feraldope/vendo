@@ -25,6 +25,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 public class JpgUtils
@@ -50,6 +52,10 @@ public class JpgUtils
 	///////////////////////////////////////////////////////////////////////////
 	private Boolean processArgs (String args[])
 	{
+		for (int ii = 0; ii < args.length; ii++) {
+			System.out.println ("arg" + ii + " = <" + args[ii] + ">");
+		}
+
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
@@ -167,6 +173,11 @@ public class JpgUtils
 		//check for required args and handle defaults
 		if (_infilenameWild == null) {
 			displayUsage ("<infile> not specified", true);
+		} else {
+			//hack - to avoid java wild card expansion problem
+			if (!_infilenameWild.contains("*")) {
+				_infilenameWild += "*";
+			}
 		}
 
 		if (!_queryMode) {
@@ -260,28 +271,24 @@ public class JpgUtils
 			return true;
 		}
 
-		if (false) { //HACK - disable threading (useful when trying to process too many large files at once, to avoid OOM condition)
-			for (final String filename : filenames) {
+		final CountDownLatch endGate = new CountDownLatch (filenames.length);
+
+		for (final String filename : filenames) {
+			Runnable task = () -> {
+				Thread.currentThread ().setName (filename);
 				compressFile(filename);
-			}
-
-		} else {
-			final CountDownLatch endGate = new CountDownLatch (filenames.length);
-
-			for (final String filename : filenames) {
-				Thread thread = new Thread(() -> {
-					compressFile(filename);
-					endGate.countDown();
-				});
-				thread.start();
-			}
-
-			try {
-				endGate.await();
-			} catch (Exception ee) {
-				_log.error("JpgUtils.run: endGate:", ee);
-			}
+				endGate.countDown();
+			};
+			getExecutor ().execute (task);
 		}
+
+		try {
+			endGate.await();
+		} catch (Exception ee) {
+			_log.error("JpgUtils.run: endGate:", ee);
+		}
+
+		shutdownExecutor ();
 
 		return true;
 	}
@@ -694,6 +701,23 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public synchronized ExecutorService getExecutor ()
+	{
+		if (_executor == null || _executor.isTerminated () || _executor.isShutdown ()) {
+			_executor = Executors.newFixedThreadPool (_numThreads);
+		}
+
+		return _executor;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public void shutdownExecutor ()
+	{
+		_log.debug ("JpgUtils.shutdownExecutor: shutdown executor");
+		getExecutor ().shutdownNow ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private class ImageAttributes
 	{
 		///////////////////////////////////////////////////////////////////////////
@@ -721,6 +745,7 @@ public class JpgUtils
 
 
 	//private members
+	private int _numThreads = 16;
 	private int _desiredHeight = -1;
 	private int _desiredWidth = -1;
 	private int _minimumWidth = -1;
@@ -730,7 +755,9 @@ public class JpgUtils
 	private String _destDir = null;
 	private String _sourceDir = null;
 	private String _infilenameWild = null;
-	private String _nameSuffix = new String ();
+	private String _nameSuffix = "";
+
+	private /*static*/ ExecutorService _executor = null;
 
 	private static final String _formatName = "jpg";
 //	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0.0");

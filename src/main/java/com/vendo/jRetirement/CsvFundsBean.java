@@ -3,6 +3,7 @@ package com.vendo.jRetirement;
 import com.opencsv.bean.CsvBindByName;
 import org.apache.commons.lang3.StringUtils;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -16,6 +17,18 @@ public class CsvFundsBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
+    //ctor used by queryRecordsFromDatabase() to read records from database
+    public CsvFundsBean(Instant dateDownloaded, String accountNumber, String accountName, String symbol, String description, Double currentValue, Double costBasisTotal) {
+        this.dateDownloaded = dateDownloaded;
+        this.accountNumber = accountNumber;
+        this.accountName = accountName;
+        this.symbol = symbol;
+        this.description = description;
+        this.currentValue = String.valueOf(currentValue);
+        this.costBasisTotal = String.valueOf(costBasisTotal);
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
     protected double parseNumberAmount(String stringValue) {
         if (StringUtils.isBlank(stringValue)) {
             return 0.;
@@ -26,12 +39,20 @@ public class CsvFundsBean {
 
     ///////////////////////////////////////////////////////////////////////////
     public boolean isRoth() {
-        return rothAccountNames.contains(getAccountName());
+        return RothAccountNames.contains(getAccountName());
     }
 
     ///////////////////////////////////////////////////////////////////////////
     public boolean isPendingActivity() {
-        return JRetirement.pendingActivityString.equals(getSymbol());
+        return JRetirement.PendingActivityString.equals(getSymbol());
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    public Instant getDateDownloaded() {
+        return dateDownloaded;
+    }
+    public void setDateDownloaded(Instant dateDownloaded) {
+        this.dateDownloaded = dateDownloaded;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -175,20 +196,21 @@ public class CsvFundsBean {
     @Override
     public String toString() {
         return "CsvFundsBean{" +
-                "AccountNumber='" + getAccountNumber() + '\'' +
-                ", AccountName='" + getAccountName() + '\'' +
-                ", Symbol='" + getSymbol() + '\'' +
-                ", Description='" + getDescription() + '\'' +
+                "date='" + getDateDownloaded() + '\'' +
+                ", acctNum='" + getAccountNumber() + '\'' +
+                ", acctName='" + getAccountName() + '\'' +
+                ", symbol='" + getSymbol() + '\'' +
+                ", desc='" + getDescription() + '\'' +
 //                ", Quantity='" + getQuantity() + '\'' +
 //                ", LastPrice='" + getLastPrice + '\'' +
 //                ", LastPriceChange='" + getLastPriceChange + '\'' +
-                ", CurrentValue='" + getCurrentValueString() + '\'' +
+                ", value='" + getCurrentValueString() + '\'' +
 //                ", TodaysGainLossDollar='" + getTodaysGainLossDollar + '\'' +
 //                ", TodaysGainLossPercent='" + getTodaysGainLossPercent + '\'' +
 //                ", TotalGainLossDollar='" + getTotalGainLossDollar + '\'' +
 //                ", TotalGainLossPercent='" + getTotalGainLossPercent + '\'' +
 //                ", PercentOfAccount='" + getPercentOfAccount() + '\'' +
-                ", CostBasisTotal='" + getCostBasisTotalString() + '\'' +
+                ", costBasis='" + getCostBasisTotalString() + '\'' +
 //                ", AverageCostBasis='" + getAverageCostBasis() + '\'' +
 //                ", Type='" + getType() + '\'' +
                 '}';
@@ -200,46 +222,50 @@ public class CsvFundsBean {
         if (this == o) { return true; }
         if (o == null || getClass() != o.getClass()) { return false; }
         CsvFundsBean that = (CsvFundsBean) o;
-        return Objects.equals(getAccountNumber(), that.getAccountNumber()) &&
+        return Objects.equals(getDateDownloaded(), that.getDateDownloaded()) &&
+                Objects.equals(getAccountNumber(), that.getAccountNumber()) &&
                 Objects.equals(getAccountName(), that.getAccountName()) &&
                 Objects.equals(getSymbol(), that.getSymbol()) &&
                 Objects.equals(getDescription(), that.getDescription()) &&
-                Objects.equals(getQuantity(), that.getQuantity()) &&
-                Objects.equals(getLastPrice(), that.getLastPrice()) &&
-                Objects.equals(getLastPriceChange(), that.getLastPriceChange()) &&
+//                Objects.equals(getQuantity(), that.getQuantity()) &&
+//                Objects.equals(getLastPrice(), that.getLastPrice()) &&
+//                Objects.equals(getLastPriceChange(), that.getLastPriceChange()) &&
                 Objects.equals(getCurrentValue(), that.getCurrentValue()) &&
-                Objects.equals(getTodaysGainLossDollar(), that.getTodaysGainLossDollar()) &&
-                Objects.equals(getTodaysGainLossPercent(), that.getTodaysGainLossPercent()) &&
-                Objects.equals(getTotalGainLossDollar(), that.getTotalGainLossDollar()) &&
-                Objects.equals(getTotalGainLossPercent(), that.getTotalGainLossPercent()) &&
-                Objects.equals(getPercentOfAccount(), that.getPercentOfAccount()) &&
-                Objects.equals(getCostBasisTotal(), that.getCostBasisTotal()) &&
-                Objects.equals(getAverageCostBasis(), that.getAverageCostBasis()) &&
-                Objects.equals(getType(), that.getType());
+//                Objects.equals(getTodaysGainLossDollar(), that.getTodaysGainLossDollar()) &&
+//                Objects.equals(getTodaysGainLossPercent(), that.getTodaysGainLossPercent()) &&
+//                Objects.equals(getTotalGainLossDollar(), that.getTotalGainLossDollar()) &&
+//                Objects.equals(getTotalGainLossPercent(), that.getTotalGainLossPercent()) &&
+//                Objects.equals(getPercentOfAccount(), that.getPercentOfAccount()) &&
+                Objects.equals(getCostBasisTotal(), that.getCostBasisTotal());
+//                Objects.equals(getAverageCostBasis(), that.getAverageCostBasis()) &&
+//                Objects.equals(getType(), that.getType());
     }
 
     ///////////////////////////////////////////////////////////////////////////
     @Override
     public int hashCode() {
-        return Objects.hash(getAccountNumber(),
+        return Objects.hash(
+                getDateDownloaded(),
+                getAccountNumber(),
                 getAccountName(),
                 getSymbol(),
                 getDescription(),
-                getQuantity(),
-                getLastPrice(),
-                getLastPriceChange(),
+//                getQuantity(),
+//                getLastPrice(),
+//                getLastPriceChange(),
                 getCurrentValue(),
-                getTodaysGainLossDollar(),
-                getTodaysGainLossPercent(),
-                getTotalGainLossDollar(),
-                getTotalGainLossPercent(),
-                getPercentOfAccount(),
-                getCostBasisTotal(),
-                getAverageCostBasis(),
-                getType());
+//                getTodaysGainLossDollar(),
+//                getTodaysGainLossPercent(),
+//                getTotalGainLossDollar(),
+//                getTotalGainLossPercent(),
+//                getPercentOfAccount(),
+                getCostBasisTotal());
+//                getAverageCostBasis(),
+//                getType())
     }
 
     //private members
+    Instant dateDownloaded;
     @CsvBindByName (column = "Account Number")            private String accountNumber;
     @CsvBindByName (column = "Account Name")              private String accountName;
     @CsvBindByName (column = "Symbol")                    private String symbol;
@@ -257,5 +283,5 @@ public class CsvFundsBean {
     @CsvBindByName (column = "Average Cost Basis")        private String averageCostBasis;
     @CsvBindByName (column = "Type")                      private String type;
 
-    private static final List<String> rothAccountNames = new ArrayList<>(Arrays.asList("ROTH IRA", "FIS 401(K) PLAN"));
+    private static final List<String> RothAccountNames = new ArrayList<>(Arrays.asList("ROTH IRA", "FIS 401(K) PLAN"));
 }

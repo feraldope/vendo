@@ -5,6 +5,7 @@ package com.vendo.vendoUtils;
 import com.vendo.win32.ConsoleUtil;
 import com.vendo.win32.Win32;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 
 import javax.servlet.http.Cookie;
@@ -225,7 +226,7 @@ public class VendoUtils
 			System.out.println ("");
 		}
 
-		//test unitSuffixScale ()
+		//test unitSuffixScaleBytes ()
 		if (skipTest) {
 			{ //test KB
 				System.out.println ("");
@@ -237,7 +238,7 @@ public class VendoUtils
 				final int fieldWidth = 10;
 
 				for (int ii = start; ii <= stop; ii += step) {
-					System.out.println (ii + " = " + unitSuffixScale (ii, fieldWidth));
+					System.out.println (ii + " = " + unitSuffixScaleBytes(ii, fieldWidth));
 				}
 			}
 			{ //test MB
@@ -250,7 +251,7 @@ public class VendoUtils
 				final int fieldWidth = 10;
 
 				for (int ii = start; ii <= stop; ii += step) {
-					System.out.println (ii + " = " + unitSuffixScale (ii, fieldWidth));
+					System.out.println (ii + " = " + unitSuffixScaleBytes(ii, fieldWidth));
 				}
 			}
 		}
@@ -918,15 +919,30 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	// only for positive values
-	public static String unitSuffixScale (double value)
+	public static String unitSuffixScaleBytes(double value)
 	{
-		return unitSuffixScale (value, 0);
+		return unitSuffixScaleBytes(value, 0);
 	}
-	public static String unitSuffixScale (double value, int fieldWidth)
+	public static String unitSuffixScaleBytes(double value, int fieldWidth)
 	{
-		final String[] unitSuffixArray = new String[] { "B ", "KB", "MB", "GB", "TB", "PB" };
-		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0.00");
 		final double base = 1024;
+		final int precision = 2;
+		final String text = "B";
+		final String spacing = "";
+		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing);
+	}
+	public static String unitSuffixScale(double value, String text) //for values that are NOT BYTES
+	{
+		final int fieldWidth = 0;
+		final double base = 1000;
+		final int precision = 1;
+		final String spacing = "";
+		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing);
+	}
+	private static String unitSuffixScale (double value, int fieldWidth, double base, int precision, String text, String spacing)
+	{
+		final String[] unitSuffixArray = new String[] { text + " ", "K" + text, "M" + text, "G" + text, "T" + text, "P" + text };
+		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0." + StringUtils.repeat("0", precision));
 
 		int digitGroups = 0;
 		if (value < 1) {
@@ -937,7 +953,7 @@ public class VendoUtils
 
 		String valueString = "??";
 		try {
-			valueString = decimalFormat.format(value / Math.pow(base, digitGroups)) + " " + unitSuffixArray[digitGroups];
+			valueString = decimalFormat.format(value / Math.pow(base, digitGroups)) + spacing + unitSuffixArray[digitGroups];
 
 		} catch (ArrayIndexOutOfBoundsException ex) {
 			//TODO - print/log error

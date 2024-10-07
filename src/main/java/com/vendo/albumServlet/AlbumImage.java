@@ -218,7 +218,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		}
 
 		AlbumImage other = (AlbumImage) obj;
-		return getName ().compareTo (other.getName ()) == 0 &&
+		return  getName ().compareTo (other.getName ()) == 0 &&
 				getNumBytes () == other.getNumBytes () &&
 				getWidth () == other.getWidth () &&
 				getHeight () == other.getHeight () &&
@@ -229,35 +229,47 @@ public class AlbumImage implements Comparable<AlbumImage>
 	@Override
 	public String toString ()
 	{
-		return toString (false, false);
+		return toString (false, AlbumMode.DoDir, false);
 	}
-	public String toString (boolean full, boolean collapseGroups)
+	public String toString (boolean full, AlbumMode albumMode, boolean collapseGroups)
 	{
 		StringBuffer sb = new StringBuffer (256);
-		sb.append (getName ()).append (", ");
-		sb.append (getWidth ()).append ("x").append (getHeight ()).append (", ");
-		sb.append (getNumBytes () / 1024).append ("KB, "); //TODO - this division truncates; do we care?
-		sb.append (VendoUtils.unitSuffixScale(getBytesPerPixel ())).append (", ");
-		if (AlbumFormInfo.getShowRgbData () && AlbumFormInfo.getInstance ().getMode () == AlbumMode.DoDup) { //debugging
-//			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
-			sb.append (getRgbData ()).append (", ");
+
+		if (albumMode == AlbumMode.DoSampler) { //prepend aggregate data
+			String imageName = getBaseName(collapseGroups);
+			long numBytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0);
+
+			sb.append(imageName).append (", ");
+			sb.append(VendoUtils.unitSuffixScaleBytes(numBytes));
+			sb.append(HtmlNewline);
 		}
-		sb.append (getModifiedString ());
+
+		sb.append(getName()).append (", ");
+		sb.append(getWidth()).append("x").append(getHeight()).append(", ");
+		sb.append(VendoUtils.unitSuffixScale(getWidth() * getHeight(), "P")).append(", "); //"P" for Pixels
+		sb.append(VendoUtils.unitSuffixScaleBytes(getNumBytes())).append(", ");
+		sb.append("BPP=").append(VendoUtils.unitSuffixScale(getBytesPerPixel (), "B/P")).append (", ");
+
+		if (AlbumFormInfo.getShowRgbData() && AlbumFormInfo.getInstance().getMode() == AlbumMode.DoDup) { //debugging
+//			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
+			sb.append(getRgbData()).append(", ");
+		}
+		sb.append(getModifiedString());
 
 		if (full) { //typically true for servlet, false for CLI
-			int exifDateIndex = AlbumFormInfo.getInstance ().getExifDateIndex ();
-			String exifDateString = getExifDateString (exifDateIndex);
-			if (exifDateString.length () != 0) {
-				sb.append (HtmlNewline)
-				  .append ("EXIF date: ")
-				  .append (exifDateString);
+			int exifDateIndex = AlbumFormInfo.getInstance().getExifDateIndex();
+			String exifDateString = getExifDateString(exifDateIndex);
+			if (exifDateString.length() != 0) {
+				sb.append(HtmlNewline)
+				  .append("EXIF date: ")
+				  .append(exifDateString);
 			}
 
 //			String tagStr = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
-			String tagStr = getTagString (collapseGroups);
-			if (tagStr.length () != 0) {
-				sb.append (HtmlNewline)
-				  .append (tagStr);
+			String tagStr = getTagString(collapseGroups);
+			if (tagStr.length() != 0) {
+				sb.append(HtmlNewline)
+				  .append(tagStr);
 			}
 		}
 
@@ -458,6 +470,14 @@ public class AlbumImage implements Comparable<AlbumImage>
 	public long getNumBytes ()
 	{
 		return _numBytes;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public long getNumBytesOnDisk () //ostensibly this is a better metric when aggregating many images
+	{
+		final long bytesPerPhysicalSector = 4096; //hardcoded - to get this value on Windows, run: fsutil fsinfo ntfsinfo D:
+
+		return bytesPerPhysicalSector * (_numBytes + bytesPerPhysicalSector) / bytesPerPhysicalSector;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

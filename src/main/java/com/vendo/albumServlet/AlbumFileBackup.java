@@ -281,8 +281,8 @@ public class AlbumFileBackup
 		long totalSourceBytes = sourceMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
 		long totalDestBytes = destMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
 
-		System.out.println ("totalSourceFiles = " + _decimalFormat2.format (totalSourceFiles) + ", totalSourceBytes = " + VendoUtils.unitSuffixScale (totalSourceBytes));
-		System.out.println ("totalDestFiles = " + _decimalFormat2.format (totalDestFiles) + ", totalDestBytes = " + VendoUtils.unitSuffixScale (totalDestBytes));
+		System.out.println ("totalSourceFiles = " + _decimalFormat2.format (totalSourceFiles) + ", totalSourceBytes = " + VendoUtils.unitSuffixScaleBytes(totalSourceBytes));
+		System.out.println ("totalDestFiles = " + _decimalFormat2.format (totalDestFiles) + ", totalDestBytes = " + VendoUtils.unitSuffixScaleBytes(totalDestBytes));
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
 
@@ -335,7 +335,7 @@ public class AlbumFileBackup
 			for (String subFolder : diffMap.keySet ()) {
 				Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
 				long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
-				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (diffColl.size ()) + " (" + VendoUtils.unitSuffixScale (numBytesToCopy) + ")");
+				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (diffColl.size ()) + " (" + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + ")");
 			}
 		}
 
@@ -347,8 +347,8 @@ public class AlbumFileBackup
 		long usableBytes = getUsableBytesOnDrive (_destRootPath);
 
 		System.out.println ("totalDiffFiles = " + _decimalFormat2.format (totalDiffFiles) +
-							", totalDiffBytes = " + VendoUtils.unitSuffixScale (totalDiffBytes) +
-							", usableBytes on destination = " + VendoUtils.unitSuffixScale (usableBytes));
+							", totalDiffBytes = " + VendoUtils.unitSuffixScaleBytes(totalDiffBytes) +
+							", usableBytes on destination = " + VendoUtils.unitSuffixScaleBytes(usableBytes));
 
 		if (usableBytes < addPercentPadding (totalDiffBytes, 10)) {
 			System.out.println ("Error: not enough space on destination drive. Aborting.");
@@ -698,7 +698,7 @@ public class AlbumFileBackup
 
 				if (_debug) {
 					long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
-					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": files to copy: " + _decimalFormat2.format (diffColl.size ()) + " (" + VendoUtils.unitSuffixScale (numBytesToCopy) + ")");
+					_log.debug ("AlbumFileBackup.copyFiles: " + subFolder + ": files to copy: " + _decimalFormat2.format (diffColl.size ()) + " (" + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + ")");
 				}
 
 				long numSubfolderFilesCopied = 0;

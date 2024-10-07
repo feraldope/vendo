@@ -13,51 +13,51 @@ public interface AlbumImageMapper {
 
 	//selects
 
-	public Timestamp selectLastUpdateFromImageFolder (@Param("sub_folder") String subFolder);
+	public Timestamp selectLastUpdateFromImageFolderTable (@Param("sub_folder") String subFolder);
 
-	public Timestamp selectMaxLastUpdateFromImageFolder ();
+	public Timestamp selectMaxLastUpdateFromImageFolderTable ();
 
-	public Timestamp selectMaxInsertDateFromImages (@Param("sub_folder") String subFolder);
+	public Timestamp selectMaxInsertDateFromImagesTable (@Param("sub_folder") String subFolder);
 
-	public List<AlbumImageFileDetails> selectImageFileDetailsFromImages (@Param("sub_folder") String subFolder);
+	public List<AlbumImageFileDetails> selectImageFileDetailsFromImagesTable (@Param("sub_folder") String subFolder);
 
-	public List<AlbumImage> selectImagesFromImages (@Param("sub_folder") String subFolder);
+	public List<AlbumImage> selectImagesFromImagesTable (@Param("sub_folder") String subFolder);
 
-	public int selectImageCountFromImages (@Param("sub_folder") String subFolder, @Param("name_no_ext") String nameNoExt);
+	public int selectImageCountFromImagesTable (@Param("sub_folder") String subFolder, @Param("name_no_ext") String nameNoExt);
 
-	public int selectImageCountFromImageCounts (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
+	public int selectImageCountFromImageCountsTable (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
 
 	public int selectAlbumCountFromImageCounts (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
 
-	public List<AlbumImageCount> selectImageCountsFromImageCounts (@Param("sub_folder") String subFolder);
+	public List<AlbumImageCount> selectImageCountsFromImageCountsTable (@Param("sub_folder") String subFolder);
 
 	public List<AlbumImageCount> selectMismatchedEntriesFromImageCounts ();
 
-	public List<AlbumImageDiffDetails> selectAllImagesFromImageDiffs ();
+	public List<AlbumImageDiffDetails> selectAllImagesFromImageDiffsTable ();
 
-	public List<AlbumImageDiffDetails> selectImagesFromImageDiffs (@Param("nameIds") Collection<Integer> nameIds);
+	public List<AlbumImageDiffDetails> selectImagesFromImageDiffsTable (@Param("nameIds") Collection<Integer> nameIds);
 
-	public Collection<AlbumImageData> selectNamesFromImages (@Param("names") Collection<String> names);
+	public Collection<AlbumImageData> selectNamesFromImagesTable (@Param("names") Collection<String> names);
 
-	public int selectMaxNameIdFromImages ();
+	public int selectMaxNameIdFromImagesTable ();
 
 	//inserts (updates)
 
-	public int insertLastUpdateIntoImageFolder (@Param("sub_folder") String subFolder, @Param("last_update") Timestamp lastUpdate);
+	public int insertLastUpdateIntoImageFolderTable (@Param("sub_folder") String subFolder, @Param("last_update") Timestamp lastUpdate);
 
-	public int insertImageIntoImages (AlbumImage image);
+	public int insertImageIntoImagesTable (AlbumImage image);
 
-	public int insertImageCountsIntoImageCounts (@Param("sub_folder") String subFolder, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
+	public int insertImageCountsIntoImageCountsTable (@Param("sub_folder") String subFolder, @Param("base_name") String baseName, @Param("collapse_groups") int collapseGroups, @Param("image_count") int value);
 
 	public int insertImageIntoImageDiffs (AlbumImageDiffDetails imageDiffDetails);
 
 	//deletes
 
-	public int deleteImageFromImages (@Param("sub_folder") String subFolder, @Param("name_no_ext") String nameNoExt);
+	public int deleteImageFromImagesTable (@Param("sub_folder") String subFolder, @Param("name_no_ext") String nameNoExt);
 
-	public int deleteImageCountsFromImageCounts (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
+	public int deleteImageCountsFromImageCountsTable (@Param("sub_folder") String subFolder, @Param("base_name") String baseName);
 
-	public int deleteZeroCountsFromImageCounts ();
+	public int deleteZeroCountsFromImageCountsTable ();
 
-	public int deleteMismatchedEntriesFromImageCounts ();
+	public int deleteMismatchedEntriesFromImageCountsTable ();
 }

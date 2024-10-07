@@ -99,44 +99,44 @@ mysql -u root -proot albumimages -e "describe images"
 	<!-- each argument must represent a "getter" value from the corresponding class -->
 	<sql id="imageDiffsValues">#{nameId1}, #{nameId2}, #{avgDiff}, #{stdDev}, #{count}, #{source}, #{lastUpdate}</sql>
 
-	<select id="selectLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
+	<select id="selectLastUpdateFromImageFolderTable" resultType="java.sql.Timestamp">
 		select last_update
 		from image_folder
 		where sub_folder = #{sub_folder}
 	</select>
 
-	<select id="selectMaxLastUpdateFromImageFolder" resultType="java.sql.Timestamp">
+	<select id="selectMaxLastUpdateFromImageFolderTable" resultType="java.sql.Timestamp">
 		select max(last_update)
 		from image_folder
 	</select>
 
-	<select id="selectMaxInsertDateFromImages" resultType="java.sql.Timestamp">
+	<select id="selectMaxInsertDateFromImagesTable" resultType="java.sql.Timestamp">
 		select max(insert_date)
 		from images
 		where sub_folder = #{sub_folder}
 	</select>
 
-	<select id="selectImageFileDetailsFromImages" resultMap="AlbumImageFileDetailsResultMap">
+	<select id="selectImageFileDetailsFromImagesTable" resultMap="AlbumImageFileDetailsResultMap">
 		select name_no_ext, bytes, modified
 		from images
 		where sub_folder = #{sub_folder}
 	</select>
 
-	<select id="selectImagesFromImages" resultMap="AlbumImageResultMap">
+	<select id="selectImagesFromImagesTable" resultMap="AlbumImageResultMap">
 		select
 		<include refid="imagesReadColumns"/>
 		from images
 		where sub_folder = #{sub_folder}
 	</select>
 
-	<select id="selectImageCountFromImages" resultType="int">
+	<select id="selectImageCountFromImagesTable" resultType="int">
 		select count(name_id)
 		from images
 		where sub_folder = #{sub_folder}
 		and name_no_ext rlike #{name_no_ext}
 	</select>
 
-	<select id="selectImageCountFromImageCounts" resultType="int">
+	<select id="selectImageCountFromImageCountsTable" resultType="int">
 		select image_count
 		from image_counts
 		where sub_folder = #{sub_folder}
@@ -153,7 +153,7 @@ mysql -u root -proot albumimages -e "describe images"
 	</select>
 -->
 
-	<select id="selectImageCountsFromImageCounts" resultMap="AlbumImageCountResultMap">
+	<select id="selectImageCountsFromImageCountsTable" resultMap="AlbumImageCountResultMap">
 		select base_name, image_count
 		from image_counts
 		where sub_folder = #{sub_folder}
@@ -170,13 +170,13 @@ mysql -u root -proot albumimages -e "describe images"
 	</select>
 -->
 
-	<select id="selectAllImagesFromImageDiffs" resultMap="AlbumImageDiffDetailsMap">
+	<select id="selectAllImagesFromImageDiffsTable" resultMap="AlbumImageDiffDetailsMap">
 		select
 		<include refid="imageDiffsColumns"/>
 		from image_diffs
 	</select>
 
-	<select id="selectImagesFromImageDiffs" resultMap="AlbumImageDiffDetailsMap">
+	<select id="selectImagesFromImageDiffsTable" resultMap="AlbumImageDiffDetailsMap">
 		select
 		<include refid="imageDiffsColumns"/>
 		from image_diffs
@@ -190,7 +190,7 @@ mysql -u root -proot albumimages -e "describe images"
 		</foreach>
 	</select>
 
-	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
+	<select id="selectNamesFromImagesTable" resultMap="AlbumImageDataResultMap">
 		select name_id, name_no_ext, width, height
 		from images
 		where name_no_ext in
@@ -200,7 +200,7 @@ mysql -u root -proot albumimages -e "describe images"
 	</select>
 
 <!-- could not get this to work using rlike
-	<select id="selectNamesFromImages" resultMap="AlbumImageDataResultMap">
+	<select id="selectNamesFromImagesTable" resultMap="AlbumImageDataResultMap">
 		select name_id, name_no_ext
 		from images
 		where name_no_ext rlike
@@ -210,19 +210,19 @@ mysql -u root -proot albumimages -e "describe images"
 	</select>
  -->
 
-	<select id="selectMaxNameIdFromImages" resultType="int">
+	<select id="selectMaxNameIdFromImagesTable" resultType="int">
 		select max(name_id)
 		from images
 	</select>
 
-	<insert id="insertLastUpdateIntoImageFolder">
+	<insert id="insertLastUpdateIntoImageFolderTable">
 		insert into image_folder (sub_folder, last_update)
 		values (#{sub_folder}, #{last_update})
 		on duplicate key update
 		last_update = values (last_update)
 	</insert>
 
-	<insert id="insertImageIntoImages">
+	<insert id="insertImageIntoImagesTable">
 		insert into images (
 			<include refid="imagesWriteColumns"/>
 		)
@@ -231,7 +231,7 @@ mysql -u root -proot albumimages -e "describe images"
 		)
 	</insert>
 
-	<insert id="insertImageCountsIntoImageCounts">
+	<insert id="insertImageCountsIntoImageCountsTable">
 		insert into image_counts (
 			<include refid="imageCountsColumns"/>
 		)
@@ -258,24 +258,24 @@ mysql -u root -proot albumimages -e "describe images"
 	</insert>
 -->
 
-	<delete id="deleteImageFromImages">
+	<delete id="deleteImageFromImagesTable">
 		delete from images
 		where sub_folder = #{sub_folder}
 		and name_no_ext = #{name_no_ext}
 	</delete>
 
-	<delete id="deleteImageCountsFromImageCounts">
+	<delete id="deleteImageCountsFromImageCountsTable">
 		delete from image_counts
 		where sub_folder = #{sub_folder}
 		and base_name = #{base_name}
 	</delete>
 
-	<delete id="deleteZeroCountsFromImageCounts">
+	<delete id="deleteZeroCountsFromImageCountsTable">
 		delete from image_counts
 		where image_count = 0
 	</delete>
 
-	<delete id="deleteMismatchedEntriesFromImageCounts">
+	<delete id="deleteMismatchedEntriesFromImageCountsTable">
 		delete image_counts.*
 		from image_counts
 		inner join (

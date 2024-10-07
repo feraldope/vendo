@@ -377,6 +377,14 @@ update images set exifDate3 = 0 where exifDate3 is null;
 select 1
 
 -- -----------------------------------------------------------------------------
+-- longest and widest images
+
+-- NOTE dimensions NOT INDEXED
+select * from images where name_no_ext like 'q%' order by height desc
+
+select * from images where name_no_ext like 'q%' order by width desc
+
+-- -----------------------------------------------------------------------------
 -- find longest image names
 
 select base_name, length(base_name) as length from image_counts

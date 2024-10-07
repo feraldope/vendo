@@ -1436,8 +1436,8 @@ public class GetUrl {
 			double totalBitsPerSec = 8 * totalBytes / totalSeconds;
 
 			System.out.println(_records.size() + " items downloaded, " +
-					VendoUtils.unitSuffixScale(totalBytes, 0) + ", " +
-					VendoUtils.unitSuffixScale(totalBitsPerSec, 0) + "ps average, "+
+					VendoUtils.unitSuffixScaleBytes(totalBytes, 0) + ", " +
+					VendoUtils.unitSuffixScaleBytes(totalBitsPerSec, 0) + "ps average, "+
 					elapsedTimeString + " elapsed");
 		}
 
@@ -1474,8 +1474,8 @@ public class GetUrl {
 
 			return _filename + " " + orientation + " " +
 					_width + "x" + _height + ", " +
-					VendoUtils.unitSuffixScale(_imageBytesRead, 0) + ", " +
-					VendoUtils.unitSuffixScale(_imageBitsPerSec, 0) + "ps" +
+					VendoUtils.unitSuffixScaleBytes(_imageBytesRead, 0) + ", " +
+					VendoUtils.unitSuffixScaleBytes(_imageBitsPerSec, 0) + "ps" +
 					(printDetail ? ", " + elapsedTimeString + " elapsed" : "");
 		}
 

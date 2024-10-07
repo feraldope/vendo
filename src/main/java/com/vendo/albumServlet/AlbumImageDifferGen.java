@@ -187,6 +187,10 @@ public class AlbumImageDifferGen
 			image2Scaled = AlbumImage.toBufferedImage (image2Orig.getScaledInstance (image1Width, image1Height, hints));
 		} else if (image2Width < image1Width && image2Height < image1Height) {
 			image1Scaled = AlbumImage.toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
+		} else if (image1Width < image2Width || image1Height < image2Height) {
+			image2Scaled = AlbumImage.toBufferedImage (image2Orig.getScaledInstance (image1Width, image1Height, hints));
+		} else if (image2Width < image1Width || image2Height < image1Height) {
+			image1Scaled = AlbumImage.toBufferedImage (image1Orig.getScaledInstance (image2Width, image2Height, hints));
 		}
 
 		if (_debug) {

@@ -6,32 +6,33 @@ import com.vendo.vendoUtils.VFileList;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 
-import java.io.BufferedReader;
-import java.io.Reader;
-import java.io.StringReader;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.*;
 import java.text.DecimalFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.util.Date;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.vendo.jRetirement.FundsEnum.*;
+import static com.vendo.jRetirement.FundsEnum.FundOwner;
+import static com.vendo.jRetirement.FundsEnum.getValue;
 
 
-public final class JRetirement {
+public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main(String[] args) {
@@ -49,7 +50,7 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs(String[] args) {
+	protected Boolean processArgs(String[] args) {
 		String filenamePatternString = "Portfolio_Positions_*.csv";
 		String sourceRootName = "C:\\Users\\david\\OneDrive\\Documents\\Fidelity\\";
 
@@ -79,6 +80,21 @@ public final class JRetirement {
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage ("Missing value for /" + arg, true);
 					}
+
+				} else if (arg.equalsIgnoreCase("deleteDuplicateRecords") || arg.equalsIgnoreCase("dedup")) {
+					deleteDuplicateRecords = true;
+
+				} else if (arg.equalsIgnoreCase("generatePlotFile") || arg.equalsIgnoreCase("plot")) {
+					generatePlotFile = true;
+
+				} else if (arg.equalsIgnoreCase("printHistoricalData") || arg.equalsIgnoreCase("hist")) {
+					printHistoricalData = true;
+
+				} else if (arg.equalsIgnoreCase("printTaxes") || arg.equalsIgnoreCase("taxes")) {
+					printTaxes = true;
+
+				} else if (arg.equalsIgnoreCase("printUrls") || arg.equalsIgnoreCase("urls")) {
+					printUrls = true;
 
 				} else {
 					displayUsage("Unrecognized argument '" + args[ii] + "'", true);
@@ -118,7 +134,7 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage(String message, Boolean exit) {
+	protected void displayUsage(String message, Boolean exit) {
 		String msg = "";
 		if (message != null) {
 			msg = message + NL;
@@ -133,7 +149,7 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean run() throws Exception {
+	protected boolean run() throws Exception {
 		Path sourcePath;
 		if (inputFilenameOverride != null) {
 			if (inputFilenameOverride.matches("[A-Za-z]:.*")) { //check if we got a complete path
@@ -155,30 +171,86 @@ public final class JRetirement {
 		}
 
 		List<CsvFundsBean> records = processFile(sourcePath);
+		assert records != null && !records.isEmpty();
 
-		final Instant dateDownloaded = parseDateDownloadedField();
+		final Instant dateDownloaded = parseDateDownloadedField(dateDownloadedList);
+		records.forEach(r -> r.setDateDownloaded(dateDownloaded));
 		System.out.println ("Date Downloaded: " + dateTimeFormatter.format(dateDownloaded));
 
-		int rowsPersisted = persistRecordsToDatabase(records, dateDownloaded);
-		System.out.println ("Rows Persisted to Database: " + rowsPersisted);
+		int rowsMissingFromDb = 0;
+		{ //TODO clean this up
+			List<CsvFundsBean> matchingRecordsFromDb = queryRecordsFromDatabase(dateDownloaded);
+			System.out.println("Existing rows read from database: " + matchingRecordsFromDb.size());
+
+			Set<CsvFundsBean> recordsMissingFromFile = new HashSet<>(matchingRecordsFromDb);
+			recordsMissingFromFile.removeAll(new HashSet<>(records));
+
+			Set<CsvFundsBean> recordsMissingFromDb = new HashSet<>(records);
+			recordsMissingFromDb.removeAll(new HashSet<>(matchingRecordsFromDb));
+
+			rowsMissingFromDb = recordsMissingFromDb.size();
+
+			System.out.println("recordsMissingFromFile.size() = " + recordsMissingFromFile.size());
+			System.out.println("recordsMissingFromDb.size() = " + recordsMissingFromDb.size());
+		}
+
+		int rowsPersisted = 0;
+		if (rowsMissingFromDb > 0) {
+			rowsPersisted = persistRecordsToDatabase(records);
+		}
+		System.out.println("New rows persisted to database: " + rowsPersisted);
+
+		if (deleteDuplicateRecords) {
+			int duplicateRecordsDeleted = deleteDuplicateRecords();
+			System.out.println("Duplicate records deleted: " + duplicateRecordsDeleted);
+		}
 
 		System.out.println(NL + "Roth Accounts -----------------------------------------------------------");
-		printDistribution(records, rothAccounts, false, false);
+		printDistribution(records, rothAccounts, true, false);
 
 		System.out.println(NL + "Traditional Accounts ----------------------------------------------------");
-		printDistribution(records, traditionalAccounts, false, true);
+		printDistribution(records, traditionalAccounts, true, true);
 
 		System.out.println(NL + "All Accounts ------------------------------------------------------------");
 		printDistribution(records, allAccounts, true, true);
+
+		if (printTaxes) {
+			printTaxes();
+		}
+
+		if (printHistoricalData || generatePlotFile) {
+			List<AggregateRecord> aggregateRecords = queryAggregateRecordsFromDatabase();
+
+			if (printHistoricalData) {
+				printHistoricalData(aggregateRecords);
+			}
+
+			if (generatePlotFile) {
+				generatePlotFile(aggregateRecords);
+
+				if (false) {
+					String command = PlotExecutable + " " + PlotFileName;
+					try {
+						Runtime.getRuntime().exec(command);
+					} catch (Exception ex) {
+						String msg = "Error executing \"" + command + "\"";
+						System.out.println(msg);
+					}
+				}
+			}
+		}
+
+		System.out.println();
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<CsvFundsBean> processFile(Path inputCsvFilePath) {
+	protected List<CsvFundsBean> processFile(Path inputCsvFilePath) {
 		List<CsvFundsBean> records;
 		try {
 			records = generateFilteredRecordList(inputCsvFilePath, true);
+			assert records != null && !records.isEmpty();
 
 			//data integrity check - we should have 4 or more accounts in the file
 			final int expectedAccounts = 4; //hardcoded
@@ -190,16 +262,11 @@ public final class JRetirement {
 				return null;
 			}
 
-			if (false) { //print URLs
-				System.out.println(NL + "URLs:");
-				List<FundsEnum> funds = new ArrayList<>(Arrays.asList(values())).stream()
-						.filter(f -> !pendingActivityString.equals(f.getSymbol()))
-						.sorted ((f1, f2) -> f1.getSymbol().compareToIgnoreCase(f2.getSymbol()))
-						.collect (Collectors.toList ());
-				funds.forEach(f -> System.out.println("[" + f.getExpenseRatio() + "] " + f.getSymbol() + " -> " + f.getURL()));
+			if (printUrls) {
+				printUrls();
 			}
 
-			System.out.println(NL + "Filtered records:");
+			System.out.println(NL + "Filtered records (" + records.size() + "):");
 			records.forEach(System.out::println);
 
 			System.out.println(NL + "Read file: " + inputCsvFilePath);
@@ -209,6 +276,7 @@ public final class JRetirement {
 			if (!pendingActivity.isEmpty()) {
 				System.out.println(NL + "Pending Activity:");
 				pendingActivity.forEach(System.out::println);
+				System.out.println("");
 			}
 
 		} catch (Exception ex) {
@@ -220,15 +288,18 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean printDistribution(List<CsvFundsBean> records, Predicate<CsvFundsBean> predicate, boolean includeBreakOut, boolean includeWithdrawalAmounts) {
+	protected boolean printDistribution(List<CsvFundsBean> records, Predicate<CsvFundsBean> predicate, boolean includeBreakOut, boolean includeWithdrawalAmounts) {
 		try {
 			double totalBond = 0;
 			double totalCash = 0;
+			double totalEquity = 0;
 			double totalHealth = 0;
 			double totalActive = 0;
 			double totalIndex = 0;
 			double totalRoth = 0;
+			double totalPendingActivity = 0;
 			double totalAllFunds = 0;
+			boolean foundPendingActivity = false;
 
 			Map<String, Double> balancesByGroupingMap = new HashMap<>();
 
@@ -243,15 +314,31 @@ public final class JRetirement {
 //				String groupBy = fund.getFundFamily() + "." + fund.getStyle();
 //				String groupBy = fund.getFundFamily() + "." + fund.getCategory();
 //				String groupBy = fund.getFundFamily() + "." + fund.getFundType() + "." + fund.getCategory();
+
+//				String groupBy = fund.getFundTheme().toString();
+
 				String groupBy = ""
-						+ "[" + fund.getExpenseRatio() + "] "
-						+ "[" + fundOwner + "] "
-						+ StringUtils.rightPad(fund.getSymbol(), 5, ' ')
-						+ " => " + fund.getFundFamily()
+//						+ "[" + fund.getExpenseRatio() + "] "
+//						+ "[" + fundOwner + "] "
+						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
+//						+ " => " + fund.getFundFamily()
+						+ " => " + fund.getDescription()
 //						+ "." + fundOwner
 						+ "." + fund.getFundType()
-						+ "." + fund.getManagementStyle()
+//						+ "." + fund.getManagementStyle()
 						+ "." + fund.getCategory();
+
+/*
+				groupBy = ""
+//						+ "[" + fund.getExpenseRatio() + "] "
+//						+ "[" + fundOwner + "] "
+//						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
+//						+ " => " + fund.getFundFamily()
+//						+ "." + fundOwner
+//						+ "." + fund.getFundType()
+//						+ "." + fund.getManagementStyle()
+						+ "." + fund.getCategory();
+*/
 
 				Double balance = balancesByGroupingMap.computeIfAbsent(groupBy, k -> 0.); //if key not present, balance is 0.
 
@@ -262,10 +349,10 @@ public final class JRetirement {
 
 				if (fund.isBond()) {
 					totalBond += record.getCurrentValue();
-				}
-
-				if (fund.isCash()) {
+				} else if (fund.isCash()) {
 					totalCash += record.getCurrentValue();
+				} else {
+					totalEquity += record.getCurrentValue();
 				}
 
 				if (fund.isHealth()) {
@@ -274,16 +361,20 @@ public final class JRetirement {
 
 				if (fund.isActive()) {
 					totalActive += record.getCurrentValue();
-				}
-
-				if (fund.isIndex()) {
+				} else if (fund.isIndex()) {
 					totalIndex += record.getCurrentValue();
 				}
 
 				if (record.isRoth()) {
 					totalRoth += record.getCurrentValue();
 				}
+
+				if (record.isPendingActivity()) {
+					totalPendingActivity += record.getCurrentValue();
+				}
 			}
+
+			totalCash += totalPendingActivity; //pending activity should be negative
 
 			List<FundResult> results = new ArrayList<>();
 			for (Map.Entry<String, Double> entry : balancesByGroupingMap.entrySet().stream()
@@ -291,9 +382,17 @@ public final class JRetirement {
 				String grouping = entry.getKey();
 				double total = entry.getValue();
 				double percent = 100. * total / totalAllFunds;
-				results.add(new FundResult(grouping, total, percent,
-							grouping.contains(pendingActivityString) ? " <<< " + pendingActivityString : ""));
+				results.add(new FundResult(grouping, total, percent, grouping.contains(PendingActivityString) ? " <<< " + PendingActivityString : ""));
+
+//TODO - this does not work for all values of groupBy - specifically those that do not include the symbol
+				if (grouping.contains(PendingActivityString)) {
+					foundPendingActivity = true;
+				}
 			}
+
+			//sort results
+			results = results.stream().sorted(Comparator.comparing(r -> r.total)).collect(Collectors.toList());
+
 			results.add(new FundResult("Total", totalAllFunds, 100.));
 
 			if (includeWithdrawalAmounts) {
@@ -317,17 +416,21 @@ public final class JRetirement {
 				List<FundResult> totals = new ArrayList<>();
 				double percentBond = 100 * totalBond / totalAllFunds;
 				double percentCash = 100 * totalCash / totalAllFunds;
+				double percentEquity = 100 * totalEquity / totalAllFunds;
 				double percentHealth = 100 * totalHealth / totalAllFunds;
 				double percentActive = 100 * totalActive / totalAllFunds;
 				double percentIndex = 100 * totalIndex / totalAllFunds;
 				double percentRoth = 100 * totalRoth / totalAllFunds;
 
 				totals.add(new FundResult("Total Bond", totalBond, percentBond));
-				totals.add(new FundResult("Total Cash", totalCash, percentCash));
+				totals.add(new FundResult("Total Cash/CDs", totalCash, percentCash, foundPendingActivity ? " <<< adjusted for " + PendingActivityString : ""));
+				totals.add(new FundResult("Total Equity", totalEquity, percentEquity));
 				totals.add(new FundResult("Total Health", totalHealth, percentHealth));
 				totals.add(new FundResult("Total Active", totalActive, percentActive));
 				totals.add(new FundResult("Total Index", totalIndex, percentIndex));
-				totals.add(new FundResult("Total Roth", totalRoth, percentRoth));
+				if (percentRoth != 0. && percentRoth != 100.) { //hack
+					totals.add(new FundResult("Total Roth", totalRoth, percentRoth));
+				}
 
 				longestLabel = FundResult.getMaxLabelLength(totals);
 				longestTotal = FundResult.getMaxTotalLength(totals);
@@ -388,19 +491,19 @@ public final class JRetirement {
 		}
 
 		final String label;
-		final double total;
+		final Double total;
 		final double percent;
 		final String specialNote;
 
-		private static final int lengthOfSymbol = 1; //hardcoded; i.e., "$" or "%"
-		private static final int defaultFieldLength = 20; //hardcoded
-		private static final String space2 = "  "; //hardcoded
+		protected static final int lengthOfSymbol = 1; //hardcoded; i.e., "$" or "%"
+		protected static final int defaultFieldLength = 20; //hardcoded
+		protected static final String space2 = "  "; //hardcoded
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<CsvFundsBean> generateFilteredRecordList(Path inputCsvFilePath, final boolean printSkippedRecords) {
-		final double minimumValueToBeIncluded = 100.; //hardcoded - skip funds that have less than this amount
-		final List<String> accountsToSkip = new ArrayList<>(Arrays.asList("Fixed Annuity", "Individual - 529 - TOD"));
+	protected List<CsvFundsBean> generateFilteredRecordList(Path inputCsvFilePath, final boolean printSkippedRecords) {
+		final double minimumValueToBeIncluded = 500.; //hardcoded - skip funds that have less than this amount
+		final List<String> accountsToSkip = new ArrayList<>(Arrays.asList("Fixed Annuity", "Individual - 529 - TOD", "Individual - TOD"));
 		final List<String> skippedRecords = new ArrayList<>();
 
 		List<CsvFundsBean> records;
@@ -462,17 +565,13 @@ public final class JRetirement {
 		final String commentDelimiter = "#";
 		final List<String> skippedLines = new ArrayList<>();
 
+		AtomicInteger currentLineNumber = new AtomicInteger(0);
 		List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8).stream()
-			.map(l -> {
-				if (!l.isEmpty() && l.charAt(0) > 'Z') { //hack - remove unicode (?) garbage at beginning of file that prevents successful parsing of first column
-					l = l.substring(1);
-				}
-				return l;
-			})
-			.map(l -> l.contains(pendingActivityString) ? repairPendingActivityLine(l) : l)
+			.map(l -> currentLineNumber.incrementAndGet() == 1 ? repairFileHeaderLine(l) : l)
+			.map(l -> l.contains(PendingActivityString) ? repairPendingActivityLine(l) : l)
 			.filter(l -> {
 				boolean keepLine = true;
-				if (l.contains(dateDownloadedString)) {
+				if (l.contains(DateDownloadedString)) {
 					dateDownloadedList.add(l);
 					keepLine = false;
 				} else if (l.startsWith(commentDelimiter)) {
@@ -489,7 +588,7 @@ public final class JRetirement {
 			.collect(Collectors.toList());
 
 		if (printSkippedLines && !skippedLines.isEmpty()) {
-			final int maxCharsToPrint = 80; //hardcoded
+			final int maxCharsToPrint = 100; //hardcoded
 
 			System.out.println("JRetirement.readAllValidLines:");
 			skippedLines.stream().sorted().forEach(l -> {
@@ -503,39 +602,38 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static FundOwner determineFundOwner(String accountNumber) {
-		FundOwner fundOwner;
+	protected static FundOwner determineFundOwner(String accountNumber) {
+		FundOwner fundOwner = FundOwner.unknown;
 
-		switch (accountNumber) {
-			default:
-				fundOwner = FundOwner.Other;
-				break;
-
-			case "239929111":
-			case "242813142":
-			case "85918":
-				fundOwner = FundOwner.Primary;
-				break;
-
-			case "239971093":
-			case "239971099":
-				fundOwner = FundOwner.Secondary;
-				break;
+		if (accountNumber.matches("23\\d+11") || accountNumber.matches("24\\d+42") || accountNumber.matches("8\\d+8")) {
+			fundOwner = FundOwner.dr;
+		} else if (accountNumber.matches("23\\d+9[39]")) {
+			fundOwner = FundOwner.mr;
 		}
 
 		return fundOwner;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static int countCommas(String string) {
+	protected static int countCommas(String string) {
 		return string.replaceAll("[^,]","").length();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//remove unicode character at beginning of CSV file that prevents successful parsing of first column
+	protected String repairFileHeaderLine(String line) {
+		final int ZWNBSP = '\uFEFF'; //ZWNBSP (unicode zero-width no-break space) a.k.a. BOM (byte-order-mark) character
+		if (!line.isEmpty() && line.charAt(0) == ZWNBSP) {
+			line = line.substring(1);
+		}
+		return line;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//for some reason, these lines have fewer commas than the rest of the data lines, and the value needs to be shifted one column to the right
-	private String repairPendingActivityLine(String line) {
-		if (line.contains(pendingActivityString)) {
-			line = line.replaceAll(pendingActivityString, pendingActivityString + ","); //add comma to shift columns right
+	protected String repairPendingActivityLine(String line) {
+		if (line.contains(PendingActivityString)) {
+			line = line.replaceAll(PendingActivityString, PendingActivityString + ","); //add comma to shift columns right
 			int missingCommas = csvExpectedCommas - countCommas(line);
 			if (missingCommas > 0) {
 				line += StringUtils.rightPad("", missingCommas, ','); //pad with missing commas so parser can parse
@@ -546,11 +644,11 @@ public final class JRetirement {
 
 /* original - keep for now
 	///////////////////////////////////////////////////////////////////////////
-	private long parseDateDownloaded() throws Exception {
+	protected long parseDateDownloaded() throws Exception {
 		final Pattern datePattern = Pattern.compile(".*(\\d{2}/\\d{2}/\\d{4} \\d{1,2}:\\d{2} [A-Z]{2}).*");
 		final FastDateFormat dateFormat = FastDateFormat.getInstance("MM/dd/yyyy hh:mm aa"); // Note SimpleDateFormat is not thread safe
 
-		assert(dateDownloadedList.size() == 1); //must be only one
+		assert dateDownloadedList.size() == 1; //must be only one
 
 		//go ahead and throw an exception if any of this fails
 		Matcher dateMatcher = datePattern.matcher(dateDownloadedList.get(0));
@@ -562,25 +660,222 @@ public final class JRetirement {
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	private Instant parseDateDownloadedField() throws Exception {
-		final Pattern datePattern = Pattern.compile(".*(\\d{2}/\\d{2}/\\d{4} \\d{1,2}:\\d{2} [A-Z]{2}).*");
-		final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a");
-
-		assert(dateDownloadedList.size() == 1); //must be only one
+	protected Instant parseDateDownloadedField(List<String> dateDownloadedList) {
+		final DateTimeFormatter formatter = new DateTimeFormatterBuilder()
+				.parseCaseInsensitive()
+				.parseLenient()
+				.appendOptional(DateTimeFormatter.ofPattern("MM/dd/yyyy h:mm a zz"))
+				.appendOptional(DateTimeFormatter.ofPattern("MMM-dd-yyyy h:mm a zz"))
+				.toFormatter();
 
 		//go ahead and throw an exception if any of this fails
-		Matcher dateMatcher = datePattern.matcher(dateDownloadedList.get(0));
-		dateMatcher.find();
-		String dateString = dateMatcher.group(1);
-		LocalDateTime localDateTime = LocalDateTime.parse(dateString, dateTimeFormatter);
+		assert dateDownloadedList.size() == 1; //must be only one
+		String dateString = dateDownloadedList.get(0)
+				.replaceAll(DateDownloadedString, "")
+				.replaceAll("[\".]", "") //remove quotes and any errant periods
+				.trim();
+
+		LocalDateTime localDateTime = LocalDateTime.parse(dateString, formatter);
 		Instant instant = localDateTime.atZone(ZoneId.systemDefault()).toInstant();
+
 		return instant;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	protected void generatePlotFile(List<AggregateRecord> records) throws Exception {
+		assert records != null && !records.isEmpty();
+
+		final int yMin = 2000000; //TODO - calculate!
+		final int yMax = 2500000; //TODO - calculate!
+
+		List<String> headers = Arrays.asList(
+			"# file auto generated -- do not edit",
+			"",
+			"[PlotList]",
+			"Total=1",
+			"",
+			"[PlotFileOptions]",
+			"xTransform=linear",
+//			"xAxisDataType=monthOfDecade", //TODO
+			"xAxisDataType=normal",
+			"xAxisSkipTicks=10",
+			"xAxisLabel=Date",
+
+			"yTransform=linear",
+			"yAxisDataType=normal",
+			"yAxisLabel=($)",
+			"yMin=" + yMin,
+			"yMax=" + yMax
+		);
+
+		try (PrintWriter out = new PrintWriter(Files.newOutputStream(new File(PlotFileName).toPath()))) {
+			headers.forEach(out::println);
+
+			out.println();
+			out.println("[Total]");
+//			out.println("0=2000000"); //TODO - round down to lowest million?
+			records.forEach(r -> out.println("" + r.index + "=" + r.totalValue));
+
+		} catch (Exception ex) {
+			System.out.println("generatePlotFile: error writing to output file \"" + PlotFileName + "\"");
+			System.out.println(ex.getMessage()); //print exception, but no stack trace
+			return;
+		}
+
+		System.out.println(NL + "generatePlotFile: historical data written to plot file \"" + PlotFileName + "\"");
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected void printHistoricalData(List<AggregateRecord> records) throws Exception {
+		assert records != null && !records.isEmpty();
+
+		{
+			final int lastN = 10;
+			List<AggregateRecord> lastNRecords = records.subList(Math.max(records.size() - lastN, 0), records.size());
+
+			System.out.println(NL + "Last " + lastN + " historical records (" + lastN + " of " + records.size() + "):");
+			lastNRecords.forEach(System.out::println);
+		}
+
+		{
+			final int topN = 10;
+			List<AggregateRecord> topNRecords = records.stream().sorted(new AggregateRecord().reversed()).limit(topN).collect(Collectors.toList());
+
+			System.out.println(NL + "Top " + topN + " historical records (" + topN + " of " + records.size() + "):");
+			topNRecords.forEach(System.out::println);
+		}
+
+//		AggregateRecord maxRecord = records.stream().max(new AggregateRecord()).orElse(null);
+//		if (maxRecord != null) {
+//			System.out.println(NL + "Max record:");
+//			System.out.println(maxRecord);
+//		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected void printTaxes() throws Exception {
+//		final List<TaxBracket> federalTaxBracket2023 = Arrays.asList( //Married Filing Jointly
+//				//https://www.irs.gov/filing/federal-income-tax-rates-and-brackets
+//				new TaxBracket(10, 0, 22000),
+//				new TaxBracket(12, 22000, 89450),
+//				new TaxBracket(22, 89450, 190750),
+//				new TaxBracket(24, 190750, 364200)
+//		);
+//		final int federalStandardDeduction2023 = 27700; //Married Filing Jointly
+		final List<TaxBracket> federalTaxBracket2024 = Arrays.asList( //Married Filing Jointly
+				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2024
+				new TaxBracket(10,      0,  23200),
+				new TaxBracket(12,  23200,  94300),
+				new TaxBracket(22,  94300, 201050),
+				new TaxBracket(24, 201050, 383900)
+		);
+		final int federalStandardDeduction2024 = 29200; //Married Filing Jointly
+
+		final List<TaxBracket> massTaxBracket2024 = Arrays.asList( //Married Filing Jointly
+				new TaxBracket(5, 0, 999999)
+		);
+		final int massStandardDeduction2023 = 2 * 4400; //Married Filing Jointly (from HRBlock 2023 tax software)
+		//https://www.nerdwallet.com/article/taxes/massachusetts-state-tax-rates
+
+		final int year = 2024;
+		System.out.println(NL + "Taxes (for " + year + "):");
+		for (int income = 120000; income <= 180000; income += 5000) {
+			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2024, federalTaxBracket2024);
+			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction2023, massTaxBracket2024);
+			int totalIncomeTax = federalIncomeTax + massIncomeTax;
+			double effectiveTaxRate = 100. * (double) totalIncomeTax / (double) income;
+			double federalTaxRate = 100. * (double) federalIncomeTax / (double) income;
+			double massTaxRate = 100. * (double) massIncomeTax / (double) income;
+			double totalTaxRate = 100. * (double) totalIncomeTax / (double) income;
+
+			System.out.println("Pre-tax income: $" + decimalFormat0.format(income) + ", Post-tax income: $" + decimalFormat0.format(income - totalIncomeTax) +
+								", Total tax: $" + decimalFormat0.format(totalIncomeTax) + " (" + decimalFormat1.format(totalTaxRate) + "%)" +
+								", Fed: $" + decimalFormat0.format(federalIncomeTax) + " (" + decimalFormat1.format(federalTaxRate) + "%)" +
+								", Mass: $" + decimalFormat0.format(massIncomeTax) + " (" + decimalFormat1.format(massTaxRate) + "%)");
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected static class TaxBracket {
+
+		///////////////////////////////////////////////////////////////////////////
+		TaxBracket(int percentRate, int minValue, int maxValue) {
+			this.percentRate = percentRate;
+			this.minValue = minValue;
+			this.maxValue = maxValue;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		static int calculateTax(int income, int deduction, List<TaxBracket> taxBrackets) {
+			int tax = 0;
+			int remainingIncome = income - deduction;
+
+			for (TaxBracket taxBracket : taxBrackets) {
+				if (remainingIncome > 0) {
+					int incomeForThisBracket = Math.min(remainingIncome, taxBracket.maxValue - taxBracket.minValue);
+					int taxForThisBracket = incomeForThisBracket * taxBracket.percentRate / 100;
+					tax += taxForThisBracket;
+					remainingIncome -= incomeForThisBracket;
+				}
+			}
+			assert remainingIncome == 0;
+
+			return tax;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		@Override
+		public String toString() {
+			return "TaxBracket{" +
+					"percentRate=" + percentRate +
+					", minValue=" + minValue +
+					", maxValue=" + maxValue +
+					'}';
+		}
+
+		final int percentRate;
+		final int minValue;
+		final int maxValue;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected void printUrls() throws Exception {
+		AtomicReference<String> suffix = new AtomicReference<>();
+
+		if (true) {
+			suffix.set("stars");
+
+			List<FundsEnum> funds = new ArrayList<>(Arrays.asList(FundsEnum.values())).stream()
+					.filter(f -> !PendingActivityString.equals(f.getSymbol()))
+					.sorted((f1, f2) -> f1.getSymbol().compareToIgnoreCase(f2.getSymbol()))
+					.collect(Collectors.toList());
+
+			System.out.println(NL + "URLs for " + suffix + " (" + funds.size() + "):");
+			funds.forEach(f -> System.out.println(
+					"[" + f.getExpenseRatio() + "] " +
+							f.getSymbol() + " -> " + f.getURL(suffix.get())));
+		}
+
+		if (true) {
+			suffix.set("yield");
+
+			List<FundsEnum> funds = new ArrayList<>(Arrays.asList(FundsEnum.values())).stream()
+					.filter(f -> !PendingActivityString.equals(f.getSymbol()))
+					.filter(f -> f.isCash() || f.isBond())
+					.sorted((f1, f2) -> f1.getSymbol().compareToIgnoreCase(f2.getSymbol()))
+					.collect(Collectors.toList());
+
+			System.out.println(NL + "URLs for " + suffix + " (" + funds.size() + "):");
+			funds.forEach(f -> System.out.println(
+					"[" + f.getExpenseRatio() + "] " +
+							f.getSymbol() + " -> " + f.getURL(suffix.get())));
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//to sort filenames by embedded date (newest first), with this date format in file name: path1\path2\Portfolio_Positions_Feb-24-2024.csv
-	private static class PortfolioFilenameComparatorByDateReverse implements Comparator<String>
-	{
+	protected static class PortfolioFilenameComparatorByDateReverse implements Comparator<String> {
+
 		///////////////////////////////////////////////////////////////////////////
 		@Override
 		public int compare(String filename1, String filename2) {
@@ -599,7 +894,7 @@ public final class JRetirement {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		private long parseDateTimeFromFilename(String filename) throws Exception {
+		protected long parseDateTimeFromFilename(String filename) throws Exception {
 			if (filenameToDateMap.get(filename) != null) {
 				return filenameToDateMap.get(filename);
 			}
@@ -621,13 +916,69 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int persistRecordsToDatabase(List<CsvFundsBean> records, Instant dateDownloaded) throws Exception {
+	//if we have more than one set of records for any given day, we can generally delete all but the newest/latest
+	protected int deleteDuplicateRecords() throws Exception {
+		int duplicateRecordsDeleted = 0;
+
+		List<CsvFundsBean> allRecordsFromDb = queryRecordsFromDatabase(AllDates);
+
+		Map<LocalDate, List<Instant>> dupMap = findDuplicateTimestamps(allRecordsFromDb);
+
+		if (!dupMap.isEmpty()) {
+			List<Instant> instantsToBeDeleted = new ArrayList<>();
+			dupMap.values().forEach(l -> {
+				l.remove(0); //remove newest/latest timestamp (don't delete that one)
+				instantsToBeDeleted.addAll(l); //do delete the rest
+			});
+
+			if (instantsToBeDeleted.size() > 0) {
+				instantsToBeDeleted.forEach(i -> System.out.println("toBeDeleted: " + dateTimeFormatter.format(i)));
+
+				duplicateRecordsDeleted = deleteRecordsFromDatabase(instantsToBeDeleted);
+			}
+		}
+
+		return duplicateRecordsDeleted;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//returns map with key = LocalDate, value = List of the instants that fall on that date IF MORE THAN ONE
+	protected Map<LocalDate, List<Instant>> findDuplicateTimestamps(List<CsvFundsBean> records) {
+		Map<String, List<CsvFundsBean>> dateMap1 = records.stream()
+				.collect(Collectors.groupingBy(r ->
+						"" + r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate() +
+						"|" + r.getAccountNumber() +
+						"|" + r.getSymbol()
+				));
+
+		Map<LocalDate, List<Instant>> dateMap2 = dateMap1.values().stream()
+				.filter(l -> l.size() > 1) //we only care about duplicates
+				.collect(Collectors.toMap(
+						r -> r.get(0).getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate(),
+						r -> r.stream().map(CsvFundsBean::getDateDownloaded)
+									   .sorted(Comparator.reverseOrder()) //sort so newest/latest timestamp is first in each list
+									   .collect(Collectors.toList()),
+						(r1, r2) -> { //merge function, added to avoid: java.lang.IllegalStateException: Duplicate key <key>
+							if (!r2.equals(r1)) {
+								System.out.println("findDuplicateTimestamps: record1: " + r1);
+								System.out.println("findDuplicateTimestamps: record2: " + r2);
+								throw new RuntimeException("oops, merge found unequal values; for now, delete from DB by hand");
+							}
+							return r2;
+						}
+				));
+
+		return dateMap2;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected int persistRecordsToDatabase(List<CsvFundsBean> records) throws Exception {
 		int rowsPersisted = 0;
 
-		try (Connection connection = connectDatabase()) {
-			if (records != null) {
+		if (records != null) {
+			try (Connection connection = connectDatabase()) {
 				for (CsvFundsBean record : records) {
-					if (persistRecordToDatabase(connection, record, dateDownloaded)) {
+					if (persistRecordToDatabase(connection, record)) {
 						++rowsPersisted;
 					}
 				}
@@ -638,34 +989,33 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean persistRecordToDatabase(Connection connection, CsvFundsBean record, Instant dateDownloaded)
-	{
+	protected boolean persistRecordToDatabase(Connection connection, CsvFundsBean record) {
 		final String sql = "insert into retirement (downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis)" + NL +
 						   " values (?, ?, ?, ?, ?, ?, ?)";
 
-		final java.sql.Timestamp timestamp = java.sql.Timestamp.from(dateDownloaded);
-
 		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-			int index = 1;
-			stmt.setTimestamp(index++, timestamp);
-			stmt.setString(index++, record.getAccountNumber());
-			stmt.setString(index++, record.getAccountName());
-			stmt.setString(index++, record.getSymbol());
-			stmt.setString(index++, record.getDescription());
-			stmt.setDouble(index++, record.getCurrentValue());
-			stmt.setDouble(index++, record.getCostBasisTotal());
+			int index = 0;
+			assert null != record.getDateDownloaded(); //catch programming error
+			stmt.setTimestamp(++index, java.sql.Timestamp.from(record.getDateDownloaded()));
+			stmt.setString(++index, record.getAccountNumber());
+			stmt.setString(++index, record.getAccountName());
+			stmt.setString(++index, record.getSymbol());
+			stmt.setString(++index, record.getDescription());
+			stmt.setDouble(++index, record.getCurrentValue());
+			stmt.setDouble(++index, record.getCostBasisTotal());
 
 			stmt.executeUpdate ();
 
-		} catch (SQLIntegrityConstraintViolationException ex) {
-			if (!ex.getMessage().matches("Duplicate entry.*PRIMARY.*")) { //we expect to get duplicate entries because we aren't checking before persisting (which is a TODO)
-				System.out.println("persistRecordToDatabase: ignoring duplicate record: " + record);
-			}
-			return false;
+//		} catch (SQLIntegrityConstraintViolationException ex) {
+//			if (!ex.getMessage().matches("Duplicate entry.*PRIMARY.*")) { //we expect to get duplicate entries because we aren't checking before persisting (which is a TODO)
+//				System.err.println("persistRecordToDatabase: error persisting record <" + record + ">");
+//				System.err.println(ex.getMessage());
+//			}
+//			return false;
 
 		} catch (Exception ex) {
-			System.err.println("persistRecordToDatabase: error from Connection.prepareStatement(" + sql + ") or PreparedStatement.executeUpdate");
-			System.err.println(ex);
+			System.err.println("persistRecordToDatabase: error persisting record <" + record + ">");
+			System.err.println(ex.getMessage());
 			return false;
 		}
 
@@ -673,8 +1023,145 @@ public final class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Connection connectDatabase () throws Exception
-	{
+	static class AggregateRecord implements Comparator<AggregateRecord> {
+		AggregateRecord() {
+			this(0, null, 0, 0.);
+		}
+		AggregateRecord(int index, Instant dateDownloaded, int numRecords, Double totalValue) {
+			this.index = index;
+			this.dateDownloaded = dateDownloaded;
+			this.numRecords = numRecords;
+			this.totalValue = totalValue;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		@Override
+		public int compare (AggregateRecord r1, AggregateRecord r2) {
+			return r1.totalValue.compareTo(r2.totalValue);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		@Override
+		public String toString() {
+			return index + "  " +
+				   numRecords + "  " +
+				   dateTimeFormatter.format(dateDownloaded) + "  " +
+				   "$" + decimalFormat0.format(totalValue);
+		}
+
+		final int index;
+		final Instant dateDownloaded;
+		final int numRecords;
+		final Double totalValue;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected List<AggregateRecord> queryAggregateRecordsFromDatabase() {
+		String sql = "select downloaded_timestamp, count(*) records, sum(value) total_value" + NL +
+					 " from retirement" +
+					 " group by downloaded_timestamp" +
+					 " order by downloaded_timestamp";
+
+		List<AggregateRecord> records = new ArrayList<>();
+
+		try (Connection connection = connectDatabase();
+			 PreparedStatement stmt = connection.prepareStatement(sql);
+			 ResultSet rs = stmt.executeQuery()) {
+
+			int index = 0;
+			while (rs.next()) {
+				Timestamp timestamp = rs.getTimestamp("downloaded_timestamp");
+				int count = rs.getInt("records");
+				Double totalValue = rs.getDouble("total_value");
+
+				AggregateRecord record = new AggregateRecord(++index, timestamp.toInstant(), count, totalValue);
+				records.add(record);
+			}
+
+		} catch (Exception ex) {
+			System.err.println("queryAggregateRecordsFromDatabase: error running sql <" + sql + ">");
+			System.err.println(ex.getMessage());
+			return records;
+		}
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected List<CsvFundsBean> queryRecordsFromDatabase(Instant dateDownloaded) {
+		String sql = "select downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis" + NL +
+					 " from retirement";
+		if (!dateDownloaded.equals(AllDates)) {
+			sql += " where downloaded_timestamp = ?";
+		}
+
+		List<CsvFundsBean> records = new ArrayList<>();
+
+		ResultSet rs = null;
+		try (Connection connection = connectDatabase();
+			 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+			if (!dateDownloaded.equals(AllDates)) {
+				java.sql.Timestamp timestamp = java.sql.Timestamp.from(dateDownloaded);
+				stmt.setTimestamp(1, timestamp);
+			}
+
+			rs = stmt.executeQuery ();
+
+			while (rs.next ()) {
+				java.sql.Timestamp timestamp = rs.getTimestamp("downloaded_timestamp");
+				String accountNumber = rs.getString ("account_number");
+				String accountName = rs.getString ("account_name");
+				String symbol = rs.getString ("symbol");
+				String description = rs.getString ("description");
+				Double currentValue = rs.getDouble ("value");
+				Double costBasisTotal = rs.getDouble ("cost_basis");
+
+				CsvFundsBean record = new CsvFundsBean(timestamp.toInstant(), accountNumber, accountName, symbol, description, currentValue, costBasisTotal);
+				records.add(record);
+			}
+
+		} catch (Exception ex) {
+			System.err.println("queryRecordsFromDatabase: error running sql <" + sql + "> for dateDownloaded <" + dateDownloaded + ">");
+			System.err.println(ex.getMessage());
+			return records;
+
+		} finally {
+			if (rs != null) {
+				try { rs.close (); } catch (SQLException ignored) {}
+			}
+		}
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected int deleteRecordsFromDatabase(List<Instant> instants) {
+		final String sql = "delete from retirement where downloaded_timestamp = ?";
+
+		int totalRowsDeleted = 0;
+		try (Connection connection = connectDatabase();
+			 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+			for (Instant instant : instants) {
+				stmt.setTimestamp(1, java.sql.Timestamp.from(instant));
+				stmt.addBatch();
+			}
+
+			int [] rowsDeleted = stmt.executeBatch();
+			totalRowsDeleted += Arrays.stream (rowsDeleted).sum ();
+
+		} catch (Exception ex) {
+			System.err.println("deleteRecordsFromDatabase: error deleting records <" + instants + ">");
+			System.err.println(ex.getMessage());
+			return totalRowsDeleted;
+		}
+
+		return totalRowsDeleted;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected Connection connectDatabase () throws Exception {
 		//TODO - move connection info to properties file, with hard-coded defaults
 		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
 		final String dbUrl = "jdbc:mysql://localhost/retirement";
@@ -682,10 +1169,7 @@ public final class JRetirement {
 		final String dbPass = "root";
 
 		Class.forName (jdbcDriver);
-
-		Connection dbConnection = DriverManager.getConnection (dbUrl, dbUser, dbPass);
-
-		return dbConnection;
+		return DriverManager.getConnection (dbUrl, dbUser, dbPass);
 	}
 
 
@@ -693,25 +1177,34 @@ public final class JRetirement {
 	private Path sourceRootPath = null;
 	private Pattern filenamePattern = null;
 	private String inputFilenameOverride = null; //to specify a specific input file
+	private boolean printHistoricalData = false;
+	private boolean printTaxes = false;
+	private boolean printUrls = false;
+	private boolean generatePlotFile = false;
+	private boolean deleteDuplicateRecords = false;
 
-	private static final int csvExpectedCommas = 15;
-	private static final String dateDownloadedString = "Date downloaded";
+	private static final int csvExpectedCommas = 15; //hardcoded
 
 	private static final Predicate<CsvFundsBean> rothAccounts = CsvFundsBean::isRoth;
-	private static final Predicate<CsvFundsBean> traditionalAccounts = r -> !r.isRoth();
+	private static final Predicate<CsvFundsBean> traditionalAccounts = rothAccounts.negate();
 	private static final Predicate<CsvFundsBean> allAccounts = r -> true;
 
-	private final List<String> dateDownloadedList = new ArrayList<>(); //List in case there is more than one matching record in the file
+	private final List<String> dateDownloadedList = new ArrayList<>(); //use List in case there is more than one matching record in the file
 
 	private static final FundResult BlankLine = new FundResult("blank line", 0, 0);
+	private static final Instant AllDates = Instant.ofEpochSecond(9999); //some fixed, hopefully unique time
 
+	private static final DecimalFormat decimalFormat0 = new DecimalFormat ("###,##0");
 	private static final DecimalFormat decimalFormat1 = new DecimalFormat ("###,##0.0");
 	private static final DecimalFormat decimalFormat2 = new DecimalFormat ("###,##0.00");
 
-	private static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss").withZone(ZoneId.systemDefault());
+	protected static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss").withZone(ZoneId.systemDefault());
 
 	//global members
-	public static String pendingActivityString = "Pending Activity";
+	public static final String DateDownloadedString = "Date downloaded";
+	public static final String PendingActivityString = "Pending Activity";
+	public static final String PlotExecutable = "C:/Users/bin/plot/Release/plot.exe";
+	public static final String PlotFileName = "C:/temp/retirement.gen.plt";
 
 	public static boolean Debug = false;
 	public static boolean Test = false;

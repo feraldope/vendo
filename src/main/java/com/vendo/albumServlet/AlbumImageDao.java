@@ -229,6 +229,7 @@ public class AlbumImageDao {
 			_albumImagesDataCache.clear();
 			_albumImagesCountCache.clear();
 			_albumAlbumsCountCache.clear();
+			_albumAlbumsSizeCache.clear();
 			_albumImagesHasExifDataCache.clear();
 		}
 	}
@@ -247,8 +248,8 @@ public class AlbumImageDao {
 
 		//cleanup image counts at startup
 		//note that some mismatched entries might be recreated later in syncFolder() if there really are image files in the wrong folders
-		deleteZeroCountsFromImageCounts();
-		deleteMismatchedEntriesFromImageCounts();
+		deleteZeroCountsFromImageCountsTable();
+		deleteMismatchedEntriesFromImageCountsTable();
 
 		//sync all subfolders at startup
 		final CountDownLatch endGate = new CountDownLatch(getAlbumSubFolders().size());
@@ -345,10 +346,10 @@ public class AlbumImageDao {
 
 		AlbumProfiling.getInstance().enter(4, "part 1");
 
-		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImages(subFolder); //result is sorted
+		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImagesTable(subFolder); //result is sorted
 		if (/*dbImageFileDetails == null ||*/ dbImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
-//			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImages(" + subFolder + ") returned null/empty");
-			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImages(" + subFolder + ") returned null/empty");
+//			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImagesTable(" + subFolder + ") returned null/empty");
+			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImagesTable(" + subFolder + ") returned null/empty");
 		}
 		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem(subFolder, ".jpg"); //result is sorted
 		if (/*fsImageFileDetails == null ||*/ fsImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
@@ -394,7 +395,7 @@ public class AlbumImageDao {
 
 		AlbumProfiling.getInstance().enter(4, "part 2");
 
-		Map<String, Integer> dbImageCounts = getImageCountsFromImageCounts(subFolder);
+		Map<String, Integer> dbImageCounts = getImageCountsFromImageCountsTable(subFolder);
 		Map<String, Integer> fsImageCounts = calculateImageCountsFromFileSystem(subFolder, fsImageFileDetails);
 
 		final Pattern endsWithDigitPattern = Pattern.compile(".*\\d$"); //ends with digit
@@ -431,7 +432,7 @@ public class AlbumImageDao {
 		AlbumProfiling.getInstance().enter(4, "part 3");
 
 		long nowInMillis = new GregorianCalendar().getTimeInMillis();
-		insertLastUpdateIntoImageFolder(subFolder, nowInMillis);
+		insertLastUpdateIntoImageFolderTable(subFolder, nowInMillis);
 
 		AlbumProfiling.getInstance().exit(4, "part 3");
 
@@ -439,7 +440,7 @@ public class AlbumImageDao {
 
 		AlbumProfiling.getInstance().enter(4, "part 4");
 
-		dbImageFileDetails = getImageFileDetailsFromImages(subFolder); //result is sorted
+		dbImageFileDetails = getImageFileDetailsFromImagesTable(subFolder); //result is sorted
 		for (AlbumImageFileDetails imageFileDetail : dbImageFileDetails) {
 			String nameNoExt = imageFileDetail.getName();
 			if (!AlbumImage.isValidImageName(nameNoExt)) {
@@ -631,6 +632,7 @@ public class AlbumImageDao {
 
 		//start thread to watch queue and handle events
 		Thread handlerThread = new Thread(() -> {
+			AlbumImageEvent previousAlbumImageEvent = null;
 			int numHandled = 0;
 			while (true) {
 				try {
@@ -638,31 +640,29 @@ public class AlbumImageDao {
 					numHandled++;
 
 					Path dir = albumImageEvent.getDir();
+					Path path = albumImageEvent.getNormalizedPath();
 					WatchEvent<Path> pathEvent = albumImageEvent.getPathEvent();
 
-					Path file = pathEvent.context();
-					Path path = dir.resolve(file);
 					String subFolder2 = dir.getName(dir.getNameCount() - 1).toString();
-
-					if (subFolder1.compareToIgnoreCase(subFolder2) != 0) {
+					if (subFolder2.compareToIgnoreCase(subFolder1) != 0) {
 						_log.warn("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + ") subFolder mismatch: " + subFolder1 + " != " + subFolder2);
 					}
 
-					//give file system a chance to settle
+					//give file system a chance to settle if this is the first event 'in a while'
 					final long delayMillis = 5;
 					int sleepMillis = (int) (albumImageEvent.getTimestamp() + delayMillis - new GregorianCalendar().getTimeInMillis());
 					if (sleepMillis > 0) {
 						sleepMillis(sleepMillis);
 					}
 
-//					if (_Debug) {
-//						String message = "AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size() + "): " +
-//								pathEvent.kind().name() + ": " + path.normalize().toString();
-//						if (sleepMillis > 0) {
-//							message += ": slept " + sleepMillis + " ms";
-//						}
-//						_log.debug(message);
-//					}
+					if (false && _Debug) {
+						String message = "AlbumImageDao.WatchDir.queueHandler(\"" + subFolder2 + "\"/" + queue.size() + "): " + albumImageEvent;
+
+						if (sleepMillis > 0) {
+							message += ": slept " + sleepMillis + " ms";
+						}
+						_log.debug(NL + message);
+					}
 
 //THIS DOES NOT WORK
 //					if (_pauseModeEnabled.get()) {
@@ -670,19 +670,24 @@ public class AlbumImageDao {
 //						continue;
 //					}
 
-					if (pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_CREATE)) {
+					if (albumImageEvent.isRedundantEvent(previousAlbumImageEvent)) {
+						//skip this event
+						_log.debug("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + "/" + queue.size() + "): event ignored: " + albumImageEvent);
+
+					} else if (StandardWatchEventKinds.ENTRY_CREATE.equals(pathEvent.kind())) {
 						handleFileCreate(subFolder2, path);
 
-					} else if (pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_MODIFY)) {
+					} else if (StandardWatchEventKinds.ENTRY_MODIFY.equals(pathEvent.kind())) {
 						handleFileModify(subFolder2, path);
 
-					} else if (pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_DELETE)) {
+					} else if (StandardWatchEventKinds.ENTRY_DELETE.equals(pathEvent.kind())) {
 						handleFileDelete(subFolder2, path);
 
 					} else {
 						_log.warn("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + "/" + queue.size() + "): unhandled event: " + pathEvent.kind().name() + " on file: " + path.normalize());
 					}
 
+//TODO - refresh based on elapsed time, not just image count
 					final int intermediateRefreshCountMin = 200;
 					final int intermediateRefreshCountMax = 300;
 					if (queue.size() == 0 || (queue.size() > intermediateRefreshCountMin && numHandled > intermediateRefreshCountMax)) {
@@ -694,6 +699,8 @@ public class AlbumImageDao {
 							_log.debug("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + ") update image counts: queue empty ------------------------------------------");
 						}
 					}
+
+					previousAlbumImageEvent = albumImageEvent;
 
 				} catch (Exception ee) {
 					_log.error("AlbumImageDao.WatchDir.queueHandler: ", ee);
@@ -871,7 +878,7 @@ public class AlbumImageDao {
 //		try {
 			image = new AlbumImage(nameNoExt, subFolder, true); //this AlbumImage ctor reads image from disk
 			image.createRgbDataFile();
-			status = insertImageIntoImages(image);
+			status = insertImageIntoImagesTable(image);
 //		} catch (Exception ee) {
 //			_log.error("AlbumImageDao.handleFileCreate(" + subFolder + ", " + nameNoExt + "): ", ee);
 //			System.out.println("del " + imageFile);
@@ -901,7 +908,7 @@ public class AlbumImageDao {
 
 		Path rgbDataFile = FileSystems.getDefault().getPath(_rootPath, subFolder, nameNoExt + AlbumFormInfo._ImageExtension);
 
-		boolean status = deleteImageFromImages(subFolder, nameNoExt);
+		boolean status = deleteImageFromImagesTable(subFolder, nameNoExt);
 		AlbumImage.removeRgbDataFileFromFileSystem(rgbDataFile.toString());
 
 		_imagesNeedingCountUpdate.get().add(AlbumImage.getBaseName(nameNoExt, false));
@@ -930,21 +937,21 @@ public class AlbumImageDao {
 		for (String baseName : baseNames1.stream().sorted().collect(Collectors.toList())) {
 			baseNames2.add(AlbumImage.getBaseName(baseName + "-01", true)); //HACK - add extra for getBaseName()
 
-			int count = getImageCountFromImages(subFolder, baseName + ".*"); //regex (e.g., Foo01 -> Foo01.*)
+			int count = getImageCountFromImagesTable(subFolder, baseName + ".*"); //regex (e.g., Foo01 -> Foo01.*)
 			rowsAffected += updateImageCountsInImageCounts(subFolder, baseName, false, count);
 //			_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 		baseNames1.clear(); //done with these - clear value in _imagesNeedingCountUpdate
 
 		for (String baseName : baseNames2.stream().sorted().collect(Collectors.toList())) {
-			int count = getImageCountFromImages(subFolder, baseName + "[0-9].*"); //regex  (e.g., Foo -> Foo[0-9].*)
+			int count = getImageCountFromImagesTable(subFolder, baseName + "[0-9].*"); //regex  (e.g., Foo -> Foo[0-9].*)
 			rowsAffected += updateImageCountsInImageCounts(subFolder, baseName, true, count);
 //			_log.debug("AlbumImageDao.updateImageCounts(" + subFolder + "): updated image count: " + baseName + (count == 0 ? " removed" : " = " + count));
 		}
 
 		if (rowsAffected > 0) {
 			long nowInMillis = new GregorianCalendar().getTimeInMillis();
-			insertLastUpdateIntoImageFolder(subFolder, nowInMillis);
+			insertLastUpdateIntoImageFolderTable(subFolder, nowInMillis);
 		}
 
 		return rowsAffected > 0;
@@ -960,7 +967,9 @@ public class AlbumImageDao {
 
 		AlbumImagesData imagesData = _albumImagesDataCache.get(subFolder);
 
-		long databaseLastUpdateMillis = getLastUpdateFromImageFolder(subFolder);
+		long databaseLastUpdateMillis = getLastUpdateFromImageFolderTable(subFolder);
+
+//TODO - convert some of these caches to lazy loading ??
 
 		if (imagesData != null && imagesData.getLastUpdateMillis() > databaseLastUpdateMillis) {
 //			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache hit for subFolder: " + subFolder);
@@ -968,7 +977,7 @@ public class AlbumImageDao {
 
 		} else {
 //			_log.debug ("AlbumImageDao.getImagesFromCache: imageData cache miss for subFolder: " + subFolder);
-			images = getImagesFromImages(subFolder);
+			images = getImagesFromImagesTable(subFolder);
 			long nowInMillis = new GregorianCalendar().getTimeInMillis();
 			imagesData = new AlbumImagesData(images, nowInMillis);
 			_albumImagesDataCache.put(subFolder, imagesData);
@@ -977,32 +986,46 @@ public class AlbumImageDao {
 			}
 
 			if (!_isServer) { //server does not need these caches
+				{ //counts
+					Map<String, Integer> imagesCountMap = getImageCountsFromImageCountsTable(subFolder);
+					_albumImagesCountCache.put(subFolder, imagesCountMap);
 
-				Map<String, Integer> imagesCountMap = getImageCountsFromImageCounts(subFolder);
-				_albumImagesCountCache.put(subFolder, imagesCountMap);
+					Map<String, Integer> albumsCountMap = new HashMap<>();
+					for (String baseName : imagesCountMap.keySet()) {
+						String baseNameNoDigits = baseName.replaceAll("\\d", "");
 
-				Map<String, Integer> albumsCountMap = new HashMap<>();
-				for (String baseName : imagesCountMap.keySet()) {
-					String baseNameNoDigits = baseName.replaceAll("\\d", "");
-
-					Integer count = albumsCountMap.get(baseNameNoDigits);
-					if (count == null) {
-						albumsCountMap.put(baseNameNoDigits, 0); //start with 0 because the map has every album, and the collapsed-album name (Fh01, Fh02, and Fh)
-					} else {
-						albumsCountMap.put(baseNameNoDigits, ++count);
+						Integer count = albumsCountMap.get(baseNameNoDigits);
+						if (count == null) {
+							albumsCountMap.put(baseNameNoDigits, 0); //start with 0 because the map has every album, and the collapsed-album name (Fh01, Fh02, and Fh)
+						} else {
+							albumsCountMap.put(baseNameNoDigits, ++count);
+						}
 					}
+					_albumAlbumsCountCache.put(subFolder, albumsCountMap);
 				}
-				_albumAlbumsCountCache.put(subFolder, albumsCountMap);
 
-//new
-				Map<String, Boolean> albumHasExifDataMap = new HashMap<>();
-				for (AlbumImage image : images) {
-					if (image.hasExifDate()) {
-						albumHasExifDataMap.put(image.getBaseName(true), true);
-						albumHasExifDataMap.put(image.getBaseName(false), true);
-					}
+				{ //sizes
+					Map<String, List<AlbumImage>> map1a = images.stream().collect(Collectors.groupingBy(i -> AlbumImage.getBaseName(i.getName(), true)));
+					Map<String, List<AlbumImage>> map2a = images.stream().collect(Collectors.groupingBy(i -> AlbumImage.getBaseName(i.getName(), false)));
+
+					Map<String, Long> map1b = map1a.keySet().stream().collect(Collectors.toMap(k -> k, k -> map1a.get(k).stream().mapToLong(AlbumImage::getNumBytesOnDisk).sum()));
+					Map<String, Long> map2b = map2a.keySet().stream().collect(Collectors.toMap(k -> k, k -> map2a.get(k).stream().mapToLong(AlbumImage::getNumBytesOnDisk).sum()));
+
+					map1b.putAll(map2b);
+
+					_albumAlbumsSizeCache.put(subFolder, map1b);
 				}
-				_albumImagesHasExifDataCache.put(subFolder, albumHasExifDataMap);
+
+				{ //EXIF
+					Map<String, Boolean> albumHasExifDataMap = new HashMap<>();
+					for (AlbumImage image : images) {
+						if (image.hasExifDate()) {
+							albumHasExifDataMap.put(image.getBaseName(true), true);
+							albumHasExifDataMap.put(image.getBaseName(false), true);
+						}
+					}
+					_albumImagesHasExifDataCache.put(subFolder, albumHasExifDataMap);
+				}
 
 				AlbumImages.duplicatesCacheMaintenance(subFolder);
 			}
@@ -1058,29 +1081,19 @@ public class AlbumImageDao {
 		return images;
 	}
 
-//replaced by getNumMatchingImages()
-	///////////////////////////////////////////////////////////////////////////
-	//used by servlet
-//	public Integer getImagesCount(String baseName)
-//	{
-//		String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName(baseName);
-//		Map<String, Integer> imagesCountMap = _albumImagesCountCache.get(subFolder);
-//		return imagesCountMap.get(baseName);
-//	}
-
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
 	private int updateImageCountsInImageCounts(String subFolder, String baseName, boolean collapseGroups, int count) {
 		_log.debug("AlbumImageDao.updateImageCountsInImageCounts(" + subFolder + "): updating image counts: " + baseName + (count == 0 ? " removed" : " = " + count));
 
 		return count > 0 ?
-				insertImageCountsIntoImageCounts(subFolder, baseName, collapseGroups, count) :
-				deleteImageCountsFromImageCounts(subFolder, baseName);
+				insertImageCountsIntoImageCountsTable(subFolder, baseName, collapseGroups, count) :
+				deleteImageCountsFromImageCountsTable(subFolder, baseName);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
-	private int insertImageCountsIntoImageCounts(String subFolder, String nameNoExt, boolean collapseGroups, int value)
+	private int insertImageCountsIntoImageCountsTable(String subFolder, String nameNoExt, boolean collapseGroups, int value)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -1091,23 +1104,23 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			rowsAffected = mapper.insertImageCountsIntoImageCounts(subFolder, baseName, collapseGroupsInt, value);
+			rowsAffected = mapper.insertImageCountsIntoImageCountsTable(subFolder, baseName, collapseGroupsInt, value);
 			session.commit();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertImageCountsIntoImageCounts(" + subFolder + ", " + nameNoExt + ", " + collapseGroups + ", " + value + "): ", ee);
+			_log.error("AlbumImageDao.insertImageCountsIntoImageCountsTable(" + subFolder + ", " + nameNoExt + ", " + collapseGroups + ", " + value + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.insertImageCountsIntoImageCounts(" + subFolder + "): nameNoExt: " + nameNoExt + ", value: " + value);
+//		_log.debug ("AlbumImageDao.insertImageCountsIntoImageCountsTable(" + subFolder + "): nameNoExt: " + nameNoExt + ", value: " + value);
 
 		return rowsAffected;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public int getImageCountFromImages(String subFolder, String wildName)
+	public int getImageCountFromImagesTable(String subFolder, String wildName)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -1115,22 +1128,22 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			count = mapper.selectImageCountFromImages(subFolder, wildName);
+			count = mapper.selectImageCountFromImagesTable(subFolder, wildName);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImageCountFromImages(" + wildName + "): ", ee);
+			_log.error("AlbumImageDao.getImageCountFromImagesTable(" + wildName + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getImageCountFromImages(\"" + wildName + "\"): count = " + count);
+//		_log.debug ("AlbumImageDao.getImageCountFromImagesTable(\"" + wildName + "\"): count = " + count);
 
 		return count;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public int getNumMatchingImages(String baseName, long unused /*sinceInMillis*/) {
+	public int getNumMatchingImagesFromCache(String baseName, long unused /*sinceInMillis*/) {
 //TODO - this might? not work when image is in wrong subfolder (can happen when image is renamed prior to move)
 		int numMatchingImages = 0;
 
@@ -1140,7 +1153,7 @@ public class AlbumImageDao {
 			numMatchingImages = imagesCountMap.get(baseName);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getNumMatchingImages(" + baseName + "): ", ee);
+			_log.error("AlbumImageDao.getNumMatchingImagesFromCache(" + baseName + "): ", ee);
 		}
 
 		return numMatchingImages;
@@ -1148,7 +1161,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	public int getNumMatchingAlbums(String baseName, long unused /*sinceInMillis*/)
+	public int getNumMatchingAlbumsFromCache(String baseName, long unused /*sinceInMillis*/)
 	{
 //TODO - this might? not work when image is in wrong subfolder (can happen when image is renamed prior to move)
 		int numMatchingAlbums = 0;
@@ -1159,7 +1172,7 @@ public class AlbumImageDao {
 			numMatchingAlbums = albumsCountMap.get(baseName);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getNumMatchingAlbums(" + baseName + "): ", ee);
+			_log.error("AlbumImageDao.getNumMatchingAlbumsFromCache(" + baseName + "): ", ee);
 		}
 
 		return numMatchingAlbums;
@@ -1181,7 +1194,7 @@ public class AlbumImageDao {
 //				//most likely cause
 //				AlbumFormInfo.getInstance ().addServletError ("Error: found image files (" + baseName + ") in wrong folder");
 //			}
-			_log.error("AlbumImageDao.getNumMatchingAlbums(\"" + baseName + "\"): ", ee);
+			_log.error("AlbumImageDao.getNumMatchingAlbumsFromCache(\"" + baseName + "\"): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(5);
@@ -1212,10 +1225,9 @@ public class AlbumImageDao {
 		return albumHasExifData;
 	}
 
-
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
-	private Map<String, Integer> getImageCountsFromImageCounts(String subFolder)
+	private Map<String, Integer> getImageCountsFromImageCountsTable(String subFolder)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -1223,17 +1235,17 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			list = mapper.selectImageCountsFromImageCounts(subFolder);
+			list = mapper.selectImageCountsFromImageCountsTable(subFolder);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImageCountsFromImageCounts(" + subFolder + "): ", ee);
+			_log.error("AlbumImageDao.getImageCountsFromImageCountsTable(" + subFolder + "): ", ee);
 		}
 
 		Map<String, Integer> map = list.stream().collect(Collectors.toMap(AlbumImageCount::getBaseName, AlbumImageCount::getCount));
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumTags.getImageCountsFromImageCounts(" + subFolder + "): map.size() = " + map.size ());
+//		_log.debug ("AlbumTags.getImageCountsFromImageCountsTable(" + subFolder + "): map.size() = " + map.size ());
 
 		return map;
 	}
@@ -1263,7 +1275,26 @@ public class AlbumImageDao {
 
 		return map;
 	}
- */
+*/
+
+	///////////////////////////////////////////////////////////////////////////
+	//used by servlet
+//TODO - convert to use AlbumFileFilter ?
+	public long getAlbumSizeInBytesFromCache(String filter, long unused /*sinceInMillis*/)
+	{
+		long albumSizeInBytes = 0;
+
+		try {
+			String subFolder = getSubFolderFromImageName(filter);
+			Map<String, Long> albumsSizeInBytesMap = _albumAlbumsSizeCache.get(subFolder);
+			albumSizeInBytes = albumsSizeInBytesMap.get(filter);
+
+		} catch (Exception ee) {
+			_log.error("AlbumImageDao.getAlbumSizeInBytesFromCache(" + filter + "): ", ee);
+		}
+
+		return albumSizeInBytes;
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
@@ -1344,7 +1375,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet and AlbumTags CLI
-	public Collection<AlbumImage> getImagesFromImages(String subFolder)
+	public Collection<AlbumImage> getImagesFromImagesTable(String subFolder)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -1352,24 +1383,24 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			list = mapper.selectImagesFromImages(subFolder);
+			list = mapper.selectImagesFromImagesTable(subFolder);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImagesFromImages(" + subFolder + "): ", ee);
+			_log.error("AlbumImageDao.getImagesFromImagesTable(" + subFolder + "): ", ee);
 		}
 
 		list.sort(new AlbumImageComparator(AlbumSortType.ByName));
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getImagesFromImages(" + subFolder + "): list.size() = " + list.size ());
+//		_log.debug ("AlbumImageDao.getImagesFromImagesTable(" + subFolder + "): list.size() = " + list.size ());
 
 		return list;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private boolean insertLastUpdateIntoImageFolder(String subFolder, long updateTimeInMillis)
+	private boolean insertLastUpdateIntoImageFolderTable(String subFolder, long updateTimeInMillis)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -1377,20 +1408,20 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			int rowsAffected = mapper.insertLastUpdateIntoImageFolder(subFolder, new Timestamp(updateTimeInMillis));
+			int rowsAffected = mapper.insertLastUpdateIntoImageFolderTable(subFolder, new Timestamp(updateTimeInMillis));
 			session.commit();
 
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertLastUpdateIntoImageFolder(" + subFolder + "): ", ee);
+			_log.error("AlbumImageDao.insertLastUpdateIntoImageFolderTable(" + subFolder + "): ", ee);
 
 			status = false;
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.insertLastUpdateIntoImageFolder(" + subFolder + "): updateTimeInMillis = " + _dateFormat.format (new java.util.Date (updateTimeInMillis)) + " (" + updateTimeInMillis + ")");
+//		_log.debug ("AlbumImageDao.insertLastUpdateIntoImageFolderTable(" + subFolder + "): updateTimeInMillis = " + _dateFormat.format (new java.util.Date (updateTimeInMillis)) + " (" + updateTimeInMillis + ")");
 
 		return status;
 	}
@@ -1398,7 +1429,7 @@ public class AlbumImageDao {
 /*not currently used
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI - queries images table
-	public long getMaxInsertDateFromImages (String subFolder)
+	public long getMaxInsertDateFromImages(String subFolder)
 	{
 		AlbumProfiling.getInstance ().enter (7, subFolder);
 
@@ -1406,7 +1437,7 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			Timestamp maxInsertDate = mapper.selectMaxInsertDateFromImages (subFolder);
+			Timestamp maxInsertDate = mapper.selectMaxInsertDateFromImagesTable (subFolder);
 			maxInsertMillis = maxInsertDate.getTime ();
 
 		} catch (Exception ee) {
@@ -1423,7 +1454,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumTags CLI - queries image_folder table
-	public long getMaxLastUpdateFromImageFolder()
+	public long getMaxLastUpdateFromImageFolderTable()
 	{
 		AlbumProfiling.getInstance().enter(7);
 
@@ -1431,23 +1462,23 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			Timestamp maxLastUpdateDate = mapper.selectMaxLastUpdateFromImageFolder();
+			Timestamp maxLastUpdateDate = mapper.selectMaxLastUpdateFromImageFolderTable();
 			maxLastUpdateMillis = maxLastUpdateDate.getTime();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getMaxLastUpdateFromImageFolder: ", ee);
+			_log.error("AlbumImageDao.getMaxLastUpdateFromImageFolderTable: ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7);
 
-//		_log.debug ("AlbumImageDao.getMaxLastUpdateFromImageFolder: maxLastUpdateMillis = " + _dateFormat.format (new java.util.Date (maxLastUpdateMillis)) + " (" + maxLastUpdateMillis + ")");
+//		_log.debug ("AlbumImageDao.getMaxLastUpdateFromImageFolderTable: maxLastUpdateMillis = " + _dateFormat.format (new java.util.Date (maxLastUpdateMillis)) + " (" + maxLastUpdateMillis + ")");
 
 		return maxLastUpdateMillis;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet
-	private long getLastUpdateFromImageFolder(String subFolder)
+	private long getLastUpdateFromImageFolderTable(String subFolder)
 	{
 		AlbumProfiling.getInstance().enter(7, subFolder);
 
@@ -1455,23 +1486,23 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			Timestamp lastUpdateDate = mapper.selectLastUpdateFromImageFolder(subFolder);
+			Timestamp lastUpdateDate = mapper.selectLastUpdateFromImageFolderTable(subFolder);
 			lastUpdateMillis = lastUpdateDate.getTime();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getLastUpdateFromImageFolder(" + subFolder + "): ", ee);
+			_log.error("AlbumImageDao.getLastUpdateFromImageFolderTable(" + subFolder + "): ", ee);
 		}
 
 		AlbumProfiling.getInstance().exit(7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getLastUpdateFromImageFolder(" + subFolder + "): lastUpdateMillis = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)) + " (" + lastUpdateMillis + ")");
+//		_log.debug ("AlbumImageDao.getLastUpdateFromImageFolderTable(" + subFolder + "): lastUpdateMillis = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)) + " (" + lastUpdateMillis + ")");
 
 		return lastUpdateMillis;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private Collection<AlbumImageFileDetails> getImageFileDetailsFromImages(String subFolder) //only retrieves nameNoExt, bytes, modified
+	private Collection<AlbumImageFileDetails> getImageFileDetailsFromImagesTable(String subFolder) //only retrieves nameNoExt, bytes, modified
 	{
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
@@ -1479,17 +1510,17 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			list = mapper.selectImageFileDetailsFromImages(subFolder);
+			list = mapper.selectImageFileDetailsFromImagesTable(subFolder);
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.getImageFileDetailsFromImages(" + subFolder + "): ", ee);
+			_log.error("AlbumImageDao.getImageFileDetailsFromImagesTable(" + subFolder + "): ", ee);
 		}
 
 		Collections.sort(list);
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
 
-//		_log.debug ("AlbumImageDao.getImageFileDetailsFromImages(" + subFolder + "): list.size() = " + list.size ());
+//		_log.debug ("AlbumImageDao.getImageFileDetailsFromImagesTable(" + subFolder + "): list.size() = " + list.size ());
 
 		return list;
 	}
@@ -1560,7 +1591,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private boolean insertImageIntoImages(AlbumImage image)
+	private boolean insertImageIntoImagesTable(AlbumImage image)
 	{
 //		AlbumProfiling.getInstance ().enter (7);
 
@@ -1568,13 +1599,13 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			int rowsAffected = mapper.insertImageIntoImages(image);
+			int rowsAffected = mapper.insertImageIntoImagesTable(image);
 			session.commit();
 
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertImageIntoImages(" + image + "): ", ee);
+			_log.error("AlbumImageDao.insertImageIntoImagesTable(" + image + "): ", ee);
 
 			status = false;
 		}
@@ -1586,7 +1617,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private boolean deleteImageFromImages(String subFolder, String nameNoExt)
+	private boolean deleteImageFromImagesTable(String subFolder, String nameNoExt)
 	{
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
@@ -1594,13 +1625,13 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			int rowsAffected = mapper.deleteImageFromImages(subFolder, nameNoExt);
+			int rowsAffected = mapper.deleteImageFromImagesTable(subFolder, nameNoExt);
 			session.commit();
 
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.deleteImageFromImages(" + subFolder + ", " + nameNoExt + "): ", ee);
+			_log.error("AlbumImageDao.deleteImageFromImagesTable(" + subFolder + ", " + nameNoExt + "): ", ee);
 
 			status = false;
 		}
@@ -1612,7 +1643,7 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private int deleteImageCountsFromImageCounts(String subFolder, String baseName)
+	private int deleteImageCountsFromImageCountsTable(String subFolder, String baseName)
 	{
 //		AlbumProfiling.getInstance ().enter (7);
 
@@ -1620,23 +1651,23 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			rowsAffected = mapper.deleteImageCountsFromImageCounts(subFolder, baseName);
+			rowsAffected = mapper.deleteImageCountsFromImageCountsTable(subFolder, baseName);
 			session.commit();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.deleteImageCountsFromImageCounts(" + subFolder + ", " + baseName + "): ", ee);
+			_log.error("AlbumImageDao.deleteImageCountsFromImageCountsTable(" + subFolder + ", " + baseName + "): ", ee);
 		}
 
 //		AlbumProfiling.getInstance ().exit (7);
 
-//		_log.debug ("AlbumImageDao.deleteImageCountsFromImageCounts(\"" + baseName + "\"): " + rowsAffected + " rows deleted");
+//		_log.debug ("AlbumImageDao.deleteImageCountsFromImageCountsTable(\"" + baseName + "\"): " + rowsAffected + " rows deleted");
 
 		return rowsAffected;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private int deleteZeroCountsFromImageCounts()
+	private int deleteZeroCountsFromImageCountsTable()
 	{
 //		AlbumProfiling.getInstance ().enter (7);
 
@@ -1644,23 +1675,23 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			rowsAffected = mapper.deleteZeroCountsFromImageCounts();
+			rowsAffected = mapper.deleteZeroCountsFromImageCountsTable();
 			session.commit();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.deleteZeroCountsFromImageCounts(): ", ee);
+			_log.error("AlbumImageDao.deleteZeroCountsFromImageCountsTable(): ", ee);
 		}
 
 //		AlbumProfiling.getInstance ().exit (7);
 
-		_log.debug("AlbumImageDao.deleteZeroCountsFromImageCounts(): " + rowsAffected + " rows deleted");
+		_log.debug("AlbumImageDao.deleteZeroCountsFromImageCountsTable(): " + rowsAffected + " rows deleted");
 
 		return rowsAffected;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private int deleteMismatchedEntriesFromImageCounts()
+	private int deleteMismatchedEntriesFromImageCountsTable()
 	{
 //		AlbumProfiling.getInstance ().enter (7);
 
@@ -1668,16 +1699,16 @@ public class AlbumImageDao {
 
 		try (SqlSession session = _sqlSessionFactory.openSession()) {
 			AlbumImageMapper mapper = session.getMapper(AlbumImageMapper.class);
-			rowsAffected = mapper.deleteMismatchedEntriesFromImageCounts();
+			rowsAffected = mapper.deleteMismatchedEntriesFromImageCountsTable();
 			session.commit();
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.deleteMismatchedEntriesFromImageCounts(): ", ee);
+			_log.error("AlbumImageDao.deleteMismatchedEntriesFromImageCountsTable(): ", ee);
 		}
 
 //		AlbumProfiling.getInstance ().exit (7);
 
-		_log.debug("AlbumImageDao.deleteMismatchedEntriesFromImageCounts(): " + rowsAffected + " rows deleted");
+		_log.debug("AlbumImageDao.deleteMismatchedEntriesFromImageCountsTable(): " + rowsAffected + " rows deleted");
 
 		return rowsAffected;
 	}
@@ -1721,7 +1752,7 @@ public class AlbumImageDao {
 		return pattern.matcher(filename).matches();
 	}
 
-		///////////////////////////////////////////////////////////////////////////
+	///////////////////////////////////////////////////////////////////////////
 	//used by CLI and servlet
 	//returns comma separated list of indexes that have true in the passed-in List
 	private static String getMatchList (List<Boolean> hasMatches)
@@ -1739,9 +1770,12 @@ public class AlbumImageDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//each subfolder can be paused independently
 	private void handlePauseAction (String subFolder)
 	{
-//NO; won't work: TODO rewrite this to have watcher on file that sets boolean
+//Notes: this only works if you create the pause file in the actual image subfolder. For example: touch %PR_ROOT%\jroot\qa\albumServer.pause.txt
+
+//NO; won't work: TODO rewrite this to have watcher on file (perhaps in PR_ROOT?)
 
 		final Path pauseFilePath = Paths.get(_rootPath, _pauseFilename);
 		if (fileExists (pauseFilePath)) {
@@ -1850,7 +1884,7 @@ public class AlbumImageDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//used by CLI
+	//used by CLI and servlet (AlbumImageServer)
 	private static class AlbumImageEvent
 	{
 		///////////////////////////////////////////////////////////////////////////
@@ -1859,6 +1893,49 @@ public class AlbumImageDao {
 			_timestamp = new GregorianCalendar ().getTimeInMillis ();
 			_dir = dir;
 			_pathEvent = pathEvent;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		AlbumImageEvent (AlbumImageEvent albumImageEvent)
+		{
+			_timestamp = albumImageEvent.getTimestamp();
+			_dir = albumImageEvent.getDir();
+			_pathEvent = albumImageEvent.getPathEvent();
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		//avoid bug/undesired behavior in Windows where we get a series of events when only one is necessary
+		//for example: ENTRY_CREATE then one or more ENTRY_MODIFY for the same file almost instantaneously
+		public boolean isRedundantEvent(AlbumImageEvent previousAlbumImageEvent)
+ 		{
+			if (previousAlbumImageEvent == null) {
+				return false;
+			}
+
+			if (!getNormalizedPath().equals(previousAlbumImageEvent.getNormalizedPath())) {
+				return false;
+			}
+
+			final long maxTimeDiff = 5; //millisecs
+			if (getTimestamp() - previousAlbumImageEvent.getTimestamp() > maxTimeDiff) {
+				return false;
+			}
+
+			if (StandardWatchEventKinds.ENTRY_MODIFY.equals(getPathEvent().kind()) &&
+					(StandardWatchEventKinds.ENTRY_MODIFY.equals(previousAlbumImageEvent.getPathEvent().kind()) ||
+					 StandardWatchEventKinds.ENTRY_CREATE.equals(previousAlbumImageEvent.getPathEvent().kind()))) {
+				return true;
+			}
+
+			return false;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		@Override
+		public String toString() {
+			return getPathEvent().kind().name() + ", " +
+				   getNormalizedPath() + ", " +
+				   getTimestamp();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1871,6 +1948,14 @@ public class AlbumImageDao {
 		public Path getDir ()
 		{
 			return _dir;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public Path getNormalizedPath ()
+		{
+			Path file = getPathEvent().context();
+			Path path = getDir().resolve(file);
+			return path.normalize();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1941,10 +2026,17 @@ public class AlbumImageDao {
 	private static final Map<String, Thread> _handlerThreadMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
 	private static final Map<String, Thread> _watcherThreadMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
 
-	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<> (_estimatedNumberOfSubFolders);
-	private static final Map<String, Map<String, Integer>> _albumImagesCountCache = new HashMap<> (_estimatedNumberOfSubFolders);
-	private static final Map<String, Map<String, Integer>> _albumAlbumsCountCache = new HashMap<> (_estimatedNumberOfSubFolders);
-	private static final Map<String, Map<String, Boolean>> _albumImagesHasExifDataCache = new HashMap<> (_estimatedNumberOfSubFolders);
+	private static final Map<String, AlbumImagesData> _albumImagesDataCache = new HashMap<> (_estimatedNumberOfSubFolders); //filled by getImagesFromCache()
+
+	//key = subfolder, value => Map with key of [Fh, Fh01, Fh02] and value of image count for each
+	private static final Map<String, Map<String, Integer>> _albumImagesCountCache = new HashMap<> (_estimatedNumberOfSubFolders); //filled by getImagesFromCache()
+	//key = subfolder, value => Map with key of [Fh only] and value of album count
+	private static final Map<String, Map<String, Integer>> _albumAlbumsCountCache = new HashMap<> (_estimatedNumberOfSubFolders); //filled by getImagesFromCache()
+
+	//key = subfolder, value => Map with key of [Fh, Fh01, Fh02] and value of sum of image sizes in bytes for each
+	private static final Map<String, Map<String, Long>> _albumAlbumsSizeCache = new HashMap<> (_estimatedNumberOfSubFolders); //filled by getImagesFromCache()
+
+	private static final Map<String, Map<String, Boolean>> _albumImagesHasExifDataCache = new HashMap<> (_estimatedNumberOfSubFolders); //filled by getImagesFromCache()
 
 	private static final Map<String, String> _servletMisFiledImageErrorsMap = new ConcurrentHashMap<> (_estimatedNumberOfSubFolders);
 

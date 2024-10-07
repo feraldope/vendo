@@ -659,12 +659,12 @@ public class AlbumImageDiffer
 
 			AlbumProfiling.getInstance ().enterAndTrace (5, "part3");
 
-			items = selectNamesFromImagesFS (names);
+			items = selectNamesFromImagesTableFS (names);
 
 			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
 
 			if (items.isEmpty ()) {
-				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesFS");
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesTableFS");
 			}
 
 			AlbumProfiling.getInstance ().exit (5, "part3");
@@ -673,12 +673,12 @@ public class AlbumImageDiffer
 
 			AlbumProfiling.getInstance ().enterAndTrace (5, "part2");
 
-			items = selectNamesFromImagesDB (baseNames);
+			items = selectNamesFromImagesTableDB (baseNames);
 
 			_log.debug ("AlbumImageDiffer.queryImageIdsTags: items.size(): " + items.size ());
 
 			if (items.isEmpty ()) {
-				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesDB");
+				_log.error ("AlbumImageDiffer.queryImageIdsTags: no items returned from selectNamesFromImagesTableDB");
 			}
 
 			AlbumProfiling.getInstance ().exit (5, "part2");
@@ -704,7 +704,7 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	public Collection<AlbumImageData> selectNamesFromImagesFS (Collection<String> names)
+	public Collection<AlbumImageData> selectNamesFromImagesTableFS (Collection<String> names)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
@@ -716,16 +716,16 @@ public class AlbumImageDiffer
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			items = mapper.selectNamesFromImages (names);
+			items = mapper.selectNamesFromImagesTable (names);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImagesFS(\"" + names + "\"): ", ee);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesTableFS(\"" + names + "\"): ", ee);
 		}
 
 		AlbumProfiling.getInstance ().exit (5);
 
 //		for (AlbumImageData item : items) {
-//			_log.debug ("AlbumImageDiffer.selectNamesFromImagesFS: " + item);
+//			_log.debug ("AlbumImageDiffer.selectNamesFromImagesTableFS: " + item);
 //		}
 
 		return items;
@@ -733,7 +733,7 @@ public class AlbumImageDiffer
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by AlbumImageDiffer CLI
-	private Collection<AlbumImageData> selectNamesFromImagesDB (Collection<String> baseNames)
+	private Collection<AlbumImageData> selectNamesFromImagesTableDB (Collection<String> baseNames)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
@@ -763,8 +763,8 @@ public class AlbumImageDiffer
 			}
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB:", ee);
-			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: sql:" + NL + sql);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesTableDB:", ee);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesTableDB: sql:" + NL + sql);
 
 		} finally {
 			if (rs != null) {
@@ -773,7 +773,7 @@ public class AlbumImageDiffer
 		}
 
 		if (items.isEmpty ()) {
-			_log.error ("AlbumImageDiffer.selectNamesFromImagesDB: no rows found for query:" + NL + sql);
+			_log.error ("AlbumImageDiffer.selectNamesFromImagesTableDB: no rows found for query:" + NL + sql);
 		}
 
 		AlbumProfiling.getInstance ().exit (5);
@@ -793,7 +793,7 @@ public class AlbumImageDiffer
 //
 //		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 //			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-//			list = mapper.selectAllImagesFromImageDiffs ();
+//			list = mapper.selectAllImagesFromImageDiffsTable ();
 //
 //		} catch (Exception ee) {
 //			_log.error ("AlbumImageDiffer.getAllImagesFromImageDiffs(): ", ee);
@@ -835,7 +835,7 @@ public class AlbumImageDiffer
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			list = mapper.selectImagesFromImageDiffs (nameIds);
+			list = mapper.selectImagesFromImageDiffsTable (nameIds);
 
 		} catch (Exception ee) {
 			_log.error ("AlbumImageDiffer.getImagesFromImageDiffs(): ", ee);
@@ -1073,10 +1073,10 @@ public class AlbumImageDiffer
 
 		try (SqlSession session = _sqlSessionFactory.openSession ()) {
 			AlbumImageMapper mapper = session.getMapper (AlbumImageMapper.class);
-			maxNameIdFromImages = mapper.selectMaxNameIdFromImages ();
+			maxNameIdFromImages = mapper.selectMaxNameIdFromImagesTable ();
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDiffer.selectMaxNameIdFromImages(): ", ee);
+			_log.error ("AlbumImageDiffer.selectMaxNameIdFromImagesTable(): ", ee);
 		}
 
 		AlbumProfiling.getInstance ().exit (5);

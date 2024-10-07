@@ -1247,8 +1247,8 @@ public class GetUri
 			double totalBitsPerSec = 8 * totalBytes / totalSeconds;
 
 			_log.debug (_records.size () + " items downloaded, " +
-						VendoUtils.unitSuffixScale (totalBytes, 0) + ", " +
-						VendoUtils.unitSuffixScale (totalBitsPerSec, 0) + "ps average");
+						VendoUtils.unitSuffixScaleBytes(totalBytes, 0) + ", " +
+						VendoUtils.unitSuffixScaleBytes(totalBitsPerSec, 0) + "ps average");
 
 			System.out.println (""); //print blank line on output
 		}
@@ -1283,8 +1283,8 @@ public class GetUri
 		public String toString2 ()
 		{
 			return _filename + ", " +
-				   VendoUtils.unitSuffixScale (_bytesRead, 0) + ", " +
-				   VendoUtils.unitSuffixScale (_bitsPerSec, 0) + "ps";
+				   VendoUtils.unitSuffixScaleBytes(_bytesRead, 0) + ", " +
+				   VendoUtils.unitSuffixScaleBytes(_bitsPerSec, 0) + "ps";
 		}
 
 		public final String _filename;

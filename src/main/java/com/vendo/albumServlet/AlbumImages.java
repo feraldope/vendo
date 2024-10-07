@@ -871,7 +871,7 @@ public class AlbumImages
 //TODO - fix this - does not handle situation when endedEarly
 			long elapsedNanos = Duration.between (startInstant, Instant.now ()).toNanos ();
 			double pairsPerSecond = (double) imageDisplayList1.size() * (double) imageDisplayList2.size() / ((double) elapsedNanos / 1e9);
-			String message = "rate = " + VendoUtils.unitSuffixScale(pairsPerSecond) + "ps (" +
+			String message = "rate = " + VendoUtils.unitSuffixScale(pairsPerSecond, " pairs/second") + " (" +
 					_decimalFormat0.format ((long) imageDisplayList1.size() * imageDisplayList2.size()) + " / " +
 					_decimalFormat1.format ((double) elapsedNanos / 1e9) + " seconds)";
 			_log.debug("AlbumImages.doDup: " + message);
@@ -1380,7 +1380,7 @@ public class AlbumImages
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
-		//get baseNames to reduce number of calls to getNumMatchingImages() below (only call once per album, instead of once per image)
+		//get baseNames to reduce number of calls to getNumMatchingImagesFromCache() below (only call once per album, instead of once per image)
 		List<String> baseNames = _imageDisplayList.stream()
 												   .filter(i -> {
 														String imageDigits = i.getName().replaceAll(".*\\d-", "");
@@ -1392,7 +1392,7 @@ public class AlbumImages
 												   .collect(Collectors.toList ());
 
 		Set<String> baseNamesTooLarge = baseNames.stream()
-												 .filter(i -> AlbumImageDao.getInstance ().getNumMatchingImages(i, 0) > minImagesToFlagAsLargeAlbum)
+												 .filter(i -> AlbumImageDao.getInstance ().getNumMatchingImagesFromCache(i, 0) > minImagesToFlagAsLargeAlbum)
 												 .collect(Collectors.toSet());
 
 		_imageDisplayList = _imageDisplayList.stream()
@@ -1806,7 +1806,7 @@ public class AlbumImages
 
 			slice = 1;
 			_form.setSlice (slice);
-			start = 0; //(slice - 1) * (rows * cols);
+			start = 0;
 			end = start + (rows * cols);
 		}
 
@@ -1816,6 +1816,18 @@ public class AlbumImages
 
 		long highlightInMillis = _form.getHighlightInMillis (true);
 		String highlightStr = highlightInMillis > 0 ? " (highlight " + _dateFormat.format (new Date (highlightInMillis)) + ")" : "";
+
+		String albumSizeInBytesStr;
+		{
+			AlbumProfiling.getInstance().enter(5, "albumSize");
+
+			long albumSizeInBytes;
+			Map<String, List<AlbumImage>> nameMap = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(collapseGroups)));
+			albumSizeInBytes = nameMap.keySet().stream().parallel().map(f -> AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(f, 0)).mapToLong(Long::longValue).sum();
+			albumSizeInBytesStr = " (" + VendoUtils.unitSuffixScaleBytes(albumSizeInBytes) + ") ";
+
+			AlbumProfiling.getInstance().exit(5, "albumSize");
+		}
 
 		String pageLinksHtml = generatePageLinks () + _spacing;
 
@@ -1846,6 +1858,7 @@ public class AlbumImages
 				.append (numSlices)
 				.append (numSlices == 1 ? " slice)": " slices)")
 				.append (sinceStr)
+				.append (albumSizeInBytesStr)
 				.append (highlightStr)
 				.append ("</NOBR>")
 				.append (tagsMarker)
@@ -1895,6 +1908,7 @@ public class AlbumImages
 //			imageHeight = _form.getWindowHeight () - 60; //for 1440p
 			imageHeight = _form.getWindowHeight () - 80; //for 2160p (4k)
 		}
+
 		if (isAndroidDevice) {
 			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", tableWidth = " + tableWidth + ", imageWidth = " + imageWidth + ", imageHeight = " + imageHeight);
 			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", form.windowWidth = " + _form.getWindowWidth() + ", form.windowHeight = " + _form.getWindowHeight());
@@ -2001,8 +2015,8 @@ public class AlbumImages
 
 					int newCols = defaultCols;
 					if (collapseGroups) {
-						if (AlbumImageDao.getInstance ().getNumMatchingImages (image.getBaseName (false), sinceInMillis) !=
-							AlbumImageDao.getInstance ().getNumMatchingImages (image.getBaseName (true), sinceInMillis)) {
+						if (AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (image.getBaseName (false), sinceInMillis) !=
+							AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (image.getBaseName (true), sinceInMillis)) {
 							newMode = AlbumMode.DoSampler;
 							newCols = _form.getColumns ();
 							limitedCompare = true;
@@ -2047,8 +2061,10 @@ public class AlbumImages
 					hasExifDates = AlbumImageDao.getInstance().getAlbumHasExifData(imageName, sinceInMillis);
 
 					details.append ("(")
-							.append (collapseGroups ? AlbumImageDao.getInstance ().getNumMatchingAlbums(imageName, sinceInMillis) + ":" : "")
-							.append (AlbumImageDao.getInstance ().getNumMatchingImages (imageName, sinceInMillis))
+							.append (collapseGroups ? AlbumImageDao.getInstance ().getNumMatchingAlbumsFromCache(imageName, sinceInMillis) + ":" : "")
+							.append (AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (imageName, sinceInMillis))
+							.append("/")
+							.append (VendoUtils.unitSuffixScaleBytes(AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0)))
 							.append (")")
 							.append (hasExifDates ? "*" : "");
 
@@ -2131,8 +2147,8 @@ public class AlbumImages
 					}
 
 					//set columns from image/partner that comes first alphabetically
-					int imageCols = AlbumImageDao.getInstance ().getNumMatchingImages (imageNonUniqueString, 0);
-					int partnerCols = AlbumImageDao.getInstance ().getNumMatchingImages (partnerNonUniqueString, 0);
+					int imageCols = AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (imageNonUniqueString, 0);
+					int partnerCols = AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (partnerNonUniqueString, 0);
 //					int newCols = (imageName.compareToIgnoreCase (partner.getName ()) < 0 ? imageCols : partnerCols);
 //					int newCols = 8; //HACK - TODO for now hardcode to 8
 					int newCols = _form.getColumns(); //HACK - is this right?
@@ -2149,6 +2165,8 @@ public class AlbumImages
 							.append (imageCols)
 							.append ("/")
 							.append (image.getScaleString ())
+							.append ("/")
+							.append (VendoUtils.unitSuffixScaleBytes(image.getNumBytes()))
 							.append (")")
 //							.append (hasExifDates ? "*" : "");
 							.append (image.hasExifDate() ? "*" : "");
@@ -2168,6 +2186,8 @@ public class AlbumImages
 					imageName = image.getName ();
 					details.append ("(")
 							.append (image.getScaleString ())
+							.append ("/")
+							.append (VendoUtils.unitSuffixScaleBytes(image.getNumBytes()))
 							.append (")");
 
 					if (cols <= 3) { //hardcoded
@@ -2240,7 +2260,7 @@ public class AlbumImages
 						.append ("<A HREF=\"")
 						.append (href)
 						.append ("\" ").append(NL)
-						.append ("title=\"").append (image.toString (true, collapseGroupsForTags)).append (extraDiffString)
+						.append ("title=\"").append (image.toString (true, mode, collapseGroupsForTags)).append (extraDiffString)
 						.append ("\" target=_blank>").append (NL)
 //				 		.append ("\" target=view>").append (NL)
 
@@ -3233,7 +3253,7 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 			//size in pixels distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
 			List<String> pixelsDist = new ArrayList<>();
 			Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
-					.collect(Collectors.groupingBy(AlbumImage::getPixelsAsString));
+					.collect(Collectors.groupingBy(i -> i.getPixelsAsString() + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")")); //"P" for Pixels));
 			pixelsDist.add("Top " + maxItemsToPrint + " largest by pixels");
 			pixelMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
 					.forEach(p -> pixelsDist.add(p + " -> " + pixelMap.get(p).size() + " images")
@@ -3250,14 +3270,14 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 					.forEach(b -> bytesDist.add((VendoUtils.roundUp(b, roundToKB) / 1024) + "KB -> " + bytesMap.get(b).size() + " images")
 			);
 
-			final int width = 30; //TODO - calculate from data
+			final int[] fieldWidths = {30, 35, 30}; //TODO - calculate from data
 
 			maxItemsToPrint = Math.max(dateDist.size(), Math.max(pixelsDist.size(), bytesDist.size()));
 			for (int ii = 0; ii < maxItemsToPrint; ii++) {
 				sb.append(NL);
-				sb.append(String.format("%-" + width + "s", ii < dateDist.size() ? dateDist.get(ii) : " "));
-				sb.append(String.format("%-" + width + "s", ii < pixelsDist.size() ? pixelsDist.get(ii) : " "));
-				sb.append(String.format("%-" + width + "s", ii < bytesDist.size() ? bytesDist.get(ii) : " "));
+				sb.append(String.format("%-" + fieldWidths[0] + "s", ii < dateDist.size() ? dateDist.get(ii) : " "));
+				sb.append(String.format("%-" + fieldWidths[1] + "s", ii < pixelsDist.size() ? pixelsDist.get(ii) : " "));
+				sb.append(String.format("%-" + fieldWidths[2] + "s", ii < bytesDist.size() ? bytesDist.get(ii) : " "));
 			}
 
 			AlbumProfiling.getInstance().exit(5);

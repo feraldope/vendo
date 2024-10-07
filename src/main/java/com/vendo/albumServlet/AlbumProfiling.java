@@ -51,9 +51,9 @@ public class AlbumProfiling
 		//TODO - these should be set by caller, not hardcoded
 		_ignorableRecords.add(new ProfileIgnorableRecord (".*doDir.*accept.*loop.*", 10));
 		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImagesFromCache.*", 10));
-		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImagesFromImages.*", 10));
-		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImageCountsFromImageCounts.*", 10));
-		_ignorableRecords.add(new ProfileIgnorableRecord (".*getLastUpdateFromImageFolder.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImagesFromImagesTable.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getImageCountsFromImageCountsTable.*", 10));
+		_ignorableRecords.add(new ProfileIgnorableRecord (".*getLastUpdateFromImageFolderTable.*", 10));
 	}
 
 	///////////////////////////////////////////////////////////////////////////

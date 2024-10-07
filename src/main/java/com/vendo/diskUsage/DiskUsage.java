@@ -159,7 +159,7 @@ public class DiskUsage
 	private boolean run ()
 	{
 		System.out.println ("Root folder: " + VendoUtils.getRealPathString (_rootFolder));
-		System.out.println ("Threshold: " + VendoUtils.unitSuffixScale (_threshold));
+		System.out.println ("Threshold: " + VendoUtils.unitSuffixScaleBytes(_threshold));
 
 		Instant startInstant = Instant.now ();
 

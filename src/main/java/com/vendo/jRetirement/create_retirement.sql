@@ -7,9 +7,25 @@ mysql -u root -proot retirement -e "show tables"
 mysql -u root -proot retirement -e "describe retirement"
 
 REM testing
-select * from retirement order by downloaded_timestamp
-select count(*) from retirement.retirement
-select downloaded_timestamp, count(*) from retirement group by downloaded_timestamp order by downloaded_timestamp
+select * from retirement order by downloaded_timestamp, account_number
+select count(*) from retirement
+-- summary
+select downloaded_timestamp, count(*), sum(value), sum(value) - sum(cost_basis) as gain from retirement group by downloaded_timestamp order by downloaded_timestamp
+
+select * from retirement where symbol = 'VGHCX' order by downloaded_timestamp, account_number
+
+-- query all 'Pending Activity'
+select downloaded_timestamp, 
+symbol, 
+-- description,
+SUM(value), count(*) 
+from retirement 
+where symbol like 'Pending%'
+-- where symbol = 'VGHAX'
+-- where symbol = 'VIG'
+-- where (description like '%Money%' OR symbol like '%Pending%')
+group by downloaded_timestamp, symbol 
+order by downloaded_timestamp, symbol
 
 REM cleanup after testing
 mysql -u root -proot retirement -e "delete from retirement"
@@ -37,3 +53,18 @@ CREATE INDEX symbol_idx               on retirement (symbol);
 
 SHOW COLUMNS FROM retirement;
 SHOW INDEX FROM retirement;
+
+
+/*
+
+-- show duplicate data
+select date(r.downloaded_timestamp) as date, r.* from retirement r
+where date(r.downloaded_timestamp) = '2024-10-01'
+order by r.symbol, account_name
+
+--delete duplicate data
+--delete from retirement where date(downloaded_timestamp) = '2024-10-02'
+
+select * from retirement where account_name like 'Individual - TOD'
+
+*/
