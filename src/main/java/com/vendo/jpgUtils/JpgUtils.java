@@ -1,6 +1,7 @@
 package com.vendo.jpgUtils;
 
 import com.sun.image.codec.jpeg.JPEGCodec;
+import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VUncaughtExceptionHandler;
 import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
@@ -22,24 +23,24 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
-public class JpgUtils
-{
+public class JpgUtils {
+
 	///////////////////////////////////////////////////////////////////////////
-	static
-	{
+	static {
 		Thread.setDefaultUncaughtExceptionHandler (new VUncaughtExceptionHandler ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String args[])
-	{
+	public static void main (String[] args) {
 		JpgUtils app = new JpgUtils ();
 
 		if (!app.processArgs (args)) {
@@ -50,8 +51,7 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
-	{
+	private Boolean processArgs (String[] args) {
 		for (int ii = 0; ii < args.length; ii++) {
 			System.out.println ("arg" + ii + " = <" + args[ii] + ">");
 		}
@@ -76,7 +76,19 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("height") || arg.equalsIgnoreCase ("h")) {
 					try {
 						_desiredHeight = Integer.parseInt (args[++ii]);
-						if (_desiredHeight < 0) {
+						if (_desiredHeight <= 0) {
+							throw (new NumberFormatException ());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("megaPixels") || arg.equalsIgnoreCase ("mp")) {
+					try {
+						_desiredMegaPixels = Double.parseDouble (args[++ii]);
+						if (_desiredMegaPixels <= 0) {
 							throw (new NumberFormatException ());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -88,7 +100,7 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("minimumHeight") || arg.equalsIgnoreCase ("minh")) {
 					try {
 						_minimumHeight = Integer.parseInt (args[++ii]);
-						if (_minimumHeight < 0) {
+						if (_minimumHeight <= 0) {
 							throw (new NumberFormatException ());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -100,7 +112,19 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("minimumWidth") || arg.equalsIgnoreCase ("minw")) {
 					try {
 						_minimumWidth = Integer.parseInt (args[++ii]);
-						if (_minimumWidth < 0) {
+						if (_minimumWidth <= 0) {
+							throw (new NumberFormatException ());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
+				} else if (arg.equalsIgnoreCase ("numthreads") || arg.equalsIgnoreCase ("threads")) {
+					try {
+						_numThreads = Integer.parseInt (args[++ii]);
+						if (_numThreads < 0) {
 							throw (new NumberFormatException ());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -114,8 +138,8 @@ public class JpgUtils
 
 				} else if (arg.equalsIgnoreCase ("scalePercent") || arg.equalsIgnoreCase ("sc")) {
 					try {
-						_scalePercent = Float.parseFloat (args[++ii]);
-						if (_scalePercent < 0) {
+						_scalePercent = Double.parseDouble (args[++ii]);
+						if (_scalePercent <= 0) {
 							throw (new NumberFormatException ());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -141,7 +165,7 @@ public class JpgUtils
 				} else if (arg.equalsIgnoreCase ("width") || arg.equalsIgnoreCase ("w")) {
 					try {
 						_desiredWidth = Integer.parseInt (args[++ii]);
-						if (_desiredWidth < 0) {
+						if (_desiredWidth <= 0) {
 							throw (new NumberFormatException ());
 						}
 					} catch (ArrayIndexOutOfBoundsException exception) {
@@ -181,8 +205,8 @@ public class JpgUtils
 		}
 
 		if (!_queryMode) {
-			if (_scalePercent < 0 && _desiredWidth < 0 && _desiredHeight < 0) {
-				displayUsage ("must specify width, height, or scale", true);
+			if (_scalePercent <= 0 && _desiredWidth <= 0 && _desiredHeight <= 0 && _desiredMegaPixels <= 0) {
+				displayUsage ("must specify width, height, scale, or megaPixels", true);
 			}
 		}
 
@@ -206,21 +230,20 @@ public class JpgUtils
 			displayUsage ("<destDir> '" + _destDir + "' does not exist", true);
 		}
 
-//TODO - fail on illegal combos of /w /h /sc
+//TODO - fail on illegal combos of /w /h /sc /mp
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
-		String msg = new String ();
+	private void displayUsage (String message, Boolean exit) {
+		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
 
 //TODO
-		msg += "Usage: " + _AppName + " [/debug] [/destDir] [/sourceDir] [/height] [/width] [/minimumHeight] [/minimumWidth] [/query] [/scalePercent] [/suffix] <wildname>";
+		msg += "Usage: " + _AppName + " [/debug] [/threads <num threads>] [/destDir] [/sourceDir] [/height] [/width] [/minimumHeight] [/minimumWidth] [/query] [/scalePercent] [/suffix] <wildname>";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -230,17 +253,16 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean debugInfo ()
-	{
-		List<String> formatNames = new ArrayList<String> ();
+	private boolean debugInfo () {
+		List<String> formatNames = new ArrayList<> ();
 		formatNames.addAll (Arrays.asList (ImageIO.getReaderFormatNames ()));
-		Collections.sort (formatNames, VendoUtils.caseInsensitiveStringComparator);
+		formatNames.sort(VendoUtils.caseInsensitiveStringComparator);
 //		System.out.println ("Output from ImageIO.getReaderFormatNames(): " + VendoUtils.arrayToString (formatNames.toArray (new String[] {})));
 		System.out.println ("Output from ImageIO.getReaderFormatNames(): " + formatNames);
 
 		formatNames.clear ();
 		formatNames.addAll (Arrays.asList (ImageIO.getWriterFormatNames ()));
-		Collections.sort (formatNames, VendoUtils.caseInsensitiveStringComparator);
+		formatNames.sort(VendoUtils.caseInsensitiveStringComparator);
 //		System.out.println ("Output from ImageIO.getWriterFormatNames(): " + VendoUtils.arrayToString (formatNames.toArray (new String[] {})));
 		System.out.println ("Output from ImageIO.getWriterFormatNames(): " + formatNames);
 
@@ -248,8 +270,7 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean run ()
-	{
+	private boolean run () {
 		if (_Debug) {
 			_log.trace ("JpgUtils.run");
 		}
@@ -272,11 +293,14 @@ public class JpgUtils
 		}
 
 		final CountDownLatch endGate = new CountDownLatch (filenames.length);
+		final AtomicInteger numImagesCompressed = new AtomicInteger(0);
 
 		for (final String filename : filenames) {
 			Runnable task = () -> {
 				Thread.currentThread ().setName (filename);
-				compressFile(filename);
+				if (compressFile(filename)) { //compressFile prints filename and image stats
+					numImagesCompressed.getAndIncrement();
+				}
 				endGate.countDown();
 			};
 			getExecutor ().execute (task);
@@ -290,20 +314,44 @@ public class JpgUtils
 
 		shutdownExecutor ();
 
+		if (numImagesCompressed.get() == 0) {
+			System.err.println (_AppName + ": Error: no images compressed");
+			return false;
+		}
+
+		if (!_skippedImages.isEmpty()) {
+			System.out.println();
+			System.out.println("Skipped images:");
+			_skippedImages.forEach(System.out::println);
+
+			System.out.println();
+			System.out.println ("Number of images total = " + filenames.length);
+			System.out.println ("Number of images skipped = " + _skippedImages.size());
+		} else {
+			System.out.println ();
+		}
+
+		System.out.println ("Number of images compressed = " + numImagesCompressed.get());
+		_inImageAttributesStats.print();
+		_outImageAttributesStats.print();
+
+		System.out.println ("Input bytes total = " + VendoUtils.unitSuffixScaleBytes(_inImageAttributesStats.getTotalBytes()));
+		System.out.println ("Output bytes total = " + VendoUtils.unitSuffixScaleBytes(_outImageAttributesStats.getTotalBytes()));
+
+		double totalCompression = (double) _inImageAttributesStats.getTotalBytes() / (double) _outImageAttributesStats.getTotalBytes();
+		System.out.println ("Total compression = " + _decimalFormat1.get ().format (totalCompression) + ":1");
+
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean compressFile (String filename)
-	{
+	private boolean compressFile (String filename) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.compressFile(" + filename + ")");
 		}
 
 		String infilePath = _sourceDir + filename;
 		String outfilePath = generateOutfilePath (_destDir + filename, _nameSuffix);
-//		if (_Debug)
-//			System.out.println (infilePath);
 
 		if (outfilePath.compareToIgnoreCase (infilePath) == 0) {
 			_log.error ("JpgUtils.compressFile: output file name '" + outfilePath + "' is the same as input file name (need to specify /suffix)");
@@ -315,14 +363,40 @@ public class JpgUtils
 			return false;
 		}
 
-//		if (_Debug)
-//			System.out.println (outfilePath);
-
 		//if either one of these is less than 0, it directs the scaler to maintain the aspect ratio
 		int newWidth = -1;
 		int newHeight = -1;
 
-		if (_desiredWidth > 0 || _desiredHeight > 0) {
+		if (_desiredMegaPixels > 0) {
+			ImageAttributes imageAttributes = getImageAttributes (infilePath);
+			double currentMegaPixels =  (double) imageAttributes._width * (double) imageAttributes._height / 1e6;
+
+			if (currentMegaPixels < (4 * _desiredMegaPixels / 3)) {
+				_skippedImages.add(imageAttributes);
+				_log.warn ("skip compressing '" + infilePath + "' because smaller than min desired MP");
+
+
+				//skip file: if the src and dst files are not the same, copy the file
+				Path srcPath = FileSystems.getDefault ().getPath (infilePath);
+				Path dstPath = FileSystems.getDefault ().getPath (outfilePath);
+				if (srcPath.compareTo (dstPath) != 0) {
+					try {
+						Files.copy (srcPath, dstPath);
+
+					} catch (Exception ee) {
+						_log.error ("JpgUtils.compressFile: Files.copy failed to copy '" + infilePath + "' to '" + outfilePath + "'");
+						_log.error (ee);
+					}
+				}
+
+				return false;
+			}
+
+			VPair<Integer, Integer> newDimensions = calculateDesiredDimensions(imageAttributes, _desiredMegaPixels);
+			newWidth = newDimensions.getFirst();
+			newHeight = newDimensions.getSecond();
+
+		} else if (_desiredWidth > 0 || _desiredHeight > 0) {
 			newWidth = _desiredWidth;
 			newHeight = _desiredHeight;
 
@@ -369,28 +443,28 @@ public class JpgUtils
 		if (status) {
 			ImageAttributes inImageAttributes = getImageAttributes (infilePath);
 			ImageAttributes outImageAttributes = getImageAttributes (outfilePath);
-			double compression = (double) inImageAttributes._bytes / (double) outImageAttributes._bytes;
+			double compression = (double) inImageAttributes.getNumBytesOnDisk() / (double) outImageAttributes.getNumBytesOnDisk();
 
-			System.out.println (outImageAttributes + ", compression = " + _decimalFormat.get ().format (compression) + ":1");
+			System.out.println (outImageAttributes + ", compression = " + _decimalFormat1.get ().format (compression) + ":1");
+
+			synchronized (_inImageAttributesStats) {
+				_inImageAttributesStats.add(inImageAttributes);
+			}
+			synchronized (_outImageAttributesStats) {
+				_outImageAttributesStats.add(outImageAttributes);
+			}
 		}
 
 		return status;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String[] getFileList (String dirName, final String nameWild)
-	{
+	public static String[] getFileList (String dirName, final String nameWild) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.getFileList(" + dirName + ", " + nameWild + ")");
 		}
-
 		//for simple dir listings, it looks like java.io package is faster than java.nio
-		FilenameFilter filenameFilter = new FilenameFilter () {
-			@Override
-			public boolean accept (File dir, String name) {
-				return VendoUtils.matchPattern (name, nameWild);
-			}
-		};
+		FilenameFilter filenameFilter = (dir, name) -> VendoUtils.matchPattern (name, nameWild);
 
 		File dir = new File (dirName);
 		String[] filenames = dir.list (filenameFilter);
@@ -400,8 +474,7 @@ public class JpgUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//tries to read image from file, using fastest (hopefully) to slowest method
-	public static BufferedImage readImage (File file)
-	{
+	public static BufferedImage readImage (File file) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.readImage(" + file + ")");
 		}
@@ -447,8 +520,7 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean generateScaledImage (String inFilename, String outFilename, int desiredWidth, int desiredHeight)
-	{
+	public static boolean generateScaledImage (String inFilename, String outFilename, int desiredWidth, int desiredHeight) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.generateScaledImage(" + inFilename + ", " + outFilename + ", " + desiredWidth + ", " + desiredHeight + ")");
 		}
@@ -485,8 +557,7 @@ public class JpgUtils
 	//original from: http://www.exampledepot.com/egs/java.awt.image/Image2Buf.html
 	//
 	// This method returns a BufferedImage with the contents of an image
-	public static BufferedImage toBufferedImage(Image image)
-	{
+	public static BufferedImage toBufferedImage(Image image) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.toBufferedImage(" + image + ")");
 		}
@@ -540,8 +611,7 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean setFileDateTime (String infilePath, String outfilePath)
-	{
+	private static boolean setFileDateTime (String infilePath, String outfilePath) {
 		File infile = new File (infilePath);
 		File outfile = new File (outfilePath);
 
@@ -556,19 +626,17 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static boolean fileExists (String filename)
-	{
+	private static boolean fileExists (String filename) {
 		Path file = FileSystems.getDefault ().getPath (filename);
 
 		return Files.exists (file);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String getRealPath (String filename)
-	{
+	private static String getRealPath (String filename) {
 		Path path = FileSystems.getDefault ().getPath (filename);
 
-		String file = new String ();
+		String file;
 
 		try {
 			file = path.toRealPath ().toString ();
@@ -585,16 +653,14 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String getCurrentDirectory ()
-	{
+	private static String getCurrentDirectory () {
 		Path path = FileSystems.getDefault ().getPath ("");
 
 		return getRealPath (path.toString ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String appendSlash (String dir) //append slash if necessary
-	{
+	private static String appendSlash (String dir) { //append slash if necessary
 		int lastChar = dir.charAt (dir.length () - 1);
 		if (lastChar != '/' && lastChar != '\\') {
 			dir += _slash;
@@ -605,8 +671,7 @@ public class JpgUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//split file name on dot before extension
-	private static String[] splitFilename (String filename)
-	{
+	private static String[] splitFilename (String filename) {
 		final String pattern = "\\."; //dot
 		final String marker = "::::";
 		final int blockNumber = 0; //counting from end, 0 means last
@@ -622,8 +687,7 @@ public class JpgUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//insert suffix before extension
-	private static String generateOutfilePath (String filename, String suffix)
-	{
+	private static String generateOutfilePath (String filename, String suffix) {
 		String[] parts = splitFilename (filename);
 		String newFilename = parts[0] + suffix + "." + parts[1];
 		return newFilename;
@@ -633,8 +697,7 @@ public class JpgUtils
 	//returns false if the last part of the image contains the same invalid data
 	// or if the image is not the size it claims
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean validateImageData (String filename)
-	{
+	public static boolean validateImageData (String filename) {
 		_log.trace ("getRealPath: Path.toRealPath failed");
 
 		boolean validImage = false;
@@ -651,8 +714,7 @@ public class JpgUtils
 
 		return validImage;
 	}
-	public static boolean validateImageData (BufferedImage image)
-	{
+	public static boolean validateImageData (BufferedImage image) {
 		int width = image.getWidth ();
 		int height = image.getHeight ();
 
@@ -669,8 +731,7 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private ImageAttributes getImageAttributes (String filename)
-	{
+	private ImageAttributes getImageAttributes (String filename) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.getImageAttributes(" + filename + ")");
 		}
@@ -701,8 +762,20 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public synchronized ExecutorService getExecutor ()
-	{
+	public VPair<Integer, Integer> calculateDesiredDimensions (ImageAttributes imageAttributes, double desiredMegaPixels) {
+		final double mega = 1e6; //1000-based, not 1024-based
+
+		double currentMegaPixels =  (double) imageAttributes._width * (double) imageAttributes._height / mega;
+		double scale = Math.sqrt(currentMegaPixels / desiredMegaPixels);
+
+		int newHeight = (int) Math.round((double) imageAttributes._height / scale);
+		int newWidth = (int) Math.round((double) imageAttributes._width / scale);
+
+		return VPair.of(newWidth, newHeight);
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public synchronized ExecutorService getExecutor () {
 		if (_executor == null || _executor.isTerminated () || _executor.isShutdown ()) {
 			_executor = Executors.newFixedThreadPool (_numThreads);
 		}
@@ -711,18 +784,16 @@ public class JpgUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void shutdownExecutor ()
-	{
+	public void shutdownExecutor () {
 		_log.debug ("JpgUtils.shutdownExecutor: shutdown executor");
 		getExecutor ().shutdownNow ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private class ImageAttributes
-	{
+	public static class ImageAttributes implements Comparable<ImageAttributes> {
+
 		///////////////////////////////////////////////////////////////////////////
-		public ImageAttributes (String name, int width, int height, long bytes)
-		{
+		public ImageAttributes (String name, int width, int height, long bytes) {
 			_name = name;
 			_width = width;
 			_height = height;
@@ -730,11 +801,39 @@ public class JpgUtils
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		public long getNumBytesOnDisk () { //ostensibly this is a better metric when aggregating many images
+			final long bytesPerPhysicalSector = 4096; //hardcoded - to get this value on Windows, run: fsutil fsinfo ntfsinfo D:
+
+			return bytesPerPhysicalSector * (_bytes + bytesPerPhysicalSector) / bytesPerPhysicalSector;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
-		{
-			final long kiloBytes = _bytes / 1024;
-			return _name + " = " + _width + " x " + _height + ", " + kiloBytes + " KB";
+		public int compareTo(ImageAttributes that) {
+			int thisPixels = _width * _height;
+			int thatPixels = that._width * that._height;
+			int comparePixels = thisPixels - thatPixels;
+			if (comparePixels != 0) {
+				return comparePixels;
+			}
+
+			return _name.compareToIgnoreCase(that._name);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		@Override
+		public String toString () {
+			//copied from AlbumImage#toString
+			double bytesPerPixel = (double) _bytes * (double) _bytes / ((double) _width  * (double) _height );
+
+			StringBuffer sb = new StringBuffer(128);
+			sb.append(_name).append(" = ");
+			sb.append(_width).append("x").append(_height).append(", ");
+			sb.append(VendoUtils.unitSuffixScale(_width * _height, "P")).append(", "); //"P" for Pixels
+			sb.append(VendoUtils.unitSuffixScaleBytes(_bytes)).append(", ");
+			sb.append("BPP=").append(VendoUtils.unitSuffixScale((long) bytesPerPixel, "B/P"));
+
+			return sb.toString();
 		}
 
 		public final String _name;
@@ -743,28 +842,66 @@ public class JpgUtils
 		public final long _bytes;
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	private class ImageAttributesStats {
+
+		///////////////////////////////////////////////////////////////////////////
+		public ImageAttributesStats (String name)  {
+			_name = name;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public void add (ImageAttributes imageAttributes) {
+			_records.add (imageAttributes);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public long getTotalBytes () {
+			return _records.stream().mapToLong(ImageAttributes::getNumBytesOnDisk).sum();
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public void print () {
+			int averageLargerDimension = (int) _records.stream().mapToLong(r -> Math.max(r._height, r._width)).sum() / _records.size();
+			int averageSmallerDimension = (int) _records.stream().mapToLong(r -> Math.min(r._height, r._width)).sum() / _records.size();
+			long averageBytes = _records.stream().mapToLong(ImageAttributes::getNumBytesOnDisk).sum() / _records.size();
+
+			ImageAttributes imageAttributes = new ImageAttributes(_name, averageSmallerDimension, averageLargerDimension, averageBytes);
+
+			System.out.println (imageAttributes);
+		}
+
+		private final String _name;
+		private final ArrayList<ImageAttributes> _records = new ArrayList<> ();
+	}
+
 
 	//private members
-	private int _numThreads = 16;
+	private int _numThreads = 8;
+	private double _desiredMegaPixels = -1;
 	private int _desiredHeight = -1;
 	private int _desiredWidth = -1;
 	private int _minimumWidth = -1;
 	private int _minimumHeight = -1;
-	private float _scalePercent = -1;
+	private double _scalePercent = -1;
 	private boolean _queryMode = false;
 	private String _destDir = null;
 	private String _sourceDir = null;
 	private String _infilenameWild = null;
 	private String _nameSuffix = "";
 
+	private final ImageAttributesStats _inImageAttributesStats = new ImageAttributesStats("Input averages"); //write access is synchronized above
+	private final ImageAttributesStats _outImageAttributesStats = new ImageAttributesStats("Output averages"); //write access is synchronized above
+
+	private final Set<ImageAttributes> _skippedImages = new ConcurrentSkipListSet<>();
+
 	private /*static*/ ExecutorService _executor = null;
 
 	private static final String _formatName = "jpg";
-//	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0.0");
-	private static ThreadLocal<NumberFormat> _decimalFormat = ThreadLocal.withInitial(() -> new DecimalFormat("###,##0.0")); //DecimalFormat is not thread safe
+	private static final ThreadLocal<NumberFormat> _decimalFormat1 = ThreadLocal.withInitial(() -> new DecimalFormat("###,##0.0")); //DecimalFormat is not thread safe
 
 	private static final String _slash = System.getProperty ("file.separator");
-	private static Logger _log = LogManager.getLogger (JpgUtils.class);
+	private static final Logger _log = LogManager.getLogger (JpgUtils.class);
 
 	//global members
 	public static boolean _Debug = false;

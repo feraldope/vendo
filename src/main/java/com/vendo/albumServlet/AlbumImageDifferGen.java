@@ -39,17 +39,21 @@ public class AlbumImageDifferGen
 
 		AlbumImageDifferGen albumImageDifferGen = new AlbumImageDifferGen ();
 
-		if (!albumImageDifferGen.processArgs (args)) {
-			System.exit (1); //processArgs displays error
-		}
+		boolean status = albumImageDifferGen.processArgs (args);  //processArgs displays error message
 
-		try {
-			albumImageDifferGen.run ();
-		} catch (Exception ee) {
-			ee.printStackTrace (System.err);
+		if (status) {
+			try {
+				albumImageDifferGen.run();
+			} catch (Exception ee) {
+				ee.printStackTrace(System.err);
+			}
 		}
 
 		AlbumProfiling.getInstance ().exit (1);
+
+		if (!status && !_fromServlet) {
+			System.exit(1);
+		}
 
 //		AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true);
 	}
@@ -75,6 +79,9 @@ public class AlbumImageDifferGen
 
 				if (arg.equalsIgnoreCase ("debug") || arg.equalsIgnoreCase ("dbg")) {
 					_debug = true;
+
+				} else if (arg.equalsIgnoreCase ("fromServlet")) {
+					_fromServlet = true;
 
 				} else if (arg.equalsIgnoreCase ("dest") || arg.equalsIgnoreCase ("dst")) {
 					try {
@@ -130,8 +137,13 @@ public class AlbumImageDifferGen
 			_log.debug("AlbumImageDifferGen.processArgs: _imageFilenameOut: " + _imageFilenameOut);
 		}
 
+		//check results from processImageFilename()
 		if (_imageFilenameIn1 == null || _imageFilenameIn2 == null || _imageFilenameOut == null) {
-			displayUsage ("See previous error", true);
+			if (_fromServlet) {
+				return false;
+			} else {
+				displayUsage("See previous error", true);
+			}
 		}
 
 		return true;
@@ -198,6 +210,7 @@ public class AlbumImageDifferGen
 			_log.debug ("AlbumImageDifferGen.run: image2Scaled: " + image2Scaled.getWidth () + " x " + image2Scaled.getHeight () );
 		}
 
+//TODO - make sure _imageFilenameOut does not already exist
 		createImageDiff (image1Scaled, image2Scaled, new File (_imageFilenameOut));
 	}
 
@@ -392,6 +405,7 @@ public class AlbumImageDifferGen
 //	private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yy HH:mm:ss");
 
 	private static boolean _debug = false;
+	private static boolean _fromServlet = false;
 	private static final Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumImageDifferGen";
 }

@@ -593,21 +593,21 @@ public final class JHistory {
 							String s = e.attr("img").trim(); //debugging
 							if (hasImageExtension.test(s) && !isThumb.test(s)) {
 								if (isRelativeUrl.test(s)) {
-									s = urlData1.getRootUrlStr() + s;
+									s = concatStrings(urlData1.getRootUrlStr(), s);
 								}
 								return s;
 							}
 							s = e.attr("src").trim(); //debugging
 							if (hasImageExtension.test(s) && !isThumb.test(s)) {
 								if (isRelativeUrl.test(s)) {
-									s = urlData1.getRootUrlStr() + s;
+									s = concatStrings(urlData1.getRootUrlStr(), s);
 								}
 								return s;
 							}
 							s = e.attr("data-src").trim(); //debugging
 							if (hasImageExtension.test(s) && !isThumb.test(s)) {
 								if (isRelativeUrl.test(s)) {
-									s = urlData1.getRootUrlStr() + s;
+									s = concatStrings(urlData1.getRootUrlStr(), s);
 								}
 								return s;
 							}
@@ -663,7 +663,7 @@ public final class JHistory {
 									String fragment = _urlPathFragmentsValues.get(0); //HACK
 									s = urlData1.getNormalizedLine().replaceAll(Pattern.quote(fragment) + ".*", "");
 								} else if (_operatingMode == OperatingMode.Mode2 || _operatingMode == OperatingMode.Mode3) {
-									s = urlData1.getRootUrlStr() + s;
+									s = concatStrings(urlData1.getRootUrlStr(), s);
 								}
 							}
 							return s;
@@ -691,7 +691,6 @@ public final class JHistory {
 
 	///////////////////////////////////////////////////////////////////////////
 	private List<String> getMainLinksList(UrlData urlData1, boolean verbose) {
-
 		if (_operatingMode == OperatingMode.Mode2 || _operatingMode == OperatingMode.Mode3) {
 			final List<String> mainLinksList = getUrlLinkDataHelper(urlData1, verbose);
 			return mainLinksList;
@@ -935,8 +934,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean readGuHistoryFile(boolean printTiming)
-	{
+	private boolean readGuHistoryFile(boolean printTiming) {
 		Instant startInstant = Instant.now ();
 
 		Path path = FileSystems.getDefault ().getPath (_destDir, _guHistoryFilename);
@@ -975,8 +973,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<String> findInJhHistory (String sourceUrl)
-	{
+	private List<String> findInJhHistory (String sourceUrl) {
 //call this on every URL for temp debugging
 //		Set<String> forDebugging = loadInterestingUrlsFromJhHistory (true);
 
@@ -1003,8 +1000,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<MatchData> findInGuHistory (UrlData urlDataIn)
-	{
+	private List<MatchData> findInGuHistory (UrlData urlDataIn) {
 		String basePattern = urlDataIn.getPathBase();
 		String sourceUrlIn = urlDataIn.getNormalizedLine();
 
@@ -1106,8 +1102,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private UrlData parseLine (String line)
-	{
+	private UrlData parseLine (String line) {
 		try {
 			String urlStr = line;
 			if (line.startsWith ("gu ")) {
@@ -1154,8 +1149,7 @@ public final class JHistory {
 	///////////////////////////////////////////////////////////////////////////
 	//NOTE: this method used by JHistory.java and GetUrl.java
 	//returns true if this is a special match that we can ignore
-	public static boolean ignoreThisSpecialMatch (List<String> urlKnownHostFragmentsValues, String sourceUrl, String historyUrl)
-	{
+	public static boolean ignoreThisSpecialMatch (List<String> urlKnownHostFragmentsValues, String sourceUrl, String historyUrl) {
 		//debugging
 //		if (sourceUrl.toLowerCase().contains(debugFragment) || historyUrl.toLowerCase().contains(debugFragment)) {
 //			System.out.println("************* - found match for \"" + debugFragment + "\": " + urlData1.getNormalizedLine());
@@ -1178,8 +1172,7 @@ public final class JHistory {
 	///////////////////////////////////////////////////////////////////////////
 	//NOTE: this method used by JHistory.java and GetUrl.java
 	//returns true if this is a know dead host
-	public static boolean isKnownDeadHost (List<String> urlDeadHostFragmentsValues, String sourceUrl)
-	{
+	public static boolean isKnownDeadHost (List<String> urlDeadHostFragmentsValues, String sourceUrl) {
 //		_log.debug("JHistory.isKnownDeadHost: urlDeadHostFragmentsValues: " + urlDeadHostFragmentsValues + ", sourceUrl: " + sourceUrl);
 		String sourceFragment = urlDeadHostFragmentsValues.stream().filter(sourceUrl::contains).findAny().orElse(null);
 //		_log.debug("JHistory.isKnownDeadHost: sourceFragment: " + sourceFragment);
@@ -1187,8 +1180,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static OperatingMode getOperatingModeFromUrl (UrlData urlData)
-	{
+	public static OperatingMode getOperatingModeFromUrl (UrlData urlData) {
 		OperatingMode operatingMode = OperatingMode.NotSet;
 
 		if (urlData.isInterestingUrl()) {
@@ -1246,8 +1238,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Set<String> loadInterestingUrlsFromJhHistory (boolean verbose)
-	{
+	private Set<String> loadInterestingUrlsFromJhHistory (boolean verbose) {
 		Instant startInstant = Instant.now();
 
 		Map<String, Long> interestingUrlDistribution = _jhHistoryFileContents.stream()
@@ -1279,8 +1270,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean addToInterestingUrls (String urlStrOrig)
-	{
+	private boolean addToInterestingUrls (String urlStrOrig) {
 		//debugging
 //		_log.debug ("JHistory.addToInterestingUrls: urlStr: " + urlStr);
 
@@ -1303,8 +1293,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean strongMatch (String historyFragment, String patternStr, String sourceUrl, UrlData urlData)
-	{
+	private boolean strongMatch (String historyFragment, String patternStr, String sourceUrl, UrlData urlData) {
 		boolean matches = patternStr.length () >= 2 && historyFragment.contains (patternStr);
 
 		//this block allows redownload of what might be considered close matches
@@ -1321,8 +1310,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int weakMatch (String historyFragment, String patternStr, String sourceUrl, UrlData urlData)
-	{
+	private int weakMatch (String historyFragment, String patternStr, String sourceUrl, UrlData urlData) {
 		String[] array1 = StringUtils.split (historyFragment, '/'); //URL from history file
 		String[] array2 = StringUtils.split (patternStr, '/'); //pattern to match
 
@@ -1412,8 +1400,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String getParseError (Throwable exception)
-	{
+	private String getParseError (Throwable exception) {
 		if (exception instanceof SocketTimeoutException) {
 			return "timeout";
 		} else if (exception instanceof UnknownHostException) {
@@ -1425,8 +1412,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean accept (String string)
-	{
+	private boolean accept (String string) {
 		if (string.length () < 2) {
 			return false;
 
@@ -1442,8 +1428,7 @@ public final class JHistory {
 
 	///////////////////////////////////////////////////////////////////////////
 	//do not write lines that have already been written
-	private synchronized boolean writeAppendJhHistoryFile(String urlString)
-	{
+	private synchronized boolean writeAppendJhHistoryFile(String urlString) {
 		if (_jhHistoryFileContents.contains (urlString)) {
 	 		return false;
 		}
@@ -1464,8 +1449,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean writeOutputFile (String string, Path outputFilePath)
-	{
+	private boolean writeOutputFile (String string, Path outputFilePath) {
 		boolean status = true;
 
 		try (BufferedWriter writer = Files.newBufferedWriter(outputFilePath, StandardCharsets.UTF_8)) {
@@ -1481,8 +1465,7 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void printTiming (Instant startInstant, String message)
-	{
+	private void printTiming (Instant startInstant, String message) {
 //		if (!_printTiming) {
 //			return;
 //		}
@@ -1493,12 +1476,18 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private String concatStrings(String s0, String s1) { //prevent duplicate slashes
+		if (s0.endsWith("/") && s1.startsWith("/")) {
+			s1 = s1.substring(1);
+		}
+		return s0 + s1;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//neuters pixel values in image name for comparison
-	public static final Comparator<String> ignoreImageSizeComparator = new Comparator<String> ()
-	{
+	public static final Comparator<String> ignoreImageSizeComparator = new Comparator<String> () {
 		@Override
-		public int compare (String s1, String s2)
-		{
+		public int compare (String s1, String s2) {
 			String s1a = s1.replaceAll ("\\d+x\\d+", "xxxNeuteredXxx");
 			String s2a = s2.replaceAll ("\\d+x\\d+", "xxxNeuteredXxx");
 			return s1a.compareToIgnoreCase (s2a);
@@ -1510,8 +1499,7 @@ public final class JHistory {
 	///////////////////////////////////////////////////////////////////////////
 	//first determine image dimensions from name of form" 0752x1004_01.jpg"
 	//then optionally scale to preferred max range
-	private int getImageDimensionFromName (String imageName, Dimension dimension, boolean doScale)
-	{
+	private int getImageDimensionFromName (String imageName, Dimension dimension, boolean doScale) {
 		int width = 240;
 		int height = 360;
 
@@ -1540,11 +1528,10 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private /*static*/ class UrlLinkData
-	{
+	private /*static*/ class UrlLinkData {
+
 		///////////////////////////////////////////////////////////////////////////
-		UrlLinkData (URL baseUrl, String mainTitle, String childTitle, String albumUrlStr, List<String> imageUrlStrList)
-		{
+		UrlLinkData (URL baseUrl, String mainTitle, String childTitle, String albumUrlStr, List<String> imageUrlStrList) {
 			_baseUrl = baseUrl;
 			_maintitle = mainTitle;
 			_childTitle = childTitle;
@@ -1553,15 +1540,13 @@ public final class JHistory {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public URL getBaseUrl ()
-		{
+		public URL getBaseUrl () {
 			return _baseUrl;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
 		//if passed http://foo.com/a/b/c/d -> return "c/d"
-		public String getBaseUrlLastComponents ()
-		{
+		public String getBaseUrlLastComponents () {
 			String stub = StringUtils.substringBeforeLast(_baseUrl.getFile(), "/");
 			String part1 = StringUtils.substringAfterLast(stub, "/");
 			String part2 = StringUtils.substringAfterLast(_baseUrl.getFile(), "/");
@@ -1569,32 +1554,27 @@ public final class JHistory {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getMainTitle ()
-		{
+		public String getMainTitle () {
 			return _maintitle;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getChildTitle ()
-		{
+		public String getChildTitle () {
 			return _childTitle;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getAlbumUrlStr ()
-		{
+		public String getAlbumUrlStr () {
 			return _albumUrlStr;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public List<String> getImageUrlList ()
-		{
+		public List<String> getImageUrlList () {
 			return _imageUrlStrList;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getImageUrlStr (int index)
-		{
+		public String getImageUrlStr (int index) {
 			String imageUrlStr = "[out of bounds]";
 			try {
 				imageUrlStr = _imageUrlStrList.get (index);
@@ -1606,8 +1586,7 @@ public final class JHistory {
 
 /* TODO - this does not work at all - it only has the thumb's dimensions, not the actual image's
 		///////////////////////////////////////////////////////////////////////////
-		public String getAverageImageDimensionsStr ()
-		{
+		public String getAverageImageDimensionsStr () {
 //TODO - this does not account for mixes of portrait and landscape images
 			double averageWidth = _imageUrlStrList.stream ()
 					.map(u -> getImageDimensionFromName (u, Dimension.Width, false))
@@ -1626,8 +1605,7 @@ public final class JHistory {
 */
 		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
-		{
+		public String toString () {
 			StringBuilder sb = new StringBuilder();
 			sb.append (getMainTitle ()).append (", ");
 			sb.append (getChildTitle ()).append (", ");
@@ -1649,11 +1627,10 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class UrlData
-	{
+	private static class UrlData {
+
 		///////////////////////////////////////////////////////////////////////////
-		UrlData (String line, URL url, String pathBase, String fileName, boolean normalizeUrls)
-		{
+		UrlData (String line, URL url, String pathBase, String fileName, boolean normalizeUrls) {
 			_line = line;
 			_url = url;
 			_pathBase = pathBase;
@@ -1663,26 +1640,22 @@ public final class JHistory {
 
 		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
- 		{
+		public String toString () {
 			return _line;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getLine ()
- 		{
+		public String getLine () {
 			return _line;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getNormalizedLine ()
- 		{
+		public String getNormalizedLine () {
  			return _normalizeUrls ? _line.replaceFirst ("://www\\.", "://") : _line;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public URL getDeNormalizedUrl () //throws Exception
- 		{
+		public URL getDeNormalizedUrl () { //throws Exception
 			String line = _line;
 			if (!_line.contains("://www.")) {
 				line = _line.replaceFirst("://", "://www.");
@@ -1696,52 +1669,44 @@ public final class JHistory {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public URL getUrl ()
-		{
+		public URL getUrl () {
 			return _url;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getPathBase ()
- 		{
+		public String getPathBase () {
 			return _pathBase;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getFileName ()
- 		{
+		public String getFileName () {
 			return _fileName;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean hasImageExtension ()
-		{
+		public boolean hasImageExtension () {
 			String fileNameLower = getFileName ().toLowerCase ();
 
 			return fileNameLower.endsWith ("jpg") || fileNameLower.endsWith ("jpeg"); //TODO add PNG?
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean isUrl ()
-		{
+		public boolean isUrl () {
 			return getUrl ().getProtocol().toLowerCase ().startsWith ("http");
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getRootUrlStr ()
-		{
+		public String getRootUrlStr () {
 			return getUrl().getProtocol() + "://" + getUrl().getHost() + "/"; //Note no port
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getUrlHost ()
-		{
+		public String getUrlHost () {
 			return getUrl().getHost();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean isInterestingUrl ()
-		{
+		public boolean isInterestingUrl () {
 			if (_Debug) {
 				System.out.println(NL + "UrlData.isInterestingUrl: getPathBase() = " + getPathBase());
 				System.out.println(NL + "UrlData.isInterestingUrl: _urlPathFragmentsValues = " + NL + _urlPathFragmentsValues);
@@ -1759,11 +1724,10 @@ public final class JHistory {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class MatchData
-	{
+	private static class MatchData {
+
 		///////////////////////////////////////////////////////////////////////////
-		MatchData (String line, boolean strongMatch, int reverseIndex, int strength)
-		{
+		MatchData (String line, boolean strongMatch, int reverseIndex, int strength) {
 			_line = line;
 			_strongMatch = strongMatch;
 			_reverseIndex = reverseIndex;
@@ -1771,26 +1735,22 @@ public final class JHistory {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public String getLine ()
- 		{
+		public String getLine () {
 			return _line;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public boolean isWeakMatch ()
-		{
+		public boolean isWeakMatch () {
 			return !_strongMatch;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public int getReverseIndex ()
-		{
+		public int getReverseIndex () {
 			return _reverseIndex;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public int getStrength ()
-		{
+		public int getStrength () {
 			return _strength;
 		}
 

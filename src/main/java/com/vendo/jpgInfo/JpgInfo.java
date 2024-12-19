@@ -55,7 +55,7 @@ import java.util.Iterator;
 public class JpgInfo
 {
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (final String args[]) throws Exception
+	public static void main (final String[] args) throws Exception
 	{
 		JpgInfo app = new JpgInfo ();
 
@@ -67,7 +67,7 @@ public class JpgInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
+	private Boolean processArgs (final String[] args)
 	{
 		//set defaults for command line arguments
 		String filePatternString = "*";

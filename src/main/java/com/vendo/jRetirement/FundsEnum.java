@@ -8,6 +8,7 @@ public enum FundsEnum {
     VBIAX ("VBIAX",   "VANGUARD BALANCED INDEX ADMIRAL",                 "0.070", FundTheme.Balanced,    FundType.StockFund, ManagementStyle.Index,  "Moder-Alloc",        "Large Growth"),
     VBTLX ("VBTLX",   "VANGUARD TOTAL BOND MARKET INDEX ADMIRAL",        "0.050", FundTheme.Bonds,       FundType.BondFund,  ManagementStyle.Index,  "Intermed Core Bond", "Bond Intermed"),
     FCASH ("FCASH**", "HELD IN FCASH",                                   "0.420", FundTheme.Cash,        FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
+    FDRXX ("FDRXX**", "HELD IN MONEY MARKET",                            "0.420", FundTheme.Cash,        FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
     SPAXX ("SPAXX**", "HELD IN MONEY MARKET",                            "0.420", FundTheme.Cash,        FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
     VMFXX ("VMFXX",   "VANGUARD FED RESERVE MMKT INVESTOR CL",           "0.110", FundTheme.Cash,        FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
     VUSXX ("VUSXX",   "VANGUARD TREASURY MMKT INV CL",                   "0.090", FundTheme.Cash,        FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
@@ -40,7 +41,7 @@ public enum FundsEnum {
     CD2027 ("05584CNB8", "BNY MELLON NA CD 4.40000% 05/06/2027",         "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
     CD2028 ("61690DPY8", "MORGAN STANLEY BK N A CD 4.65000% 05/01/2028", "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
     CD2029 ("61690DPV4", "MORGAN STANLEY BK N A CD 4.55000% 05/01/2029", "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
-    //inactive; unusual symbol for FIS 401K
+    //DO NOT DELETE - inactive; unusual symbol for FIS 401K
     N31617E778 ("31617E778", "FID BLUE CHP GR CP A",                     "0.690", FundTheme.LargeCap,    FundType.StockFund, ManagementStyle.Active, "Large Growth",       "Large Growth"),
     N857444624 ("857444624", "SS S&P 500 INDEX II",                      "0.160", FundTheme.SP500,       FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Blend"),
     N85744A687 ("85744A687", "SS GACEQ EXUS IDX II",                     "0.050", FundTheme.LargeCap,    FundType.StockFund, ManagementStyle.Index,  "International",      "International"),

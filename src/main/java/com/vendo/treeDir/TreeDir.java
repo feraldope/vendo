@@ -6,10 +6,12 @@ package com.vendo.treeDir;
 
 //import com.vendo.vendoUtils.*;
 
-import java.io.*;
-import java.util.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
-import org.apache.logging.log4j.*;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class TreeDir
@@ -19,8 +21,9 @@ public class TreeDir
 	{
 		TreeDir app = new TreeDir ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -125,8 +128,9 @@ public class TreeDir
 		}
 
 		//check for required args, set defaults
-		if (_folderString == null)
+		if (_folderString == null) {
 			_folderString = ".";
+		}
 		_folder = new File (_folderString);
 
 //		if (_includePatterns.isEmpty ())
@@ -139,14 +143,16 @@ public class TreeDir
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/include <file pattern> ...] [/exclude <file pattern> ...] [<folder> [<file pattern> ...]] ";
+		msg += "Usage: " + _AppName + " [/debug] [/subdirs] [/include <file pattern> ...] [/exclude <file pattern> ...] [<folder> [<file pattern> ...]] ";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -165,15 +171,17 @@ public class TreeDir
 
 		long elapsedMillis = (System.nanoTime () - startNano) / 1000000;
 
-		if (_filesFound == 0)
+		if (_filesFound == 0) {
 			System.out.println ("No files found");
-		else if (_filesFound == 1)
+		} else if (_filesFound == 1) {
 			System.out.println (_filesFound + " file found");
-		else
+		} else {
 			System.out.println (_filesFound + " files found");
+		}
 
-		if (_perfTesting)
+		if (_perfTesting) {
 			System.out.println ("elapsed: " + elapsedMillis + " ms");
+		}
 
 		return status;
 	}
@@ -190,8 +198,9 @@ public class TreeDir
 				if (_filter.accept (folder, file.getName ())) {
 					_filesFound++;
 					String info = fileInfo.toString ();
-					if (!_perfTesting)
+					if (!_perfTesting) {
 						System.out.println (info);
+					}
 				}
 
 				if (_recurseSubdirs && fileInfo.isDirectory ()) {

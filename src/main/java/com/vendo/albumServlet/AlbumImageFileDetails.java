@@ -9,11 +9,9 @@ import java.util.Date;
 import java.util.Objects;
 
 
-public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
-{
+public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails> {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumImageFileDetails (String name, long bytes, long modified)
-	{
+	AlbumImageFileDetails (String name, long bytes, long modified) {
 		_name = name;
 		_bytes = bytes;
 		_modified = modified;
@@ -28,27 +26,23 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getName ()
-	{
+	public String getName () {
 		return _name;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public long getBytes ()
-	{
+	public long getBytes () {
 		return _bytes;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public long getModified ()
-	{
+	public long getModified () {
 		return _modified;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public int compareTo (AlbumImageFileDetails other)
-	{
+	public int compareTo (AlbumImageFileDetails other) {
 		int compareNames = getName ().compareToIgnoreCase (other.getName ());
 		if (compareNames != 0) {
 			return compareNames;
@@ -64,8 +58,7 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public boolean equals (Object obj)
-	{
+	public boolean equals (Object obj) {
 		if (obj == this) {
 			return true;
 		}
@@ -82,15 +75,13 @@ public class AlbumImageFileDetails implements Comparable<AlbumImageFileDetails>
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public int hashCode ()
-	{
+	public int hashCode () {
 		return Objects.hash (getName (), getBytes (), getModified ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public String toString ()
-	{
+	public String toString () {
 		return getName () + ", " + getBytes () + ", " + _dateFormat.format (new Date(getModified ()));
 	}
 

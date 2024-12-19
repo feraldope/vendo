@@ -169,13 +169,24 @@ public class AlbumImages
 		}
 
 		if (generateImagesDiffSet.size() == 2) {
+//TODO - make more robust: like error messages, being able to handle more that one pair, etc.
 			List<String> generateImagesDiffList = new ArrayList<>(generateImagesDiffSet);
 			String imageFilenameIn1 = generateImagesDiffList.get(0);
 			String imageFilenameIn2 = generateImagesDiffList.get(1);
-			String imageFilenameOut = imageFilenameIn1 + "5"; //HACK
+
+			String tempPath;
+			String rootPath = AlbumFormInfo.getInstance ().getRootPath (false);
+			String subFolder = AlbumImageDao.getInstance ().getSubFolderFromImageName (imageFilenameIn1) + "/";
+			char suffix = 'a' - 1;
+			do {
+				++suffix;
+				tempPath = rootPath + subFolder + imageFilenameIn1 + suffix + AlbumFormInfo._ImageExtension;
+			} while (VendoUtils.fileExists(tempPath));
+			String imageFilenameOut = imageFilenameIn1 + suffix; //HACK - this will create an 'invalid' filename, but it's a temp file that should be deleted
 
 			Thread thread = new Thread (() -> {
 				AlbumImageDifferGen.main (new String[] {
+						"/fromServlet",
 						"/dest", _basePath,
 						imageFilenameIn1,
 						imageFilenameIn2,
@@ -194,7 +205,7 @@ public class AlbumImages
 		}
 
 		if (imagesRemoved > 0 || imagesGenerated > 0) {
-			int sleepMillis = 150 + (imagesRemoved + imagesGenerated) * 10;
+			int sleepMillis = 150 + (imagesRemoved * 10) + (imagesGenerated * 150);
 			VendoUtils.sleepMillis (sleepMillis); //HACK - try to give AlbumImageDao some time to complete its file processing
 			_log.debug ("AlbumImages.processParams: slept " + sleepMillis + " ms");
 		}
@@ -204,7 +215,7 @@ public class AlbumImages
 	public int processRequest ()
 	{
 		String[] filters = _form.getFilters ();
-		String[] originalFilters = _form.getFilters ();
+//		String[] originalFilters = _form.getFilters ();
 		String[] tagsIn = _form.getTags (AlbumTagMode.TagIn);
 		String[] tagsOut = _form.getTags (AlbumTagMode.TagOut);
 		String[] excludes = _form.getExcludes ();
@@ -652,6 +663,10 @@ public class AlbumImages
 			_log.debug("AlbumImages.doDup: _imageDisplayList.size = " + _decimalFormat0.format (_imageDisplayList.size()));
 			_log.debug("AlbumImages.doDup: imageDisplayList1.size = " + _decimalFormat0.format (imageDisplayList1.size()) + ", filter1 = " + filter1);
 			_log.debug("AlbumImages.doDup: imageDisplayList2.size = " + _decimalFormat0.format (imageDisplayList2.size()) + ", filter2 = " + filter2);
+
+			if (imageDisplayList1.isEmpty()) {
+				form.addServletError("Warning: no images for Filter1");
+			}
 
 			if (imageDisplayList2.isEmpty()) {
 				form.addServletError("Warning: no images for Filter2");
@@ -1735,7 +1750,7 @@ public class AlbumImages
 
 		int numImages = _imageDisplayList.size ();
 		if (_Debug) {
-			_log.debug ("AlbumImages.generateHtml: numImages = " + numImages);
+			_log.debug ("AlbumImages.generateHtml: numImages = " + _decimalFormat0.format(numImages));
 		}
 
 		boolean isAndroidDevice = _form.isAndroidDevice ();
@@ -2030,10 +2045,10 @@ public class AlbumImages
 						numMatchesFilter += (matches ? 1 : 0);
 						boolean nearDup = findInDuplicatesCache(_nameOfNearDuplicateThatCanBeDeleted, image.getBaseName (false));
 						boolean exactDup = findInDuplicatesCache(_nameOfExactDuplicateThatCanBeDeleted, image.getBaseName (false));
-						fontColor = (exactDup ? "lime" : nearDup ? "yellow" : getFontColor (image));
+						fontColor = (exactDup ? "darkGreen" : nearDup ? "yellow" : getFontColor (image));
 						imageBorderStyleStr = (nearDup || exactDup ? "dashed" : "solid");
 						imageBorderPixels = (nearDup || exactDup ? 2 : 1);
-						imageBorderColorStr = (exactDup ? "lime"
+						imageBorderColorStr = (exactDup ? "darkGreen"
 											 : nearDup  ? "yellow"
 											 : "blue");
 						imageOutlineStr = (exactDup ? "; outline: " + imageOutlinePixels + "px dotted red"
@@ -2094,7 +2109,7 @@ public class AlbumImages
 						if (pair != null) {
 							extraDiffString += AlbumImage.HtmlNewline + pair.getDetails1String ();
 							int minDiff = pair.getMinDiff ();
-							imageBorderColorStr = (minDiff < 1 ? "white" : minDiff < 10 ? "green" : minDiff < 20 ? "yellow" : "orange");
+							imageBorderColorStr = (minDiff < 1 ? "white" : minDiff < 10 ? "darkGreen" : minDiff < 20 ? "yellow" : "orange");
 						}
 					}
 
@@ -2174,12 +2189,16 @@ public class AlbumImages
 				} else { //mode == AlbumMode.DoDir
 					if (anyDupsInSlice) {
 						//set image line style, thickness, and color to distinguish between dups and non-dups
+						//quadruple thick, red, dashed border for NON-dups
 						boolean isDup = findInDuplicatesCache(_duplicatesCache, image.getName());
-						fontColor = (isDup ? "black" : "blue");
+//						fontColor = (isDup ? "black" : "blue");
+						fontColor = (isDup ? "black" : "red");
 						imageBorderStyleStr = (isDup ? "solid" : "dashed");
-						imageBorderPixels = isDup ? 1 : 2;
-						imageBorderColorStr = (isDup ? "black" : "blue");
-						imageOutlineStr = (isDup ? "" : "; outline: " + imageOutlinePixels + "px dotted blue");
+//						imageBorderPixels = isDup ? 1 : 2;
+//						imageBorderColorStr = (isDup ? "black" : "blue");
+						imageBorderPixels = isDup ? 1 : 4;
+						imageBorderColorStr = (isDup ? "black" : "red");
+//						imageOutlineStr = (isDup ? "" : "; outline: " + imageOutlinePixels + "px dotted blue");
 					}
 
 					//drill down to single image
@@ -3253,21 +3272,23 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 			//size in pixels distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
 			List<String> pixelsDist = new ArrayList<>();
 			Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
-					.collect(Collectors.groupingBy(i -> i.getPixelsAsString() + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")")); //"P" for Pixels));
+					//prepend string with total pixels (for sorting) which will be stripped out while printing
+					.collect(Collectors.groupingBy(i -> "<" + i.getPixels() + ">" + i.getPixelsAsString() + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")")); //"P" for Pixels));
 			pixelsDist.add("Top " + maxItemsToPrint + " largest by pixels");
 			pixelMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
-					.forEach(p -> pixelsDist.add(p + " -> " + pixelMap.get(p).size() + " images")
+					.forEach(p -> pixelsDist.add(p.replaceAll("<.*>", "") + " -> " + pixelMap.get(p).size() + " images")
 			);
 
 			//size in bytes distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
-			final long roundTo = 100;
-			final long roundToKB = roundTo * 1024;
+			final long roundToBytes = 256;
+			final long roundToKB = roundToBytes * 1024;
 			List<String> bytesDist = new ArrayList<>();
 			Map<Long, List<AlbumImage>> bytesMap = _imageDisplayList.stream()
 					.collect(Collectors.groupingBy(i -> VendoUtils.roundUp(i.getNumBytes(), roundToKB)));
-			bytesDist.add("Top " + maxItemsToPrint + " largest by (rounded to " + roundTo + ") KB");
+//			bytesDist.add("Top " + maxItemsToPrint + " largest by Bytes (rounded to " + roundTo + " KB)");
+			bytesDist.add("Top " + maxItemsToPrint + " largest by bytes (rounded)");
 			bytesMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
-					.forEach(b -> bytesDist.add((VendoUtils.roundUp(b, roundToKB) / 1024) + "KB -> " + bytesMap.get(b).size() + " images")
+					.forEach(b -> bytesDist.add(VendoUtils.unitSuffixScaleBytes(VendoUtils.roundUp(b, roundToKB)) + " -> " + bytesMap.get(b).size() + " images")
 			);
 
 			final int[] fieldWidths = {30, 35, 30}; //TODO - calculate from data

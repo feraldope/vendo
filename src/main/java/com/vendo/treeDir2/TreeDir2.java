@@ -5,12 +5,17 @@ package com.vendo.treeDir2;
 //import com.vendo.vendoUtils.*;
 
 //import java.io.*;
-import java.io.IOException;
-//import java.nio.*;
-import java.nio.file.*;
-import java.util.*;
 
-import org.apache.logging.log4j.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 
 public class TreeDir2
@@ -20,8 +25,9 @@ public class TreeDir2
 	{
 		TreeDir2 app = new TreeDir2 ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -127,8 +133,9 @@ public class TreeDir2
 		}
 
 		//check for required args, set defaults
-		if (_folderString == null)
+		if (_folderString == null) {
 			_folderString = ".";
+		}
 //		_folder = new File (_folderString);
 		_folder = FileSystems.getDefault ().getPath (_folderString);
 
@@ -142,14 +149,16 @@ public class TreeDir2
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/include <file pattern> ...] [/exclude <file pattern> ...] [<folder> [<file pattern> ...]] ";
+		msg += "Usage: " + _AppName + " [/debug] [/subdirs] [/include <file pattern> ...] [/exclude <file pattern> ...] [<folder> [<file pattern> ...]] ";
 		System.err.println ("Error: " + msg + NL);
 
-		if (exit)
+		if (exit) {
 			System.exit (1);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -168,15 +177,17 @@ public class TreeDir2
 
 		long elapsedMillis = (System.nanoTime () - startNano) / 1000000;
 
-		if (_filesFound == 0)
+		if (_filesFound == 0) {
 			System.out.println ("No files found");
-		else if (_filesFound == 1)
+		} else if (_filesFound == 1) {
 			System.out.println (_filesFound + " file found");
-		else
+		} else {
 			System.out.println (_filesFound + " files found");
+		}
 
-		if (_perfTesting)
+		if (_perfTesting) {
 			System.out.println ("elapsed: " + elapsedMillis + " ms");
+		}
 
 		return status;
 	}
@@ -194,8 +205,9 @@ public class TreeDir2
 					_filesFound++;
 					String info = fileInfo.toString ();
 //					String info = "TBD";
-					if (!_perfTesting)
+					if (!_perfTesting) {
 						System.out.println (info);
+					}
 				}
 
 				if (_recurseSubdirs && fileInfo.isDirectory ()) {

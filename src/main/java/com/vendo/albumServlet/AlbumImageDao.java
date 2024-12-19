@@ -510,9 +510,9 @@ public class AlbumImageDao {
 
 			//skip some known offenders
 //			if (nameNoExt.startsWith("q") || nameNoExt.startsWith("x")) {
-			if (nameNoExt.startsWith("qt")) {
-				continue;
-			}
+//			if (nameNoExt.startsWith("qt")) {
+//				continue;
+//			}
 
 			if (baseName1.compareToIgnoreCase(prevBaseName1) != 0) {
 				//complete processing for this baseName
@@ -688,8 +688,8 @@ public class AlbumImageDao {
 					}
 
 //TODO - refresh based on elapsed time, not just image count
-					final int intermediateRefreshCountMin = 200;
-					final int intermediateRefreshCountMax = 300;
+					final int intermediateRefreshCountMin = 150; //200;
+					final int intermediateRefreshCountMax = 200; //300;
 					if (queue.size() == 0 || (queue.size() > intermediateRefreshCountMin && numHandled > intermediateRefreshCountMax)) {
 						numHandled = 0;
 						updateImageCounts(subFolder2);

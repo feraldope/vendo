@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 
 public class GetUrl {
-	public enum FileType {JPG, PNG, MPG, WMV, MP4, AVI, Other}
+	public enum FileType {JPG, PNG, WEBP, MPG, WMV, MP4, AVI, Other}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static void main(String[] args) {
@@ -481,7 +481,7 @@ public class GetUrl {
 
 		//if we have already attempted to get this URL, just return previous results
 		if (_resultsMap.contains(_urlStr)) {
-			VendoUtils.printWithColor(_warningColor, "Found in resultsMap, skipping: " + _urlStr);
+			VendoUtils.printWithColor(_warningColor, "Found URL in resultsMap, skipping: " + _urlStr);
 			return _resultsMap.getStatus(_urlStr);
 		}
 
@@ -514,7 +514,7 @@ public class GetUrl {
 				conn = getConnection(_urlStr);
 
 				in = new BufferedInputStream(conn.getInputStream());
-				out = new FileOutputStream(_tempFilename);
+				out = new FileOutputStream(_tempFilename1);
 
 				final int size = 64 * 1024;
 				byte[] bytes = new byte[size];
@@ -595,7 +595,7 @@ public class GetUrl {
 		}
 
 		ImageSize imageSize = new ImageSize();
-		if (!validFile(_tempFilename, imageSize)) {
+		if (!validFile(_tempFilename1, imageSize)) {
 			_resultsMap.add(_urlStr, false);
 			return false;
 		}
@@ -628,10 +628,20 @@ public class GetUrl {
 //			return false;
 		}
 
-		boolean status = moveFile(_tempFilename, _outputFilename);
+		boolean status;
+		if (_fileType == FileType.WEBP) {
+			status = doWebp(_tempFilename1, _tempFilename2);
+			if (status) {
+				String jpgFileName = _outputFilename.replace(".webp", ".jpg");
+				status = compressJpgImage(_tempFilename2, jpgFileName);
+			}
 
-		if (!status) { //move failed, try copying file
-			status = copyFile(_tempFilename, _outputFilename, true);
+		} else {
+			status = moveFile(_tempFilename1, _outputFilename);
+
+			if (!status) { //move failed, try copying file
+				status = copyFile(_tempFilename1, _outputFilename, true);
+			}
 		}
 
 //		if (status)
@@ -746,6 +756,7 @@ public class GetUrl {
 		switch (_fileType) {
 			default:
 			case Other:
+			case WEBP: //TODO - read first bytes of file and check for signature, like "RIFF....WEBPVP8"
 				return true;
 			case JPG:
 			case PNG:
@@ -770,8 +781,9 @@ public class GetUrl {
 
 			int width = image.getWidth();
 			int height = image.getHeight();
-//			if (_Debug)
+//			if (_Debug) {
 //				_log.debug ("w = " + width + ", h = " + height);
+//			}
 			imageSize._width = width;
 			imageSize._height = height;
 
@@ -867,6 +879,58 @@ public class GetUrl {
 		}
 
 		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//TODO - move to VendoUtils
+	public static Collection<String> executeCommand (String command) {
+		Process process;
+		try {
+			process = Runtime.getRuntime ().exec (command);
+		} catch (Exception ee) {
+			_log.error("executeCommand: exception executing \"" + command + "\"");
+			_log.error(ee); //print exception, but no stack trace
+			return null;
+		}
+
+		Collection<String> lines = new ArrayList<>();
+		try (BufferedReader reader = new BufferedReader (new InputStreamReader (process.getInputStream ()))) {
+			String line;
+			do {
+				line = reader.readLine();
+				if (line != null) { //EOF
+					lines.add(line);
+				}
+			} while (line != null);
+
+		} catch (IOException ee) {
+			_log.error("executeCommand: exception reading command output");
+			_log.error(ee); //print exception, but no stack trace
+			return null;
+		}
+
+//		if (_Debug) {
+//			_log.debug("executeCommand: command output:" + NL + String.join(NL, lines) + NL);
+//		}
+
+		return lines;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static boolean doWebp (String srcName, String destName) {
+		String command = "C:/libwebp-1.4.0-windows-x64/bin/dwebp.exe \"" + srcName + "\" -o \"" + destName + "\"";
+//		if (_Debug) {
+//			_log.debug("doWebp: command: " + command);
+//		}
+		Collection<String> lines = executeCommand(command);
+
+		return lines != null; // && !lines.isEmpty();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean compressJpgImage (String srcName, String destName) {
+		boolean status = JpgUtils.generateScaledImage(srcName, destName, -1, -1);
+		return status;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1131,8 +1195,17 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private void buildTempString() {
-		_tempFilename = _destDir + "000000." + new Date().getTime() + "." + _pid + ".tmp";
-//		_log.debug("buildTempString: _tempFilename = " + _tempFilename);
+		String base = _destDir + "tmp/" + "000000." + new Date().getTime() + "." + _pid;
+
+		String identifier1 = "-" + _fileType.toString().toLowerCase();
+		String identifier2 = "-" + (_fileType == FileType.WEBP ? "png" : "unused");
+		_tempFilename1 = base + identifier1 + ".tmp";
+		_tempFilename2 = base + identifier2 + ".tmp";
+
+//		if (_Debug) {
+//			_log.debug("buildTempString: _tempFilename1 = " + _tempFilename1);
+//			_log.debug("buildTempString: _tempFilename2 = " + _tempFilename2);
+//		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1309,6 +1382,8 @@ public class GetUrl {
 			_fileType = FileType.JPG;
 		} else if (model.endsWith(".png")) {
 			_fileType = FileType.PNG;
+		} else if (model.endsWith(".webp")) {
+			_fileType = FileType.WEBP;
 		} else if (model.endsWith(".mpg")) {
 			_fileType = FileType.MPG;
 		} else if (model.endsWith(".wmv")) {
@@ -1354,7 +1429,7 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean hasImageExtension (String fileName) {
-		return fileName.toLowerCase().endsWith ("jpg") || fileName.toLowerCase().endsWith ("jpeg") || fileName.toLowerCase().endsWith ("png");
+		return fileName.toLowerCase().endsWith ("jpg") || fileName.toLowerCase().endsWith ("jpeg") || fileName.toLowerCase().endsWith ("png") || fileName.toLowerCase().endsWith ("webp");
 	}
 
 	private static class ImageSize {
@@ -1764,7 +1839,8 @@ public class GetUrl {
 	private String _urlStr = null;
 	private String _outputFilename = null;
 	private String _destDir = null;
-	private String _tempFilename = null;
+	private String _tempFilename1 = null; //for original downloaded file
+	private String _tempFilename2 = null; //for intermediate file, if necessary, to convert from WEBP
 	private Instant _globalStartInstant;
 	private FileType _fileType = FileType.Other;
 	private SizeDist _sizeDist = new SizeDist ();
