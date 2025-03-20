@@ -789,6 +789,7 @@ public class GetUrl {
 
 			final int minDimension = 280;
 			if (width < minDimension || height < minDimension) {
+//			if (width < minDimension && height < minDimension) {
 //				VendoUtils.printWithColor(_warningColor, "Image too small (" + width + " x " + height + "), skipping");
 				VendoUtils.printWithColor(_warningColor, "Image too small, skipping: " +
 						"(" + width + " x " + height + ") is less than minimum dimension (" + minDimension + ")");

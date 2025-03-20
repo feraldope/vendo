@@ -31,18 +31,16 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
-public class AlbumFileBackup
-{
+public class AlbumFileBackup {
+
 	///////////////////////////////////////////////////////////////////////////
-	static
-	{
+	static {
 		Thread.setDefaultUncaughtExceptionHandler (new VUncaughtExceptionHandler ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//entry point for "image backup" feature
-	public static void main (String[] args)
-	{
+	public static void main (String[] args) {
 //TODO - change CLI to read properties file, too
 
 		AlbumFormInfo.getInstance (); //call ctor to load class defaults
@@ -74,8 +72,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String[] args)
-	{
+	private Boolean processArgs (String[] args) {
 		String defaultSubFolderPatternString = "*";
 		String subFolderPatternString = defaultSubFolderPatternString;
 		String filenamePatternString = "*";
@@ -197,6 +194,13 @@ public class AlbumFileBackup
 				_log.error ("AlbumFileRename.processArgs: error destination path does not exist: " + _destRootPath);
 				return false;
 			}
+
+			String datedFolderStr = "orphans"; // + "_" + _dateFormat2.format (new Date ());
+			Path parentOfDest = _destRootPath.getRoot ().resolve (_destRootPath.getParent ());
+			_orphanRootPath = createDestinationFolderIfNotExist(parentOfDest, datedFolderStr);
+			if (null == _orphanRootPath) {
+				return false; //createDestinationFolderIfNotExist prints error
+			}
 		}
 
 		if (sinceInDays > 0.) {
@@ -206,13 +210,14 @@ public class AlbumFileBackup
 		_isPartialBackup = !subFolderPatternString.equals(defaultSubFolderPatternString) || _sinceInMillis > 0;
 
 		if (_debug) {
-			String startDateStr = (_sinceInMillis > 0 ? sinceInDays + " (since: " + _dateFormat.format (new Date (_sinceInMillis)) + ")" : "(all days)");
+			String startDateStr = (_sinceInMillis > 0 ? sinceInDays + " (since: " + _dateFormat1.format (new Date (_sinceInMillis)) + ")" : "(all days)");
 			_log.debug ("AlbumFileBackup.processArgs: sinceInDays: " + startDateStr);
 			_log.debug ("AlbumFileBackup.processArgs: filenamePatternString: " + filenamePatternString + " => pattern: " + _filenamePattern.toString());
 			_log.debug ("AlbumFileBackup.processArgs: subFolderPatternString: " + subFolderPatternString + " => patterns: " + _subFolderPatterns.toString());
 
 			_log.debug ("AlbumFileBackup.processArgs: _sourceRootPath: " + _sourceRootPath.toString ());
 			_log.debug ("AlbumFileBackup.processArgs: _destRootPath: " + _destRootPath.toString ());
+			_log.debug ("AlbumFileBackup.processArgs: _orphanRootPath: " + _orphanRootPath.toString ());
 
 			_log.debug ("AlbumFileBackup.processArgs: _isPartialBackup: " + _isPartialBackup);
 			_log.debug ("AlbumFileBackup.processArgs: _numThreads: " + _numThreads);
@@ -224,8 +229,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
+	private void displayUsage (String message, Boolean exit) {
 		String msg = "";
 		if (message != null) {
 			msg = message + NL;
@@ -240,8 +244,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumFileBackup ()
-	{
+	AlbumFileBackup () {
 		if (_debug) {
 			_log.debug ("AlbumFileBackup ctor");
 		}
@@ -249,8 +252,7 @@ public class AlbumFileBackup
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private boolean run ()
-	{
+	private boolean run () {
 		Instant startInstant = Instant.now ();
 
 		final Collection<String> sourceSubFolders = getSubFolders (_sourceRootPath, _subFolderPatterns, _sinceInMillis);
@@ -276,10 +278,10 @@ public class AlbumFileBackup
 
 //		if (_debug) {
 //			for (String subFolder : sourceMap.keySet ()) {
-//				_log.debug ("AlbumFileBackup.run: sourceSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (sourceMap.get (subFolder).size ()));
+//				_log.debug ("AlbumFileBackup.run: sourceSubFolder: " + subFolder + ": files = " + _decimalFormat0.format (sourceMap.get (subFolder).size ()));
 //			}
 //			for (String subFolder : destMap.keySet ()) {
-//				_log.debug ("AlbumFileBackup.run: destSubFolder: " + subFolder + ": files = " + _decimalFormat2.format (destMap.get (subFolder).size ()));
+//				_log.debug ("AlbumFileBackup.run: destSubFolder: " + subFolder + ": files = " + _decimalFormat0.format (destMap.get (subFolder).size ()));
 //			}
 //		}
 
@@ -289,8 +291,8 @@ public class AlbumFileBackup
 		long totalSourceBytes = sourceMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
 		long totalDestBytes = destMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
 
-		System.out.println ("totalSourceFiles = " + _decimalFormat2.format (totalSourceFiles) + ", totalSourceBytes = " + VendoUtils.unitSuffixScaleBytes(totalSourceBytes));
-		System.out.println ("totalDestFiles = " + _decimalFormat2.format (totalDestFiles) + ", totalDestBytes = " + VendoUtils.unitSuffixScaleBytes(totalDestBytes));
+		System.out.println ("totalSourceFiles = " + _decimalFormat0.format (totalSourceFiles) + ", totalSourceBytes = " + VendoUtils.unitSuffixScaleBytes(totalSourceBytes));
+		System.out.println ("totalDestFiles = " + _decimalFormat0.format (totalDestFiles) + ", totalDestBytes = " + VendoUtils.unitSuffixScaleBytes(totalDestBytes));
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
 
@@ -316,23 +318,23 @@ public class AlbumFileBackup
 		String sourceFilename = "fileList." +  timestamp + partialStub + ".sources." + sourceFileList.size () + "rows.log";
 		Path outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), sourceFilename);
 		int linesWritten = writeSourceFileList (sourceFileList, outputFilePath, sourceSubFolders);
-		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath);
+		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath);
 
 		List<String> orphanFileList = getSourceFileList (orphanMap, _destRootPath);
 		String orphanFilename = "fileList." +  timestamp + partialStub + ".orphans." + orphanFileList.size () + "rows.log";
 		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphanFilename);
 		linesWritten = writeSourceFileList (orphanFileList, outputFilePath, sourceSubFolders);
-		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath);
+		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath);
 
 //		List<String> orphan2FileList = reduceSourceFileList (orphanMap, _destRootPath, false);
 //		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan2Filename);
 //		linesWritten = writeSourceFileList (orphan2FileList, outputFilePath);
-//		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+//		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath.toString ());
 
 //		List<String> orphan3FileList = reduceSourceFileList (orphanMap, _destRootPath, true);
 //		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan3Filename);
 //		linesWritten = writeSourceFileList (orphan3FileList, outputFilePath);
-//		System.out.println (_decimalFormat2.format (linesWritten) + " lines written to " + outputFilePath.toString ());
+//		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath.toString ());
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
@@ -350,18 +352,20 @@ public class AlbumFileBackup
 			for (String subFolder : foldersSortedByNumBytes) {
 				Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
 				long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
-				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + String.format("%3s", subFolder) + ": " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat2.format (diffColl.size ()) + " files");
+				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + String.format("%3s", subFolder) + ": " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat0.format (diffColl.size ()) + " files");
 			}
 		}
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
 
+		// copy files
+
 		long totalDiffFiles = diffMap.values ().stream ().mapToLong (Collection::size).sum ();
 		long totalDiffBytes = diffMap.values ().stream ().flatMap (Collection::stream).mapToLong (AlbumImageFileDetails::getBytes).sum ();
 		long usableBytes = getUsableBytesOnDrive (_destRootPath);
 
-		System.out.println ("totalDiffFiles = " + _decimalFormat2.format (totalDiffFiles) +
+		System.out.println ("totalDiffFiles = " + _decimalFormat0.format (totalDiffFiles) +
 							", totalDiffBytes = " + VendoUtils.unitSuffixScaleBytes(totalDiffBytes) +
 							", usableBytes on destination = " + VendoUtils.unitSuffixScaleBytes(usableBytes));
 
@@ -372,18 +376,27 @@ public class AlbumFileBackup
 
 		copyFiles (diffMap);
 
-		shutdownExecutor ();
-
-//		System.out.println (Duration.between (startInstant, Instant.now ())); //default ISO-8601 seconds-based representation
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+		System.out.println ("");
+
+		// handle orphans
+
+		long totalOrphanFiles = orphanMap.values ().stream ().mapToLong (Collection::size).sum ();
+		System.out.println ("totalOrphanFiles = " + _decimalFormat0.format (totalOrphanFiles));
+
+		handleOrphans (orphanMap);
+
+		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+		System.out.println ("");
+
+		shutdownExecutor ();
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//get list of subfolders (relative paths only, i.e., 'aa', 'ab', etc.)
-	public List<String> getSubFolders (Path rootPath, List<Pattern> subFolderPatterns, long sinceInMillis)
-	{
+	public List<String> getSubFolders (Path rootPath, List<Pattern> subFolderPatterns, long sinceInMillis) {
 		final List<String> subFolders = new ArrayList<>();
 
 		List<File> list = Arrays.asList (Objects.requireNonNull(new File(rootPath.toString()).listFiles(File::isDirectory)));
@@ -402,8 +415,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<String> getSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath)
-	{
+	private List<String> getSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath) {
 		String rootFolder = rootPath != null ? rootPath + "\\" : "";
 		List<String> list = new ArrayList<> ();
 		for (String subFolder : new TreeSet<> (sourceMap.keySet ())) {
@@ -417,8 +429,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-//	private List<String> reduceSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath, boolean collapseGroups)
-//	{
+//	private List<String> reduceSourceFileList (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap, Path rootPath, boolean collapseGroups) {
 //		String rootFolder = rootPath != null ? rootPath + "\\" : "";
 //		Map<String, Integer> reduceMap = new HashMap<> ();
 //		for (String subFolder : new TreeSet<> (sourceMap.keySet ())) {
@@ -442,8 +453,7 @@ public class AlbumFileBackup
 //	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int writeSourceFileList (List<String> sourceFileList, Path outputFilePath, Collection<String> sourceSubFolders)
-	{
+	private int writeSourceFileList (List<String> sourceFileList, Path outputFilePath, Collection<String> sourceSubFolders) {
 		int linesWritten = 0;
 
 		String commandLineArguments = _commandLineArguments.stream().sorted(VendoUtils.caseInsensitiveStringComparator).collect(Collectors.joining(" "));
@@ -468,8 +478,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Collection<String> createDestinationFoldersIfNotExist (Path destRootPath, Collection<String> sourceSubFolders)
-	{
+	private Collection<String> createDestinationFoldersIfNotExist (Path destRootPath, Collection<String> sourceSubFolders) {
 		ConcurrentHashMap<String, String> didNotCreateMap = new ConcurrentHashMap<> ();
 
 		final CountDownLatch endGate = new CountDownLatch (sourceSubFolders.size ());
@@ -477,7 +486,7 @@ public class AlbumFileBackup
 		for (String subFolder : sourceSubFolders) {
 			Runnable task = () -> {
 				Thread.currentThread ().setName (subFolder);
-				if (!createDestinationFolderIfNotExist (destRootPath, subFolder)) {
+				if (null == createDestinationFolderIfNotExist (destRootPath, subFolder)) {
 					didNotCreateMap.put (subFolder, subFolder);
 				}
 				endGate.countDown ();
@@ -495,10 +504,8 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean createDestinationFolderIfNotExist (Path destRootPath, String sourceSubFolder)
-	{
-		boolean status = true;
-
+	// returns path if successful, otherwise null
+	private Path createDestinationFolderIfNotExist (Path destRootPath, String sourceSubFolder) {
 		Path destPath = FileSystems.getDefault ().getPath (destRootPath.toString (), sourceSubFolder);
 
 		if (!Files.exists (destPath) || !Files.isDirectory (destPath)) {
@@ -506,20 +513,19 @@ public class AlbumFileBackup
 				Files.createDirectories (destPath);
 
 			} catch (Exception ex) {
-				status = false;
 //				_log.error ("AlbumFileBackup.createDestinationFolderIfNotExist: failed to create: " + destPath.toString (), ex);
 				_log.error ("AlbumFileBackup.createDestinationFolderIfNotExist: " + ex);
+				return null;
 			}
 		}
 
-		return status;
+		return destPath;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean getImageFileDetailsFromFileSystem (Collection<String> sourceSubFolders,
 													   ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap,
-													   ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap)
-	{
+													   ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap) {
 		_remainingFoldersToBeRead.set (2 * sourceSubFolders.size ());
 
 		System.out.print (NL + "remaining folders to be read: ");
@@ -558,8 +564,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem (Path folder, Pattern filenamePattern)
-	{
+	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem (Path folder, Pattern filenamePattern) {
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
 		final Instant startInstant = Instant.now ();
@@ -642,8 +647,7 @@ public class AlbumFileBackup
 	private boolean getSourceDestFolderDiffs (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> sourceMap,
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap,
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap,
-											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap)
-	{
+											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap) {
 		final CountDownLatch endGate = new CountDownLatch (sourceMap.keySet ().size ());
 
 //TODO - handle case where sourceMap.keySet() is not the same as destMap.keySet())
@@ -679,7 +683,7 @@ public class AlbumFileBackup
 				Duration duration = Duration.between (startInstant, Instant.now ());
 
 				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
-					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format("%3s", subFolder) + ": diffColl.size: " + diffColl.size () +
+					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format("%3s", subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
 								", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
 				}
 
@@ -698,8 +702,7 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private long copyFiles (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap)
-	{
+	private long copyFiles (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap) {
 		final CountDownLatch endGate = new CountDownLatch (diffMap.keySet ().size ());
 		final long numTotalFoldersToCopy = diffMap.keySet ().size ();
 		final long numTotalFilesToCopy = diffMap.values ().stream ().mapToLong (Collection::size).sum ();
@@ -720,7 +723,7 @@ public class AlbumFileBackup
 
 				if (_debug) {
 					long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
-					_log.debug ("AlbumFileBackup.copyFiles: " + String.format("%3s", subFolder) + ": files to copy: " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat2.format (diffColl.size ()) + " files");
+					_log.debug ("AlbumFileBackup.copyFiles: " + String.format("%3s", subFolder) + ": files to copy: " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat0.format (diffColl.size ()) + " files");
 				}
 
 				long numSubfolderFilesCopied = 0;
@@ -738,18 +741,18 @@ public class AlbumFileBackup
 							numTotalFilesCopied.incrementAndGet ();
 
 							if (_verbose) {
-								String stats = "(" + _decimalFormat2.format (numTotalFilesCopied.get ()) + " of " + _decimalFormat2.format (numTotalFilesToCopy) + ")";
+								String stats = "(" + _decimalFormat0.format (numTotalFilesCopied.get ()) + " of " + _decimalFormat0.format (numTotalFilesToCopy) + ")";
 								_log.debug ("AlbumFileBackup.copyFiles: " + stats + " copied file: " + destPath);
 							}
 
 						} catch (Exception ex) {
-							_log.error ("AlbumFileBackup.copyFiles: Files.copy failed to write to '" + destPath + "'. " + NL + ex);
+							_log.error ("AlbumFileBackup.copyFiles: Files.copy failed to write to '" + destPath + "'." + NL + ex);
 						}
 					}
 				}
 
 				if (_debug) {
-					_log.debug ("AlbumFileBackup.copyFiles: " + String.format("%3s", subFolder) + ":   *filesCopied: " + _decimalFormat2.format (numSubfolderFilesCopied) +
+					_log.debug ("AlbumFileBackup.copyFiles: " + String.format("%3s", subFolder) + ":   *filesCopied: " + _decimalFormat0.format (numSubfolderFilesCopied) +
 								" (" + (endGate.getCount() - 1) + " of " + numTotalFoldersToCopy + " folders remain)");
 				}
 
@@ -770,8 +773,64 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private long getUsableBytesOnDrive (Path path)
-	{
+	private long handleOrphans (ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap) {
+		final CountDownLatch endGate = new CountDownLatch (orphanMap.keySet ().size ());
+		final long numTotalFoldersToMove = orphanMap.keySet ().size ();
+		final long numTotalFilesToMove = orphanMap.values ().stream ().mapToLong (Collection::size).sum ();
+
+		AtomicLong numTotalFilesMoved = new AtomicLong ();
+		for (String subFolder : orphanMap.keySet()) {
+			final Collection<AlbumImageFileDetails> orphanColl = orphanMap.get (subFolder);
+			Runnable task = () -> {
+				Thread.currentThread ().setName ("move: " + subFolder);
+
+				long numSubfolderFilesMoved = 0;
+				for (AlbumImageFileDetails imageFileDetails : orphanColl) {
+					Path sourcePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), subFolder, imageFileDetails.getName ());
+					Path destPath = FileSystems.getDefault ().getPath (_orphanRootPath.toString (), /*subFolder,*/ imageFileDetails.getName ()); //NOTE: orphan files do not use image subfolder!
+
+					if (_testMode) {
+						//do not move
+						_log.debug ("AlbumFileBackup.handleOrphans: TEST: would move '" + sourcePath + "' to '" + destPath + "'");
+					} else {
+						try {
+							Files.move (sourcePath, destPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+
+							++numSubfolderFilesMoved;
+							numTotalFilesMoved.incrementAndGet ();
+
+							if (_verbose) {
+								String stats = "(" + _decimalFormat0.format (numTotalFilesMoved.get ()) + " of " + _decimalFormat0.format (numTotalFilesToMove) + ")";
+								_log.debug ("AlbumFileBackup.handleOrphans: " + stats + " moved file: " + destPath);
+							}
+
+						} catch (Exception ex) {
+							_log.error ("AlbumFileBackup.handleOrphans: Files.move failed to write to '" + destPath + "'." + NL + ex);
+						}
+					}
+				}
+
+				if (_debug) {
+					_log.debug ("AlbumFileBackup.handleOrphans: " + String.format("%3s", subFolder) + ":   *filesMoved: " + _decimalFormat0.format (numSubfolderFilesMoved) +
+								" (" + (endGate.getCount() - 1) + " of " + numTotalFoldersToMove + " folders remain)");
+				}
+
+				endGate.countDown ();
+			};
+			getExecutor ().execute (task);
+		}
+
+		try {
+			endGate.await ();
+		} catch (Exception ex) {
+			_log.error ("AlbumFileBackup.handleOrphans: endGate: ", ex);
+		}
+
+		return numTotalFilesMoved.get ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private long getUsableBytesOnDrive (Path path) {
 		long usableBytes = 0;
 
 		try {
@@ -786,14 +845,12 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	long addPercentPadding (double value, double percentPadding)
-	{
+	long addPercentPadding (double value, double percentPadding) {
 		return (long) Math.ceil (value * (1 + percentPadding / 100));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getBaseName (String name, boolean collapseGroups)
-	{
+	public static String getBaseName (String name, boolean collapseGroups) {
 		final String regex1 = "-\\d.*$";		//match trailing [dash][digit][anything else]
 //		final String regex2 = "\\d*\\-\\d.*$";	//match trailing [digits][dash][digit][anything else]
 		final String regex2 = "\\d*-\\d.*$";	//match trailing [digits][dash][digit][anything else]
@@ -815,8 +872,7 @@ public class AlbumFileBackup
 //	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public synchronized ExecutorService getExecutor ()
-	{
+	public synchronized ExecutorService getExecutor () {
 		if (_executor == null || _executor.isTerminated () || _executor.isShutdown ()) {
 			_executor = Executors.newFixedThreadPool (_numThreads);
 		}
@@ -825,9 +881,8 @@ public class AlbumFileBackup
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void shutdownExecutor ()
-	{
-		_log.debug ("AlbumFileBackup.shutdownExecutor: shutdown executor");
+	public void shutdownExecutor () {
+//		_log.debug ("AlbumFileBackup.shutdownExecutor: shutdown executor");
 		getExecutor ().shutdownNow ();
 	}
 
@@ -842,6 +897,7 @@ public class AlbumFileBackup
 
 	private Path _sourceRootPath = null;
 	private Path _destRootPath = null;
+	private Path _orphanRootPath = null;
 
 	private Pattern _filenamePattern;
 	private List<Pattern> _subFolderPatterns = new ArrayList<>();
@@ -854,11 +910,12 @@ public class AlbumFileBackup
 	private static final String NL = System.getProperty ("line.separator");
 
 //	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_TIME;
-//	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("HH'h':mm'm':ss's'"); //for example: 01h:03m:12s (note this wraps values >= 24 hours)
 
-	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm"); //Note SimpleDateFormat is not thread safe
-	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //int
+	private static final FastDateFormat _dateFormat1 = FastDateFormat.getInstance ("MM/dd/yy HH:mm"); //Note SimpleDateFormat is not thread safe
+	private static final FastDateFormat _dateFormat2 = FastDateFormat.getInstance ("yyyy.MMdd"); //Note SimpleDateFormat is not thread safe
+
+	private static final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0"); //integer
 
 	private static final Logger _log = LogManager.getLogger ();
 	private static final String _AppName = "AlbumFileBackup";

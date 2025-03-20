@@ -8,88 +8,87 @@ import java.util.List;
 //import org.apache.logging.log4j.*;
 
 
-public enum AlbumSortType
-{
+public enum AlbumSortType {
+
 	//Enum (name, visibleInUi)
-	ByNone ("None", false, false),
-	ByName ("Name", true, false),
-	ByDate ("Date", true, false),
-	ByExif ("EXIF", true, false),
-	BySizeBytes ("Size (bytes)", true, true),
-	BySizePixels ("Size (pixels)", true, true),
-	ByBytesPerPixel ("Bytes/pixel", true, true),
-	ByCount ("Count", true, false),
-	ByHash ("Hash", true, false),
-	ByRgb ("RGB", true, false),
-	ByRandom ("Random", true, false);
+	ByNone ("None", false, false, false),
+	ByName ("Name", true, false, false),
+	ByDate ("Date", true, false, false),
+	ByExif ("EXIF", true, false, false),
+	BySizeBytes ("Size (bytes)", true, true, true),
+	BySizeAvgBytes ("Size (avg bytes)", true, true, true),
+	BySizePixels ("Size (pixels)", true, true, false),
+	ByBytesPerPixel ("Bytes/pixel", true, true, false),
+	ByCount ("Count", true, false, false),
+	ByHash ("Hash", true, false, false),
+	ByRgb ("RGB", true, false, false),
+	ByRandom ("Random", true, false, false);
 //	ByImageNumber ("Image Number", true, false);
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns)
-	{
-		_value = new AlbumStringPair (name, "by" + name);
-		_isVisibleInUi = isVisibleInUi;
-		_propagateValueToDrillDowns = propagateValueToDrillDowns;
+	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns, boolean comparatorUsesCache) {
+		value = new AlbumStringPair (name, "by" + name);
+		this.isVisibleInUi = isVisibleInUi;
+		this.propagateValueToDrillDowns = propagateValueToDrillDowns;
+		this.comparatorUsesCache = comparatorUsesCache;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getName ()
-	{
-		return _value.getName ();
+	public String getName () {
+		return value.getName ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol ()
-	{
-		return _value.getSymbol ();
+	public String getSymbol () {
+		return value.getSymbol ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isVisibleInUi ()
-	{
-		return _isVisibleInUi;
+	public boolean isVisibleInUi () {
+		return isVisibleInUi;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isPropagateValueToDrillDowns ()
-	{
-		return _propagateValueToDrillDowns;
+	public boolean isPropagateValueToDrillDowns () {
+		return propagateValueToDrillDowns;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static void init ()
-	{
-		if (_values == null || _uiValues == null) {
+	public boolean isComparatorUsesCache () {
+		return comparatorUsesCache;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static void init () {
+		if (values == null || uiValues == null) {
 			List<AlbumStringPair> pairs = new ArrayList<> ();
 			List<AlbumStringPair> uiPairs = new ArrayList<> ();
 
 			for (AlbumSortType ff : values ()) {
 				pairs.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));
-				if (ff._isVisibleInUi) {
+				if (ff.isVisibleInUi) {
 					uiPairs.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));
 				}
 			}
 
-			_values = pairs.toArray (new AlbumStringPair[] {});
-			_uiValues = uiPairs.toArray (new AlbumStringPair[] {});
+			values = pairs.toArray (new AlbumStringPair[] {});
+			uiValues = uiPairs.toArray (new AlbumStringPair[] {});
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumStringPair[] getValues (boolean visibleInUi)
-	{
+	public static AlbumStringPair[] getValues (boolean visibleInUi) {
 		init ();
 
 		if (visibleInUi) {
-			return _uiValues;
+			return uiValues;
 		} else {
-			return _values;
+			return values;
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumSortType getValue (String symbol)
-	{
+	public static AlbumSortType getValue (String symbol) {
 		//brute-force method
 		for (AlbumSortType ff : values ()) {
 			if (ff.getSymbol ().equals (symbol)) {
@@ -102,12 +101,13 @@ public enum AlbumSortType
 
 
 	//members
-	private final AlbumStringPair _value;
-	private final boolean _isVisibleInUi;
-	private final boolean _propagateValueToDrillDowns;
+	private final AlbumStringPair value;
+	private final boolean isVisibleInUi;
+	private final boolean propagateValueToDrillDowns;
+	private final boolean comparatorUsesCache;
 
-	private static AlbumStringPair[] _values;
-	private static AlbumStringPair[] _uiValues;
+	private static AlbumStringPair[] values;
+	private static AlbumStringPair[] uiValues;
 
 //	private static Logger _log = LogManager.getLogger ();
 }

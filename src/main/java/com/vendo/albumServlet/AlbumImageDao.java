@@ -414,6 +414,7 @@ public class AlbumImageDao {
 
 			dbImageCounts.remove(fsBaseName); //remove this entry
 		}
+
 		//dbImageCounts should now only have orphans that need to be deleted from database
 //		_log.debug("AlbumImageDao.syncFolder(" + subFolder + "): dbImageCounts: " + dbImageCounts);
 		for (Map.Entry<String, Integer> dbEntry : dbImageCounts.entrySet()) {
@@ -455,11 +456,11 @@ public class AlbumImageDao {
 		AlbumProfiling.getInstance().enter(4, "part 5");
 
 		Set<String> albumsOriginalCase = dbImageFileDetails.stream()
-				.map(i -> AlbumImage.getBaseName(i.getName(), true))
-				.collect (Collectors.toSet());
+														   .map(i -> AlbumImage.getBaseName(i.getName(), true))
+														   .collect (Collectors.toSet());
 		Set<String> albumsLowerCase = dbImageFileDetails.stream()
-				.map(i -> AlbumImage.getBaseName(i.getName(), true).toLowerCase())
-				.collect (Collectors.toSet());
+														.map(i -> AlbumImage.getBaseName(i.getName(), true).toLowerCase())
+														.collect (Collectors.toSet());
 		int diff = albumsOriginalCase.size() - albumsLowerCase.size();
 		if (diff != 0) {
 //TODO - print offending albums
@@ -510,7 +511,6 @@ public class AlbumImageDao {
 
 			//skip some known offenders
 //			if (nameNoExt.startsWith("q") || nameNoExt.startsWith("x")) {
-//			if (nameNoExt.startsWith("qt")) {
 //				continue;
 //			}
 
@@ -672,7 +672,7 @@ public class AlbumImageDao {
 
 					if (albumImageEvent.isRedundantEvent(previousAlbumImageEvent)) {
 						//skip this event
-						_log.debug("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + "/" + queue.size() + "): event ignored: " + albumImageEvent);
+//						_log.debug("AlbumImageDao.WatchDir.queueHandler(" + subFolder2 + "/" + queue.size() + "): event ignored: " + albumImageEvent);
 
 					} else if (StandardWatchEventKinds.ENTRY_CREATE.equals(pathEvent.kind())) {
 						handleFileCreate(subFolder2, path);
@@ -688,8 +688,8 @@ public class AlbumImageDao {
 					}
 
 //TODO - refresh based on elapsed time, not just image count
-					final int intermediateRefreshCountMin = 150; //200;
-					final int intermediateRefreshCountMax = 200; //300;
+					final int intermediateRefreshCountMin = 100; //200;
+					final int intermediateRefreshCountMax = 150; //300;
 					if (queue.size() == 0 || (queue.size() > intermediateRefreshCountMin && numHandled > intermediateRefreshCountMax)) {
 						numHandled = 0;
 						updateImageCounts(subFolder2);
@@ -1015,6 +1015,8 @@ public class AlbumImageDao {
 
 					_albumAlbumsSizeCache.put(subFolder, map1b);
 				}
+
+//TODO - add "warning: inconsistent numbering" so it can be displayed as a warning in the UI
 
 				{ //EXIF
 					Map<String, Boolean> albumHasExifDataMap = new HashMap<>();

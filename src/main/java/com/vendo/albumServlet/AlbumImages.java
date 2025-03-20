@@ -29,6 +29,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -402,15 +403,24 @@ public class AlbumImages
 		if (form.getMode () != AlbumMode.DoDup) { //skip sorting here because doDup() will do it
 			AlbumProfiling.getInstance ().enter (5, "sort " + _form.getSortType ());
 
+			AlbumImageComparator comparator = new AlbumImageComparator (_form);
+
 			AlbumImage[] array = _imageDisplayList.toArray (new AlbumImage[] {});
-			Arrays.parallelSort (array, new AlbumImageComparator (_form));
+			Arrays.parallelSort (array, comparator);
 			_imageDisplayList = Arrays.stream (array).collect(Collectors.toList());
+
+			Integer numberOfCallsToCompare = comparator.getNumberOfCallsToCompare();
+			if (numberOfCallsToCompare != null) {
+				_log.debug("AlbumImages.doDir.sort " + _form.getSortType() + ": comparator numberOfCallsToCompare = " + _decimalFormat0.format(numberOfCallsToCompare));
+			}
 
 			AlbumProfiling.getInstance ().exit (5, "sort " + _form.getSortType ());
 		}
 
 		if (form.getMode () == AlbumMode.DoDir) {
-			generateExifSortCommands ();
+			if (false) { //disabled for now
+				generateExifSortCommands();
+			}
 		}
 
 		if (form.getMode () == AlbumMode.DoDup && !form.getDbCompare()) {
@@ -426,12 +436,14 @@ public class AlbumImages
 							.collect(Collectors.joining(","));
 
 					String message = "excluding the following " + removed.size() + " 'special' albums that have more than " + minImagesToFlagAsLargeAlbum + " images: " + removedStr;
-					_log.debug("AlbumImages.removeAlbumsWithLargeCounts: " + message);
+					_log.debug("AlbumImages.doDir.removeAlbumsWithLargeCounts: " + message);
 					form.addServletError("Warning: " + message);
 				}
 			}
 
-			generateDuplicateImageRenameCommands();
+			if (false) { //disabled for now
+				generateDuplicateImageRenameCommands();
+			}
 		}
 
 		if (AlbumFormInfo._logLevel >= 5) {
@@ -1162,7 +1174,7 @@ public class AlbumImages
 			AlbumProfiling.getInstance ().enter (5, "dups.sets");
 
 //			String[] allInputFilters = ArrayUtils.addAll(form.getFilters (1), form.getFilters (2));
-//			List<String> allAlbumsAcrossAllInputFilters = getMatchingAlbumsForFilters (allInputFilters, false, 0);
+//			List<String> allAlbumsAcrossAllInputFilters = getMatchingAlbumsForFilters (allInputFilters, false, true, 0);
 //			if (allAlbumsAcrossAllInputFilters.size() > 0) {
 //				if (allAlbumsAcrossAllInputFilters.size() <= 200) {
 //					String filtersAll = allAlbumsAcrossAllInputFilters.stream().sorted(_alphanumComparator).collect(Collectors.joining(","));
@@ -1231,7 +1243,7 @@ public class AlbumImages
 				}
 
 				String[] allInputFilters = ArrayUtils.addAll(form.getFilters (1), form.getFilters (2));
-				List<String> allAlbumsAcrossAllInputFiltersAndMatches = getMatchingAlbumsForFilters (allInputFilters, false, 0);
+				List<String> allAlbumsAcrossAllInputFiltersAndMatches = getMatchingAlbumsForFilters (allInputFilters, false, true, 0);
 				allAlbumsAcrossAllInputFiltersAndMatches.addAll(allAlbumsAcrossAllMatches);
 				allAlbumsAcrossAllInputFiltersAndMatches = VendoUtils.caseInsensitiveSortAndDedup(allAlbumsAcrossAllInputFiltersAndMatches);
 				if (allAlbumsAcrossAllInputFiltersAndMatches.size() <= 200) { //hardcoded
@@ -1517,9 +1529,139 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public String generateAlbumLinks (String filter)
+	{
+		final int MaxAlbumLinks = 30; //limit number of album links shown
+
+		String baseName = AlbumImage.getBaseName(filter);
+
+		List<String> albums = getMatchingAlbumsForFilters(Collections.singletonList(baseName), false, false, 0);
+
+		int numAlbums = albums.size();
+		if (numAlbums == 1) {
+			return "";
+		}
+
+		int currentAlbumIndex = albums.indexOf(filter);
+
+		int firstAlbumIndex = 0;
+		int lastAlbumIndex = numAlbums - 1;
+		if (numAlbums < MaxAlbumLinks) {
+			//done - defaults set above are correct
+
+		} else if (currentAlbumIndex < MaxAlbumLinks / 2) {
+			//root first album at 0
+			firstAlbumIndex = 0;
+			lastAlbumIndex = Math.min(MaxAlbumLinks, numAlbums - 1);
+
+		} else if (currentAlbumIndex > numAlbums - 1 - MaxAlbumLinks / 2) {
+			//root last album at numAlbums
+			firstAlbumIndex = numAlbums - MaxAlbumLinks;
+			lastAlbumIndex = numAlbums - 1;
+
+		} else {
+			//spread albums evenly around currentAlbum
+			firstAlbumIndex = currentAlbumIndex - MaxAlbumLinks / 2;
+			lastAlbumIndex = currentAlbumIndex + MaxAlbumLinks / 2;
+		}
+
+		//add album links
+		StringBuilder sb = new StringBuilder (200 * numAlbums);
+		sb.append("Album:");
+		for (int ii = firstAlbumIndex; ii <= lastAlbumIndex; ii++) {
+			String text = (ii == currentAlbumIndex ? "<B>Current</B>" : albums.get(ii).replace (baseName, ""));
+			sb.append (generateAlbumLinksHelper (albums.get(ii), text));
+		}
+
+		//add other navigation links
+		if (firstAlbumIndex > 1) {
+			sb.append (generateAlbumLinksHelper (albums.get(0), "[First]"));
+		}
+		if (currentAlbumIndex > 0) {
+			sb.append (generateAlbumLinksHelper (albums.get(currentAlbumIndex - 1), "[Previous]"));
+		}
+		if (currentAlbumIndex < numAlbums - 1) {
+			sb.append (generateAlbumLinksHelper (albums.get(currentAlbumIndex + 1), "[Next]"));
+		}
+//TODO - skip this until I fix it
+//		if (lastAlbumIndex < numAlbums - 1) {
+//			sb.append (generateAlbumLinksHelper (albums.get(numAlbums - 1), "[Last]"));
+//		}
+
+		return sb.toString ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String generateAlbumLinksHelper (String albumStr, String text)
+	{
+		String server = AlbumFormInfo.getInstance ().getServer ();
+
+		//add timestamp to URL to always causes server hit and avoid caching
+		long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
+		String timestamp = String.valueOf (nowInMillis);
+
+		StringBuilder sb = new StringBuilder (200);
+		for (int ii = 0; ii < AlbumFormInfo._NumTagParams; ii++) {
+			sb.append (_form.getTagModeHtml (ii));
+			sb.append (_form.getTagHtml (ii));
+//			sb.append ("&tagMode").append (ii).append ("=").append (_form.getTagMode (ii).getSymbol ());
+//			sb.append ("&tag").append (ii).append ("=").append (_form.getTag (ii));
+		}
+		String tagParams = sb.toString ();
+
+		/*StringBuilder*/ sb = new StringBuilder (200);
+		sb.append (_spacing).append (NL)
+				.append ("<A HREF=\"").append (server)
+				.append ("?mode=").append (_form.getMode ().getSymbol ())
+				.append ("&filter1=").append (albumStr)
+				.append ("&filter2=").append (albumStr)
+//				.append ("&filter3=").append (_form.getFilter3 ())
+				.append (tagParams)
+				.append ("&exclude1=").append (_form.getExclude1 ())
+				.append ("&exclude2=").append (_form.getExclude2 ())
+				.append ("&exclude3=").append (_form.getExclude3 ())
+				.append ("&columns=").append (_form.getColumns ())
+				.append ("&sortType=").append (_form.getSortType ().getSymbol ())
+				.append ("&interleaveSort=").append (_form.getInterleaveSort ())
+				.append ("&panels=").append (_form.getPanels ())
+				.append ("&sinceDays=").append (_form.getSinceDays ())
+				.append ("&maxFilters=").append (_form.getMaxFilters ())
+				.append ("&highlightDays=").append (_form.getHighlightDays ())
+				.append ("&exifDateIndex=").append (_form.getExifDateIndex ())
+				.append ("&maxStdDev=").append (_form.getMaxStdDev ())
+				.append ("&minImagesToFlagAsLargeAlbum=").append (_form.getMinImagesToFlagAsLargeAlbum ())
+				.append ("&colorNearlyBlackOrWhite=").append (_form.getColorNearlyBlackOrWhite ())
+//				.append ("&rootFolder=").append (_form.getRootFolder ())
+				.append ("&tagFilterOperandOr=").append (_form.getTagFilterOperandOr ())
+				.append ("&collapseGroups=").append (_form.getCollapseGroups ())
+				.append ("&limitedCompare=").append (_form.getLimitedCompare ())
+				.append ("&dbCompare=").append (_form.getDbCompare ())
+				.append ("&looseCompare=").append (_form.getLooseCompare ())
+				.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
+				.append ("&useExifDates=").append (_form.getUseExifDates ())
+				.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
+				.append ("&useCase=").append (_form.getUseCase ())
+				.append ("&reverseSort=").append (_form.getReverseSort ())
+//				.append ("&screenWidth=").append (_form.getScreenWidth ())
+//				.append ("&screenHeight=").append (_form.getScreenHeight ())
+				.append ("&windowWidth=").append (_form.getWindowWidth ())
+				.append ("&windowHeight=").append (_form.getWindowHeight ())
+				.append ("&timestamp=").append (timestamp)
+				.append ("&slice=").append (1)
+				.append (_Debug ? "&debug=on" : "")
+//				.append ("#topAnchor")
+				.append ("\">")
+				.append (text)
+				.append ("</A>").append (NL);
+
+//TODO	return server + encodeUrl (sb.toString ());
+		return sb.toString ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public String generatePageLinks ()
 	{
-		final int MaxSliceLinks = 40; //limit number of slice link shown
+		final int MaxSliceLinks = 40; //limit number of slice links shown
 
 		int numSlices = getNumSlices ();
 		if (numSlices == 1) {
@@ -1551,6 +1693,7 @@ public class AlbumImages
 
 		//add slice links
 		StringBuilder sb = new StringBuilder (200 * numSlices);
+		sb.append("Slice:");
 		for (int ii = firstSlice; ii < lastSlice; ii++) {
 			int slice = ii + 1; //note slice is 1-based in UI
 			String text = (slice == currentSlice ? "<B>Current</B>" : Integer.toString (slice));
@@ -1792,6 +1935,7 @@ public class AlbumImages
 		String imageUrlPath = AlbumFormInfo.getInstance ().getRootPath (true);
 
 		AlbumMode mode = _form.getMode ();
+		AlbumSortType sortType = _form.getSortType ();
 		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : 1; //TODO - hardcoded
 		int cols = _form.getColumns ();
 		if (isAndroidDevice) {
@@ -1844,9 +1988,38 @@ public class AlbumImages
 			AlbumProfiling.getInstance().exit(5, "albumSize");
 		}
 
-		String pageLinksHtml = generatePageLinks () + _spacing;
+		String pageLinksHtml = generatePageLinks () + _spacing; //links shown at both top and bottom of page
 
-		//header, slice links, and close link
+		String albumLinksHtml = "";
+		if (mode == AlbumMode.DoDir) {
+			Collection<String> allFiltersDeduped = VendoUtils.dedupCollection(Arrays.asList(allFilters));
+
+			//perhaps overly simple test for one album (second part is that it does not end with "+")
+			boolean isOneAlbum = allFiltersDeduped.size() == 1 && !allFiltersDeduped.iterator().next().matches(".*\\+$");
+
+			//add album navigation links
+			if (isOneAlbum) {
+				albumLinksHtml = generateAlbumLinks(allFiltersDeduped.iterator().next()) + _spacing; //links only shown at bottom of page
+			}
+
+			//check for gaps
+			if (isOneAlbum) {
+				List<AlbumImage> list = new ArrayList<>(_imageDisplayList);
+				list.sort(new AlbumImageComparator(AlbumSortType.ByName));
+				String firstNumber = list.get(0).getName().replaceAll(".*-", "");
+				String lastNumber = list.get(list.size() - 1).getName().replaceAll(".*-", "");
+				int firstInt = Integer.parseInt(firstNumber);
+				int lastInt = Integer.parseInt(lastNumber);
+//TODO - this does not work for albums that have built-in gaps, e.g., 101, 102, 201, 202, 301, 302
+				int gaps = lastInt - firstInt + 1 - list.size();
+
+				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "NO gaps" : "a gap of " + gaps + " image(s)");
+				_log.debug("AlbumImages.generateHtml: " + message);
+				_form.addServletError("Info: " + message);
+			}
+		}
+
+		//header, slice links, album links, and close link
 		StringBuilder sb = new StringBuilder (8 * 1024);
 		sb.append ("<A NAME=\"topAnchor\"></A>").append (NL);
 
@@ -1878,10 +2051,20 @@ public class AlbumImages
 				.append ("</NOBR>")
 				.append (tagsMarker)
 				.append ("</TD>").append (NL)
+
 				.append ("<TD class=\"")
 				.append (font1)
 				.append ("\" ALIGN=RIGHT>")
 				.append (pageLinksHtml).append (NL)
+				.append ("</TD>").append (NL)
+				.append ("</TR>").append (NL)
+
+				.append ("<TR>").append (NL)
+				.append ("<TD class=\"")
+				.append (font1)
+				.append ("\" ALIGN=RIGHT>")
+				.append (albumLinksHtml).append (NL)
+				.append (_spacing).append (NL)
 //TODO - this only work for albums that were drilled into??
 				.append ("<A HREF=\"#\" onClick=\"self.close();\">Close</A>").append (NL)
 				.append ("</TD>").append (NL)
@@ -1982,23 +2165,38 @@ public class AlbumImages
 
 		_log.debug("AlbumImages.generateHtml: DIST Tables" + generateDistributionTable());
 
-		//go through the slice once to see if any of the images are dups
-		boolean anyDupsInSlice = false;
+		//Average Bytes Table
+		if (mode == AlbumMode.DoSampler && sortType == AlbumSortType.BySizeAvgBytes) {
+			StringBuilder sb1 = new StringBuilder("Average Bytes Table");
+			_imageDisplayList.stream().limit(20).forEach(i -> {
+				String imageName = i.getBaseName(collapseGroups);
+				long bytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0);
+				long count = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName, 0);
+				long averageBytes = bytes / count;
+				sb1.append(NL).append(imageName).append(": ").append(VendoUtils.unitSuffixScaleBytes(averageBytes));
+			});
+			_log.debug("AlbumImages.generateHtml: " + sb1);
+		}
+
 		int imageCount = 0;
-		for (int row = 0; row < rows; row++) {
-			for (int col = 0; col < cols; col++) {
-				AlbumImage image = images[start + imageCount];
-				if (findInDuplicatesCache(_duplicatesCache, image.getName ())) {
-					anyDupsInSlice = true;
-					break;
+
+		//go through the slice once to see if any of the images are dups
+		Set<AlbumImage> dupsInSlice = new HashSet<>();
+		if (mode == AlbumMode.DoDir) {
+			for (int row = 0; row < rows; row++) {
+				for (int col = 0; col < cols; col++) {
+					AlbumImage image = images[start + imageCount];
+					if (findInDuplicatesCache(_duplicatesCache, image.getName())) {
+						dupsInSlice.add(image);
+					}
+					imageCount++;
+					if ((start + imageCount) >= numImages) {
+						break;
+					}
 				}
-				imageCount++;
 				if ((start + imageCount) >= numImages) {
 					break;
 				}
-			}
-			if ((start + imageCount) >= numImages) {
-				break;
 			}
 		}
 
@@ -2187,10 +2385,10 @@ public class AlbumImages
 							.append (image.hasExifDate() ? "*" : "");
 
 				} else { //mode == AlbumMode.DoDir
-					if (anyDupsInSlice) {
+					if (!dupsInSlice.isEmpty()) {
 						//set image line style, thickness, and color to distinguish between dups and non-dups
 						//quadruple thick, red, dashed border for NON-dups
-						boolean isDup = findInDuplicatesCache(_duplicatesCache, image.getName());
+						boolean isDup = dupsInSlice.contains(image);
 //						fontColor = (isDup ? "black" : "blue");
 						fontColor = (isDup ? "black" : "red");
 						imageBorderStyleStr = (isDup ? "solid" : "dashed");
@@ -2362,20 +2560,31 @@ public class AlbumImages
 
 		sb.append ("</TABLE>").append (NL);
 
-		//footer: top link, slice links, and close link
+		//footer: top link, slice links, album links, and close link
 		sb.append ("<TABLE WIDTH=100% CELLPADDING=0 CELLSPACING=0 BORDER=")
 				.append (_tableBorderPixels)
 				.append (">").append (NL)
+
 				.append ("<TR>").append (NL)
 				.append ("<TD class=\"")
 				.append (font2)
 				.append ("\" ALIGN=RIGHT>")
 				.append (pageLinksHtml).append (NL)
 				.append (_spacing).append (NL)
+				.append ("</TD>").append (NL)
+				.append ("</TR>").append (NL)
+
+				.append ("<TR>").append (NL)
+				.append ("<TD class=\"")
+				.append (font2)
+				.append ("\" ALIGN=RIGHT>")
+				.append (albumLinksHtml).append (NL)
+				.append (_spacing).append (NL)
 //TODO - this only work for albums that were drilled into??
 				.append ("<A HREF=\"#\" onClick=\"self.close();\">Close</A>").append (NL)
 				.append ("</TD>").append (NL)
 				.append ("</TR>").append (NL)
+
 				.append ("</TABLE>").append (NL);
 
 		String htmlString = sb.toString ();
@@ -2388,6 +2597,19 @@ public class AlbumImages
 
 		if (numMatchesFilter == imagesInSlice.size()) {
 			htmlString = htmlString.replace ("; outline: 2px dashed fuchsia", ""); //HACK - hardcoded string from above
+		}
+
+		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty()) {
+			Set<AlbumImage> nonDups = new HashSet<>(imagesInSlice);
+			nonDups.removeAll(dupsInSlice);
+
+			if (!nonDups.isEmpty()) {
+				if (nonDups.size() < imagesInSlice.size() / 3) {
+					_log.debug("AlbumImages.generateHtml: non-duplicates in slice (" + nonDups.size() + "):" + NL +
+							nonDups.stream().map(AlbumImage::getName).sorted().collect(Collectors.joining(NL))
+					);
+				}
+			}
 		}
 
 		if (_Debug) {
@@ -2460,12 +2682,11 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getMatchingAlbumsForFilters (final String[] filtersArray, final boolean collapseGroups, final long sinceInMillis) {
-		return getMatchingAlbumsForFilters (Arrays.asList (filtersArray), collapseGroups, sinceInMillis);
+	public List<String> getMatchingAlbumsForFilters (final String[] filtersArray, final boolean collapseGroups, final boolean exactMatch, final long sinceInMillis) {
+		return getMatchingAlbumsForFilters (Arrays.asList (filtersArray), collapseGroups, exactMatch, sinceInMillis);
 	}
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getMatchingAlbumsForFilters (final List<String> filters1, final boolean collapseGroups, final long sinceInMillis)
-	{
+	public List<String> getMatchingAlbumsForFilters (final List<String> filters1, final boolean collapseGroups, final boolean exactMatch, final long sinceInMillis) {
 		AlbumProfiling.getInstance ().enter (5);
 
 		List<String> filters = VendoUtils.caseInsensitiveSortAndDedup (filters1);
@@ -2479,29 +2700,35 @@ public class AlbumImages
 //TODO - don't call getImagesFromCache() more than once if more that one filter uses the same subFolder
 
 		for (String filter : filters) {
-//			Pattern filterPattern = Pattern.compile ("^" + (filter + "*").replaceAll ("\\*", ".*"), Pattern.CASE_INSENSITIVE); //convert to regex before compiling
 			String subFolder = AlbumImageDao.getInstance().getSubFolderFromImageName(filter);
 			if (subFolder == null) {
 				continue;
 			}
 
+			Predicate<String> predicate;
+			if (exactMatch) {
+				predicate = s -> s.equalsIgnoreCase(filter);
+			} else {
+				predicate = Pattern.compile (filter + "\\d.*", Pattern.CASE_INSENSITIVE).asPredicate();
+//				predicate = s -> s.startsWith(filter);
+//				predicate = s -> s.toLowerCase().startsWith(filter.toLowerCase());
+			}
+
 			Collection<AlbumImage> allImagesForSubFolder = AlbumImageDao.getInstance().getImagesFromCache(subFolder, null);
 
 			allMatchingAlbums.addAll(allImagesForSubFolder.stream()
-														.map(i -> i.getBaseName(collapseGroups))
-//														.filter(n -> n.toLowerCase().startsWith(filter.toLowerCase()))
-//														.filter(filterPattern.asPredicate())
-														.filter(filter::equalsIgnoreCase)
-														.sorted(_alphanumComparator)
-														.distinct()
-														.collect(Collectors.toList()));
+														  .map(i -> i.getBaseName(collapseGroups))
+														  .filter(predicate)
+														  .sorted(_alphanumComparator)
+														  .distinct()
+														  .collect(Collectors.toList()));
 		}
 
 		if (filters.size() > 1) { //re-sort
 			allMatchingAlbums = allMatchingAlbums.stream()
-													.sorted(_alphanumComparator)
-													.distinct()
-													.collect(Collectors.toList());
+												 .sorted(_alphanumComparator)
+												 .distinct()
+												 .collect(Collectors.toList());
 		}
 
 		AlbumProfiling.getInstance ().exit (5);
@@ -2650,7 +2877,7 @@ public class AlbumImages
 		}
 
 		//Note: getMatchingAlbumsForFilters should drop any filters that do not match albums exactly. For example, Foo does not match Foo01 and would be dropped
-		List<String> albumsMatchingFilters = getMatchingAlbumsForFilters (filters, false, 0);
+		List<String> albumsMatchingFilters = getMatchingAlbumsForFilters (filters, false, true, 0);
 //TODO - print filters that were dropped because they do not match albums??
 
 		if (albumsMatchingFilters.size() == 1) {
@@ -2988,11 +3215,11 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 			_looseCompareDataCache = null;
 		}
 
-		final int expireAfterAccess = 24; //hours
+		final int expireAfterAccessHours = 24; //hours
 		if (_nameScaledImageCache == null) {
 			_nameScaledImageCache = CacheBuilder.newBuilder()
 					.maximumSize(_nameScaledImageCacheMaxSize)
-					.expireAfterAccess(expireAfterAccess, TimeUnit.HOURS)
+					.expireAfterAccess(expireAfterAccessHours, TimeUnit.HOURS)
 					.recordStats()
 					.removalListener(new RemovalListener<AlbumImage, ByteBuffer>() {
 						@Override
@@ -3014,7 +3241,7 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 		if (_looseCompareDataCache == null) {
 			_looseCompareDataCache = CacheBuilder.newBuilder()
 					.maximumSize(_looseCompareDataCacheMaxSize)
-					.expireAfterAccess(expireAfterAccess, TimeUnit.HOURS)
+					.expireAfterAccess(expireAfterAccessHours, TimeUnit.HOURS)
 					.recordStats()
 					.removalListener(new RemovalListener<AlbumImagePair, AlbumImagePair>() {
 						@Override

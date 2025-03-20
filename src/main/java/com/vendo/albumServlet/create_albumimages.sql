@@ -619,7 +619,23 @@ where (UNIX_TIMESTAMP() - (modified/1000)) <= (120 * 24 * 60 * 60)
 -- get max date (i.e., newest) from album
 select max(modified), alphas(name_no_ext) as base_name from images where name_no_ext like 'Mar%' group by base_name
 
+-- -----------------------------------------------------------------------------------------------------------------------------
+-- query images from certain months in 2024 (met)
 
+select name_no_ext, FROM_UNIXTIME(modified/1000) as modified, images.*
+from images 
+where name_no_ext rlike '.*-0[6789][0-9].*'
+-- and month(FROM_UNIXTIME(modified/1000)) in (3)
+-- and month(FROM_UNIXTIME(modified/1000)) in (4, 5, 6, 7, 8, 9, 10) -- also need to do 11
+and month(FROM_UNIXTIME(modified/1000)) = 11 and day(FROM_UNIXTIME(modified/1000)) < 29
+and year(FROM_UNIXTIME(modified/1000)) = 2024
+and name_no_ext not like 'q%'
+and width > 1500 and height > 1500 
+order by name_no_ext
+
+
+
+-- -----------------------------------------------------------------------------------------------------------------------------
 -- -----------------------------------------------------------------------------------------------------------------------------
 -- -----------------------------------------------------------------------------------------------------------------------------
 -- -----------------------------------------------------------------------------------------------------------------------------

@@ -15,10 +15,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.InputStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
@@ -322,7 +319,8 @@ public class JpgUtils {
 		if (!_skippedImages.isEmpty()) {
 			System.out.println();
 			System.out.println("Skipped images:");
-			_skippedImages.forEach(System.out::println);
+			//sort by filename for printing
+			_skippedImages.stream().map(ImageAttributes::toString).sorted().forEach(System.out::println);
 
 			System.out.println();
 			System.out.println ("Number of images total = " + filenames.length);
@@ -368,20 +366,20 @@ public class JpgUtils {
 		int newHeight = -1;
 
 		if (_desiredMegaPixels > 0) {
+			final double minDesiredMegaPixels = 4 * _desiredMegaPixels / 3;
 			ImageAttributes imageAttributes = getImageAttributes (infilePath);
 			double currentMegaPixels =  (double) imageAttributes._width * (double) imageAttributes._height / 1e6;
 
-			if (currentMegaPixels < (4 * _desiredMegaPixels / 3)) {
+			if (currentMegaPixels < minDesiredMegaPixels) {
 				_skippedImages.add(imageAttributes);
-				_log.warn ("skip compressing '" + infilePath + "' because smaller than min desired MP");
-
+				_log.warn ("skip compressing '" + infilePath + "' because " + _decimalFormat1.get().format(currentMegaPixels) + "MP smaller than min desired, " + _decimalFormat1.get().format(minDesiredMegaPixels) + "MP");
 
 				//skip file: if the src and dst files are not the same, copy the file
 				Path srcPath = FileSystems.getDefault ().getPath (infilePath);
 				Path dstPath = FileSystems.getDefault ().getPath (outfilePath);
 				if (srcPath.compareTo (dstPath) != 0) {
 					try {
-						Files.copy (srcPath, dstPath);
+						Files.copy (srcPath, dstPath, StandardCopyOption.COPY_ATTRIBUTES);
 
 					} catch (Exception ee) {
 						_log.error ("JpgUtils.compressFile: Files.copy failed to copy '" + infilePath + "' to '" + outfilePath + "'");
@@ -416,7 +414,7 @@ public class JpgUtils {
 				Path dstPath = FileSystems.getDefault ().getPath (outfilePath);
 				if (srcPath.compareTo (dstPath) != 0) {
 					try {
-						Files.copy (srcPath, dstPath);
+						Files.copy (srcPath, dstPath, StandardCopyOption.COPY_ATTRIBUTES);
 
 					} catch (Exception ee) {
 						_log.error ("JpgUtils.compressFile: Files.copy failed to copy '" + infilePath + "' to '" + outfilePath + "'");
@@ -809,6 +807,7 @@ public class JpgUtils {
 
 		///////////////////////////////////////////////////////////////////////////
 		@Override
+		//sort by number of pixels, ascending
 		public int compareTo(ImageAttributes that) {
 			int thisPixels = _width * _height;
 			int thatPixels = that._width * that._height;

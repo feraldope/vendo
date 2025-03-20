@@ -1,5 +1,13 @@
 package com.vendo.jRetirement;
 
+
+/* This is how an IRA distribution is presented
+Accounts_History_2024-Q4.csv
+ 10/01/2024,"Rollover IRA" 242813142," STATE TAX W/H MA STAT WTH (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-2000,
+ 10/01/2024,"Rollover IRA" 242813142," FED TAX W/H FEDERAL TAX WITHHELD (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-4000,
+ 10/01/2024,"Rollover IRA" 242813142," NORMAL DISTR PARTIAL VS X64-835730-1 CASH (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-34000,
+* */
+
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.vendo.vendoUtils.VFileList;
@@ -400,7 +408,7 @@ public /*final*/ class JRetirement {
 				List<Integer> percents = Arrays.asList(2, 3, 4);
 				for (Integer percent : percents) {
 					double withdrawalPercent = percent * totalAllFunds / 100;
-					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent, " <<< divide by 2 for 2024"));
+					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent /*, " <<< divide by 2 for 2024"*/));
 				}
 			}
 
@@ -542,7 +550,7 @@ public /*final*/ class JRetirement {
 		List<CsvFundsBean> records;
 
 		try {
-			Reader reader = getReaderFromStringList(readAllValidLines(path, true));
+			Reader reader = getReaderForStringList(readAllValidLines(path, true));
 			CsvToBean<CsvFundsBean> cb = new CsvToBeanBuilder<CsvFundsBean>(reader)
 					.withType(clazz)
 					.build();
@@ -557,7 +565,7 @@ public /*final*/ class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public Reader getReaderFromStringList(List<String> list) {
+	public Reader getReaderForStringList(List<String> list) {
 		return new BufferedReader(new StringReader(String.join("\n", list)));
 	}
 
@@ -701,14 +709,14 @@ public /*final*/ class JRetirement {
 			"xTransform=linear",
 //			"xAxisDataType=monthOfDecade", //TODO
 			"xAxisDataType=normal",
-			"xAxisSkipTicks=10",
+			"xAxisSkipTicks=30", //30 days ~ one month
 			"xAxisLabel=Date",
 
 			"yTransform=linear",
 			"yAxisDataType=normal",
 			"yAxisLabel=($)",
-			"yMin=" + yMin,
-			"yMax=" + yMax
+			"yMin=" + yMin,	//hardcoded
+			"yMax=" + yMax  //hardcoded
 		);
 
 		try (PrintWriter out = new PrintWriter(Files.newOutputStream(new File(PlotFileName).toPath()))) {
@@ -716,8 +724,11 @@ public /*final*/ class JRetirement {
 
 			out.println();
 			out.println("[Total]");
-//			out.println("0=2000000"); //TODO - round down to lowest million?
-			records.forEach(r -> out.println("" + r.index + "=" + r.totalValue));
+
+			final int maxItemsToPrint = 180; //about 6 months
+			records.stream()
+				   .skip(Math.max(0, records.size() - maxItemsToPrint))
+				   .forEach(r -> out.println("" + r.index + "=" + r.totalValue));
 
 		} catch (Exception ex) {
 			System.out.println("generatePlotFile: error writing to output file \"" + PlotFileName + "\"");

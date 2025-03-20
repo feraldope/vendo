@@ -173,12 +173,12 @@ public class AlbumImageDifferGen
 		try {
 			image1Orig = ImageIO.read (new File (_imageFilenameIn1));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilenameIn1 + "\"");
+			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilenameIn1 + "\"", ee);
 		}
 		try {
 			image2Orig = ImageIO.read (new File (_imageFilenameIn2));
 		} catch (Exception ee) {
-			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilenameIn2 + "\"");
+			_log.error ("AlbumImageDifferGen.run: failed to read image \"" + _imageFilenameIn2 + "\"", ee);
 		}
 
 		int image1Width = image1Orig.getWidth ();
