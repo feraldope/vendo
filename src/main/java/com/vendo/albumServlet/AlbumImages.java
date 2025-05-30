@@ -551,15 +551,15 @@ public class AlbumImages
 		_duplicatesCache.clear();
 
 		//if looseCompare, determine work to be done
-		int maxComparisons = getMaxComparisons (numImages);
-		if (looseCompare && !dbCompare) {
-			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat0.format (maxComparisons) + " (max possible combos, including mismatched orientation)");
+//		int maxComparisons = getMaxComparisons (numImages);
+//		if (looseCompare && !dbCompare) {
+//			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat0.format (maxComparisons) + " (max possible combos, including mismatched orientation)");
 //			final int maxAllowedComparisons = 1000 * 1000 * 1000;
 //			if (maxComparisons > maxAllowedComparisons) {
 //				form.addServletError ("Warning: too many comparisons (" + _decimalFormat0.format (maxComparisons) + "), disabling looseCompare");
 //				looseCompare = false;
 //			}
-		}
+//		}
 
 		if (looseCompare && !dbCompare) {
 //			final int maxThreads = VendoUtils.getLogicalProcessors () - 1;
@@ -812,11 +812,11 @@ public class AlbumImages
 					AlbumImagePair stubPair = new AlbumImagePair (image1, image2);
 					AlbumImagePair newPair = _looseCompareDataCache.getIfPresent(stubPair);
 					if (newPair != null) {
-						if (AlbumImage.acceptDiff (newPair.getAverageDiff(), newPair.getStdDev(), AlbumImageDiffer._maxAverageDiffUsedByBatFiles, AlbumImageDiffer._maxStdDevDiffUsedByBatFiles)) { //hardcoded values from BAT files
-//TODO - should we always add here? if so, will update entries to have current timestamp
-//							if (!imageDiffDetailsFromImageDiffs.containsKey(AlbumImageDiffDetails.getJoinedNameIds(image1.getNameId(), image2.getNameId()))) {
-								toBeAddedToImageDiffsTable.add(new AlbumImageDiffDetails(image1.getNameId(), image2.getNameId(), newPair.getAverageDiff(), newPair.getStdDev(), 1, AlbumImageDiffer.Mode.OnDemand.name(), new Timestamp (new GregorianCalendar ().getTimeInMillis ())));
-//							}
+						if (AlbumImage.acceptDiff(newPair.getAverageDiff(), newPair.getStdDev(), AlbumImageDiffer._maxAverageDiffUsedByBatFiles, AlbumImageDiffer._maxStdDevDiffUsedByBatFiles)) { //hardcoded values from BAT files
+							final int maxImagesToAddToImageDiffsTable = 1000;
+							if (toBeAddedToImageDiffsTable.size() < maxImagesToAddToImageDiffsTable) { //TODO - this is currently silently limited for performance
+								toBeAddedToImageDiffsTable.add(new AlbumImageDiffDetails(image1.getNameId(), image2.getNameId(), newPair.getAverageDiff(), newPair.getStdDev(), 1, AlbumImageDiffer.Mode.OnDemand.name(), new Timestamp(new GregorianCalendar().getTimeInMillis())));
+							}
 						}
 
 						if (AlbumImage.acceptDiff(newPair.getAverageDiff(), newPair.getStdDev(), maxStdDev - 5, maxStdDev)) { //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
@@ -1173,27 +1173,6 @@ public class AlbumImages
 
 			AlbumProfiling.getInstance ().enter (5, "dups.sets");
 
-//			String[] allInputFilters = ArrayUtils.addAll(form.getFilters (1), form.getFilters (2));
-//			List<String> allAlbumsAcrossAllInputFilters = getMatchingAlbumsForFilters (allInputFilters, false, true, 0);
-//			if (allAlbumsAcrossAllInputFilters.size() > 0) {
-//				if (allAlbumsAcrossAllInputFilters.size() <= 200) {
-//					String filtersAll = allAlbumsAcrossAllInputFilters.stream().sorted(_alphanumComparator).collect(Collectors.joining(","));
-//					String href = AlbumImages.getInstance().generateImageLink(filtersAll, filtersAll, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), false, true);
-//					StringBuilder html = new StringBuilder();
-////TODO - move to helper class/method
-//					html.append("<A HREF=\"")
-//							.append(href)
-//							.append("\" ")
-//							.append("title=\"").append(filtersAll)
-//							.append("\" target=_blank>")
-//							.append(filtersAll)
-//							.append("</A>");
-//					_form.addServletError("Info: all albums across all input filters: [" + allAlbumsAcrossAllInputFilters.size() + "] " + html);
-//				} else {
-//					_form.addServletError("Info: all albums across all input filters: exceeded count@0; not shown (" + allAlbumsAcrossAllInputFilters.size() + ")");
-//				}
-//			}
-
 			//this map is for single pairs only
 			Map<String, AlbumAlbumPair> dupAlbumMap = new HashMap<> ();
 			for (AlbumImagePair pair : dups) {
@@ -1226,16 +1205,17 @@ public class AlbumImages
 			if (!dupAlbumMap.isEmpty()) {
 				List<String> allAlbumsAcrossAllMatches = albumPairs.getAllAlbumsAcrossAllMatches(false);
 				if (allAlbumsAcrossAllMatches.size() <= 200) { //hardcoded
-					String filtersAll = allAlbumsAcrossAllMatches.stream().sorted(_alphanumComparator).collect(Collectors.joining(","));
-					String href = AlbumImages.getInstance().generateImageLink(filtersAll, filtersAll, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), false, true);
+					String newFilters1 = allAlbumsAcrossAllMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
+					String newFilters2 = allAlbumsAcrossAllMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
+					String href = AlbumImages.getInstance().generateImageLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
 							.append(href)
 							.append("\" ")
-							.append("title=\"").append(filtersAll)
+							.append("title=\"").append(newFilters1).append(" + ").append(newFilters2)
 							.append("\" target=_blank>")
-							.append(filtersAll)
+							.append(newFilters1).append(" + ").append(newFilters2)
 							.append("</A>");
 					_form.addServletError("Info: all albums across all matches: [" + allAlbumsAcrossAllMatches.size() + "] " + html);
 				} else {
@@ -1247,16 +1227,17 @@ public class AlbumImages
 				allAlbumsAcrossAllInputFiltersAndMatches.addAll(allAlbumsAcrossAllMatches);
 				allAlbumsAcrossAllInputFiltersAndMatches = VendoUtils.caseInsensitiveSortAndDedup(allAlbumsAcrossAllInputFiltersAndMatches);
 				if (allAlbumsAcrossAllInputFiltersAndMatches.size() <= 200) { //hardcoded
-					String filtersAll = allAlbumsAcrossAllInputFiltersAndMatches.stream().sorted(_alphanumComparator).collect(Collectors.joining(","));
-					String href = AlbumImages.getInstance().generateImageLink(filtersAll, filtersAll, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), false, true);
+					String newFilters1 = allAlbumsAcrossAllInputFiltersAndMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
+					String newFilters2 = allAlbumsAcrossAllInputFiltersAndMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
+					String href = AlbumImages.getInstance().generateImageLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
 							.append(href)
 							.append("\" ")
-							.append("title=\"").append(filtersAll)
+							.append("title=\"").append(newFilters1).append(" + ").append(newFilters2)
 							.append("\" target=_blank>")
-							.append(filtersAll)
+							.append(newFilters1).append(" + ").append(newFilters2)
 							.append("</A>");
 					_form.addServletError("Info: all albums across all input filters and matches: [" + allAlbumsAcrossAllInputFiltersAndMatches.size() + "] " + html);
 				} else {
@@ -1321,16 +1302,17 @@ public class AlbumImages
 			if (!allAlbumsAcrossCloseMatches.isEmpty()) {
 				if (allAlbumsAcrossCloseMatches.size() <= 250) { //hardcoded
 					allAlbumsAcrossCloseMatches = allAlbumsAcrossCloseMatches.stream().sorted(_alphanumComparator).distinct().collect(Collectors.toList()); //dedup list
-					String filtersAll = String.join(",", allAlbumsAcrossCloseMatches);
-					String href = AlbumImages.getInstance().generateImageLink(filtersAll, filtersAll, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), false, true);
+					String newFilters1 = allAlbumsAcrossCloseMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
+					String newFilters2 = allAlbumsAcrossCloseMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
+					String href = AlbumImages.getInstance().generateImageLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
 							.append(href)
 							.append("\" ")
-							.append("title=\"").append(filtersAll)
+							.append("title=\"").append(newFilters1).append(" + ").append(newFilters2)
 							.append("\" target=_blank>")
-							.append(filtersAll)
+							.append(newFilters1).append(" + ").append(newFilters2)
 							.append("</A>");
 					_form.addServletError("Info: all albums across close matches: [" + allAlbumsAcrossCloseMatches.size() + "] " + html);
 				} else {
@@ -1431,20 +1413,21 @@ public class AlbumImages
 		return baseNamesTooLarge;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	public int getMaxComparisons (long numImages)
-	{
-		long maxComparisons = 1;
-		if (numImages > 2) {
-			maxComparisons = numImages * (numImages - 1) / 2;
-		}
-
-		if (maxComparisons > Integer.MAX_VALUE) {
-			maxComparisons = Integer.MAX_VALUE;
-		}
-
-		return (int) maxComparisons;
-	}
+//unused
+//	///////////////////////////////////////////////////////////////////////////
+//	public int getMaxComparisons (long numImages)
+//	{
+//		long maxComparisons = 1;
+//		if (numImages > 2) {
+//			maxComparisons = numImages * (numImages - 1) / 2;
+//		}
+//
+//		if (maxComparisons > Integer.MAX_VALUE) {
+//			maxComparisons = Integer.MAX_VALUE;
+//		}
+//
+//		return (int) maxComparisons;
+//	}
 
 //unused
 //	///////////////////////////////////////////////////////////////////////////
@@ -2004,17 +1987,30 @@ public class AlbumImages
 
 			//check for gaps
 			if (isOneAlbum) {
-				List<AlbumImage> list = new ArrayList<>(_imageDisplayList);
-				list.sort(new AlbumImageComparator(AlbumSortType.ByName));
-				String firstNumber = list.get(0).getName().replaceAll(".*-", "");
-				String lastNumber = list.get(list.size() - 1).getName().replaceAll(".*-", "");
+				List<AlbumImage> imageList = new ArrayList<>(_imageDisplayList);
+				imageList.sort(new AlbumImageComparator(AlbumSortType.ByName));
+				String firstNumber = imageList.get(0).getName().replaceAll(".*-", "").replaceAll("[^0-9]", ""); //"Diff" feature can make invalid names, clean them up here
+				String lastNumber = imageList.get(imageList.size() - 1).getName().replaceAll(".*-", "").replaceAll("[^0-9]", "");
 				int firstInt = Integer.parseInt(firstNumber);
 				int lastInt = Integer.parseInt(lastNumber);
 //TODO - this does not work for albums that have built-in gaps, e.g., 101, 102, 201, 202, 301, 302
-				int gaps = lastInt - firstInt + 1 - list.size();
+				int range = lastInt - firstInt + 1;
+				int gaps = range - imageList.size();
 
-				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "NO gaps" : "a gap of " + gaps + " image(s)");
-				_log.debug("AlbumImages.generateHtml: " + message);
+				String missingImages = "[omitted for size]";
+				if (gaps < range / 3) {
+					List<String> imageNames = imageList.stream().map(AlbumImage::getName).collect(Collectors.toList());
+					List<String> missingImageNames = new ArrayList<>();
+					final int digits = firstNumber.length();
+					for (int ii = firstInt; ii <= lastInt; ii++) {
+						missingImageNames.add(String.format("%s-%0" + digits + "d", imageList.get(0).getBaseName(false), ii));
+					}
+					missingImageNames.removeAll(imageNames);
+					missingImages = String.join(NL, missingImageNames);
+				}
+
+				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "NO gaps" : "a gap of " + gaps + " image(s):");
+				_log.debug("AlbumImages.generateHtml: " + message + (gaps > 0 ? NL + missingImages : ""));
 				_form.addServletError("Info: " + message);
 			}
 		}
@@ -2163,7 +2159,7 @@ public class AlbumImages
 			_log.debug("AlbumImages.generateHtml: isAndroidDevice = " + isAndroidDevice + ", imageWidth = " + imageWidth + ", font2 = " + font2);
 		}
 
-		_log.debug("AlbumImages.generateHtml: DIST Tables" + generateDistributionTable());
+		_log.debug("AlbumImages.generateHtml: DIST Tables" + generateDistributionTable(_form));
 
 		//Average Bytes Table
 		if (mode == AlbumMode.DoSampler && sortType == AlbumSortType.BySizeAvgBytes) {
@@ -2172,7 +2168,7 @@ public class AlbumImages
 				String imageName = i.getBaseName(collapseGroups);
 				long bytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0);
 				long count = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName, 0);
-				long averageBytes = bytes / count;
+				long averageBytes = bytes / count; //TODO - avoid divide by zero when count is not yet in database
 				sb1.append(NL).append(imageName).append(": ").append(VendoUtils.unitSuffixScaleBytes(averageBytes));
 			});
 			_log.debug("AlbumImages.generateHtml: " + sb1);
@@ -2275,7 +2271,9 @@ public class AlbumImages
 
 					details.append ("(")
 							.append (collapseGroups ? AlbumImageDao.getInstance ().getNumMatchingAlbumsFromCache(imageName, sinceInMillis) + ":" : "")
+							.append("<B>")
 							.append (AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (imageName, sinceInMillis))
+							.append("</B>")
 							.append("/")
 							.append (VendoUtils.unitSuffixScaleBytes(AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0)))
 							.append (")")
@@ -2455,7 +2453,7 @@ public class AlbumImages
 */
 
 				String fontWeightStr = "normal";
-				if (highlightInMillis > 0 && image.getModified () >= highlightInMillis) { //0 means disabled
+				if (highlightInMillis > 0 && image.getModified () >= highlightInMillis) { //highlightInMillis=0 means disabled
 					fontWeightStr = "bold";
 				}
 
@@ -2604,11 +2602,10 @@ public class AlbumImages
 			nonDups.removeAll(dupsInSlice);
 
 			if (!nonDups.isEmpty()) {
-				if (nonDups.size() < imagesInSlice.size() / 3) {
-					_log.debug("AlbumImages.generateHtml: non-duplicates in slice (" + nonDups.size() + "):" + NL +
-							nonDups.stream().map(AlbumImage::getName).sorted().collect(Collectors.joining(NL))
-					);
-				}
+				_log.debug("AlbumImages.generateHtml: non-duplicates in slice (" + nonDups.size() + "):" + NL +
+						(nonDups.size() < imagesInSlice.size() / 3
+							? nonDups.stream().map(AlbumImage::getName).sorted().collect(Collectors.joining(NL))
+							: "[omitted for size]"));
 			}
 		}
 
@@ -2955,9 +2952,9 @@ public class AlbumImages
 		String needsCleanupDigits = firstItem._needsCleanupDigits;
 
 //temp debug
-boolean b1 = destinationBaseName.equalsIgnoreCase(destinationFilter); //hack - in this case we end up with extra "1" (or "2") on numbering
-boolean b2 = firstBaseName.equalsIgnoreCase(firstFilter);
-boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
+//boolean b1 = destinationBaseName.equalsIgnoreCase(destinationFilter); //hack - in this case we end up with extra "1" (or "2") on numbering
+//boolean b2 = firstBaseName.equalsIgnoreCase(firstFilter);
+//boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 
 //		boolean needsCleanup = !destinationBaseName.equalsIgnoreCase(destinationFilter) && //hack - in this case we end up with extra "1" (or "2") on numbering
 //							   !firstBaseName.equalsIgnoreCase(firstFilter) &&
@@ -3479,8 +3476,11 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String generateDistributionTable () {
+	private String generateDistributionTable (AlbumFormInfo form) {
 		StringBuilder sb = new StringBuilder();
+
+		final boolean reverseSort = !form.getReverseSort(); //normally we would sort descending (reverse), but if reverseSort is requested, reverse that back to normal
+		final String topBottom = reverseSort ? "Top" : "Bottom";
 
 		if (_imageDisplayList.size() < 10 * 1000) {
 			AlbumProfiling.getInstance().enter(5);
@@ -3491,18 +3491,24 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 			List<String> dateDist = new ArrayList<>();
 			Map<LocalDate, List<AlbumImage>> dateMap = _imageDisplayList.stream()
 					.collect(Collectors.groupingBy(i -> Instant.ofEpochMilli(i.getModified()).atZone(ZoneId.systemDefault()).toLocalDate()));
-			dateDist.add("Top " + maxItemsToPrint + " most recent dates");
-			dateMap.keySet().stream().sorted(Comparator.reverseOrder()).limit(maxItemsToPrint)
+			dateDist.add(topBottom + " " + maxItemsToPrint + " by date");
+			dateMap.keySet().stream().sorted(reverseSort ? Comparator.reverseOrder() : Comparator.naturalOrder()).limit(maxItemsToPrint)
 					.forEach(d -> dateDist.add(d + " -> " + dateMap.get(d).size() + " images")
 			);
 
 			//size in pixels distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
 			List<String> pixelsDist = new ArrayList<>();
+			Map<String, String> dimensionToPixelsMap = new ConcurrentHashMap<>();
 			Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
 					//prepend string with total pixels (for sorting) which will be stripped out while printing
-					.collect(Collectors.groupingBy(i -> "<" + i.getPixels() + ">" + i.getPixelsAsString() + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")")); //"P" for Pixels));
-			pixelsDist.add("Top " + maxItemsToPrint + " largest by pixels");
-			pixelMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
+					.collect(Collectors.groupingBy(i -> {
+						String valueForSorting = VendoUtils.unitSuffixScale(i.getPixels(), "P", true); //"P" for Pixels
+						//to reduce number of items in table, reuse the same pixel dimensions for each different value of "valueForSorting"
+						String sharedPixelDimensionsAsString = dimensionToPixelsMap.computeIfAbsent(valueForSorting, v -> i.getPixelDimensionsAsString());
+						return "<" + valueForSorting + ">" + sharedPixelDimensionsAsString + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")";
+					}));
+			pixelsDist.add(topBottom + " " + maxItemsToPrint + " by pixels (rounded)");
+			pixelMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
 					.forEach(p -> pixelsDist.add(p.replaceAll("<.*>", "") + " -> " + pixelMap.get(p).size() + " images")
 			);
 
@@ -3512,13 +3518,13 @@ boolean b3 = destinationBaseName.equalsIgnoreCase(firstBaseName);
 			List<String> bytesDist = new ArrayList<>();
 			Map<Long, List<AlbumImage>> bytesMap = _imageDisplayList.stream()
 					.collect(Collectors.groupingBy(i -> VendoUtils.roundUp(i.getNumBytes(), roundToKB)));
-//			bytesDist.add("Top " + maxItemsToPrint + " largest by Bytes (rounded to " + roundTo + " KB)");
-			bytesDist.add("Top " + maxItemsToPrint + " largest by bytes (rounded)");
-			bytesMap.keySet().stream().sorted(new AlphanumComparator(AlphanumComparator.SortOrder.Reverse)).limit(maxItemsToPrint)
+//			bytesDist.add(topBottom + " " + maxItemsToPrint + " largest by Bytes (rounded to " + roundTo + " KB)");
+			bytesDist.add(topBottom + " " + maxItemsToPrint + " by bytes (rounded)");
+			bytesMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
 					.forEach(b -> bytesDist.add(VendoUtils.unitSuffixScaleBytes(VendoUtils.roundUp(b, roundToKB)) + " -> " + bytesMap.get(b).size() + " images")
 			);
 
-			final int[] fieldWidths = {30, 35, 30}; //TODO - calculate from data
+			final int[] fieldWidths = {32, 38, 32}; //TODO - calculate from data
 
 			maxItemsToPrint = Math.max(dateDist.size(), Math.max(pixelsDist.size(), bytesDist.size()));
 			for (int ii = 0; ii < maxItemsToPrint; ii++) {

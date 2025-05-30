@@ -158,7 +158,7 @@ public class JpgInfo
 	///////////////////////////////////////////////////////////////////////////
 	private void displayUsage (String message, Boolean exit)
 	{
-		String msg = new String ();
+		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
@@ -282,7 +282,7 @@ public class JpgInfo
 			IptcDirectory directory = metadata.getFirstDirectoryOfType (IptcDirectory.class);
 			Date date = directory.getDate (IptcDirectory.TAG_DATE_CREATED);
 			int time = directory.getInt (IptcDirectory.TAG_TIME_CREATED);
-			iptcDateMillis = date.getTime () + (time * 1000);
+			iptcDateMillis = date.getTime () + (time * 1000L);
 
 //			System.out.println (filename + " " + iptcDateMillis);
 
@@ -306,7 +306,7 @@ public class JpgInfo
 
 //TODO - add XmpDirectory.TAG_DATETIME_ORIGINAL
 
-		String dates = new String ();
+		String dates = "";
 		if (exifSubIFDOrigMillis != 0) {
 			dates += ", D0=" + _dateFormat.format (new Date (exifSubIFDOrigMillis));
 		}
@@ -323,7 +323,7 @@ public class JpgInfo
 		System.out.println (filename + dates);
 
 		if (_Debug) {
-			dates = new String ();
+			dates = "";
 			if (exifSubIFDOrigMillis != 0) {
 				dates += ", D0=" + exifSubIFDOrigMillis;
 			}
@@ -411,14 +411,19 @@ public class JpgInfo
 			//ignore
 		}
 
+		final int size25MegaPixels = 25 * 1000 * 1000;
+		final int size30MegaPixels = 30 * 1000 * 1000;
+		final int size2point5MegaBytes = 5 * 1024 * 1024 / 2;
 		if (!(_ignoreSmallerThan > 0 && (width < _ignoreSmallerThan || height < _ignoreSmallerThan))) {
 			String details = filename + " " + orientation + " " + width + "x" + height + ", " +
 					VendoUtils.unitSuffixScale(width * height, "P") + ", " + //"P" for Pixels
 					VendoUtils.unitSuffixScaleBytes(numBytes);
-			if (width * height >= 30 * 1e6) {
+			if (width * height >= size30MegaPixels) {
 				VendoUtils.printWithColor(_highlightColor, details);
-			} else if (width * height >= 25 * 1e6) {
+			} else if (width * height >= size25MegaPixels) {
 				VendoUtils.printWithColor(_warningColor, details);
+			} else if (numBytes >= size2point5MegaBytes) {
+				VendoUtils.printWithColor(_alertColor, details);
 			} else {
 				System.out.println (details);
 			}
@@ -495,11 +500,11 @@ public class JpgInfo
 	private FilenamePatternFilter _filenamePatternFilter = null;
 
 	private static final int _alertPixels = 640;
-//	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
+	private static final short _alertColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_RED;
 	private static final short _warningColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_YELLOW;
 	private static final short _highlightColor = Win32.CONSOLE_FOREGROUND_COLOR_LIGHT_AQUA;
 
-	private static Logger _log = LogManager.getLogger (JpgInfo.class);
+	private static final Logger _log = LogManager.getLogger (JpgInfo.class);
     private static final SimpleDateFormat _dateFormat = new SimpleDateFormat ("MM/dd/yyyy HH:mm:ss");
 
 	//global members

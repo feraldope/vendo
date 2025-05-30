@@ -547,7 +547,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getPixelsAsString () //always [larger]x[smaller] - ignores orientation
+	public String getPixelDimensionsAsString() //always [larger]x[smaller] - ignores orientation
 	{
 		if (getWidth() >= getHeight()) {
 			return "" + getWidth() + "x" + getHeight();

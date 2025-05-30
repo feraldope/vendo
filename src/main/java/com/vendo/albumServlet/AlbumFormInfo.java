@@ -438,7 +438,6 @@ public class AlbumFormInfo
 		//remove all white space
 		filter = filter.replaceAll ("[ \t]*", ""); //regex
 
-
 //TODO - this is a comma-separated list of filters, it should really break them up, then clean each one
 
 		//remove all periods
@@ -451,9 +450,10 @@ public class AlbumFormInfo
 		filter = filter.replaceAll ("'", ""); //regex
 
 		//convert equals signs to commas
-		filter = filter.replaceAll ("\\=", ","); //regex
+		filter = filter.replaceAll ("=", ","); //regex
 
 		//convert colons to commas
+//COLON represents all alpha chars that are not vowels
 //		filter = filter.replaceAll (":", ","); //regex
 
 		//remove leading "+" and leading digits

@@ -267,6 +267,12 @@ public class AlbumTags
 			_log.debug ("AlbumTags.run1: no changes: skipping update");
 
 			AlbumProfiling.getInstance ().exit (5);
+
+			if (_Debug) {
+///				AlbumProfiling.getInstance ().print (true);
+				_log.debug ("--------------- AlbumTags.run1 - done ---------------");
+			}
+
 			return;
 		}
 
@@ -364,7 +370,7 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	private boolean databaseNeedsUpdate ()
 	{
-		String lastUpdateMillisStr = getStringFromConfig ("lastUpdateMillis", "0");
+		String lastUpdateMillisStr = getStringFromConfigTable ("lastUpdateMillis", "0");
 		long lastUpdateMillis = Long.parseLong(lastUpdateMillisStr);
 //		_log.debug ("AlbumTags.databaseNeedsUpdate: lastUpdateMillisStr = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)));
 
@@ -1570,7 +1576,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns defaultValue on exception or failure
-	private String getStringFromConfig (String name, String defaultValue)
+	private String getStringFromConfigTable (String name, String defaultValue)
 	{
 		String sql = "select string_value from config where name = '" + name + "'";
 

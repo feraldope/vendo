@@ -1,16 +1,22 @@
 package com.vendo.jRetirement;
 
 
-/* This is how an IRA distribution is presented
-Accounts_History_2024-Q4.csv
+/* This is how IRA distributions are presented:
+C:\Users\david\OneDrive\Documents\Fidelity\Accounts_History_2024-Q4.csv
  10/01/2024,"Rollover IRA" 242813142," STATE TAX W/H MA STAT WTH (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-2000,
  10/01/2024,"Rollover IRA" 242813142," FED TAX W/H FEDERAL TAX WITHHELD (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-4000,
  10/01/2024,"Rollover IRA" 242813142," NORMAL DISTR PARTIAL VS X64-835730-1 CASH (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-34000,
+
+C:\Users\david\OneDrive\Documents\Fidelity\Accounts_History_2025-Q1.csv
+ 04/02/2025,"Traditional IRA","239971099"," STATE TAX W/H MA STAT WTH ED68394242 /WEB (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-1000,
+ 04/02/2025,"Traditional IRA","239971099"," FED TAX W/H RET FED WTH ED68394242 /WEB (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-3000,
+ 04/02/2025,"Traditional IRA","239971099"," NORMAL DISTR PARTIAL ED68394242 /WEB (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-16000,
 * */
 
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.vendo.vendoUtils.VFileList;
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 
@@ -27,6 +33,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -158,7 +165,7 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected boolean run() throws Exception {
-		Path sourcePath;
+		Path sourcePath = null;
 		if (inputFilenameOverride != null) {
 			if (inputFilenameOverride.matches("[A-Za-z]:.*")) { //check if we got a complete path
 				sourcePath = sourceRootPath.getFileSystem().getPath(inputFilenameOverride);
@@ -169,13 +176,19 @@ public /*final*/ class JRetirement {
 		} else {
 			List<String> sourceFileList = new VFileList(sourceRootPath.toString(), Collections.singletonList(filenamePattern), false).getFileList (VFileList.ListMode.CompletePath);
 
-			if (sourceFileList.isEmpty()) {
-				System.err.println("JRetirement.run: no files found matching sourceRootName = \"" + sourceRootPath + "\", filenamePattern = \"" + filenamePattern);
-				return false;
+//			if (sourceFileList.isEmpty()) {
+//				System.err.println("JRetirement.run: no files found matching sourceRootName = \"" + sourceRootPath + "\", filenamePattern = \"" + filenamePattern);
+//				return false;
+//			}
+			if (!sourceFileList.isEmpty()) {
+				String newestFile = sourceFileList.stream().max(new PortfolioFilenameComparatorByDateReverse()).orElse("");
+				sourcePath = FileSystems.getDefault().getPath(newestFile);
 			}
+		}
 
-			String newestFile = sourceFileList.stream().max(new PortfolioFilenameComparatorByDateReverse()).orElse("");
-			sourcePath = FileSystems.getDefault().getPath(newestFile);
+		if (sourcePath == null || !VendoUtils.fileExists(sourcePath)) {
+			System.err.println("JRetirement.run: no files found matching sourceRootName = \"" + sourceRootPath + "\", filenamePattern = \"" + filenamePattern);
+			return false;
 		}
 
 		List<CsvFundsBean> records = processFile(sourcePath);
@@ -725,9 +738,16 @@ public /*final*/ class JRetirement {
 			out.println();
 			out.println("[Total]");
 
-			final int maxItemsToPrint = 180; //about 6 months
+			final int days = 180;
+			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
 			records.stream()
-				   .skip(Math.max(0, records.size() - maxItemsToPrint))
+				   .filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+				   .filter(r -> {
+					   if (false) {
+						   System.out.println("generatePlotFile: debug stream: " + r);
+					   }
+					   return true;
+				   })
 				   .forEach(r -> out.println("" + r.index + "=" + r.totalValue));
 
 		} catch (Exception ex) {
@@ -759,15 +779,65 @@ public /*final*/ class JRetirement {
 			topNRecords.forEach(System.out::println);
 		}
 
-//		AggregateRecord maxRecord = records.stream().max(new AggregateRecord()).orElse(null);
-//		if (maxRecord != null) {
-//			System.out.println(NL + "Max record:");
-//			System.out.println(maxRecord);
-//		}
+		final AggregateRecord maxRecord = records.stream().max(new AggregateRecord()).orElse(null);
+		assert maxRecord != null;
+		System.out.println(NL + "Max record:");
+		System.out.println(maxRecord);
+
+		final AggregateRecord lastRecord = records.get(records.size() - 1);
+
+		{
+			final int weeks = 52;
+			final Instant earliestDate = Instant.now().minus(7 * weeks, ChronoUnit.DAYS);
+			AggregateRecord filteredMax = records.stream()
+					.filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+					.max(new AggregateRecord()).orElse(null);
+
+			System.out.println(NL + "Max record (for previous " + weeks + " weeks):");
+			if (filteredMax != null) {
+				System.out.println(filteredMax);
+				System.out.println("Diff from that max: $" + decimalFormat0.format(lastRecord.totalValue - filteredMax.totalValue));
+			} else {
+				System.out.println("No data available");
+			}
+		}
+
+		{
+			final int days = 90;
+			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
+			AggregateRecord filteredMax = records.stream()
+					.filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+					.max(new AggregateRecord()).orElse(null);
+
+			System.out.println(NL + "Max record (for previous " + days + " days):");
+			if (filteredMax != null) {
+				System.out.println(filteredMax);
+				System.out.println("Diff from that max: $" + decimalFormat0.format(lastRecord.totalValue - filteredMax.totalValue));
+			} else {
+				System.out.println("No data available");
+			}
+		}
+
+		{
+			final int days = 30;
+			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
+			AggregateRecord filteredMax = records.stream()
+					.filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+					.max(new AggregateRecord()).orElse(null);
+
+			System.out.println(NL + "Max record (for previous " + days + " days):");
+			if (filteredMax != null) {
+				System.out.println(filteredMax);
+				System.out.println("Diff from that max: $" + decimalFormat0.format(lastRecord.totalValue - filteredMax.totalValue));
+			} else {
+				System.out.println("No data available");
+			}
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	protected void printTaxes() throws Exception {
+//		final int federalStandardDeduction2023 = 27700; //Married Filing Jointly
 //		final List<TaxBracket> federalTaxBracket2023 = Arrays.asList( //Married Filing Jointly
 //				//https://www.irs.gov/filing/federal-income-tax-rates-and-brackets
 //				new TaxBracket(10, 0, 22000),
@@ -775,27 +845,35 @@ public /*final*/ class JRetirement {
 //				new TaxBracket(22, 89450, 190750),
 //				new TaxBracket(24, 190750, 364200)
 //		);
-//		final int federalStandardDeduction2023 = 27700; //Married Filing Jointly
-		final List<TaxBracket> federalTaxBracket2024 = Arrays.asList( //Married Filing Jointly
-				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2024
-				new TaxBracket(10,      0,  23200),
-				new TaxBracket(12,  23200,  94300),
-				new TaxBracket(22,  94300, 201050),
-				new TaxBracket(24, 201050, 383900)
-		);
-		final int federalStandardDeduction2024 = 29200; //Married Filing Jointly
+//		final int federalStandardDeduction2024 = 29200; //Married Filing Jointly
+//		final List<TaxBracket> federalTaxBracket2024 = Arrays.asList( //Married Filing Jointly
+//				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2024
+//				new TaxBracket(10,      0,  23200),
+//				new TaxBracket(12,  23200,  94300),
+//				new TaxBracket(22,  94300, 201050),
+//				new TaxBracket(24, 201050, 383900)
+//		);
 
-		final List<TaxBracket> massTaxBracket2024 = Arrays.asList( //Married Filing Jointly
+		final int year = 2025;
+		final int federalStandardDeduction2025 = 30000; //Married Filing Jointly
+		final List<TaxBracket> federalTaxBracket2025 = Arrays.asList( //Married Filing Jointly
+				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2025
+				new TaxBracket(10,      0,  23850),
+				new TaxBracket(12,  23850,  96950),
+				new TaxBracket(22,  96950, 206700),
+				new TaxBracket(24, 206700, 394600)
+		);
+
+		final List<TaxBracket> massTaxBracket202X = Collections.singletonList( //Married Filing Jointly
 				new TaxBracket(5, 0, 999999)
 		);
-		final int massStandardDeduction2023 = 2 * 4400; //Married Filing Jointly (from HRBlock 2023 tax software)
+		final int massStandardDeduction202X = 2 * 4400; //Married Filing Jointly (from HRBlock 2023 tax software)
 		//https://www.nerdwallet.com/article/taxes/massachusetts-state-tax-rates
 
-		final int year = 2024;
-		System.out.println(NL + "Taxes (for " + year + "):");
+		System.out.println(NL + "Taxes (using rates for " + year + "):");
 		for (int income = 120000; income <= 180000; income += 5000) {
-			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2024, federalTaxBracket2024);
-			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction2023, massTaxBracket2024);
+			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2025, federalTaxBracket2025);
+			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction202X, massTaxBracket202X);
 			int totalIncomeTax = federalIncomeTax + massIncomeTax;
 			double effectiveTaxRate = 100. * (double) totalIncomeTax / (double) income;
 			double federalTaxRate = 100. * (double) federalIncomeTax / (double) income;

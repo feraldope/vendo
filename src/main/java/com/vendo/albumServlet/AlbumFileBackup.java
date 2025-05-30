@@ -543,7 +543,7 @@ public class AlbumFileBackup {
 			getExecutor ().execute (sourceTask);
 
 			Runnable destTask = () -> {
-				Thread.currentThread ().setName ("source: " + subFolder);
+				Thread.currentThread ().setName ("dest: " + subFolder);
 				Path destPath = FileSystems.getDefault ().getPath (_destRootPath.toString (), subFolder);
 				Collection<AlbumImageFileDetails> imageFileDetailsColl = getImageFileDetailsFromFileSystem (destPath, _filenamePattern);
 				destMap.put (subFolder, imageFileDetailsColl);
@@ -573,15 +573,14 @@ public class AlbumFileBackup {
 //		}
 
 //TODO use AtomicReference? - is this thread-safe?
-		final List<String> lastPathHandled = new ArrayList<>(Collections.singletonList("")); //for debugging (final List<> is hack
+		final List<String> lastPathHandled = new ArrayList<>(Collections.singletonList("")); //for debugging (final List<> is hack for use in threads)
 
 		Set<AlbumImageFileDetails> coll = new HashSet<> ();
 
 		try {
 			Files.walkFileTree (folder, new SimpleFileVisitor<Path> () {
 				@Override
-				public FileVisitResult visitFile (Path file, BasicFileAttributes attrs)
-				{
+				public FileVisitResult visitFile (Path file, BasicFileAttributes attrs) {
 					lastPathHandled.set(0, file.toString());
 
 					String filename = file.getFileName ().toString ();
@@ -596,8 +595,7 @@ public class AlbumFileBackup {
 				}
 
 				@Override
-				public FileVisitResult visitFileFailed (Path file, IOException ex)
-				{
+				public FileVisitResult visitFileFailed (Path file, IOException ex) {
 					lastPathHandled.set(0, file.toString());
 
 					if (ex != null) {
@@ -608,8 +606,7 @@ public class AlbumFileBackup {
 				}
 
 				@Override
-				public FileVisitResult postVisitDirectory (Path dir, IOException ex)
-				{
+				public FileVisitResult postVisitDirectory (Path dir, IOException ex) {
 					lastPathHandled.set(0, dir.toString());
 
 					if (ex != null) {
@@ -622,8 +619,8 @@ public class AlbumFileBackup {
 
 		} catch (Exception ex) {
 //			throw new AssertionError ("Files#walkFileTree(\"" + folder + "\") will not throw IOException if the FileVisitor does not");
-			String hightlight = "******************************************************************************************";
-			_log.error (NL + hightlight + NL + "AlbumFileBackup.getImageFileDetailsFromFileSystem: lastPathHandled = '" + lastPathHandled.get(0) + "'" + NL + hightlight + NL, ex);
+			String highlight = "******************************************************************************************";
+			_log.error (NL + highlight + NL + "AlbumFileBackup.getImageFileDetailsFromFileSystem: lastPathHandled = '" + lastPathHandled.get(0) + "'" + NL + highlight + NL, ex);
 		}
 
 //		_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem (\"" + folder + "\"): coll.size () = " + coll.size ());

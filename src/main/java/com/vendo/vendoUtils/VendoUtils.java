@@ -661,6 +661,12 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static long rounding (long value, long rounding) //round down to multiple of 'rounding'
+	{
+		return (value / rounding) * rounding;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static String reverse (String string)
 	{
 		return new StringBuffer (string).reverse ().toString ();
@@ -929,20 +935,26 @@ public class VendoUtils
 		final int precision = 2;
 		final String text = "B";
 		final String spacing = "";
-		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing);
+		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing, false);
 	}
 	public static String unitSuffixScale(double value, String text) //for values that are NOT BYTES
+	{
+		return unitSuffixScale (value, text, false);
+	}
+	public static String unitSuffixScale(double value, String text, boolean roundButDontScale) //for values that are NOT BYTES
 	{
 		final int fieldWidth = 0;
 		final double base = 1000;
 		final int precision = 1;
 		final String spacing = "";
-		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing);
+		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing, roundButDontScale);
 	}
-	private static String unitSuffixScale (double value, int fieldWidth, double base, int precision, String text, String spacing)
+	private static String unitSuffixScale (double value, int fieldWidth, double base, int precision, String text, String spacing, boolean roundButDontScale)
 	{
 		final String[] unitSuffixArray = new String[] { text + " ", "K" + text, "M" + text, "G" + text, "T" + text, "P" + text };
 		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0." + StringUtils.repeat("0", precision));
+
+		assert value > 0.;
 
 		int digitGroups = 0;
 		if (value < 1) {
@@ -951,12 +963,20 @@ public class VendoUtils
 			digitGroups = (int) (Math.log10 (value) / Math.log10 (base));
 		}
 
-		String valueString = "??";
+		String valueString;
 		try {
-			valueString = decimalFormat.format(value / Math.pow(base, digitGroups)) + spacing + unitSuffixArray[digitGroups];
+			valueString = decimalFormat.format(value / Math.pow(base, digitGroups));// + (roundButDontScale ? "" : spacing + unitSuffixArray[digitGroups]);
+
+			if (roundButDontScale) {
+				//TODO - rewrite this so it doesn't go: double->string->double->string
+				valueString = decimalFormat.format(Double.parseDouble(valueString) * Math.pow(base, digitGroups)).replaceAll(",", "");
+			} else {
+				valueString += spacing + unitSuffixArray[digitGroups];
+			}
 
 		} catch (ArrayIndexOutOfBoundsException ex) {
-			//TODO - print/log error
+			valueString = "VendoUtils.unitSuffixScale: " + ex.getMessage(); //HACK
+			return valueString;
 		}
 
 		if (fieldWidth > 0) {

@@ -151,7 +151,7 @@ public class AlbumImageDao {
 				}
 			}
 
-			_log.debug("AlbumImageDao.processArgs: subFoldersOverrides = " + _subFoldersOverrideSet.stream().sorted().collect(Collectors.joining(",")));
+			_log.debug("AlbumImageDao.processArgs: subFoldersOverrides(" + _subFoldersOverrideSet.size() + ") = " + _subFoldersOverrideSet.stream().sorted().collect(Collectors.joining(",")));
 		}
 
 		return true;

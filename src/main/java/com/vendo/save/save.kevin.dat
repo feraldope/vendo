@@ -4,17 +4,17 @@ RetirementAge = 65
 
 [No. 1]
 Name = ROTH IRA
-Balance = 6000
-AnnualContribution = 2000
-GrowthRateOfInvestment = 8
-GrowthRateOfContribution = 0
+Balance = 27000
+AnnualContribution = 7000
+GrowthRateOfInvestment = 7
+GrowthRateOfContribution = 1
 
 [No. 2]
 Name = 401(k)
-Balance = 0
-AnnualContribution = 0
-GrowthRateOfInvestment = 8
-GrowthRateOfContribution = 0
+Balance = 2000
+AnnualContribution = 4000
+GrowthRateOfInvestment = 7
+GrowthRateOfContribution = 1
 
 [No. 3]
 Name = Taxable

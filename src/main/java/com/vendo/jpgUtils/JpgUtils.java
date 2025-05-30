@@ -94,6 +94,18 @@ public class JpgUtils {
 						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
 					}
 
+				} else if (arg.equalsIgnoreCase ("minMegaPixels") || arg.equalsIgnoreCase ("mmp")) {
+					try {
+						_minDesiredMegaPixels = Double.parseDouble (args[++ii]);
+						if (_minDesiredMegaPixels <= 0) {
+							throw (new NumberFormatException ());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing value for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
+
 				} else if (arg.equalsIgnoreCase ("minimumHeight") || arg.equalsIgnoreCase ("minh")) {
 					try {
 						_minimumHeight = Integer.parseInt (args[++ii]);
@@ -205,7 +217,13 @@ public class JpgUtils {
 			if (_scalePercent <= 0 && _desiredWidth <= 0 && _desiredHeight <= 0 && _desiredMegaPixels <= 0) {
 				displayUsage ("must specify width, height, scale, or megaPixels", true);
 			}
+
+			if (_desiredMegaPixels > 0 && _minDesiredMegaPixels > 0 && _minDesiredMegaPixels < _desiredMegaPixels) {
+				displayUsage ("minDesiredMegaPixels can not be less than desiredMegaPixels", true);
+			}
 		}
+
+
 
 //TODO? - extract sourceDir from input file spec??
 
@@ -240,7 +258,7 @@ public class JpgUtils {
 		}
 
 //TODO
-		msg += "Usage: " + _AppName + " [/debug] [/threads <num threads>] [/destDir] [/sourceDir] [/height] [/width] [/minimumHeight] [/minimumWidth] [/query] [/scalePercent] [/suffix] <wildname>";
+		msg += "Usage: " + _AppName + " [/debug] {NEEDS UPDATE} [/threads <num threads>] [/destDir] [/sourceDir] [/height] [/width] [/minimumHeight] [/minimumWidth] [/query] [/scalePercent] [/suffix] <wildname>";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -333,12 +351,23 @@ public class JpgUtils {
 		_inImageAttributesStats.print();
 		_outImageAttributesStats.print();
 
-		System.out.println ("Input bytes total = " + VendoUtils.unitSuffixScaleBytes(_inImageAttributesStats.getTotalBytes()));
-		System.out.println ("Output bytes total = " + VendoUtils.unitSuffixScaleBytes(_outImageAttributesStats.getTotalBytes()));
-
 		double totalCompression = (double) _inImageAttributesStats.getTotalBytes() / (double) _outImageAttributesStats.getTotalBytes();
-		System.out.println ("Total compression = " + _decimalFormat1.get ().format (totalCompression) + ":1");
+		long savedBytes = _inImageAttributesStats.getTotalBytes() - _outImageAttributesStats.getTotalBytes();
+		double savedPercent = 100. * (double) savedBytes / (double) _inImageAttributesStats.getTotalBytes();
+		System.out.println ("Total compression = " + _decimalFormat1.get ().format (totalCompression) + ":1, " +
+							"Total bytes: input = " + VendoUtils.unitSuffixScaleBytes(_inImageAttributesStats.getTotalBytes()) +
+							", output = " + VendoUtils.unitSuffixScaleBytes(_outImageAttributesStats.getTotalBytes()) +
+							", saved = " + VendoUtils.unitSuffixScaleBytes(savedBytes) +
+							" (" + _decimalFormat1.get().format(savedPercent) + "%)");
 
+//old way
+//		System.out.println ("Input bytes total  = " + VendoUtils.unitSuffixScaleBytes(_inImageAttributesStats.getTotalBytes()));
+//		System.out.println ("Output bytes total = " + VendoUtils.unitSuffixScaleBytes(_outImageAttributesStats.getTotalBytes()));
+//
+//		double totalCompression = (double) _inImageAttributesStats.getTotalBytes() / (double) _outImageAttributesStats.getTotalBytes();
+//		long savedBytes = _inImageAttributesStats.getTotalBytes() - _outImageAttributesStats.getTotalBytes();
+//		System.out.println ("Total compression = " + _decimalFormat1.get ().format (totalCompression) + ":1, saved bytes = " + VendoUtils.unitSuffixScaleBytes(savedBytes));
+//
 		return true;
 	}
 
@@ -366,13 +395,18 @@ public class JpgUtils {
 		int newHeight = -1;
 
 		if (_desiredMegaPixels > 0) {
-			final double minDesiredMegaPixels = 4 * _desiredMegaPixels / 3;
+			final double minDesiredMegaPixels = _minDesiredMegaPixels > 0 ?
+												_minDesiredMegaPixels :
+												4 * _desiredMegaPixels / 3; //if min is not set, choose a default
+
 			ImageAttributes imageAttributes = getImageAttributes (infilePath);
-			double currentMegaPixels =  (double) imageAttributes._width * (double) imageAttributes._height / 1e6;
+			double currentMegaPixels = (double) imageAttributes._width * (double) imageAttributes._height / 1e6;
 
 			if (currentMegaPixels < minDesiredMegaPixels) {
+//				_log.debug("currentMegaPixels = " + currentMegaPixels + ", minDesiredMegaPixels = " + minDesiredMegaPixels);
+
 				_skippedImages.add(imageAttributes);
-				_log.warn ("skip compressing '" + infilePath + "' because " + _decimalFormat1.get().format(currentMegaPixels) + "MP smaller than min desired, " + _decimalFormat1.get().format(minDesiredMegaPixels) + "MP");
+				_log.warn ("skip compressing '" + infilePath + "' because " + _decimalFormat2.get().format(currentMegaPixels) + "MP smaller than min desired, " + _decimalFormat2.get().format(minDesiredMegaPixels) + "MP");
 
 				//skip file: if the src and dst files are not the same, copy the file
 				Path srcPath = FileSystems.getDefault ().getPath (infilePath);
@@ -387,6 +421,14 @@ public class JpgUtils {
 					}
 				}
 
+				//we still want to add this file to the stats
+				synchronized (_inImageAttributesStats) {
+					_inImageAttributesStats.add(imageAttributes);
+				}
+				synchronized (_outImageAttributesStats) {
+					_outImageAttributesStats.add(imageAttributes);
+				}
+
 				return false;
 			}
 
@@ -399,7 +441,8 @@ public class JpgUtils {
 			newHeight = _desiredHeight;
 
 		} else if (_scalePercent == 100) {
-			newWidth = newHeight = -1; //maintain original dimensions
+			newWidth = -1; //maintain original dimensions
+			newHeight = -1; //maintain original dimensions
 
 		} else if (_scalePercent > 0) {
 			final double scaleFactor = _scalePercent / 100.;
@@ -407,6 +450,7 @@ public class JpgUtils {
 			ImageAttributes imageAttributes = getImageAttributes (infilePath);
 
 			if (imageAttributes._width < _minimumWidth || imageAttributes._height < _minimumHeight) {
+//TODO - update message to include dimensions
 				_log.warn ("skip scaling '" + infilePath + "' because smaller than min size");
 
 				//skip file: if the src and dst files are not the same, copy the file
@@ -420,6 +464,14 @@ public class JpgUtils {
 						_log.error ("JpgUtils.compressFile: Files.copy failed to copy '" + infilePath + "' to '" + outfilePath + "'");
 						_log.error (ee);
 					}
+				}
+
+				//we still want to add this file to the stats
+				synchronized (_inImageAttributesStats) {
+					_inImageAttributesStats.add(imageAttributes);
+				}
+				synchronized (_outImageAttributesStats) {
+					_outImageAttributesStats.add(imageAttributes);
 				}
 
 				return false;
@@ -878,6 +930,7 @@ public class JpgUtils {
 	//private members
 	private int _numThreads = 8;
 	private double _desiredMegaPixels = -1;
+	private double _minDesiredMegaPixels = -1;
 	private int _desiredHeight = -1;
 	private int _desiredWidth = -1;
 	private int _minimumWidth = -1;
@@ -889,7 +942,7 @@ public class JpgUtils {
 	private String _infilenameWild = null;
 	private String _nameSuffix = "";
 
-	private final ImageAttributesStats _inImageAttributesStats = new ImageAttributesStats("Input averages"); //write access is synchronized above
+	private final ImageAttributesStats _inImageAttributesStats = new ImageAttributesStats("Input averages "); //write access is synchronized above (trailing space for alignment
 	private final ImageAttributesStats _outImageAttributesStats = new ImageAttributesStats("Output averages"); //write access is synchronized above
 
 	private final Set<ImageAttributes> _skippedImages = new ConcurrentSkipListSet<>();
@@ -898,6 +951,7 @@ public class JpgUtils {
 
 	private static final String _formatName = "jpg";
 	private static final ThreadLocal<NumberFormat> _decimalFormat1 = ThreadLocal.withInitial(() -> new DecimalFormat("###,##0.0")); //DecimalFormat is not thread safe
+	private static final ThreadLocal<NumberFormat> _decimalFormat2 = ThreadLocal.withInitial(() -> new DecimalFormat("###,##0.00")); //DecimalFormat is not thread safe
 
 	private static final String _slash = System.getProperty ("file.separator");
 	private static final Logger _log = LogManager.getLogger (JpgUtils.class);

@@ -306,7 +306,7 @@ public class AlbumFileRename
 			}
 		}
 
-		int calculatedRenumDigits = filteredSourceFileList.size() >= 100 ? 3 : 2;
+		int calculatedRenumDigits = filteredSourceFileList.size() >= 1000 ? 4 : filteredSourceFileList.size() >= 100 ? 3 : 2;
 		_renumDigits = Math.max(_renumDigits, calculatedRenumDigits);
 		if (_Debug) {
 			_log.info("_renumDigits = " + _renumDigits);
