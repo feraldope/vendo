@@ -186,7 +186,7 @@ union all
 select count(*) as count, 'images' as table_name from albumimages.images
 
 
--- images size distribution by 1-char subfolder (for determining which folders to move from D: to C:) (SEARCH TODO.TXT for mklink, AlbumServlet)
+-- images size distribution by 1-char subfolder
 select lower(substring(name_no_ext,1,1)) as sub_folder1, sum(bytes) / (1024 * 1024 *1024) as giga_bytes, count(*) as count
 from images
 group by sub_folder1
@@ -198,8 +198,22 @@ select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count from
 --total size of all folders: add padding to files size, plus size of .dat file)
 select (sum(bytes * 1.05) + 10500)/(1024*1024*1024) as GBytes, count(*) as count from images order by GBytes desc
 
+-- size and count of image folders (actual subfolders) (NOTE does not account for drive's block size; just adds raw bytes)
+-- (for determining which folders to move from D: to C:) (SEARCH TODO.TXT for mklink, AlbumServlet)
+select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count 
+from images 
+-- skip folders already on C:
+where sub_folder not in ('an','ca','el','la','le','li','ma','mar','mi','sa')
+group by sub_folder 
+order by GBytes desc
+
+
 -- distribution of images in actual subfolders
-select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by count desc
+select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count 
+from images 
+group by sub_folder2, sub_folder 
+order by count desc
+
 select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folder, count(*) as count from images group by sub_folder2, sub_folder order by sub_folder2
 
 -- distribution / count of "q" images (used while moving qqX* to qX*, etc.)

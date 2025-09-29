@@ -28,6 +28,10 @@ public class AlbumFileMigrate
 	{
 		AlbumFileMigrate app = new AlbumFileMigrate();
 
+		if (true) {
+			throw new RuntimeException("AlbumFileMigrate.main: this file needs to be updated; see comment below: //TODO TODO - .dat files now live in dat/ folder");
+		}
+
 		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
 		}
@@ -422,6 +426,7 @@ public class AlbumFileMigrate
 		}
 
 		for (String imageName : imageNames) {
+//TODO TODO - .dat files now live in dat/ folder
 			Path srcPath = FileSystems.getDefault ().getPath (rootPath, oldSubFolder, imageName);
 			Path destPath = FileSystems.getDefault ().getPath (rootPath, newSubFolder, imageName);
 

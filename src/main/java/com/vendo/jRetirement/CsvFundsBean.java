@@ -104,7 +104,10 @@ public class CsvFundsBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public String getLastPriceChange() {
+    public Double getLastPriceChange() {
+        return parseNumberAmount(lastPriceChange);
+    }
+    public String getLastPriceChangeString() {
         return lastPriceChange;
     }
     public void setLastPriceChange(String lastPriceChange) {

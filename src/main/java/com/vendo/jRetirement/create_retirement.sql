@@ -59,11 +59,12 @@ SHOW INDEX FROM retirement;
 
 -- show duplicate data
 select date(r.downloaded_timestamp) as date, r.* from retirement r
-where date(r.downloaded_timestamp) = '2024-10-01'
+-- where date(r.downloaded_timestamp) = '2024-10-01'
+where date(r.downloaded_timestamp) >= '2025-09-18'
 order by r.symbol, account_name
 
 --delete duplicate data
---delete from retirement where date(downloaded_timestamp) = '2024-10-02'
+--delete from retirement where date(downloaded_timestamp) = '2025-07-15'
 
 select * from retirement where account_name like 'Individual - TOD'
 

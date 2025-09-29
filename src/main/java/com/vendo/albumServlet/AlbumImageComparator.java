@@ -79,6 +79,57 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			value2 = image2.getPixels ();
 			break;
 
+/* comment this out until it is fixed
+//is this right? it's looking at pixels for an individual image, but bytes for the album
+		case BySizePixelsBytes: //descending - in some cases, this USES CACHE
+			double pixels1 = image1.getPixels ();
+			double pixels2 = image2.getPixels ();
+
+			final double percentSlop = 10. / 100.;
+			double ratio = pixels1 / pixels2;
+
+			//if pixel diff is not "small", then sort by pixels
+			if (ratio > 1. + percentSlop || ratio < 1. - percentSlop) {
+				value1 = image1.getPixels ();
+				value2 = image2.getPixels ();
+
+			} else {
+				//else if pixel diff is "small", then sort by bytes
+				if (AlbumFormInfo.getInstance().getMode() == AlbumMode.DoSampler) {
+					boolean collapseGroups = AlbumFormInfo.getInstance().getCollapseGroups();
+
+					if (!image1.equals(image2)) {
+						if (value1 == null) {
+							try {
+								String imageName1 = image1.getBaseName(collapseGroups);
+								long bytes1 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName1, 0);
+								long count1 = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName1, 0);
+								value1 = bytes1 / count1;
+								cache.put(image1, value1);
+							} catch (Exception ex) {
+								value1 = 0L; //not much we can do here
+							}
+						}
+						if (value2 == null) {
+							try {
+								String imageName2 = image2.getBaseName(collapseGroups);
+								long bytes2 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName2, 0);
+								long count2 = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName2, 0);
+								value2 = bytes2 / count2;
+								cache.put(image2, value2);
+							} catch (Exception ex) {
+								value2 = 0L; //not much we can do here
+							}
+						}
+					}
+				} else {
+					value1 = image1.getNumBytes();
+					value2 = image2.getNumBytes();
+				}
+			}
+			break;
+*/
+
 		case BySizeBytes: //descending - USES CACHE
 			if (AlbumFormInfo.getInstance().getMode() == AlbumMode.DoSampler) {
 				boolean collapseGroups = AlbumFormInfo.getInstance().getCollapseGroups();
@@ -143,10 +194,10 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			}
 			break;
 
-		case ByBytesPerPixel: //descending
-			value1 = image1.getBytesPerPixel ();
-			value2 = image2.getBytesPerPixel ();
-			break;
+//		case ByBytesPerPixel: //descending
+//			value1 = image1.getBytesPerPixel ();
+//			value2 = image2.getBytesPerPixel ();
+//			break;
 
 		case ByCount: //descending
 		{

@@ -411,18 +411,19 @@ public class JpgInfo
 			//ignore
 		}
 
-		final int size25MegaPixels = 25 * 1000 * 1000;
-		final int size30MegaPixels = 30 * 1000 * 1000;
-		final int size2point5MegaBytes = 5 * 1024 * 1024 / 2;
+		final int size20MegaPixels = 20 * 1000 * 1000 - 10000; //subtract a bit of slop
+		final int size21MegaPixels = 21 * 1000 * 1000 - 10000; //subtract a bit of slop
+		final int size24MegaPixels = 24 * 1000 * 1000 - 10000; //subtract a bit of slop
+		final int size2point2MegaBytes = (22 * 1024 * 1024) / 10;
 		if (!(_ignoreSmallerThan > 0 && (width < _ignoreSmallerThan || height < _ignoreSmallerThan))) {
 			String details = filename + " " + orientation + " " + width + "x" + height + ", " +
 					VendoUtils.unitSuffixScale(width * height, "P") + ", " + //"P" for Pixels
 					VendoUtils.unitSuffixScaleBytes(numBytes);
-			if (width * height >= size30MegaPixels) {
+			if (width * height >= size24MegaPixels) {
 				VendoUtils.printWithColor(_highlightColor, details);
-			} else if (width * height >= size25MegaPixels) {
+			} else if (width * height >= size21MegaPixels) {
 				VendoUtils.printWithColor(_warningColor, details);
-			} else if (numBytes >= size2point5MegaBytes) {
+			} else if (numBytes >= size2point2MegaBytes && width * height >= size20MegaPixels) {
 				VendoUtils.printWithColor(_alertColor, details);
 			} else {
 				System.out.println (details);

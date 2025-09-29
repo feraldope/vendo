@@ -1304,7 +1304,7 @@ public class AlbumFormInfo
 	private int _defaultMaxFilters = 500;
 	private int _defaultHighlightDays = 4;
 	private int _defaultHighlightMinPixels = 640;
-	private int _defaultHighlightMaxPixels = 2560;
+	private int _defaultHighlightMaxPixels = 2500;
 	private int _defaultHighlightMaxKilobytes = 1536;
 	private int _defaultLogLevel = 5;
 	private int _defaultMaxImageScalePercent = 150;
@@ -1382,6 +1382,7 @@ public class AlbumFormInfo
 
 	public static final String _ImageExtension = ".jpg";
 	public static final String _RgbDataExtension = ".dat";
+	public static final String _RgbDataFolder = "dat";
 	public static final String _AddToFiltersParam = "AddToFilters:";
 	public static final String _DeleteParam1 = "DeleteImage:";
 	public static final String _DeleteParam2 = "DeleteImages:";

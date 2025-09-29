@@ -155,7 +155,7 @@ public /*final*/ class JRetirement {
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + AppName + " [/debug] [/test] TBD [/dest <dest dir>]";
+		msg += "Usage: " + AppName + " [/debug] [/test] [/deleteDuplicateRecords] [/generatePlotFile] [/pattern] [/printHistoricalData] [/printTaxes] [/printUrls] [/source]";
 		System.err.println("Error: " + msg + NL);
 
 		if (exit) {
@@ -336,9 +336,10 @@ public /*final*/ class JRetirement {
 //				String groupBy = fund.getFundFamily() + "." + fund.getCategory();
 //				String groupBy = fund.getFundFamily() + "." + fund.getFundType() + "." + fund.getCategory();
 
-//				String groupBy = fund.getFundTheme().toString();
+				String groupBy;
 
-				String groupBy = ""
+/*
+				groupBy = ""
 //						+ "[" + fund.getExpenseRatio() + "] "
 //						+ "[" + fundOwner + "] "
 ///						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
@@ -348,18 +349,19 @@ public /*final*/ class JRetirement {
 ///						+ "." + fund.getFundType()
 //						+ "." + fund.getManagementStyle()
 						+ "." + fund.getCategory();
+*/
 
-/*
 				groupBy = ""
 //						+ "[" + fund.getExpenseRatio() + "] "
 //						+ "[" + fundOwner + "] "
-//						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
+						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
 //						+ " => " + fund.getFundFamily()
 //						+ "." + fundOwner
 //						+ "." + fund.getFundType()
 //						+ "." + fund.getManagementStyle()
 						+ "." + fund.getCategory();
-*/
+
+				groupBy = fund.getFundTheme().toString();
 
 				Double balance = balancesByGroupingMap.computeIfAbsent(groupBy, k -> 0.); //if key not present, balance is 0.
 
@@ -391,6 +393,8 @@ public /*final*/ class JRetirement {
 				}
 
 				if (record.isPendingActivity()) {
+					System.out.println("[DEBUG] *** current value for record where isPendingActivity=true: " + record.getCurrentValue());
+
 					totalPendingActivity += record.getCurrentValue();
 				}
 			}
@@ -490,7 +494,7 @@ public /*final*/ class JRetirement {
 
 		///////////////////////////////////////////////////////////////////////////
 		public static int getMaxTotalLength(List<FundResult> results) {
-			return results.stream().map(r -> decimalFormat0.format(r.total).length() + lengthOfSymbol).max(Integer::compare).orElse(defaultFieldLength);
+			return results.stream().map(r -> dollarFormat0.format(r.total).length() + lengthOfSymbol).max(Integer::compare).orElse(defaultFieldLength);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -505,7 +509,7 @@ public /*final*/ class JRetirement {
 			} else {
 				return  String.format("%-" + longestLabel + "s", result.label) + space2 +
 						(Test ? ""
-						: String.format("%" + longestTotal + "s", "$" + decimalFormat0.format(result.total)) + space2) +
+						: String.format("%" + longestTotal + "s", dollarFormat0.format(result.total)) + space2) +
 						String.format("%" + longestPercent + "s", decimalFormat1.format(result.percent) + "%") +
 						result.specialNote;
 			}
@@ -516,7 +520,7 @@ public /*final*/ class JRetirement {
 		final double percent;
 		final String specialNote;
 
-		protected static final int lengthOfSymbol = 1; //hardcoded; i.e., "$" or "%"
+		protected static final int lengthOfSymbol = 1; //hardcoded; i.e., "$" or "%" //fix this: "$" is now embedded in the format
 		protected static final int defaultFieldLength = 20; //hardcoded
 		protected static final String space2 = "  "; //hardcoded
 	}
@@ -590,7 +594,7 @@ public /*final*/ class JRetirement {
 		AtomicInteger currentLineNumber = new AtomicInteger(0);
 		List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8).stream()
 			.map(l -> currentLineNumber.incrementAndGet() == 1 ? repairFileHeaderLine(l) : l)
-			.map(l -> l.contains(PendingActivityString) ? repairPendingActivityLine(l) : l)
+			.map(l -> l.toLowerCase().contains(PendingActivityString.toLowerCase()) ? repairPendingActivityLine(l) : l) //HACK
 			.filter(l -> {
 				boolean keepLine = true;
 				if (l.contains(DateDownloadedString)) {
@@ -618,6 +622,11 @@ public /*final*/ class JRetirement {
 				boolean truncated = l.length() > charsToPrint;
 				System.out.println(l.substring(0, charsToPrint) + (truncated ? "*" : ""));
 			});
+
+			final int maxExpectedSkippedLines = 3;
+			if (skippedLines.size() > maxExpectedSkippedLines) { //hack
+				throw new RuntimeException("Error: number of skipped lines (" + skippedLines.size() + ") is greater than expected (" + maxExpectedSkippedLines + ").");
+			}
 		}
 
 		return lines;
@@ -652,10 +661,19 @@ public /*final*/ class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//for some reason, these lines have fewer commas than the rest of the data lines, and the value needs to be shifted one column to the right
-	protected String repairPendingActivityLine(String line) {
+	//this "repair" hack is because the pending activity amount was incorrectly in the "Last Price Change" column (see e.g., Portfolio_Positions_Feb-22-2025.csv)
+	//but starting around Jun-2025, they seemed to have fixed this for some account types
+	//in these cases the pending activity amount is now correctly found in the "Current Value" column (see e.g., Portfolio_Positions_Jul-14-2025.csv)
+	//run this command with four and then five trailing commas to see the change: search Portfolio_Positions*2025*csv "Pending Activity,,,,,"
+
+	protected String repairPendingActivityLine(String line) { //HACK
+		if (line.contains(PendingActivityString2)) {
+			line = line.replaceAll(PendingActivityString2, PendingActivityString); //HACK - it seems Fidelity is not consistent in the case, because occasionally it has lower case "a"
+		}
 		if (line.contains(PendingActivityString)) {
-			line = line.replaceAll(PendingActivityString, PendingActivityString + ","); //add comma to shift columns right
+			if (!line.contains(PendingActivityString + ",,,,,")) { //five commas means it's already in the correct column
+				line = line.replaceAll(PendingActivityString, PendingActivityString + ","); //add comma to shift columns right
+			}
 			int missingCommas = csvExpectedCommas - countCommas(line);
 			if (missingCommas > 0) {
 				line += StringUtils.rightPad("", missingCommas, ','); //pad with missing commas so parser can parse
@@ -707,7 +725,7 @@ public /*final*/ class JRetirement {
 	protected void generatePlotFile(List<AggregateRecord> records) throws Exception {
 		assert records != null && !records.isEmpty();
 
-		final int yMin = 2000000; //TODO - calculate!
+		final int yMin = 1500000; //TODO - calculate!
 		final int yMax = 2500000; //TODO - calculate!
 
 		String timestamp = dateTimeFormatter.format (Instant.now());
@@ -796,7 +814,9 @@ public /*final*/ class JRetirement {
 			System.out.println(NL + "Max record (for previous " + weeks + " weeks):");
 			if (filteredMax != null) {
 				System.out.println(filteredMax);
-				System.out.println("Diff from that max: $" + decimalFormat0.format(lastRecord.totalValue - filteredMax.totalValue));
+				double diffFromMax = lastRecord.totalValue - filteredMax.totalValue;
+				double percentDiff = 100. * (lastRecord.totalValue - filteredMax.totalValue) / filteredMax.totalValue;
+				System.out.println("Diff from that max: " + dollarFormat0.format(diffFromMax) + " -> " + decimalFormat1.format(percentDiff) + "%");
 			} else {
 				System.out.println("No data available");
 			}
@@ -812,7 +832,9 @@ public /*final*/ class JRetirement {
 			System.out.println(NL + "Max record (for previous " + days + " days):");
 			if (filteredMax != null) {
 				System.out.println(filteredMax);
-				System.out.println("Diff from that max: $" + decimalFormat0.format(lastRecord.totalValue - filteredMax.totalValue));
+				double diffFromMax = lastRecord.totalValue - filteredMax.totalValue;
+				double percentDiff = 100. * (lastRecord.totalValue - filteredMax.totalValue) / filteredMax.totalValue;
+				System.out.println("Diff from that max: " + dollarFormat0.format(diffFromMax) + " -> " + decimalFormat1.format(percentDiff) + "%");
 			} else {
 				System.out.println("No data available");
 			}
@@ -828,7 +850,9 @@ public /*final*/ class JRetirement {
 			System.out.println(NL + "Max record (for previous " + days + " days):");
 			if (filteredMax != null) {
 				System.out.println(filteredMax);
-				System.out.println("Diff from that max: $" + decimalFormat0.format(lastRecord.totalValue - filteredMax.totalValue));
+				double diffFromMax = lastRecord.totalValue - filteredMax.totalValue;
+				double percentDiff = 100. * (lastRecord.totalValue - filteredMax.totalValue) / filteredMax.totalValue;
+				System.out.println("Diff from that max: " + dollarFormat0.format(diffFromMax) + " -> " + decimalFormat1.format(percentDiff) + "%");
 			} else {
 				System.out.println("No data available");
 			}
@@ -871,19 +895,28 @@ public /*final*/ class JRetirement {
 		//https://www.nerdwallet.com/article/taxes/massachusetts-state-tax-rates
 
 		System.out.println(NL + "Taxes (using rates for " + year + "):");
-		for (int income = 120000; income <= 180000; income += 5000) {
+
+		final int baseIncome = 100000;
+		double totalTaxOnBaseIncome = 0.;
+		for (int income = 100000; income <= 180000; income += 5000) {
 			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2025, federalTaxBracket2025);
 			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction202X, massTaxBracket202X);
 			int totalIncomeTax = federalIncomeTax + massIncomeTax;
-			double effectiveTaxRate = 100. * (double) totalIncomeTax / (double) income;
+			if (income == baseIncome) {
+				totalTaxOnBaseIncome = totalIncomeTax;
+			}
+			double extraTax = totalIncomeTax - totalTaxOnBaseIncome;
+
 			double federalTaxRate = 100. * (double) federalIncomeTax / (double) income;
 			double massTaxRate = 100. * (double) massIncomeTax / (double) income;
 			double totalTaxRate = 100. * (double) totalIncomeTax / (double) income;
 
-			System.out.println("Pre-tax income: $" + decimalFormat0.format(income) + ", Post-tax income: $" + decimalFormat0.format(income - totalIncomeTax) +
-								", Total tax: $" + decimalFormat0.format(totalIncomeTax) + " (" + decimalFormat1.format(totalTaxRate) + "%)" +
-								", Fed: $" + decimalFormat0.format(federalIncomeTax) + " (" + decimalFormat1.format(federalTaxRate) + "%)" +
-								", Mass: $" + decimalFormat0.format(massIncomeTax) + " (" + decimalFormat1.format(massTaxRate) + "%)");
+
+			System.out.println("Pre-tax income: " + dollarFormat0.format(income) + ", Post-tax income: " + dollarFormat0.format(income - totalIncomeTax) +
+								", Total tax: " + dollarFormat0.format(totalIncomeTax) + " (" + decimalFormat1.format(totalTaxRate) + "%)" +
+								", Fed: " + dollarFormat0.format(federalIncomeTax) + " (" + decimalFormat1.format(federalTaxRate) + "%)" +
+								", Mass: " + dollarFormat0.format(massIncomeTax) + " (" + decimalFormat1.format(massTaxRate) + "%)" +
+								", Extra tax beyond base income: " + dollarFormat0.format(extraTax));
 		}
 	}
 
@@ -1138,7 +1171,7 @@ public /*final*/ class JRetirement {
 			return index + "  " +
 				   numRecords + "  " +
 				   dateTimeFormatter.format(dateDownloaded) + "  " +
-				   "$" + decimalFormat0.format(totalValue);
+				   dollarFormat0.format(totalValue);
 		}
 
 		final int index;
@@ -1286,15 +1319,15 @@ public /*final*/ class JRetirement {
 	private static final FundResult BlankLine = new FundResult("blank line", 0, 0);
 	private static final Instant AllDates = Instant.ofEpochSecond(9999); //some fixed, hopefully unique time
 
-	private static final DecimalFormat decimalFormat0 = new DecimalFormat ("###,##0");
-	private static final DecimalFormat decimalFormat1 = new DecimalFormat ("###,##0.0");
-	private static final DecimalFormat decimalFormat2 = new DecimalFormat ("###,##0.00");
+	private static final DecimalFormat dollarFormat0 = new DecimalFormat ("$###,##0;($###,##0)"); //embedded "$"; format negative numbers with parenthesis
+	private static final DecimalFormat decimalFormat1 = new DecimalFormat ("###,##0.0;-###,##0.0"); //format negative numbers with minus sign
 
 	protected static final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss").withZone(ZoneId.systemDefault());
 
 	//global members
 	public static final String DateDownloadedString = "Date downloaded";
 	public static final String PendingActivityString = "Pending Activity";
+	public static final String PendingActivityString2 = "Pending activity"; //HACK - it seems Fidelity is not consistent in the case, because occasionally it has lower case "a"
 	public static final String PlotExecutable = "C:/Users/bin/plot/Release/plot.exe";
 	public static final String PlotFileName = "C:/temp/retirement.gen.plt";
 

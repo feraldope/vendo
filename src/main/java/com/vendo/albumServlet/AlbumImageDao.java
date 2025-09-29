@@ -351,7 +351,7 @@ public class AlbumImageDao {
 //			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImagesTable(" + subFolder + ") returned null/empty");
 			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImagesTable(" + subFolder + ") returned null/empty");
 		}
-		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem(subFolder, ".jpg"); //result is sorted
+		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem(subFolder, "", ".jpg"); //result is sorted
 		if (/*fsImageFileDetails == null ||*/ fsImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
 //			throw new RuntimeException("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty");
 			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty");
@@ -554,7 +554,7 @@ public class AlbumImageDao {
 
 		AlbumProfiling.getInstance().enter(4, "part 8");
 
-		Collection<AlbumImageFileDetails> fsDatFileDetails = getImageFileDetailsFromFileSystem(subFolder, ".dat"); //result is sorted
+		Collection<AlbumImageFileDetails> fsDatFileDetails = getImageFileDetailsFromFileSystem(subFolder, AlbumFormInfo._RgbDataFolder, ".dat"); //result is sorted
 
 		Set<String> missingDatFiles = fsImageFileDetails.stream().map(AlbumImageFileDetails::getName).collect(Collectors.toSet());
 		Set<String> missingJpgFiles = fsDatFileDetails.stream().map(AlbumImageFileDetails::getName).collect(Collectors.toSet());
@@ -719,8 +719,8 @@ public class AlbumImageDao {
 //			_log.debug ("AlbumImageDao.createWatcherThreadsForFolder: watching folder: " + dir.normalize ().toString ());
 
 			final Pattern allPattern = Pattern.compile(".*");
-			final Pattern imagePattern = Pattern.compile(".*\\" + AlbumFormInfo._ImageExtension, Pattern.CASE_INSENSITIVE);
-			boolean recurseSubdirs = false;
+			final Pattern imagePattern = Pattern.compile(".*\\" + AlbumFormInfo._ImageExtension); //, Pattern.CASE_INSENSITIVE);
+			final boolean recurseSubdirs = false;
 
 			WatchDir watchDir = new WatchDir(dir, allPattern, recurseSubdirs) {
 				@Override
@@ -743,7 +743,7 @@ public class AlbumImageDao {
 							_log.error("AlbumImageDao.WatchDir.notify(" + subFolder1 + "): ", ee);
 						}
 					} else if (!pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_DELETE)) {
-						if (!hasKnownFileExtension(filename)) {
+						if (!hasKnownFileExtensionOrName(filename)) {
 							String filePath = dir.resolve(pathEvent.context()).toString();
 							_log.warn("AlbumImageDao.WatchDir.notify(" + subFolder1 + "): unexpected file for " + pathEvent.kind() + ": " + filePath);
 						}
@@ -755,6 +755,7 @@ public class AlbumImageDao {
 					_log.error("AlbumImageDao.WatchDir.overflow(" + subFolder1 + "): received event: " + event.kind().name() + ", count = " + event.count());
 					_log.error("AlbumImageDao.WatchDir.overflow(" + subFolder1 + "): ", new Exception("WatchDir overflow(" + subFolder1 + ")"));
 
+//TODO - add folder resync here??
 					restartWatcherThreadsForFolder (subFolder1);
 				}
 			};
@@ -779,14 +780,14 @@ public class AlbumImageDao {
 
 //		if (_isCLI) {
 		if (_isServer) {
-			Thread handlerThread = _handlerThreadMap.get(subFolder);
-			Thread watcherThread = _watcherThreadMap.get(subFolder);
+			Thread oldHandlerThread = _handlerThreadMap.get(subFolder);
+			Thread oldWatcherThread = _watcherThreadMap.get(subFolder);
 
 			_log.debug ("AlbumImageDao.restartWatcherThreadsForFolder: calling createWatcherThreadsForFolder for subFolder: " + subFolder);
 			AlbumImageDao.getInstance ().createWatcherThreadsForFolder (subFolder);
 
-			handlerThread.interrupt ();
-			watcherThread.interrupt ();
+			oldHandlerThread.interrupt ();
+			oldWatcherThread.interrupt ();
 
 		} else {
 			_log.warn ("AlbumImageDao.restartWatcherThreadsForFolder: _isServer = false; not restarting threads for subFolder: " + subFolder + ", thread: " + currentThread.getName ());
@@ -906,10 +907,11 @@ public class AlbumImageDao {
 	{
 //		_log.debug ("AlbumImageDao.handleFileDelete: " + nameNoExt);
 
-		Path rgbDataFile = FileSystems.getDefault().getPath(_rootPath, subFolder, nameNoExt + AlbumFormInfo._ImageExtension);
+		Path rgbDataFilePath = FileSystems.getDefault().getPath(_rootPath, subFolder, AlbumFormInfo._RgbDataFolder, nameNoExt + AlbumFormInfo._RgbDataExtension);
+//		AlbumImage.removeRgbDataFileFromFileSystem(rgbDataFilePath);
+		AlbumImages.deleteFile(rgbDataFilePath, false);
 
 		boolean status = deleteImageFromImagesTable(subFolder, nameNoExt);
-		AlbumImage.removeRgbDataFileFromFileSystem(rgbDataFile.toString());
 
 		_imagesNeedingCountUpdate.get().add(AlbumImage.getBaseName(nameNoExt, false));
 
@@ -1529,13 +1531,13 @@ public class AlbumImageDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by CLI
-	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem(String subFolder, String extension)
+	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem(String subFolder, String subFolder2, String extension)
 	{
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
 		List<AlbumImageFileDetails> list = new LinkedList<>();
 
-		Path folder = FileSystems.getDefault().getPath(_rootPath, subFolder);
+		Path folder = FileSystems.getDefault().getPath(_rootPath, subFolder, subFolder2);
 
 		try {
 			Files.walkFileTree(folder, new SimpleFileVisitor<Path>() {
@@ -1549,7 +1551,7 @@ public class AlbumImageDao {
 							long modified = attrs.lastModifiedTime().toMillis();
 
 							list.add(new AlbumImageFileDetails(nameNoExt, numBytes, modified));
-						} else if (!hasKnownFileExtension(nameWithExt)) {
+						} else if (!hasKnownFileExtensionOrName(nameWithExt)) {
 							_log.warn("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): visitFile() unexpected file: " + file);
 						}
 					} catch (Exception ex) {
@@ -1745,12 +1747,13 @@ public class AlbumImageDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean hasKnownFileExtension (String filename)
+	public boolean hasKnownFileExtensionOrName (String filename) //filename only, no path
 	{
 		final Pattern pattern = Pattern.compile("(.*\\" + AlbumFormInfo._ImageExtension
-													 + "|.*\\" + AlbumFormInfo._RgbDataExtension
-													 + "|.*\\" + AlbumFormInfo._DeleteSuffix + ")",
-												Pattern.CASE_INSENSITIVE);
+											  + "|.*\\" + AlbumFormInfo._RgbDataExtension + "$"
+											  + "|.*\\" + AlbumFormInfo._DeleteSuffix //do not append "$" here because suffix could be repeated
+											  + "|" + AlbumFormInfo._RgbDataFolder + "$)");
+
 		return pattern.matcher(filename).matches();
 	}
 

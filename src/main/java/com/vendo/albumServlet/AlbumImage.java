@@ -64,7 +64,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_tagString2 = null;
 		_file = null;
 		_pixels = -1;
-		_bytesPerPixel = -1;
+//		_bytesPerPixel = -1;
 //		_count = -1;
 		_rgbHash = -1;
 		_random = -1;
@@ -98,7 +98,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		_tagString2 = image.getTagString (true);
 		_file = image.getFile ();
 		_pixels = image.getPixels ();
-		_bytesPerPixel = image.getBytesPerPixel ();
+//		_bytesPerPixel = image.getBytesPerPixel ();
 //		_count = image.getCount ();
 		_rgbHash = image.getHash ();
 		_random = image.getRandom ();
@@ -248,7 +248,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 		sb.append(getWidth()).append("x").append(getHeight()).append(", ");
 		sb.append(VendoUtils.unitSuffixScale(getWidth() * getHeight(), "P")).append(", "); //"P" for Pixels
 		sb.append(VendoUtils.unitSuffixScaleBytes(getNumBytes())).append(", ");
-		sb.append("BPP=").append(VendoUtils.unitSuffixScale(getBytesPerPixel (), "B/P")).append (", ");
+//		sb.append("BPP=").append(VendoUtils.unitSuffixScale(getBytesPerPixel (), "B/P")).append (", ");
 
 		if (AlbumFormInfo.getShowRgbData() && AlbumFormInfo.getInstance().getMode() == AlbumMode.DoDup) { //debugging
 //			sb.append (String.format ("0x%08X", getRgbData ().hashCode ())).append (", ");
@@ -573,18 +573,19 @@ public class AlbumImage implements Comparable<AlbumImage>
 		return AlbumImages.compareToWithSlop (getPixels(), other.getPixels(), true, 0.5);
 	}
 
+//obsolete - not as useful as I thought
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized long getBytesPerPixel () //really bytes squared per pixel
-	{
-		if (_bytesPerPixel == -1) {
-//			double bytesPerPixel = 1000. * getNumBytes() / (getWidth () * getHeight ());
-			double bytesPerPixel = (double) getNumBytes() * (double) getNumBytes() / ((double) getWidth () * (double) getHeight ());
-			_bytesPerPixel = (long) bytesPerPixel;
-		}
-
-		return _bytesPerPixel;
-	}
+//	public synchronized long getBytesPerPixel () //really bytes squared per pixel
+//	{
+//		if (_bytesPerPixel == -1) {
+////			double bytesPerPixel = 1000. * getNumBytes() / (getWidth () * getHeight ());
+//			double bytesPerPixel = (double) getNumBytes() * (double) getNumBytes() / ((double) getWidth () * (double) getHeight ());
+//			_bytesPerPixel = (long) bytesPerPixel;
+//		}
+//
+//		return _bytesPerPixel;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
@@ -685,23 +686,29 @@ public class AlbumImage implements Comparable<AlbumImage>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public String getRgbDatFileNameWithExt ()
+	{
+		return getImagePath() + VendoUtils.appendSystemSlash(AlbumFormInfo._RgbDataFolder) + getName () + AlbumFormInfo._RgbDataExtension;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public /*synchronized*/ ByteBuffer readScaledImageData ()
 	{
 //		AlbumProfiling.getInstance ().enter (5); //don't profile; this is called by threads
 
-		String nameWithExt = getImagePath () + getName () + AlbumFormInfo._RgbDataExtension;
+		String rgbDatFileNameWithExt = getRgbDatFileNameWithExt ();
 
 		ByteBuffer scaledImageData = null;
 		FileInputStream inputStream = null;
 		FileChannel fileChannel = null;
 		try {
-			inputStream = new FileInputStream (nameWithExt);
+			inputStream = new FileInputStream (rgbDatFileNameWithExt);
 			fileChannel = inputStream.getChannel ();
 			scaledImageData = ByteBuffer.allocate ((int) fileChannel.size ());
 			fileChannel.read (scaledImageData, 0);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + nameWithExt + "\"", ee);
+			_log.error ("AlbumImage.readScaledImageData: error reading image data file \"" + rgbDatFileNameWithExt + "\"", ee);
 
 		} finally {
 			if (fileChannel != null) {
@@ -726,7 +733,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 //		AlbumProfiling.getInstance ().exit (5);
 
-		calculateScaledImageDataStatistics (scaledImageData, nameWithExt); //emits errors
+		calculateScaledImageDataStatistics (scaledImageData, rgbDatFileNameWithExt); //emits errors
 
 		return scaledImageData;
 	}
@@ -768,25 +775,26 @@ public class AlbumImage implements Comparable<AlbumImage>
 //		AlbumProfiling.getInstance ().exit (5);
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	public static void removeRgbDataFileFromFileSystem (String imagePath)
-	{
-		String rgbDataFilePath = imagePath.replace (AlbumFormInfo._ImageExtension, AlbumFormInfo._RgbDataExtension);
-
-		if (AlbumFormInfo._logLevel >= 8) {
-			_log.debug ("AlbumImage.removeRgbDataFileFromFileSystem: rgbDataFilePath = " + rgbDataFilePath);
-		}
-
-		Path file = FileSystems.getDefault ().getPath (rgbDataFilePath);
-		if (Files.exists (file)) { //rgbDataFile might not exist: e.g., if it was already renamed with the .jpg file by mov.exe
-			try {
-				Files.delete (file);
-
-			} catch (Exception ee) {
-				_log.error ("AlbumImage.removeRgbDataFileFromFileSystem: file delete failed: " + rgbDataFilePath, ee);
-			}
-		}
-	}
+//obsolete
+//	///////////////////////////////////////////////////////////////////////////
+//	public static void removeRgbDataFileFromFileSystem (Path rgbDataFilePath)
+//	{
+////		String rgbDataFilePath = imagePath.replace (AlbumFormInfo._ImageExtension, AlbumFormInfo._RgbDataExtension);
+//
+//		if (AlbumFormInfo._logLevel >= 8) {
+//			_log.debug ("AlbumImage.removeRgbDataFileFromFileSystem: rgbDataFilePath = " + rgbDataFilePath);
+//		}
+//
+////		Path file = FileSystems.getDefault ().getPath (rgbDataFilePath);
+//		if (Files.exists (rgbDataFilePath)) { //rgbDataFile might not exist: e.g., if it was already renamed with the .jpg file by mov.exe
+//			try {
+//				Files.delete (rgbDataFilePath);
+//
+//			} catch (Exception ee) {
+//				_log.error ("AlbumImage.removeRgbDataFileFromFileSystem: file delete failed: " + rgbDataFilePath, ee);
+//			}
+//		}
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static VPair<Integer, Integer> getScaledImageDiff (ByteBuffer buffer1, ByteBuffer buffer2)
@@ -853,10 +861,12 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public synchronized void createRgbDataFile () //throws Exception
 	{
-		String nameWithExt = getImagePath () + getName () + AlbumFormInfo._RgbDataExtension;
+//TODO - we need to create the "dat" folder, if it does not exist - see AlbumFileBackup#createDestinationFolderIfNotExist
+
+		String rgbDatFileNameWithExt = getRgbDatFileNameWithExt ();
 
 		if (AlbumFormInfo._logLevel >= 8) {
-			_log.debug ("AlbumImage.createRgbDataFile: " + nameWithExt);
+			_log.debug ("AlbumImage.createRgbDataFile: " + rgbDatFileNameWithExt);
 		}
 
 		BufferedImage image = JpgUtils.readImage (_file);
@@ -890,18 +900,18 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 			scaledImageData = shrinkRgbData (rawScaledImageData);
 
-			calculateScaledImageDataStatistics (scaledImageData, nameWithExt); //emits errors
+			calculateScaledImageDataStatistics (scaledImageData, rgbDatFileNameWithExt); //emits errors
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImage.createRgbDataFile: error reading/scaling image file \"" + nameWithExt + "\"", ee);
+			_log.error ("AlbumImage.createRgbDataFile: error reading/scaling image file \"" + rgbDatFileNameWithExt + "\"", ee);
 		}
 
-		try (FileChannel fileChannel = new FileOutputStream (nameWithExt).getChannel ()) {
+		try (FileChannel fileChannel = new FileOutputStream (rgbDatFileNameWithExt).getChannel ()) {
 			scaledImageData.rewind (); //always rewind before using
 			fileChannel.write (scaledImageData);
 
 		} catch (Exception ee) {
-			_log.error ("AlbumImage.createRgbDataFile: error writing RGB data file \"" + nameWithExt + "\"", ee);
+			_log.error ("AlbumImage.createRgbDataFile: error writing RGB data file \"" + rgbDatFileNameWithExt + "\"", ee);
 		}
 	}
 
@@ -1216,7 +1226,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	private String _tagString2 = null; //for collapseGroups = true
 //	private String _nameFirstLettersLower = null;
 	private long _pixels = -1;
-	private long _bytesPerPixel = -1;
+//	private long _bytesPerPixel = -1;
 	private int _scaledWidth = -1;
 	private int _scaledHeight = -1;
 	private int _scale = -1;

@@ -27,6 +27,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -306,6 +307,7 @@ public class AlbumFileBackup {
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
 
+/* moved to end
 		System.out.println ("writing file lists...");
 
 		String timestamp = new SimpleDateFormat ("yyyyMMdd.HHmmss").format (new Date ());
@@ -314,17 +316,21 @@ public class AlbumFileBackup {
 //		String orphan2Filename = "fileList." +  timestamp + ".orphan2.log";
 //		String orphan3Filename = "fileList." +  timestamp + ".orphan3.log";
 
-		List<String> sourceFileList = getSourceFileList (sourceMap, null);
-		String sourceFilename = "fileList." +  timestamp + partialStub + ".sources." + sourceFileList.size () + "rows.log";
-		Path outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), sourceFilename);
-		int linesWritten = writeSourceFileList (sourceFileList, outputFilePath, sourceSubFolders);
-		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath);
+		{
+			List<String> sourceFileList = getSourceFileList(sourceMap, null);
+			String sourceFilename = "fileList." + timestamp + partialStub + ".sources." + sourceFileList.size() + "rows.log";
+			Path outputFilePath = FileSystems.getDefault().getPath(_destRootPath.toString(), sourceFilename);
+			int linesWritten = writeSourceFileList(sourceFileList, outputFilePath, sourceSubFolders);
+			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
+		}
 
-		List<String> orphanFileList = getSourceFileList (orphanMap, _destRootPath);
-		String orphanFilename = "fileList." +  timestamp + partialStub + ".orphans." + orphanFileList.size () + "rows.log";
-		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphanFilename);
-		linesWritten = writeSourceFileList (orphanFileList, outputFilePath, sourceSubFolders);
-		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath);
+		{
+			List<String> orphanFileList = getSourceFileList(orphanMap, _destRootPath);
+			String orphanFilename = "fileList." + timestamp + partialStub + ".orphans." + orphanFileList.size() + "rows.log";
+			Path outputFilePath = FileSystems.getDefault().getPath(_destRootPath.toString(), orphanFilename);
+			int linesWritten = writeSourceFileList(orphanFileList, outputFilePath, sourceSubFolders);
+			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
+		}
 
 //		List<String> orphan2FileList = reduceSourceFileList (orphanMap, _destRootPath, false);
 //		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan2Filename);
@@ -338,6 +344,7 @@ public class AlbumFileBackup {
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
+*/
 
 		System.out.println ("folders to backup(" + diffMap.size () + ") = " + diffMap.keySet ().stream ().sorted ().collect (Collectors.joining (",")));
 
@@ -388,6 +395,28 @@ public class AlbumFileBackup {
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
+
+		{
+			System.out.println ("writing file lists...");
+
+			String timestamp = new SimpleDateFormat ("yyyyMMdd.HHmmss").format (new Date ());
+			String partialStub = _isPartialBackup ? ".partial" : "";
+
+			List<String> sourceFileList = getSourceFileList(sourceMap, null);
+			String sourceFilename = "fileList." + timestamp + partialStub + ".sources." + sourceFileList.size() + "rows.log";
+			Path outputFilePath = FileSystems.getDefault().getPath(_destRootPath.toString(), sourceFilename);
+			int linesWritten = writeSourceFileList(sourceFileList, outputFilePath, sourceSubFolders);
+			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
+
+			List<String> orphanFileList = getSourceFileList(orphanMap, _destRootPath);
+			String orphanFilename = "fileList." + timestamp + partialStub + ".orphans." + orphanFileList.size() + "rows.log";
+			outputFilePath = FileSystems.getDefault().getPath(_destRootPath.toString(), orphanFilename);
+			linesWritten = writeSourceFileList(orphanFileList, outputFilePath, sourceSubFolders);
+			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
+
+			System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
+			System.out.println ("");
+		}
 
 		shutdownExecutor ();
 
@@ -572,16 +601,14 @@ public class AlbumFileBackup {
 //			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): starting...");
 //		}
 
-//TODO use AtomicReference? - is this thread-safe?
-		final List<String> lastPathHandled = new ArrayList<>(Collections.singletonList("")); //for debugging (final List<> is hack for use in threads)
-
-		Set<AlbumImageFileDetails> coll = new HashSet<> ();
+		final AtomicReference<String> lastPathHandled = new AtomicReference<>();
+		final Set<AlbumImageFileDetails> coll = ConcurrentHashMap.newKeySet();
 
 		try {
 			Files.walkFileTree (folder, new SimpleFileVisitor<Path> () {
 				@Override
 				public FileVisitResult visitFile (Path file, BasicFileAttributes attrs) {
-					lastPathHandled.set(0, file.toString());
+					lastPathHandled.set(file.toString());
 
 					String filename = file.getFileName ().toString ();
 					if (filenamePattern.matcher (filename).matches ()) {
@@ -596,7 +623,7 @@ public class AlbumFileBackup {
 
 				@Override
 				public FileVisitResult visitFileFailed (Path file, IOException ex) {
-					lastPathHandled.set(0, file.toString());
+					lastPathHandled.set(file.toString());
 
 					if (ex != null) {
 						_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): error: ", new Exception ("visitFileFailed", ex));
@@ -607,7 +634,7 @@ public class AlbumFileBackup {
 
 				@Override
 				public FileVisitResult postVisitDirectory (Path dir, IOException ex) {
-					lastPathHandled.set(0, dir.toString());
+					lastPathHandled.set(dir.toString());
 
 					if (ex != null) {
 						_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): error: ", new Exception ("postVisitDirectory", ex));
@@ -620,12 +647,12 @@ public class AlbumFileBackup {
 		} catch (Exception ex) {
 //			throw new AssertionError ("Files#walkFileTree(\"" + folder + "\") will not throw IOException if the FileVisitor does not");
 			String highlight = "******************************************************************************************";
-			_log.error (NL + highlight + NL + "AlbumFileBackup.getImageFileDetailsFromFileSystem: lastPathHandled = '" + lastPathHandled.get(0) + "'" + NL + highlight + NL, ex);
+			_log.error (NL + highlight + NL + "AlbumFileBackup.getImageFileDetailsFromFileSystem: lastPathHandled = '" + lastPathHandled.get() + "'" + NL + highlight + NL, ex);
 		}
 
 //		_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem (\"" + folder + "\"): coll.size () = " + coll.size ());
 
-		System.out.print (_remainingFoldersToBeRead.decrementAndGet () + ",");
+		System.out.print (_remainingFoldersToBeRead.decrementAndGet () + ","); //no newline
 		System.out.flush();
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);

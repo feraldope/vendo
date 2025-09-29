@@ -875,14 +875,14 @@ public class JpgUtils {
 		@Override
 		public String toString () {
 			//copied from AlbumImage#toString
-			double bytesPerPixel = (double) _bytes * (double) _bytes / ((double) _width  * (double) _height );
+//			double bytesPerPixel = (double) _bytes * (double) _bytes / ((double) _width  * (double) _height );
 
 			StringBuffer sb = new StringBuffer(128);
 			sb.append(_name).append(" = ");
 			sb.append(_width).append("x").append(_height).append(", ");
 			sb.append(VendoUtils.unitSuffixScale(_width * _height, "P")).append(", "); //"P" for Pixels
-			sb.append(VendoUtils.unitSuffixScaleBytes(_bytes)).append(", ");
-			sb.append("BPP=").append(VendoUtils.unitSuffixScale((long) bytesPerPixel, "B/P"));
+			sb.append(VendoUtils.unitSuffixScaleBytes(_bytes)); //.append(", ");
+//			sb.append("BPP=").append(VendoUtils.unitSuffixScale((long) bytesPerPixel, "B/P"));
 
 			return sb.toString();
 		}

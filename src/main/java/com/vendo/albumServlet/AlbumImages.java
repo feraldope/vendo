@@ -417,8 +417,8 @@ public class AlbumImages
 			AlbumProfiling.getInstance ().exit (5, "sort " + _form.getSortType ());
 		}
 
-		if (form.getMode () == AlbumMode.DoDir) {
-			if (false) { //disabled for now
+		if (false) { //disabled for now
+			if (form.getMode () == AlbumMode.DoDir) {
 				generateExifSortCommands();
 			}
 		}
@@ -1502,7 +1502,7 @@ public class AlbumImages
 		if (image.getWidth() < _form.getHighlightMinPixels () || image.getHeight() < _form.getHighlightMinPixels ()) {
 			fontColor = "red"; //too small (by pixels)
 		} else if (image.getNumBytes() > _form.getHighlightMaxKilobytes () * 1024L
-				|| image.getWidth() > _form.getHighlightMaxPixels () || image.getHeight() > _form.getHighlightMaxPixels ()) {
+				|| image.getWidth() >= _form.getHighlightMaxPixels () || image.getHeight() >= _form.getHighlightMaxPixels ()) {
 			fontColor = "magenta"; //too large (by bytes or pixels)
 		} else if (image.getTagString (_form.getCollapseGroups ()).isEmpty ()) {
 			fontColor = "darkred"; //no tags defined
@@ -1521,7 +1521,7 @@ public class AlbumImages
 		List<String> albums = getMatchingAlbumsForFilters(Collections.singletonList(baseName), false, false, 0);
 
 		int numAlbums = albums.size();
-		if (numAlbums == 1) {
+		if (numAlbums == 0 || numAlbums == 1) {
 			return "";
 		}
 
@@ -1557,9 +1557,9 @@ public class AlbumImages
 		}
 
 		//add other navigation links
-		if (firstAlbumIndex > 1) {
+//		if (firstAlbumIndex > 1) {
 			sb.append (generateAlbumLinksHelper (albums.get(0), "[First]"));
-		}
+//		}
 		if (currentAlbumIndex > 0) {
 			sb.append (generateAlbumLinksHelper (albums.get(currentAlbumIndex - 1), "[Previous]"));
 		}
@@ -1568,7 +1568,7 @@ public class AlbumImages
 		}
 //TODO - skip this until I fix it
 //		if (lastAlbumIndex < numAlbums - 1) {
-//			sb.append (generateAlbumLinksHelper (albums.get(numAlbums - 1), "[Last]"));
+			sb.append (generateAlbumLinksHelper (albums.get(numAlbums - 1), "[Last]"));
 //		}
 
 		return sb.toString ();
@@ -1993,7 +1993,7 @@ public class AlbumImages
 				String lastNumber = imageList.get(imageList.size() - 1).getName().replaceAll(".*-", "").replaceAll("[^0-9]", "");
 				int firstInt = Integer.parseInt(firstNumber);
 				int lastInt = Integer.parseInt(lastNumber);
-//TODO - this does not work for albums that have built-in gaps, e.g., 101, 102, 201, 202, 301, 302
+//TODO - this produces misleading results for albums that have large built-in gaps, e.g., 101, 102, 201, 202, 301, 302
 				int range = lastInt - firstInt + 1;
 				int gaps = range - imageList.size();
 
@@ -2009,8 +2009,8 @@ public class AlbumImages
 					missingImages = String.join(NL, missingImageNames);
 				}
 
-				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "NO gaps" : "a gap of " + gaps + " image(s):");
-				_log.debug("AlbumImages.generateHtml: " + message + (gaps > 0 ? NL + missingImages : ""));
+				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "NO gaps" : "a gap of " + gaps + " image(s)");
+				_log.debug("AlbumImages.generateHtml: " + message + ":" + (gaps > 0 ? NL + missingImages : ""));
 				_form.addServletError("Info: " + message);
 			}
 		}
@@ -2161,17 +2161,20 @@ public class AlbumImages
 
 		_log.debug("AlbumImages.generateHtml: DIST Tables" + generateDistributionTable(_form));
 
-		//Average Bytes Table
-		if (mode == AlbumMode.DoSampler && sortType == AlbumSortType.BySizeAvgBytes) {
-			StringBuilder sb1 = new StringBuilder("Average Bytes Table");
-			_imageDisplayList.stream().limit(20).forEach(i -> {
-				String imageName = i.getBaseName(collapseGroups);
-				long bytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0);
-				long count = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName, 0);
-				long averageBytes = bytes / count; //TODO - avoid divide by zero when count is not yet in database
-				sb1.append(NL).append(imageName).append(": ").append(VendoUtils.unitSuffixScaleBytes(averageBytes));
-			});
-			_log.debug("AlbumImages.generateHtml: " + sb1);
+		if (false) { //disable for now
+			//Average Bytes Table
+			if (mode == AlbumMode.DoSampler && sortType == AlbumSortType.BySizeAvgBytes) {
+				final int maxItemsToDisplay = 20;
+				StringBuilder sb1 = new StringBuilder("Average Bytes Table");
+				_imageDisplayList.stream().limit(maxItemsToDisplay).forEach(i -> {
+					String imageName = i.getBaseName(collapseGroups);
+					long bytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0);
+					long count = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName, 0);
+					long averageBytes = bytes / count; //TODO - avoid divide by zero when count is not yet in database
+					sb1.append(NL).append(imageName).append(": ").append(VendoUtils.unitSuffixScaleBytes(averageBytes));
+				});
+				_log.debug("AlbumImages.generateHtml: " + sb1);
+			}
 		}
 
 		int imageCount = 0;
@@ -2767,7 +2770,7 @@ public class AlbumImages
 		Path moveFile = FileSystems.getDefault ().getPath (rootPath.toString (), "moveRenameGeneratedFile.bat");
 		boolean hasOneFilter = form.getFilters (0).length == 1;
 
-		deleteFileIgnoreException (moveFile);
+		deleteFile (moveFile, true);
 
 		if (form.getMode () != AlbumMode.DoDir || form.getSortType () != AlbumSortType.ByExif || !hasOneFilter || numImages == 0) {
 
@@ -2856,7 +2859,7 @@ public class AlbumImages
 		Path moveFile = FileSystems.getDefault ().getPath (rootPath.toString (), "moveRenameGeneratedFile.bat");
 		String[] filters = form.getFilters ();
 
-		deleteFileIgnoreException (moveFile);
+		deleteFile (moveFile, true);
 
 		//hack - skip this if we only have "q" images
 		boolean qOnlyImages = Arrays.stream(filters).allMatch(s -> s.startsWith("q"));
@@ -3094,14 +3097,16 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void deleteFileIgnoreException (Path path)
+	public static void deleteFile (Path path, boolean ignoreException)
 	{
 		try {
 			if (Files.exists (path)) {
 				Files.delete (path);
 			}
 		} catch (IOException ex) {
-			//ignore
+			if (!ignoreException) {
+				_log.error("AlbumImages.deleteFile: file delete failed: " + path, ex);
+			}
 		}
 	}
 

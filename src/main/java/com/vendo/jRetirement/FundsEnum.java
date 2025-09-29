@@ -15,6 +15,7 @@ public enum FundsEnum {
     FXAIX ("FXAIX",   "FIDELITY 500 INDEX FUND",                         "0.015", FundTheme.SP500,       FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Growth"),
     FZROX ("FZROX",   "FIDELITY ZERO TOTAL MARKET INDEX",                "0.000", FundTheme.TotalMarket, FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Growth"),
     FLCSX ("FLCSX",   "FIDELITY LARGE CAP STOCK",                        "0.760", FundTheme.LargeCap,    FundType.StockFund, ManagementStyle.Active, "Large Blend",        "Large Blend"),
+    VOO   ("VOO",     "VANGUARD INDEX FUNDS S&P 500 ETF USD",            "0.030", FundTheme.SP500,       FundType.StockETF,  ManagementStyle.Index,  "Large Blend",        "Large Blend"),
     VIG   ("VIG",     "VANGUARD SPECIALIZED FUNDS DIV APP ETF",          "0.060", FundTheme.Dividends,   FundType.StockETF,  ManagementStyle.Index,  "Large Blend",        "Large Blend"),
     VTI   ("VTI",     "VANGUARD INDEX FDS VANGUARD TOTAL STK MKT ETF",   "0.030", FundTheme.TotalMarket, FundType.StockETF,  ManagementStyle.Index,  "Large Blend",        "Large Blend"),
     VYM   ("VYM",     "VANGUARD WHITEHALL FDS HIGH DIV YLD",             "0.060", FundTheme.Dividends,   FundType.StockETF,  ManagementStyle.Index,  "Large Value",        "Large Value"),
@@ -36,11 +37,13 @@ public enum FundsEnum {
     VWENX ("VWENX",   "VANG WELLINGTON ADM",                             "0.180", FundTheme.Balanced,    FundType.StockFund, ManagementStyle.Active, "Moder-Alloc",        "Large Blend"),
     SCHD  ("SCHD",    "SCHWAB US DIVIDEND EQUITY ETF",                   "0.060", FundTheme.Dividends,   FundType.StockETF,  ManagementStyle.Index,  "Large Value",        "Large Value"),
     //unusual symbol for CDs
-    CD2025 ("06051XDD1", "BANK OF AMERICA NA CD 5.10000% 05/02/2025",    "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
-    CD2026 ("06051XDB5", "BANK OF AMERICA NA CD 4.95000% 05/04/2026",    "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
-    CD2027 ("05584CNB8", "BNY MELLON NA CD 4.40000% 05/06/2027",         "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
-    CD2028 ("61690DPY8", "MORGAN STANLEY BK N A CD 4.65000% 05/01/2028", "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
-    CD2029 ("61690DPV4", "MORGAN STANLEY BK N A CD 4.55000% 05/01/2029", "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2025a ("06051XDD1", "BANK OF AMERICA NA CD 5.10000% 05/02/2025",         "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2026a ("06051XDB5", "BANK OF AMERICA NA CD 4.95000% 05/04/2026",         "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2027a ("05584CNB8", "BNY MELLON NA CD 4.40000% 05/06/2027",              "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2028a ("61690DPY8", "MORGAN STANLEY BK N A CD 4.65000% 05/01/2028",      "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2029a ("61690DPV4", "MORGAN STANLEY BK N A CD 4.55000% 05/01/2029",      "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2026b ("949764SC9", "WELLS FARGO BANK NATL ASSN CD 3.75000% 09/18/2026", "0.000", FundTheme.CD,          FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+
     //DO NOT DELETE - inactive; unusual symbol for FIS 401K
     N31617E778 ("31617E778", "FID BLUE CHP GR CP A",                     "0.690", FundTheme.LargeCap,    FundType.StockFund, ManagementStyle.Active, "Large Growth",       "Large Growth"),
     N857444624 ("857444624", "SS S&P 500 INDEX II",                      "0.160", FundTheme.SP500,       FundType.StockFund, ManagementStyle.Index,  "Large Blend",        "Large Blend"),
