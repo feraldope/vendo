@@ -217,7 +217,7 @@ public class AlbumFileRename
 			msg = message + NL;
 		}
 		msg += "Usage: " + _AppName + " <inPattern> <outPattern> [/debug] [/rootPath <root folder>] [/ri|/rangeInclusive <start index> <end index>] " +
-				"[/ext <extension>] [mi|ma (mode=album or mode=image)] [/d|/digits <exact number of image/album digits>] [/renum <digits>]";
+				"[/ext <extension>] [mi|ma (mode=album or mode=image)] [/d|/digits <exact number of image/album digits to match>] [/renum <number of digits to use when generating output filename>]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {

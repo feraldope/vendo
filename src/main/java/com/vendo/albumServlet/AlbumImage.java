@@ -135,7 +135,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 				_log.error ("AlbumImage ctor: error reading file attributes \"" + _imagePath + nameWithExt + "\"", ee);
 
 			} finally {
-				assert attrs != null;
+				VendoUtils.myAssert(attrs != null, "attrs != null"); //do not use Java's assert as it is disabled by default
 				_numBytes = attrs.size ();
 				_modified = attrs.lastModifiedTime ().toMillis (); //millisecs
 			}
@@ -654,6 +654,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculate min and max values on demand and cache
+//TODO - move this to database?
 	public synchronized boolean isImageNearlyBlackOrWhite (AlbumFormInfo form)
 	{
 		if (_rgbMinColor < 0 || _rgbMaxColor < 0) {
@@ -774,27 +775,6 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 //		AlbumProfiling.getInstance ().exit (5);
 	}
-
-//obsolete
-//	///////////////////////////////////////////////////////////////////////////
-//	public static void removeRgbDataFileFromFileSystem (Path rgbDataFilePath)
-//	{
-////		String rgbDataFilePath = imagePath.replace (AlbumFormInfo._ImageExtension, AlbumFormInfo._RgbDataExtension);
-//
-//		if (AlbumFormInfo._logLevel >= 8) {
-//			_log.debug ("AlbumImage.removeRgbDataFileFromFileSystem: rgbDataFilePath = " + rgbDataFilePath);
-//		}
-//
-////		Path file = FileSystems.getDefault ().getPath (rgbDataFilePath);
-//		if (Files.exists (rgbDataFilePath)) { //rgbDataFile might not exist: e.g., if it was already renamed with the .jpg file by mov.exe
-//			try {
-//				Files.delete (rgbDataFilePath);
-//
-//			} catch (Exception ee) {
-//				_log.error ("AlbumImage.removeRgbDataFileFromFileSystem: file delete failed: " + rgbDataFilePath, ee);
-//			}
-//		}
-//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public static VPair<Integer, Integer> getScaledImageDiff (ByteBuffer buffer1, ByteBuffer buffer2)

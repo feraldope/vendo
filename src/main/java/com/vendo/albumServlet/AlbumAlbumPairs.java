@@ -8,28 +8,26 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.vendo.albumServlet.AlbumImagePair._alphanumComparator;
 
 
-public class AlbumAlbumPairs
-{
+public class AlbumAlbumPairs {
+
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumAlbumPairs()
-	{
+	public AlbumAlbumPairs() {
 //		int bh = 1;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void addAlbumPairs(Collection<AlbumAlbumPair> albumPairs)
-	{
+	public void addAlbumPairs(Collection<AlbumAlbumPair> albumPairs) {
 		albumPairs.forEach(this::addAlbumPair);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void addAlbumPair(AlbumAlbumPair albumPair)
-	{
+	public void addAlbumPair(AlbumAlbumPair albumPair) {
 		boolean localDebug = false;
 
 		if (localDebug) {
@@ -178,8 +176,7 @@ public class AlbumAlbumPairs
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns true if at least one image in either albumPair has the same base name as an albumPair in this set
-	private boolean matchesAtLeastOneImage (Set<AlbumAlbumPair> albumSet1, AlbumAlbumPair albumPair2)
-	{
+	private boolean matchesAtLeastOneImage (Set<AlbumAlbumPair> albumSet1, AlbumAlbumPair albumPair2) {
 //TODO: improve this brute-force method
 		Set<String> baseNames1 = new HashSet<>();
 		for (AlbumAlbumPair albumpair1 : albumSet1) {
@@ -216,7 +213,6 @@ public class AlbumAlbumPairs
 					return true;
 				}
 			}
-
 		}
 
 		return false;
@@ -224,8 +220,78 @@ public class AlbumAlbumPairs
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getDetailsStrings(int minimumPairsToShow)
-	{
+	public List<String> generateCopyCommandsForMisMatchedDuplicateImages () { //mis-matched by pixels
+		//get all images, then look for instances where the image is in multiple pairs
+		//these should not be copied, so comment out those copy commands below
+		List<AlbumImage> allImages = new ArrayList<>();
+		Map<AlbumImage, Long> imageCounts = new HashMap<>();
+
+		for (Set<AlbumAlbumPair> albumPairs : _albumSets) {
+			for (AlbumAlbumPair albumPair : albumPairs) {
+				Set<AlbumImagePair> imagePairs = albumPair.getImagePairs();
+				allImages.addAll(imagePairs.stream().map(AlbumImagePair::getImage1).collect(Collectors.toList()));
+				allImages.addAll(imagePairs.stream().map(AlbumImagePair::getImage2).collect(Collectors.toList()));
+				imageCounts.putAll(allImages.stream().collect(Collectors.groupingBy(Function.identity(), Collectors.counting())));
+			}
+		}
+
+		List<String> copyCommands = new ArrayList<>();
+		for (Set<AlbumAlbumPair> albumPairs : _albumSets) {
+			for (AlbumAlbumPair albumPair : albumPairs) {
+				Set<AlbumImagePair> imagePairs = albumPair.getImagePairs();
+
+				//generate LEFT->RIGHT copy commands
+				List<String> copyCommandsLtoR = imagePairs.stream()
+						.filter(p -> p.getImage1().getPixels() > p.getImage2().getPixels())
+						.map(p -> {
+							boolean commentOutThisCopyCommand = imageCounts.computeIfAbsent(p.getImage1(), k -> 0L) > 1 ||
+																imageCounts.computeIfAbsent(p.getImage2(), k -> 0L) > 1;
+							return generateSingleCopyCommand(p.getImage1(), p.getImage2(), commentOutThisCopyCommand);
+						})
+						.sorted()
+						.collect(Collectors.toList());
+
+				if (!copyCommandsLtoR.isEmpty()) {
+					AlbumImagePair firstPair = imagePairs.iterator().next();
+					copyCommands.add("REM copy larger images L->R (" + copyCommandsLtoR.size() + "): " + firstPair.getImage1().getBaseName(false) + " " + firstPair.getImage2().getBaseName(false) + " ------------------------------------------------");
+					copyCommands.addAll(copyCommandsLtoR);
+				}
+			}
+
+			//generate RIGHT->LEFT copy commands
+			for (AlbumAlbumPair albumPair : albumPairs) {
+				Set<AlbumImagePair> imagePairs = albumPair.getImagePairs();
+
+				List<String> copyCommandsRtoL = imagePairs.stream()
+						.filter(p -> p.getImage2().getPixels() > p.getImage1().getPixels())
+						.map(p -> {
+							boolean commentOutThisCopyCommand = imageCounts.computeIfAbsent(p.getImage1(), k -> 0L) > 1 ||
+																imageCounts.computeIfAbsent(p.getImage2(), k -> 0L) > 1;
+							return generateSingleCopyCommand(p.getImage2(), p.getImage1(), commentOutThisCopyCommand);
+						})
+						.sorted()
+						.collect(Collectors.toList());
+
+				if (!copyCommandsRtoL.isEmpty()) {
+					AlbumImagePair firstPair = imagePairs.iterator().next();
+					copyCommands.add("REM copy larger images R->L (" + copyCommandsRtoL.size() + "): " + firstPair.getImage2().getBaseName(false) + " " + firstPair.getImage1().getBaseName(false) + " ------------------------------------------------");
+					copyCommands.addAll(copyCommandsRtoL);
+				}
+			}
+		}
+
+		copyCommands.add("REM copies end ------------------------------------------------");
+
+		return copyCommands;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private String generateSingleCopyCommand (AlbumImage i1, AlbumImage i2, boolean commentOutThisCopyCommand) {
+		return (commentOutThisCopyCommand ? "REM " : "") + "copy /y " + i1.getSubFolder() + "\\" + i1.getName() + ".jpg " + i2.getSubFolder() + "\\" + i2.getName() + ".jpg";
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<String> getDetailsStrings(int minimumPairsToShow) {
 		if (_albumSets.isEmpty()) {
 			return Collections.singletonList("<no album pairs>");
 		}
@@ -244,9 +310,12 @@ public class AlbumAlbumPairs
 					);
 				}
 
+				//HACK - let's try this nasty test
+				VendoUtils.myAssert(baseNames.size() == 2, "baseNames.size() == 2"); //do not use Java's assert as it is disabled by default
+
 				String filters = String.join(",", baseNames);
 				AlbumFormInfo form = AlbumFormInfo.getInstance();
-				String href = AlbumImages.getInstance().generateImageLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
+				String href = AlbumImages.getInstance().generateImagesLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
 				StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 				html.append ("<A HREF=\"")

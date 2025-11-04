@@ -8,58 +8,74 @@ import java.util.List;
 //import org.apache.logging.log4j.*;
 
 
-public enum AlbumDuplicateHandling
-{
-	SelectNone ("Select None"),
-	SelectFirst ("Select First"), //select first image in pair
-	SelectSecond ("Select Second"), //select second image in pair
-	SelectSmaller ("Select Smaller"), //select the smaller image
-	SelectSmallerFirst ("Select Smaller / First"), //select the smaller image, or first in pair if same size
-	SelectSmallerSecond ("Select Smaller / Second"); //select the smaller image, or second in pair if same size
+public enum AlbumDuplicateHandling {
+	SelectNone ("Select None",                                 Mode.IsForSelecting),
+	SelectFirst ("Select First",                               Mode.IsForSelecting), //select first image in pair
+	SelectSecond ("Select Second",                             Mode.IsForSelecting), //select second image in pair
+	SelectSmaller ("Select Smaller",                           Mode.IsForSelecting), //select the smaller image
+	SelectSmallerFirst ("Select Smaller / First",              Mode.IsForSelecting), //select the smaller image, or first in pair if same size
+	SelectSmallerSecond ("Select Smaller / Second",            Mode.IsForSelecting), //select the smaller image, or second in pair if same size
+	ShowOnlyMisMatchByPixels ("Show Only Mis-match By Pixels", Mode.IsForShowing);   //only show duplicates that are mis-matched by pixels size
 
-	///////////////////////////////////////////////////////////////////////////
-	AlbumDuplicateHandling(String name)
-	{
-		_value = new AlbumStringPair (name, "select" + name);
+	public enum Mode {
+		IsForSelecting, //enums with this mode are used for selecting which duplicate images will be DELETED
+		IsForShowing    //enums with this mode are used for selecting which duplicate images will be SHOWN
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getName ()
-	{
-		return _value.getName ();
+	AlbumDuplicateHandling(String name, Mode mode) {
+		String prefix = Mode.IsForSelecting == mode ? "select" : "show";
+		value = new AlbumStringPair (name, prefix + name);
+		this.mode = mode;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol ()
-	{
-		return _value.getSymbol ();
+	public String getName () {
+		return value.getName ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static void init ()
-	{
-		if (_values == null) {
+	public String getSymbol () {
+		return value.getSymbol ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public Mode getMode () {
+		return mode;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean isForSelecting () {
+		return Mode.IsForSelecting == mode;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean isForShowing () {
+		return Mode.IsForShowing == mode;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static void init () {
+		if (values == null) {
 			List<AlbumStringPair> arrayList = new ArrayList<> ();
 
 			for (AlbumDuplicateHandling ff : values ()) {
 				arrayList.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));
 			}
 
-			_values = arrayList.toArray (new AlbumStringPair[] {});
+			values = arrayList.toArray (new AlbumStringPair[] {});
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumStringPair[] getValues ()
-	{
+	public static AlbumStringPair[] getValues () {
 		init ();
 
-		return _values;
+		return values;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumDuplicateHandling getValue (String symbol)
-	{
+	public static AlbumDuplicateHandling getValue (String symbol) {
 		//brute-force method
 		for (AlbumDuplicateHandling ff : values ()) {
 			if (ff.getSymbol ().equals (symbol)) {
@@ -72,9 +88,9 @@ public enum AlbumDuplicateHandling
 
 
 	//members
-	private AlbumStringPair _value;
+	private final AlbumStringPair value;
+	private final Mode mode;
 
-	private static AlbumStringPair[] _values;
-
-//	private static Logger _log = LogManager.getLogger ();
+	private static AlbumStringPair[] values;
+//	private static Logger log = LogManager.getLogger ();
 }

@@ -14,6 +14,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StreamCorruptedException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -740,8 +741,10 @@ public class AlbumImageDao {
 							queue.put(new AlbumImageEvent(dir, pathEvent));
 
 						} catch (Exception ee) {
+							checkForCorruptException(ee, subFolder1);
 							_log.error("AlbumImageDao.WatchDir.notify(" + subFolder1 + "): ", ee);
 						}
+
 					} else if (!pathEvent.kind().equals(StandardWatchEventKinds.ENTRY_DELETE)) {
 						if (!hasKnownFileExtensionOrName(filename)) {
 							String filePath = dir.resolve(pathEvent.context()).toString();
@@ -766,10 +769,28 @@ public class AlbumImageDao {
 
 
 		} catch (Exception ee) {
+			checkForCorruptException(ee, subFolder1);
 			_log.error("AlbumImageDao.createWatcherThreadsForFolder(" + subFolder1 + "): exception in continuous mode", ee);
 		}
 
 		return watcherThread;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//I only saw this once and mistakenly neglected to capture the exception/message, so here goes my best attempt to catch it in the future:
+	//If this occurs we need to abort immediately because it will return an empty collection and the caller will think all the files are gone and will delete them from the database
+	public void checkForCorruptException (Throwable ex, String subFolder) //HACK
+	{
+		final String corrupt = "corrupt";
+		final String message = "AlbumImageDao.checkForCorruptException(" + subFolder + "): ";
+
+		if (ex instanceof StreamCorruptedException ||
+			ex.toString().toLowerCase().contains(corrupt) ||
+			ex.getMessage().toLowerCase().contains(corrupt)) {
+
+			_log.error(message, ex);
+			throw new RuntimeException(message + ex);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -908,7 +929,6 @@ public class AlbumImageDao {
 //		_log.debug ("AlbumImageDao.handleFileDelete: " + nameNoExt);
 
 		Path rgbDataFilePath = FileSystems.getDefault().getPath(_rootPath, subFolder, AlbumFormInfo._RgbDataFolder, nameNoExt + AlbumFormInfo._RgbDataExtension);
-//		AlbumImage.removeRgbDataFileFromFileSystem(rgbDataFilePath);
 		AlbumImages.deleteFile(rgbDataFilePath, false);
 
 		boolean status = deleteImageFromImagesTable(subFolder, nameNoExt);

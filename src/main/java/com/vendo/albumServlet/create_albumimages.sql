@@ -202,8 +202,8 @@ select (sum(bytes * 1.05) + 10500)/(1024*1024*1024) as GBytes, count(*) as count
 -- (for determining which folders to move from D: to C:) (SEARCH TODO.TXT for mklink, AlbumServlet)
 select sub_folder, sum(bytes)/(1024*1024*1024) as GBytes, count(*) as count 
 from images 
--- skip folders already on C:
-where sub_folder not in ('an','ca','el','la','le','li','ma','mar','mi','sa')
+-- skip folders already on E:
+where sub_folder not in ('ali','an','be','ca','el','ka','kat','ke','la','le','li','lo','ma','mar','me','mi','ni','sa','so','vi')
 group by sub_folder 
 order by GBytes desc
 

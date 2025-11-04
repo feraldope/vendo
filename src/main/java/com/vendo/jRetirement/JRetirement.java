@@ -192,7 +192,7 @@ public /*final*/ class JRetirement {
 		}
 
 		List<CsvFundsBean> records = processFile(sourcePath);
-		assert records != null && !records.isEmpty();
+		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
 
 		final Instant dateDownloaded = parseDateDownloadedField(dateDownloadedList);
 		records.forEach(r -> r.setDateDownloaded(dateDownloaded));
@@ -271,7 +271,7 @@ public /*final*/ class JRetirement {
 		List<CsvFundsBean> records;
 		try {
 			records = generateFilteredRecordList(inputCsvFilePath, true);
-			assert records != null && !records.isEmpty();
+			VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
 
 			//data integrity check - we should have 4 or more accounts in the file
 			final int expectedAccounts = 4; //hardcoded
@@ -688,7 +688,7 @@ public /*final*/ class JRetirement {
 		final Pattern datePattern = Pattern.compile(".*(\\d{2}/\\d{2}/\\d{4} \\d{1,2}:\\d{2} [A-Z]{2}).*");
 		final FastDateFormat dateFormat = FastDateFormat.getInstance("MM/dd/yyyy hh:mm aa"); // Note SimpleDateFormat is not thread safe
 
-		assert dateDownloadedList.size() == 1; //must be only one
+		VendoUtils.myAssert(dateDownloadedList.size() == 1, "dateDownloadedList.size() == 1"); //there must be only one (do not use Java's assert as it is disabled by default)
 
 		//go ahead and throw an exception if any of this fails
 		Matcher dateMatcher = datePattern.matcher(dateDownloadedList.get(0));
@@ -709,7 +709,7 @@ public /*final*/ class JRetirement {
 				.toFormatter();
 
 		//go ahead and throw an exception if any of this fails
-		assert dateDownloadedList.size() == 1; //must be only one
+		VendoUtils.myAssert(dateDownloadedList.size() == 1, "dateDownloadedList.size() == 1"); //there must be only one (do not use Java's assert as it is disabled by default)
 		String dateString = dateDownloadedList.get(0)
 				.replaceAll(DateDownloadedString, "")
 				.replaceAll("[\".]", "") //remove quotes and any errant periods
@@ -723,10 +723,10 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected void generatePlotFile(List<AggregateRecord> records) throws Exception {
-		assert records != null && !records.isEmpty();
+		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
 
-		final int yMin = 1500000; //TODO - calculate!
-		final int yMax = 2500000; //TODO - calculate!
+		final int yMax = 2600000; //TODO - calculate!
+		final int yMin = yMax - 1000000; //TODO - calculate!
 
 		String timestamp = dateTimeFormatter.format (Instant.now());
 
@@ -779,7 +779,7 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected void printHistoricalData(List<AggregateRecord> records) throws Exception {
-		assert records != null && !records.isEmpty();
+		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
 
 		{
 			final int lastN = 10;
@@ -798,7 +798,7 @@ public /*final*/ class JRetirement {
 		}
 
 		final AggregateRecord maxRecord = records.stream().max(new AggregateRecord()).orElse(null);
-		assert maxRecord != null;
+		VendoUtils.myAssert(maxRecord != null, "maxRecord != null"); //do not use Java's assert as it is disabled by default
 		System.out.println(NL + "Max record:");
 		System.out.println(maxRecord);
 
@@ -943,7 +943,7 @@ public /*final*/ class JRetirement {
 					remainingIncome -= incomeForThisBracket;
 				}
 			}
-			assert remainingIncome == 0;
+			VendoUtils.myAssert(remainingIncome == 0, "remainingIncome == 0"); //do not use Java's assert as it is disabled by default
 
 			return tax;
 		}
@@ -1120,7 +1120,7 @@ public /*final*/ class JRetirement {
 
 		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
 			int index = 0;
-			assert null != record.getDateDownloaded(); //catch programming error
+			VendoUtils.myAssert(null != record.getDateDownloaded(), "null != record.getDateDownloaded()"); //do not use Java's assert as it is disabled by default
 			stmt.setTimestamp(++index, java.sql.Timestamp.from(record.getDateDownloaded()));
 			stmt.setString(++index, record.getAccountNumber());
 			stmt.setString(++index, record.getAccountName());

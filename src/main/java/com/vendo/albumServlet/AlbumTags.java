@@ -289,13 +289,13 @@ public class AlbumTags
 //			_log.debug ("AlbumTags.run1: tagDatabaseMap.size() = " + tagDatabaseMap.size ());
 
 			//log new tags
-			Collection<String> newTags = subtractCollections (tagFileMap.keySet (), tagDatabaseMap.keySet ());
+			Collection<String> newTags = VendoUtils.subtractCollections (tagFileMap.keySet (), tagDatabaseMap.keySet ());
 			if (newTags.size () > 0) {
 				printWithColor (_highlightColor, "found " + newTags.size () + " new tags: " + newTags);
 			}
 
 			//log removed tags
-			Collection<String> oldTags = subtractCollections (tagDatabaseMap.keySet (), tagFileMap.keySet ());
+			Collection<String> oldTags = VendoUtils.subtractCollections (tagDatabaseMap.keySet (), tagFileMap.keySet ());
 			if (oldTags.size () > 0) {
 				printWithColor (_warningColor, "removed old tags: " + oldTags);
 			}
@@ -312,13 +312,13 @@ public class AlbumTags
 			if (!_resetTables) {
 				//log removed filters
 				Collection<String> oldFilters = tagDatabaseMap.get (tag);
-				oldFilters = subtractCollections (oldFilters, tagFileMap.get (tag));
+				oldFilters = VendoUtils.subtractCollections (oldFilters, tagFileMap.get (tag));
 				if (oldFilters.size () > 0) {
 					printWithColor (_warningColor, "removed " + oldFilters.size () + " old filters for tag: " + tag + ": " + oldFilters);
 				}
 
 				//determine any new filters: if tag exists in database map, remove all the values it contains
-				newFilters = subtractCollections (newFilters, tagDatabaseMap.get (tag));
+				newFilters = VendoUtils.subtractCollections (newFilters, tagDatabaseMap.get (tag));
 				if (newFilters.size () > 0) {
 					printWithColor (_highlightColor, "found " + newFilters.size () + " new filters for tag: " + tag + ": " + newFilters);
 				}
@@ -1073,24 +1073,6 @@ public class AlbumTags
 
 
 		AlbumProfiling.getInstance ().exit (5);
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	//returns a new Set with everything in collection2 removed from collection1 (use of Sets is virtually required for reasonable performance of Collection#removeAll)
-	//does not change collections passed in
-	public static <T> Collection<T> subtractCollections (Collection<T> collection1, Collection<T> collection2)
-	{
-		if (collection2 == null) {
-			return (collection1 != null ? (collection1 instanceof Set ? collection1 : new HashSet<> (collection1)) : new HashSet<> ());
-		}
-		if (collection1 == null) {
-			return new HashSet<> ();
-		}
-
-		Collection<T> newItems = new HashSet<> (collection1); //do not modify original
-		newItems.removeAll (collection2 instanceof Set ? collection2 : new HashSet<> (collection2));
-
-		return newItems;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

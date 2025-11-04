@@ -343,6 +343,8 @@ public class AlbumServlet extends HttpServlet
 			StringBuilder sb3 = new StringBuilder (4096);
 			int maxColumns = !isAndroidDevice ? form.getMaxColumns () : 2; //hack - for android, only 1 or 2 columns (see also AlbumImages.java)
 
+			AlbumDuplicateHandling duplicateHandling = form.getDuplicateHandling();
+
 			sb3.append ("<TD ALIGN=CENTER>").append (NL)
 //			   .append ("<TD ALIGN=LEFT>").append (NL)
 			   .append (inputElement ("Exclude 1", "exclude1", form.getExclude1 (), excludeFieldWidth)).append (_break).append (NL)
@@ -366,7 +368,10 @@ public class AlbumServlet extends HttpServlet
 			   .append (radioButtons ("Sort By", "sortType", AlbumSortType.getValues (true), form.getSortType ().getSymbol (), 4)).append (_spacing).append (NL)
 			   .append (checkbox ("Reverse Sort", "reverseSort", form.getReverseSort ())).append (_spacing).append (NL)
 			   .append (checkbox ("Interleave Sort", "interleaveSort", form.getInterleaveSort ())).append (_spacing).append (NL)
-			   .append (dropDown ("Duplicate Handling", "duplicateHandling", AlbumDuplicateHandling.getValues (), AlbumDuplicateHandling.SelectNone.toString ())).append (_spacing).append (NL)
+			   .append (dropDown ("Duplicate Handling", "duplicateHandling", AlbumDuplicateHandling.getValues (),
+							//only propagate this value to subsequent screens if it is for Showing
+						   (duplicateHandling.isForShowing() ? duplicateHandling.getSymbol() : AlbumDuplicateHandling.SelectNone.getSymbol ())
+						   )).append (_spacing).append (NL)
 			   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_break).append (NL)
 
 			   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth)).append (_spacing).append (NL)

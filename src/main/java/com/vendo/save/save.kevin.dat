@@ -4,14 +4,14 @@ RetirementAge = 65
 
 [No. 1]
 Name = ROTH IRA
-Balance = 27000
-AnnualContribution = 7000
+Balance = 35000
+AnnualContribution = 7500
 GrowthRateOfInvestment = 7
 GrowthRateOfContribution = 1
 
 [No. 2]
 Name = 401(k)
-Balance = 2000
+Balance = 5000
 AnnualContribution = 4000
 GrowthRateOfInvestment = 7
 GrowthRateOfContribution = 1
@@ -22,3 +22,11 @@ Balance = 0
 AnnualContribution = 0
 GrowthRateOfInvestment = 6
 GrowthRateOfContribution = 0
+
+
+#Kevin Vanguard ROTH IRA balances as of 10/15/25
+#VHT    ~3000
+#VBR    ~7900
+#VTI   ~13500
+#VOO   ~10500
+#total ~35000

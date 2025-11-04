@@ -2,6 +2,8 @@
 
 package com.vendo.oilUsage;
 
+import com.vendo.vendoUtils.VendoUtils;
+
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -39,7 +41,7 @@ public class OilFileData
 	}
 	public void setStartDate (LocalDate startDate)
 	{
-		assert _startDate.isBefore (_endDate) || _startDate.isEqual (_endDate);
+		VendoUtils.myAssert(_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate), "_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate)"); //do not use Java's assert as it is disabled by default
 
 		_startDate = startDate;
 	}

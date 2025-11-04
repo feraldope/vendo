@@ -269,10 +269,12 @@ public class AlbumImages
 
 		AlbumMode mode = _form.getMode ();
 
+//TODO - disable this for now
 		if (filters.length == 0 && tagsIn.length == 0) { //handle some defaults
 			switch (mode) {
 				case DoDup:
-				case DoSampler:	filters = new String[] {"*"};
+//				case DoSampler:	filters = new String[] {"*"};
+				case DoSampler:	filters = new String[] {"default"}; //TODO - any value not "*" ??
 				default:		break;
 			}
 		}
@@ -917,6 +919,8 @@ public class AlbumImages
 
 			_log.debug ("AlbumImages.doDup: pairsReady.size = " + _decimalFormat0.format (pairsReady.size ()));
 
+			//Cache stats
+
 //			_log.debug("AlbumImages.doDup: size = " + _decimalFormat0.format(_nameScaledImageCache.size()));
 //			_log.debug("AlbumImages.doDup: averageLoadPenalty = " + _decimalFormat1.format(nameScaledImageCacheStatsMinus.averageLoadPenalty() / 1e6) + " ms");
 //			_log.debug("AlbumImages.doDup: evictionCount = " + _decimalFormat0.format(nameScaledImageCacheStatsMinus.evictionCount()));
@@ -957,6 +961,8 @@ public class AlbumImages
 						.collect(Collectors.groupingBy(i -> i.getBaseName(true)));
 				map2.keySet().stream().sorted().forEach(d -> looseCompareDetails.add("Evicted: " + d + " -> " + _decimalFormat0.format(map2.get(d).size() / 2) + " pairs"));
 			}
+
+			//Cache activity
 
 			final int width = 60; //TODO - calculate from data
 			StringBuilder sb = new StringBuilder();
@@ -1010,19 +1016,33 @@ public class AlbumImages
 
 			AlbumProfiling.getInstance ().exit (5, "dups.logging");
 
-			AlbumProfiling.getInstance ().enterAndTrace (5, "dups.add");
+//			AlbumProfiling.getInstance ().enterAndTrace (5, "dups.add");
 
-			for (AlbumImagePair imagePair : pairsReady) {
-				dups.add (imagePair);
-//				_log.debug ("AlbumImages.doDup: " + imagePair.getDetails3String ());
+			dups.addAll(pairsReady);
+
+			//if requested, remove all duplicates that are the same size
+			if (form.getDuplicateHandling() == AlbumDuplicateHandling.ShowOnlyMisMatchByPixels) {
+				int allDupsCount = dups.size();
+				boolean removedPairs = dups.removeIf((p) -> p.getImage1().getPixels() == p.getImage2().getPixels());
+				if (removedPairs) {
+					int adjustedDupsCount = dups.size();
+					_log.debug("AlbumImages.doDup.duplicateHandling: ---------------------------------------------------");
+					_log.debug("AlbumImages.doDup.duplicateHandling: removed " + (allDupsCount - adjustedDupsCount) + " pairs that are the same size by pixels");
+					_log.debug("AlbumImages.doDup.duplicateHandling: ---------------------------------------------------");
+				}
 			}
 
-			AlbumProfiling.getInstance ().exit (5, "dups.add");
+//			AlbumProfiling.getInstance ().exit (5, "dups.add");
 		}
 
 		if (!looseCompare || dbCompare) {
 			if (dbCompare) {
 				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.db");
+
+//now handled below
+//				if (_imageDisplayList.isEmpty()) {
+//					form.addServletError("Warning: no images for Filters");
+//				}
 
 				//generate map of imageNames->images
 				Map<String, AlbumImage> imageMap = _imageDisplayList.stream ().collect (Collectors.toMap (AlbumImage::getName, i -> i));
@@ -1039,6 +1059,7 @@ public class AlbumImages
 				Collection<AlbumImageDiffData> imageDiffData = albumImageDiffer.selectNamesFromImageDiffs (maxStdDev - 5, maxStdDev, sinceDays, operatorOr); //hardcoded value - TODO - need separate controls for maxStdDev and maxRgbDiff
 				_log.debug ("AlbumImages.doDup: imageDiffData.size(): " + _decimalFormat0.format (imageDiffData.size ()));
 
+				int filter1AcceptCount = 0;
 				for (AlbumImageDiffData imageDiffItem : imageDiffData) {
 					AlbumImage image1 = imageMap.get (imageDiffItem.getName1 ());
 					AlbumImage image2 = imageMap.get (imageDiffItem.getName2 ());
@@ -1055,6 +1076,7 @@ public class AlbumImages
 
 					//at least one of each pair must be accepted by filter1
 					if (filter1.accept (null, image1.getName ()) || filter1.accept (null, image2.getName ())) {
+						filter1AcceptCount++;
 						boolean sameBaseName = image1.equalBase (image2, collapseGroups);
 						if (!limitedCompare || ((!reverseSort && !sameBaseName) ||
 												( reverseSort &&  sameBaseName))) {
@@ -1088,6 +1110,11 @@ public class AlbumImages
 //								_looseCompareDataCache.put (pair, pair);
 						}
 					}
+
+				}
+
+				if (filter1AcceptCount == 0) {
+					form.addServletError("Warning: no images for Filter1");
 				}
 
 				if (foundKeysForDebuggingShowDetail) { //too much noise
@@ -1108,6 +1135,10 @@ public class AlbumImages
 
 			} else if (useExifDates) {
 				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.exif");
+
+				if (_imageDisplayList.isEmpty()) {
+					form.addServletError("Warning: no images for Filters");
+				}
 
 				Set<AlbumImagePair> dupSet = new HashSet<> (); //use Set to avoid duplicate AlbumImagePairs
 
@@ -1207,7 +1238,7 @@ public class AlbumImages
 				if (allAlbumsAcrossAllMatches.size() <= 200) { //hardcoded
 					String newFilters1 = allAlbumsAcrossAllMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
 					String newFilters2 = allAlbumsAcrossAllMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
-					String href = AlbumImages.getInstance().generateImageLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
+					String href = AlbumImages.getInstance().generateImagesLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
@@ -1229,7 +1260,7 @@ public class AlbumImages
 				if (allAlbumsAcrossAllInputFiltersAndMatches.size() <= 200) { //hardcoded
 					String newFilters1 = allAlbumsAcrossAllInputFiltersAndMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
 					String newFilters2 = allAlbumsAcrossAllInputFiltersAndMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
-					String href = AlbumImages.getInstance().generateImageLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
+					String href = AlbumImages.getInstance().generateImagesLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
@@ -1258,6 +1289,9 @@ public class AlbumImages
 					}
 				}
 			}
+
+			List<String> copyCommandsForDuplicateImages = generateCopyCommandsForMisMatchedDuplicateImages(albumPairs);
+			_log.debug("AlbumImages.doDup.copyCommandsForDuplicateImages: " + NL + String.join(NL, copyCommandsForDuplicateImages));
 
 			//log/print/display all exact/near duplicates
 			Set<AlbumAlbumPair> handledSets = new HashSet<>();
@@ -1304,7 +1338,7 @@ public class AlbumImages
 					allAlbumsAcrossCloseMatches = allAlbumsAcrossCloseMatches.stream().sorted(_alphanumComparator).distinct().collect(Collectors.toList()); //dedup list
 					String newFilters1 = allAlbumsAcrossCloseMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
 					String newFilters2 = allAlbumsAcrossCloseMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
-					String href = AlbumImages.getInstance().generateImageLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
+					String href = AlbumImages.getInstance().generateImagesLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
@@ -1340,6 +1374,7 @@ public class AlbumImages
 		}
 
 		if (dbCompare) {
+			//see AlbumImageDiffer.selectNamesFromImageDiffs for the actual sorting used by the query. AlbumSortType.ByRgb means sort by diff values
 			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByNone); //already sorted by db query
 		} else {
 			_imageDisplayList = AlbumImagePair.getImages (dups, AlbumSortType.ByDate); //shows the newest first in browser
@@ -1411,6 +1446,12 @@ public class AlbumImages
 		AlbumProfiling.getInstance ().exit (5);
 
 		return baseNamesTooLarge;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<String> generateCopyCommandsForMisMatchedDuplicateImages (AlbumAlbumPairs albumPairs) //mis-matched by pixels
+	{
+		return albumPairs.generateCopyCommandsForMisMatchedDuplicateImages();
 	}
 
 //unused
@@ -1503,7 +1544,8 @@ public class AlbumImages
 			fontColor = "red"; //too small (by pixels)
 		} else if (image.getNumBytes() > _form.getHighlightMaxKilobytes () * 1024L
 				|| image.getWidth() >= _form.getHighlightMaxPixels () || image.getHeight() >= _form.getHighlightMaxPixels ()) {
-			fontColor = "magenta"; //too large (by bytes or pixels)
+//			fontColor = "magenta"; //too large (by bytes or pixels)
+			fontColor = "blue"; //too large (by bytes or pixels)
 		} else if (image.getTagString (_form.getCollapseGroups ()).isEmpty ()) {
 			fontColor = "darkred"; //no tags defined
 		}
@@ -1592,6 +1634,9 @@ public class AlbumImages
 		}
 		String tagParams = sb.toString ();
 
+		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling();
+		String duplicateHandlingParam = duplicateHandling.isForShowing() ? "&duplicateHandling=" + duplicateHandling : "";
+
 		/*StringBuilder*/ sb = new StringBuilder (200);
 		sb.append (_spacing).append (NL)
 				.append ("<A HREF=\"").append (server)
@@ -1631,6 +1676,7 @@ public class AlbumImages
 				.append ("&windowHeight=").append (_form.getWindowHeight ())
 				.append ("&timestamp=").append (timestamp)
 				.append ("&slice=").append (1)
+				.append (duplicateHandlingParam)
 				.append (_Debug ? "&debug=on" : "")
 //				.append ("#topAnchor")
 				.append ("\">")
@@ -1718,6 +1764,9 @@ public class AlbumImages
 		}
 		String tagParams = sb.toString ();
 
+		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling();
+		String duplicateHandlingParam = duplicateHandling.isForShowing() ? "&duplicateHandling=" + duplicateHandling : "";
+
 		/*StringBuilder*/ sb = new StringBuilder (200);
 		sb.append (_spacing).append (NL)
 			.append ("<A HREF=\"").append (server)
@@ -1757,6 +1806,7 @@ public class AlbumImages
 			.append ("&windowHeight=").append (_form.getWindowHeight ())
 			.append ("&timestamp=").append (timestamp)
 			.append ("&slice=").append (slice)
+			.append (duplicateHandlingParam)
 			.append (_Debug ? "&debug=on" : "")
 //			.append ("#topAnchor")
 			.append ("\">")
@@ -1769,7 +1819,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//handles max of two filters (an image, and optionally its pair)
-	public String generateImageLink (String filter1, String filter2, AlbumMode mode, int columns, double sinceDays, boolean limitedCompare, boolean looseCompare)
+	public String generateImagesLink (String filter1, String filter2, AlbumMode mode, int columns, double sinceDays, boolean limitedCompare, boolean looseCompare)
 	{
 		String server = AlbumFormInfo.getInstance ().getServer ();
 
@@ -1825,14 +1875,13 @@ public class AlbumImages
 	///////////////////////////////////////////////////////////////////////////
 	public String generateTitle ()
 	{
-		String title = "Album";
+//		String title = "Album." + _form.getMode().getName();
+		String title = _form.getMode().getShortName();
 
 		int numImages = _imageDisplayList.size ();
-		if (numImages > 0) {
-			title += " (" + numImages + ")";
-		}
+		title += " (" + numImages + ")";
 
-		if (_form.getMode () == AlbumMode.DoDup) {
+		if (false) { //_form.getMode () == AlbumMode.DoDup) {
 			title += " - " + AlbumMode.DoDup.getSymbol ();
 
 		} else {
@@ -2264,7 +2313,7 @@ public class AlbumImages
 					imageName = image.getBaseName (collapseGroups);
 					String imageName1 = imageName + (collapseGroups ? "+" : ""); //plus sign here means digit
 					String filters = imageName1 + "," + imageName1;
-					href = generateImageLink (filters, filters, newMode, newCols, sinceDays, limitedCompare, looseCompare);
+					href = generateImagesLink (filters, filters, newMode, newCols, sinceDays, limitedCompare, looseCompare);
 
 //TODO: rewrite as this is too slow
 //					List<AlbumImage> matchingImages = getMatchingImagesForImage(image, collapseGroups, 0);
@@ -2315,11 +2364,12 @@ public class AlbumImages
 					//set image line style to distinguish smaller image
 					imageBorderStyleStr = image.compareToByPixels (partner) < 0 ? "dashed" : "solid";
 
-					if (duplicateHandling != AlbumDuplicateHandling.SelectNone) {
+					if (duplicateHandling != AlbumDuplicateHandling.SelectNone && duplicateHandling.isForSelecting()) {
 						int pixelDiff = image.compareToByPixels (partner);
 						switch (duplicateHandling) {
 							default:
 								throw new RuntimeException ("AlbumImages.generateHtml: invalid duplicateHandling \"" + duplicateHandling + "\"");
+
 							case SelectFirst:
 								if (isEven) {
 									selectThisDuplicateImage = true;
@@ -2372,8 +2422,9 @@ public class AlbumImages
 						newCols = (imageCols + partnerCols) / 2;
 					}
 
-					String filters = imageNonUniqueString + "," + partnerNonUniqueString;
-					href = generateImageLink (filters, filters, newMode, newCols, 0, false, true);
+					String filter1 = imageNonUniqueString;
+					String filter2 = partnerNonUniqueString;
+					href = generateImagesLink (filter1, filter2, newMode, newCols, 0, false, true);
 
 					details.append ("(")
 							.append (imageCols)
@@ -2436,7 +2487,7 @@ public class AlbumImages
 //like, getNumMatchingGroups()
 
 						String filters = imageName + "," + imageName;
-						href = generateImageLink (filters, filters, newMode, newCols, sinceDays, false, false);
+						href = generateImagesLink (filters, filters, newMode, newCols, sinceDays, false, false);
 					}
 				}
 
@@ -2605,8 +2656,9 @@ public class AlbumImages
 			nonDups.removeAll(dupsInSlice);
 
 			if (!nonDups.isEmpty()) {
+				final int nonFractionMaxNonDupsShown = 40;
 				_log.debug("AlbumImages.generateHtml: non-duplicates in slice (" + nonDups.size() + "):" + NL +
-						(nonDups.size() < imagesInSlice.size() / 3
+						(nonDups.size() < nonFractionMaxNonDupsShown || nonDups.size() < imagesInSlice.size() / 3
 							? nonDups.stream().map(AlbumImage::getName).sorted().collect(Collectors.joining(NL))
 							: "[omitted for size]"));
 			}

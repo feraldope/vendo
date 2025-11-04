@@ -1009,11 +1009,13 @@ public class AlbumImageDiffer
 		case ByName:
 			orderByClause = " order by i1.name_no_ext, i2.name_no_ext, min_diff, max_diff" + (reverseSort ? " desc" : " asc");
 			break;
+
 		case ByDate:
 			orderByClause = " order by d.last_update, min_diff, max_diff, i1.name_no_ext, i2.name_no_ext" + (reverseSort ? " asc" : " desc");
 			break;
+
 		default: //fall through
-		case ByRgb:
+		case ByRgb: //HACK this means sort by the diff values, not RGB
 			orderByClause = " order by min_diff, max_diff, i1.name_no_ext, i2.name_no_ext" + (reverseSort ? " asc" : " desc");
 			break;
 		}

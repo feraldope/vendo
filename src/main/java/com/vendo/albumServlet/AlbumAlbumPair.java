@@ -3,6 +3,7 @@
 package com.vendo.albumServlet;
 
 import com.vendo.vendoUtils.AlphanumComparator;
+import com.vendo.vendoUtils.VendoUtils;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -130,10 +131,30 @@ public class AlbumAlbumPair
 
 		pixelDiffString += " (" + _numberOfImagesWhereFirstIsLarger + ", " + _numberOfImagesOfEqualSize + ", " + _numberOfImagesWhereSecondIsLarger + ")";
 
+		//TODO - should I cache these values?
+		Long album1SizeInBytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(getBaseName(0), 0);
+		Long album2SizeInBytes = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(getBaseName(1), 0);
+		int sizeCompare = album1SizeInBytes.compareTo (album2SizeInBytes);
+		String compareString = sizeCompare < 0 ? "<" : sizeCompare > 0 ? ">" : "=";
+		String albumSizeString = " [" + VendoUtils.unitSuffixScaleBytes(album1SizeInBytes) + " " + compareString + " " + VendoUtils.unitSuffixScaleBytes(album2SizeInBytes) + "]";
+
+		//let's try this nasty test
+		VendoUtils.myAssert(_baseNames.size() == 2, "_baseNames.size() == 2"); //do not use Java's assert as it is disabled by default
+		//if there are only two filters, separate them, otherwise combine (or can there only ever be two filters when we get to here???)
+
+		String filter1 = getBaseName(0);
+		String filter2 = getBaseName(1);
+		String filters = filter1 + "," + filter2;
+
+		AlbumFormInfo form = AlbumFormInfo.getInstance();
+		String href = AlbumImages.getInstance().generateImagesLink(filter1, filter2, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
+
+/* old way
 		String filters = getBaseName(0) + "," + getBaseName(1);
 
 		AlbumFormInfo form = AlbumFormInfo.getInstance();
-		String href = AlbumImages.getInstance().generateImageLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
+		String href = AlbumImages.getInstance().generateImagesLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
+*/
 		StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 		html.append ("<A HREF=\"")
@@ -149,14 +170,13 @@ public class AlbumAlbumPair
 		}
 
 		StringBuffer sb = new StringBuffer ();
-//		sb.append (getBaseName(0)).append (", ");
-//		sb.append (getBaseName(1)).append (", ");
 		sb.append (html).append (", ");
 		sb.append (enableHighlight ? "<B>" : "");
 		sb.append (getNumberOfImagesInAlbum (0)).append (", ");
 		sb.append (getNumberOfImagesInAlbum (1)).append (", ");
 		sb.append (_imagePairs.size()).append (", ");
 		sb.append (pixelDiffString);
+		sb.append (albumSizeString);
 		sb.append (enableHighlight ? " ************ </B>" : "");
 //		sb.append (getAverageDiff ()).append (", ");
 //		sb.append (getStdDev ()).append (", ");

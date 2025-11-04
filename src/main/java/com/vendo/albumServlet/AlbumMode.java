@@ -8,56 +8,55 @@ import java.util.List;
 //import org.apache.logging.log4j.*;
 
 
-public enum AlbumMode
-{
-	DoDir ("Dir"),
-	DoDup ("Dups"),
-	DoSampler ("Sampler"),
-	DoUpdateXml ("UpdateXml");
+public enum AlbumMode {
+	DoDir ("Dir", "Dir"),
+	DoDup ("Dups", "Dup"),
+	DoSampler ("Sampler", "Samp"),
+	DoUpdateXml ("UpdateXml", "Ux");
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumMode (String name)
-	{
-		_value = new AlbumStringPair (name, "do" + name);
+	AlbumMode (String name, String shortName) {
+		value = new AlbumStringPair (name, "do" + name);
+		this.shortName = shortName;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getName ()
-	{
-		return _value.getName ();
+	public String getName () {
+		return value.getName ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol ()
-	{
-		return _value.getSymbol ();
+	public String getShortName () {
+		return shortName;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static void init ()
-	{
-		if (_values == null) {
+	public String getSymbol () {
+		return value.getSymbol ();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static void init () {
+		if (values == null) {
 			List<AlbumStringPair> arrayList = new ArrayList<> ();
 
 			for (AlbumMode ff : values ()) {
 				arrayList.add (new AlbumStringPair (ff.getName (), ff.getSymbol ()));
 			}
 
-			_values = arrayList.toArray (new AlbumStringPair[] {});
+			values = arrayList.toArray (new AlbumStringPair[] {});
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumStringPair[] getValues ()
-	{
+	public static AlbumStringPair[] getValues () {
 		init ();
 
-		return _values;
+		return values;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumMode getValue (String symbol)
-	{
+	public static AlbumMode getValue (String symbol) {
 		//brute-force method
 		for (AlbumMode ff : values ()) {
 			if (ff.getSymbol ().equals (symbol)) {
@@ -70,9 +69,10 @@ public enum AlbumMode
 
 
 	//members
-	private AlbumStringPair _value;
+	private final AlbumStringPair value;
+	private final String shortName;
 
-	private static AlbumStringPair[] _values;
+	private static AlbumStringPair[] values;
 
 //	private static Logger _log = LogManager.getLogger ();
 }

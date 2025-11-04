@@ -4,11 +4,12 @@ package com.vendo.albumServlet;
 
 import com.vendo.vendoUtils.AlphanumComparator;
 import org.apache.commons.lang3.time.FastDateFormat;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-
-//import org.apache.logging.log4j.*;
 
 
 public class AlbumImagePair implements Comparable<AlbumImagePair>
@@ -145,14 +146,23 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 		List<AlbumImagePair> pairs2 = new ArrayList<> (numPairs);
 		pairs2.addAll (pairs1);
 
+		final AtomicBoolean displayedMessage = new AtomicBoolean(false); //only display error once
+
 		if (sortType != AlbumSortType.ByNone) {
 			pairs2.sort ((pair1, pair2) -> {
 				switch (sortType) {
+					default:
+						if (!displayedMessage.get()) {
+							displayedMessage.set(true);
+							_log.debug("AlbumImagePair.getImages: unsupported sortType \"" + sortType + "\", falling back to \"ByDate\" for this method");
+						}
+						//fall through
+
 					case ByDate:
 						//sort pairs by descending date (i.e., reverse)
-						long pair1Latest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
-						long pair2Latest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
-						int diff = Long.compare (pair2Latest, pair1Latest);
+						long pair1Newest = Math.max (pair1.getImage1 ().getModified (), pair1.getImage2 ().getModified ());
+						long pair2Newest = Math.max (pair2.getImage1 ().getModified (), pair2.getImage2 ().getModified ());
+						int diff = Long.compare (pair2Newest, pair1Newest);
 						if (diff != 0) {
 							return diff;
 						}
@@ -162,8 +172,9 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 						//this needs to be case-insensitive to achieve case-insensitive order in the browser
 						return pair1.getImage1 ().getName ().compareToIgnoreCase (pair2.getImage1 ().getName ());
 
-					default:
-						throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
+//too restrictive!
+//					default:
+//						throw new RuntimeException ("AlbumImagePair.getImages: invalid sortType \"" + sortType + "\"");
 				}
 			});
 		}
@@ -198,7 +209,8 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 		sb.append (getAverageDiff ()).append (", ");
 		sb.append (getStdDev ()).append (", ");
 		sb.append (getSource ()).append (", ");
-		sb.append (getLastUpdate () != null ? _dateFormat.format (getLastUpdate ()) : "null");
+		sb.append (getLastUpdate () != null ? _dateFormat.format (getLastUpdate ()) : "null").append(" ");
+		sb.append (getRelativeSizeIndicator ());
 
 		return sb.toString ();
 	}
@@ -243,5 +255,5 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	protected static final AlphanumComparator _alphanumComparator = new AlphanumComparator ();
 	protected static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("MM/dd/yy HH:mm:ss"); //Note SimpleDateFormat is not thread safe
 
-//	protected static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 }

@@ -916,8 +916,31 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getStackTrace (Throwable ex)
-	{
+	//returns a new Set with everything in collection2 removed from collection1 (use of Sets is virtually required for reasonable performance of Collection#removeAll)
+	//does not change collections passed in
+	public static <T> Collection<T> subtractCollections (Collection<T> collection1, Collection<T> collection2) {
+		if (collection2 == null) {
+			return (collection1 != null ? (collection1 instanceof Set ? collection1 : new HashSet<> (collection1)) : new HashSet<> ());
+		}
+		if (collection1 == null) {
+			return new HashSet<> ();
+		}
+
+		Collection<T> newItems = new HashSet<> (collection1); //do not modify original
+		newItems.removeAll (collection2 instanceof Set ? collection2 : new HashSet<> (collection2));
+
+		return newItems;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static void myAssert (boolean booleanExpression, String stringExpression) { //be careful using Java's "assert" because it is disabled by default (it is enabled with "enableassertions" arg to JVM)
+		if (!booleanExpression) {
+			throw new AssertionError("expression \"" + stringExpression + "\" is false" + NL + "at:" + getStackTrace(new Exception()));
+		}
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String getStackTrace (Throwable ex) {
 		PrintWriter writer = new PrintWriter (new StringWriter ());
 		ex.printStackTrace (writer);
 		return writer.toString ();
@@ -925,36 +948,31 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	// only for positive values
-	public static String unitSuffixScaleBytes(double value)
-	{
+	public static String unitSuffixScaleBytes(double value) {
 		return unitSuffixScaleBytes(value, 0);
 	}
-	public static String unitSuffixScaleBytes(double value, int fieldWidth)
-	{
+	public static String unitSuffixScaleBytes(double value, int fieldWidth) {
 		final double base = 1024;
 		final int precision = 2;
 		final String text = "B";
 		final String spacing = "";
 		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing, false);
 	}
-	public static String unitSuffixScale(double value, String text) //for values that are NOT BYTES
-	{
+	public static String unitSuffixScale(double value, String text) { //for values that are NOT BYTES
 		return unitSuffixScale (value, text, false);
 	}
-	public static String unitSuffixScale(double value, String text, boolean roundButDontScale) //for values that are NOT BYTES
-	{
+	public static String unitSuffixScale(double value, String text, boolean roundButDontScale) { //for values that are NOT BYTES
 		final int fieldWidth = 0;
 		final double base = 1000;
 		final int precision = 1;
 		final String spacing = "";
 		return unitSuffixScale (value, fieldWidth, base, precision, text, spacing, roundButDontScale);
 	}
-	private static String unitSuffixScale (double value, int fieldWidth, double base, int precision, String text, String spacing, boolean roundButDontScale)
-	{
+	private static String unitSuffixScale (double value, int fieldWidth, double base, int precision, String text, String spacing, boolean roundButDontScale) {
 		final String[] unitSuffixArray = new String[] { text + " ", "K" + text, "M" + text, "G" + text, "T" + text, "P" + text };
 		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0." + StringUtils.repeat("0", precision));
 
-		assert value > 0.;
+		myAssert(value >= 0., "value >= 0."); //do not use Java's assert as it is disabled by default
 
 		int digitGroups = 0;
 		if (value < 1) {

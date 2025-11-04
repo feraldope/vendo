@@ -196,9 +196,9 @@ public class AlbumFileBackup {
 				return false;
 			}
 
-			String datedFolderStr = "orphans"; // + "_" + _dateFormat2.format (new Date ());
+			String datedFolderStr = "orphans_" + _dateFormat2.format (new Date ());
 			Path parentOfDest = _destRootPath.getRoot ().resolve (_destRootPath.getParent ());
-			_orphanRootPath = createDestinationFolderIfNotExist(parentOfDest, datedFolderStr);
+			_orphanRootPath = createDestinationFolderIfNotExist(parentOfDest, "orphans", datedFolderStr);
 			if (null == _orphanRootPath) {
 				return false; //createDestinationFolderIfNotExist prints error
 			}
@@ -307,45 +307,6 @@ public class AlbumFileBackup {
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
 
-/* moved to end
-		System.out.println ("writing file lists...");
-
-		String timestamp = new SimpleDateFormat ("yyyyMMdd.HHmmss").format (new Date ());
-		String partialStub = _isPartialBackup ? ".partial" : "";
-//		String orphan1Filename = "fileList." +  timestamp + ".orphan1.log";
-//		String orphan2Filename = "fileList." +  timestamp + ".orphan2.log";
-//		String orphan3Filename = "fileList." +  timestamp + ".orphan3.log";
-
-		{
-			List<String> sourceFileList = getSourceFileList(sourceMap, null);
-			String sourceFilename = "fileList." + timestamp + partialStub + ".sources." + sourceFileList.size() + "rows.log";
-			Path outputFilePath = FileSystems.getDefault().getPath(_destRootPath.toString(), sourceFilename);
-			int linesWritten = writeSourceFileList(sourceFileList, outputFilePath, sourceSubFolders);
-			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
-		}
-
-		{
-			List<String> orphanFileList = getSourceFileList(orphanMap, _destRootPath);
-			String orphanFilename = "fileList." + timestamp + partialStub + ".orphans." + orphanFileList.size() + "rows.log";
-			Path outputFilePath = FileSystems.getDefault().getPath(_destRootPath.toString(), orphanFilename);
-			int linesWritten = writeSourceFileList(orphanFileList, outputFilePath, sourceSubFolders);
-			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
-		}
-
-//		List<String> orphan2FileList = reduceSourceFileList (orphanMap, _destRootPath, false);
-//		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan2Filename);
-//		linesWritten = writeSourceFileList (orphan2FileList, outputFilePath);
-//		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath.toString ());
-
-//		List<String> orphan3FileList = reduceSourceFileList (orphanMap, _destRootPath, true);
-//		outputFilePath = FileSystems.getDefault ().getPath (_destRootPath.toString (), orphan3Filename);
-//		linesWritten = writeSourceFileList (orphan3FileList, outputFilePath);
-//		System.out.println (_decimalFormat0.format (linesWritten) + " lines written to " + outputFilePath.toString ());
-
-		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-		System.out.println ("");
-*/
-
 		System.out.println ("folders to backup(" + diffMap.size () + ") = " + diffMap.keySet ().stream ().sorted ().collect (Collectors.joining (",")));
 
 		if (_debug) {
@@ -396,6 +357,7 @@ public class AlbumFileBackup {
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
 		System.out.println ("");
 
+		//write log files *after* completing all file copies/moves
 		{
 			System.out.println ("writing file lists...");
 
@@ -534,8 +496,8 @@ public class AlbumFileBackup {
 
 	///////////////////////////////////////////////////////////////////////////
 	// returns path if successful, otherwise null
-	private Path createDestinationFolderIfNotExist (Path destRootPath, String sourceSubFolder) {
-		Path destPath = FileSystems.getDefault ().getPath (destRootPath.toString (), sourceSubFolder);
+	private Path createDestinationFolderIfNotExist (Path destRootPath, String... sourceSubFolders) {
+		Path destPath = FileSystems.getDefault ().getPath (destRootPath.toString (), sourceSubFolders);
 
 		if (!Files.exists (destPath) || !Files.isDirectory (destPath)) {
 			try {

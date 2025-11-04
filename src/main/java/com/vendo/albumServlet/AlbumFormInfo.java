@@ -1304,7 +1304,7 @@ public class AlbumFormInfo
 	private int _defaultMaxFilters = 500;
 	private int _defaultHighlightDays = 4;
 	private int _defaultHighlightMinPixels = 640;
-	private int _defaultHighlightMaxPixels = 2500;
+	private int _defaultHighlightMaxPixels = 2400;
 	private int _defaultHighlightMaxKilobytes = 1536;
 	private int _defaultLogLevel = 5;
 	private int _defaultMaxImageScalePercent = 150;

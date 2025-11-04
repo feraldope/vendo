@@ -31,6 +31,7 @@ public enum FundsEnum {
     VGHCX ("VGHCX",   "VANGUARD HEALTH CARE INVESTOR",                   "0.340", FundTheme.HealthCare,  FundType.StockFund, ManagementStyle.Active, "Health",             "Large Growth"),
     FSPHX ("FSPHX",   "FIDELITY SELECT HEALTH CARE",                     "0.690", FundTheme.HealthCare,  FundType.StockFund, ManagementStyle.Active, "Health",             "Large Growth"),
     IYH   ("IYH",     "ISHARES U.S. HEALTHCARE ETF",                     "0.400", FundTheme.HealthCare,  FundType.StockETF,  ManagementStyle.Index,  "Health",             "Large Growth"),
+    SGOV  ("SGOV",    "ISHARES TR 0-3 MNTH TREASRY ETF",                 "0.090", FundTheme.Bonds,       FundType.BondETF,   ManagementStyle.Index,  "Large Value",        "Bond Ultrashort"),
     FBND  ("FBND",    "FIDELITY TOTAL BOND ETF",                         "0.450", FundTheme.Bonds,       FundType.BondETF,   ManagementStyle.Active, "Intermed Core Bond", "Bond Intermed"),
     FIGB  ("FIGB",    "FIDELITY INVESTMENT GRADE BOND ETF",              "0.450", FundTheme.Bonds,       FundType.BondETF,   ManagementStyle.Active, "Intermed Core Bond", "Bond Intermed"),
     FLDR  ("FLDR",    "FIDELITY LOW DURATION BOND FACTOR ETF",           "0.150", FundTheme.Bonds,       FundType.BondETF,   ManagementStyle.Index,  "Ultrashort Bond",    "Bond Ultrashort"),

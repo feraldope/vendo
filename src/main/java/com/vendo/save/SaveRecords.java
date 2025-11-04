@@ -2,12 +2,12 @@
 
 package com.vendo.save;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Scanner;
+import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
-import javax.swing.JOptionPane;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
 
 public class SaveRecords
 {
@@ -45,12 +45,13 @@ public class SaveRecords
 		while (input.hasNext ()) {
 			line = removeComment (input.nextLine ()).trim ();
 
-			if (line.length () == 0) {
-				//ignore
+			if (line.length () == 0 || line.startsWith("#")) {
+				//ignore blank lines and comments
 
 			} else if (line.startsWith ("[No. ")) {
-				if (record != null)
+				if (record != null) {
 					_list.add (record);				//add previous record
+				}
 				record = new SaveRecord (this);		//and get new record
 
 			} else if (foundKeyword (line, "Inflation")) {
@@ -84,13 +85,15 @@ public class SaveRecords
 		}
 
 		//add the last record
-		if (record != null)
+		if (record != null) {
 			_list.add (record);
+		}
 
 		input.close ();
 
-		if (_list.size () < 1)
+		if (_list.size () < 1) {
 			JOptionPane.showMessageDialog (null, "No records found", "Fatal Error", JOptionPane.ERROR_MESSAGE);
+		}
 
 		return _list.size ();
 	}
@@ -101,10 +104,11 @@ public class SaveRecords
 		final String Semicolon = "#";
 
 		int index = string.indexOf (Semicolon);
-		if (index > 0)
+		if (index > 0) {
 			return string.substring (0, index);
-		else
+		} else {
 			return string;
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
