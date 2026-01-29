@@ -320,7 +320,7 @@ public class AlbumFileBackup {
 			for (String subFolder : foldersSortedByNumBytes) {
 				Collection<AlbumImageFileDetails> diffColl = diffMap.get (subFolder);
 				long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
-				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + String.format("%3s", subFolder) + ": " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat0.format (diffColl.size ()) + " files");
+				_log.debug ("AlbumFileBackup.run: diffSubFolder: " + String.format(_subFolderFormatString, subFolder) + ": " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat0.format (diffColl.size ()) + " files");
 			}
 		}
 
@@ -559,9 +559,6 @@ public class AlbumFileBackup {
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
 		final Instant startInstant = Instant.now ();
-//		if (_verbose) {
-//			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): starting...");
-//		}
 
 		final AtomicReference<String> lastPathHandled = new AtomicReference<>();
 		final Set<AlbumImageFileDetails> coll = ConcurrentHashMap.newKeySet();
@@ -577,7 +574,14 @@ public class AlbumFileBackup {
 						long numBytes = attrs.size ();
 						long modified = attrs.lastModifiedTime ().toMillis ();
 
-						coll.add (new AlbumImageFileDetails (filename, numBytes, modified));
+						//the AlbumImageFileDetails ctor can throw an exception if the file is corrupt
+						//in this case, catch it, log it, and continue processing files
+						try {
+							coll.add (new AlbumImageFileDetails (filename, numBytes, modified));
+						} catch (IllegalArgumentException ex) {
+							String highlight = "******************************************************************************************";
+							_log.error (NL + highlight + NL + "AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): error reading file: " + filename + NL + highlight + NL, ex);
+						}
 					}
 
 					return FileVisitResult.CONTINUE;
@@ -618,13 +622,6 @@ public class AlbumFileBackup {
 		System.out.flush();
 
 //		AlbumProfiling.getInstance ().exit (7, subFolder);
-
-//		if (_verbose) {
-//			Duration duration = Duration.between (startInstant, Instant.now ());
-//			_log.debug ("AlbumFileBackup.getImageFileDetailsFromFileSystem(\"" + folder + "\"): complete" +
-//							", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter) +
-//							", remaining folders: " + _remainingFoldersToBeRead.get ());
-//		}
 
 		return coll;
 	}
@@ -669,7 +666,7 @@ public class AlbumFileBackup {
 				Duration duration = Duration.between (startInstant, Instant.now ());
 
 				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
-					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format("%3s", subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
+					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format(_subFolderFormatString, subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
 								", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
 				}
 
@@ -709,7 +706,7 @@ public class AlbumFileBackup {
 
 				if (_debug) {
 					long numBytesToCopy = diffColl.stream ().mapToLong (AlbumImageFileDetails::getBytes).sum ();
-					_log.debug ("AlbumFileBackup.copyFiles: " + String.format("%3s", subFolder) + ": files to copy: " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat0.format (diffColl.size ()) + " files");
+					_log.debug ("AlbumFileBackup.copyFiles: " + String.format(_subFolderFormatString, subFolder) + ": files to copy: " + VendoUtils.unitSuffixScaleBytes(numBytesToCopy) + " / " + _decimalFormat0.format (diffColl.size ()) + " files");
 				}
 
 				long numSubfolderFilesCopied = 0;
@@ -738,7 +735,7 @@ public class AlbumFileBackup {
 				}
 
 				if (_debug) {
-					_log.debug ("AlbumFileBackup.copyFiles: " + String.format("%3s", subFolder) + ":   *filesCopied: " + _decimalFormat0.format (numSubfolderFilesCopied) +
+					_log.debug ("AlbumFileBackup.copyFiles: " + String.format(_subFolderFormatString, subFolder) + ":  ---filesCopied: " + _decimalFormat0.format (numSubfolderFilesCopied) +
 								" (" + (endGate.getCount() - 1) + " of " + numTotalFoldersToCopy + " folders remain)");
 				}
 
@@ -797,7 +794,7 @@ public class AlbumFileBackup {
 				}
 
 				if (_debug) {
-					_log.debug ("AlbumFileBackup.handleOrphans: " + String.format("%3s", subFolder) + ":   *filesMoved: " + _decimalFormat0.format (numSubfolderFilesMoved) +
+					_log.debug ("AlbumFileBackup.handleOrphans: " + String.format(_subFolderFormatString, subFolder) + ":  ---filesMoved: " + _decimalFormat0.format (numSubfolderFilesMoved) +
 								" (" + (endGate.getCount() - 1) + " of " + numTotalFoldersToMove + " folders remain)");
 				}
 
@@ -838,7 +835,6 @@ public class AlbumFileBackup {
 	///////////////////////////////////////////////////////////////////////////
 	public static String getBaseName (String name, boolean collapseGroups) {
 		final String regex1 = "-\\d.*$";		//match trailing [dash][digit][anything else]
-//		final String regex2 = "\\d*\\-\\d.*$";	//match trailing [digits][dash][digit][anything else]
 		final String regex2 = "\\d*-\\d.*$";	//match trailing [digits][dash][digit][anything else]
 
 		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
@@ -886,8 +882,9 @@ public class AlbumFileBackup {
 	private Path _orphanRootPath = null;
 
 	private Pattern _filenamePattern;
-	private List<Pattern> _subFolderPatterns = new ArrayList<>();
 
+	private final String _subFolderFormatString = "%4s"; //longest subFolder name is currently 4 characters
+	private final List<Pattern> _subFolderPatterns = new ArrayList<>();
 	private final AtomicInteger _remainingFoldersToBeRead = new AtomicInteger ();
 	private final List<String> _commandLineArguments = new ArrayList<> ();
 

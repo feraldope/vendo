@@ -1251,11 +1251,15 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public static String convertWildcardsToSqlRegex (String string)
 	{
+		//01/12/26 update: I'm not sure if the following comment is true:
 		//Note: SQL regex assumes leading and trailing wildcards (matches regex anywhere in string)
+//		if (string.startsWith ("*")) {
+//			string = string.substring (1); //strip leading "*"
+//		} else {
+//			string = "^" + string; //anchor match to start of string
+//		}
 
-		if (string.startsWith ("*")) {
-			string = string.substring (1); //strip leading "*"
-		} else {
+		if (!string.startsWith ("*")) {
 			string = "^" + string; //anchor match to start of string
 		}
 
@@ -1265,12 +1269,13 @@ public class AlbumFormInfo
 	///////////////////////////////////////////////////////////////////////////
 	public static String convertWildcardsToRegex (String wildString)
 	{
-		String regexString = wildString;
+		String regexString = "^" + wildString; //anchor to beginning
 
 		if (!regexString.endsWith ("*")){
 			regexString += "*"; //add trailing string
 		}
 
+//TODO - handle case sensitivity
 		regexString = regexString.replace (".", "[a-z]") //dot/period here means any alpha
 							     .replace ("*", ".*")
 							     .replace (";", "[aeiouy]") //semicolon here means vowel or 'y'
@@ -1278,7 +1283,7 @@ public class AlbumFormInfo
 							     .replace (":", "[b-df-hj-np-tv-xz]") //colon here means any letter except vowel or 'y'
 							     .replace ("+", "[\\d]"); //plus sign here means digit
 
-		return regexString;
+		return regexString + "$"; //anchor to end
 	}
 
 	///////////////////////////////////////////////////////////////////////////

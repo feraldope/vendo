@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 public class AlbumFileFilter implements FilenameFilter
 {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumFileFilter (String[] includeFilters, String[] excludeFilters, boolean useCase, long sinceInMillis)
+	AlbumFileFilter (String[] includeFiltersArray, String[] excludeFiltersArray, boolean useCase, long sinceInMillis)
 	{
 		boolean debugCtor = false;
 
@@ -25,28 +25,29 @@ public class AlbumFileFilter implements FilenameFilter
 
 		if (debugCtor && AlbumFormInfo._Debug) {
 			String inc = "";
-			if (includeFilters != null) {
-				for (String includeFilter : includeFilters) {
+			if (includeFiltersArray != null) {
+				for (String includeFilter : includeFiltersArray) {
 					inc += " \"" + includeFilter + "\"";
 				}
 			}
 			String exc = "";
-			if (excludeFilters != null) {
-				for (String excludeFilter : excludeFilters) {
+			if (excludeFiltersArray != null) {
+				for (String excludeFilter : excludeFiltersArray) {
 					exc += " \"" + excludeFilter + "\"";
 				}
 			}
 
-			_log.debug ("AlbumFileFilter ctor: includeFilters =" + inc);
-			_log.debug ("AlbumFileFilter ctor: excludeFilters =" + exc);
+			_log.debug ("AlbumFileFilter ctor: includeFiltersArray =" + inc);
+			_log.debug ("AlbumFileFilter ctor: excludeFiltersArray =" + exc);
 		}
 
-		if (includeFilters != null && includeFilters.length > 0) {
-			_includePatterns = new ArrayList<> (includeFilters.length);
+		if (includeFiltersArray != null && includeFiltersArray.length > 0) {
+			_includeFilters = new ArrayList<> (includeFiltersArray.length); //save these for folder matching
+			_includePatterns = new ArrayList<> (includeFiltersArray.length);
 
-			for (String includeFilter : includeFilters) {
+			for (String includeFilter : includeFiltersArray) {
 				if (includeFilter.length () != 0) {
-					String orinalIncludeFilter = includeFilter; //in case of error
+					String orinalIncludeFilter = includeFilter; //save
 					if (includeFilter.startsWith ("*") || includeFilter.startsWith ("[")) {
 						_includeAllFolders = true;
 					}
@@ -62,8 +63,8 @@ public class AlbumFileFilter implements FilenameFilter
 					}
 
 					try {
-						Pattern pattern = Pattern.compile (includeFilter, patternFlags);
-						_includePatterns.add (pattern);
+						_includeFilters.add(orinalIncludeFilter);
+						_includePatterns.add(Pattern.compile(includeFilter, patternFlags));
 
 					} catch (Exception ee) {
 						AlbumFormInfo.getInstance ().addServletError ("Warning: ignoring invalid includeFilter: \"" + orinalIncludeFilter + "\": " + ee);
@@ -72,10 +73,10 @@ public class AlbumFileFilter implements FilenameFilter
 			}
 		}
 
-		if (excludeFilters != null && excludeFilters.length > 0) {
-			_excludePatterns = new ArrayList<> (excludeFilters.length);
+		if (excludeFiltersArray != null && excludeFiltersArray.length > 0) {
+			_excludePatterns = new ArrayList<> (excludeFiltersArray.length);
 
-			for (String excludeFilter : excludeFilters) {
+			for (String excludeFilter : excludeFiltersArray) {
 				if (excludeFilter.length () != 0) {
 					String orinalExcludeFilter = excludeFilter; //in case of error
 
@@ -111,14 +112,14 @@ public class AlbumFileFilter implements FilenameFilter
 		boolean status = false;
 
 		do {
-			if (_includeAllFolders) {
+			if (_includeAllFolders) { //note: set to true above if patterns starts with "*" or "["
 				status = true;
 
-			} else if (_includePatterns != null) {
-				for (Pattern includePattern : _includePatterns) {
-					String leadingNonNumericChars = includePattern.pattern ().replaceFirst ("[0-9\\[\\.\\*].*", "").toLowerCase();
+			} else if (_includeFilters != null) {
+				for (String includeFilter : _includeFilters) {
+					String leadingNonNumericChars = includeFilter.replaceFirst("[0-9\\[.*].*", "").toLowerCase();
 					if (leadingNonNumericChars.startsWith(folder) || folder.startsWith(leadingNonNumericChars)) {
-//						_log.debug ("AlbumFileFilter folderNeedsChecking: folder \"" + folder + "\" matches pattern \"" + includePattern + "\"");
+//						_log.debug("AlbumFileFilter.folderNeedsChecking: folder \"" + folder + "\" matches filter \"" + includeFilter + "\"");
 						status = true;
 						break;
 //					} else {
@@ -126,22 +127,20 @@ public class AlbumFileFilter implements FilenameFilter
 					}
 				}
 
-/*
 				//handle regular expression ranges (e.g., "[a-d]")
 				//TODO - note if you pass in e.g., "[a-d]a", this ignores everything after the []; i.e., it will include folders aa, ab, ad, af, etc.
-				for (Pattern includePattern : _includePatterns) {
-					String regexRange = includePattern.pattern ();
-					if (regexRange.startsWith ("[")) {
-						//strip everything after closing ']' (pattern must evaluate to one character to match folder, which is clipped to one character)
-						int close = regexRange.indexOf (']');
-						regexRange = regexRange.substring (0, close + 1);
-						if (Pattern.matches (regexRange, folder.substring (0, 1))) {
-							status = true;
-							break;
-						}
-					}
-				}
-*/
+//				for (Pattern includePattern : _includePatterns) {
+//					String regexRange = includePattern.pattern ();
+//					if (regexRange.startsWith ("[")) {
+//						//strip everything after closing ']' (pattern must evaluate to one character to match folder, which is clipped to one character)
+//						int close = regexRange.indexOf (']');
+//						regexRange = regexRange.substring (0, close + 1);
+//						if (Pattern.matches (regexRange, folder.substring (0, 1))) {
+//							status = true;
+//							break;
+//						}
+//					}
+//				}
 			}
 		} while (false);
 
@@ -300,9 +299,10 @@ public class AlbumFileFilter implements FilenameFilter
 	private boolean _includeAllFiles = false;
 	private boolean _includeAllFolders = false;
 //	private long _sinceInMillis = 0;
+
+	private Collection<String> _includeFilters = null;
 	private Collection<Pattern> _includePatterns = null;
 	private Collection<Pattern> _excludePatterns = null;
-//	private AlbumImages _albumImages = null;
 
 	private final boolean _profileAccept = false;
 

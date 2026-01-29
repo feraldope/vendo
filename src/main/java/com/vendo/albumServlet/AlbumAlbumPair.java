@@ -139,7 +139,7 @@ public class AlbumAlbumPair
 		String albumSizeString = " [" + VendoUtils.unitSuffixScaleBytes(album1SizeInBytes) + " " + compareString + " " + VendoUtils.unitSuffixScaleBytes(album2SizeInBytes) + "]";
 
 		//let's try this nasty test
-		VendoUtils.myAssert(_baseNames.size() == 2, "_baseNames.size() == 2"); //do not use Java's assert as it is disabled by default
+		VendoUtils.myAssert(_baseNames.size() == 2, "_baseNames.size() == 2", null); //do not use Java's assert as it is disabled by default
 		//if there are only two filters, separate them, otherwise combine (or can there only ever be two filters when we get to here???)
 
 		String filter1 = getBaseName(0);

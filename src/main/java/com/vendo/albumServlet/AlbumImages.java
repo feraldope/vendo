@@ -216,7 +216,6 @@ public class AlbumImages
 	public int processRequest ()
 	{
 		String[] filters = _form.getFilters ();
-//		String[] originalFilters = _form.getFilters ();
 		String[] tagsIn = _form.getTags (AlbumTagMode.TagIn);
 		String[] tagsOut = _form.getTags (AlbumTagMode.TagOut);
 		String[] excludes = _form.getExcludes ();
@@ -241,35 +240,32 @@ public class AlbumImages
 					filters = ArrayUtils.addAll (filters, namesFromTags);
 				}
 
-			} else { //AND (intersect) tags and filters
+			} else { //logical AND (intersect) tags and filters
 				//replace filters (intersection)
 				filters = AlbumTags.getInstance ().getNamesForTags (useCase, collapseGroups, tagsIn, tagsOut, filters).toArray (new String[] {});
 			}
+		} else if (tagsOut.length > 0) { //handle case where only tagsOut, no tagsIn
+			//HACK - set tagsIn to tagsOut and use resulting list as excludes
+			tagsIn = tagsOut;
+			tagsOut = new String[] {};
+			List<String> newExcludes = AlbumTags.getInstance ().getNamesForTags (useCase, collapseGroups, tagsIn, tagsOut, filters).stream()
+					.map(s -> s.replaceAll("[0-9]+$", "+"))
+					.distinct()
+					.collect(Collectors.toList());
+
+			excludes = ArrayUtils.addAll (newExcludes.toArray(new String[] {}), excludes); //add in original excludes
 		}
 
 		if (AlbumFormInfo._logLevel >= 5) {
-			_log.debug ("AlbumImages.processRequest: filters.length = " + _decimalFormat0.format (filters.length) + " (after adding tags)");
+			_log.debug ("AlbumImages.processRequest: filters.length = " + _decimalFormat0.format (filters.length) + " (after adding tags), excludes.length = " + _decimalFormat0.format (excludes.length));
 		}
 
-		//if we have to reduce the filters, always add back in the original filters //NO!!!
-		if (filters.length > maxFilters) {
-//TODO - if we are adding the original filters in at the end of this block, we should remove them at the beginning, otherwise the might end up in the list twice
-			_form.addServletError ("Warning: too many filters (" + _decimalFormat0.format (filters.length) + "), reducing to " + maxFilters);
-			List<String> filterList = new ArrayList<>(Arrays.asList(filters));
-			Collections.shuffle(filterList); //might as well shuffle
-			filters = filterList.stream()
-//								.limit(maxFilters - originalFilters.length)
-								.limit(maxFilters)
-								.sorted(VendoUtils.caseInsensitiveStringComparator)
-								.collect(Collectors.toList())
-								.toArray(new String[] {});
-//			filters = ArrayUtils.addAll (filters, originalFilters); //NO!!! this breaks tags
-			_log.debug ("AlbumImages.processRequest: filters.length = " + _decimalFormat0.format (filters.length) + " (after shuffling and limiting to maxFilters)");
-		}
+		filters = reduceFilters(new ArrayList<>(Arrays.asList(filters)),"filters", maxFilters).toArray(new String[] {});
+		excludes = reduceFilters(new ArrayList<>(Arrays.asList(excludes)),"excludes", maxFilters).toArray(new String[] {});
 
 		AlbumMode mode = _form.getMode ();
 
-//TODO - disable this for now
+//TODO - disable this "auto fill" for now
 		if (filters.length == 0 && tagsIn.length == 0) { //handle some defaults
 			switch (mode) {
 				case DoDup:
@@ -370,6 +366,10 @@ public class AlbumImages
 		AlbumFormInfo form = AlbumFormInfo.getInstance ();
 		boolean useCase = form.getUseCase ();
 
+		if (useCase) {
+			_form.addServletError("Warning: UseCase is true");
+		}
+
 		final AlbumFileFilter filter = new AlbumFileFilter (filters, excludes, useCase, sinceInMillis);
 
 		_imageDisplayList = new LinkedList<> ();
@@ -411,7 +411,7 @@ public class AlbumImages
 			Arrays.parallelSort (array, comparator);
 			_imageDisplayList = Arrays.stream (array).collect(Collectors.toList());
 
-			Integer numberOfCallsToCompare = comparator.getNumberOfCallsToCompare();
+			Integer numberOfCallsToCompare = comparator.getNumberOfCallsToCompare(); //debug: this must be enabled in AlbumImageComparator
 			if (numberOfCallsToCompare != null) {
 				_log.debug("AlbumImages.doDir.sort " + _form.getSortType() + ": comparator numberOfCallsToCompare = " + _decimalFormat0.format(numberOfCallsToCompare));
 			}
@@ -552,6 +552,7 @@ public class AlbumImages
 
 		_duplicatesCache.clear();
 
+//old way (new way is moved down below)
 		//if looseCompare, determine work to be done
 //		int maxComparisons = getMaxComparisons (numImages);
 //		if (looseCompare && !dbCompare) {
@@ -686,6 +687,16 @@ public class AlbumImages
 				form.addServletError("Warning: no images for Filter2");
 			}
 
+			final long maxLoopCount = (long) imageDisplayList1.size() * (long) imageDisplayList2.size();
+
+//note this is using the *max* number of comparisons, before things like "limited compare" are taken into account below
+			final long maxAllowedLoopCount = 12_000_000;
+			if (maxLoopCount > maxAllowedLoopCount) {
+				form.addServletError ("Warning: too many comparisons (" + _decimalFormat0.format (maxLoopCount) + " > " + _decimalFormat0.format (maxAllowedLoopCount) + "); aborting");
+				_imageDisplayList = new ArrayList<> ();
+				return 0;
+			}
+
 			BlockingQueue<AlbumImagePair> queue = new ArrayBlockingQueue<> (queueSize);
 			List<Thread> threads = new ArrayList<> ();
 			AtomicInteger loopCount = new AtomicInteger (0);
@@ -693,7 +704,6 @@ public class AlbumImages
 			//start timer thread (optionally)
 			AtomicReference<Timer> timer = new AtomicReference<>();
 			Thread progessThread = null;
-			final int maxLoopCount = imageDisplayList1.size() * imageDisplayList2.size();
 			if (maxLoopCount > 100 * 1000) {
 				progessThread = new Thread (() -> { //create high-priority thread to run timer
 					timer.set(new Timer());
@@ -744,8 +754,8 @@ public class AlbumImages
 
 			final Instant startInstant = Instant.now ();
 
-			final Set<AlbumImagePair> alreadyRequested = ConcurrentHashMap.newKeySet(maxLoopCount / 2);
-			final Set<AlbumImagePair> pairsPutInQueue = ConcurrentHashMap.newKeySet(maxLoopCount / 2);
+			final Set<AlbumImagePair> alreadyRequested = ConcurrentHashMap.newKeySet((int) maxLoopCount / 4);
+			final Set<AlbumImagePair> pairsPutInQueue = ConcurrentHashMap.newKeySet((int) maxLoopCount / 4);
 			AtomicBoolean endedEarly = new AtomicBoolean(false);
 
 			imageDisplayList1.stream().parallel().forEach(image1 -> {
@@ -1290,8 +1300,11 @@ public class AlbumImages
 				}
 			}
 
-			List<String> copyCommandsForDuplicateImages = generateCopyCommandsForMisMatchedDuplicateImages(albumPairs);
-			_log.debug("AlbumImages.doDup.copyCommandsForDuplicateImages: " + NL + String.join(NL, copyCommandsForDuplicateImages));
+			final Predicate<String> wildcard = Pattern.compile ("q.*").asPredicate (); //HACK - only execute this for images that match q*
+			if (_imageDisplayList.stream().map(AlbumImage::getName).anyMatch(wildcard)) {
+				List<String> copyCommandsForDuplicateImages = generateCopyCommandsForMisMatchedDuplicateImages(albumPairs);
+				_log.debug("AlbumImages.doDup.copyCommandsForDuplicateImages: " + NL + String.join(NL, copyCommandsForDuplicateImages));
+			}
 
 			//log/print/display all exact/near duplicates
 			Set<AlbumAlbumPair> handledSets = new HashSet<>();
@@ -1449,7 +1462,25 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> generateCopyCommandsForMisMatchedDuplicateImages (AlbumAlbumPairs albumPairs) //mis-matched by pixels
+	public List<String> reduceFilters(List<String> filters, String arrayName, int maxFilters)
+	{
+		//if we have to reduce the filters, always add back in the original filters //NO!!! this breaks tags
+		if (filters.size() > maxFilters) {
+//TODO - if we are adding the original filters in at the end of this block, we should remove them at the beginning, otherwise the might end up in the list twice
+			_form.addServletError ("Warning: too many " + arrayName + " (" + _decimalFormat0.format (filters.size()) + "), reducing to " + maxFilters);
+			Collections.shuffle(filters); //might as well shuffle
+			filters = filters.stream()
+							 .limit(maxFilters)
+							 .sorted(VendoUtils.caseInsensitiveStringComparator)
+							 .collect(Collectors.toList());
+			_log.debug ("AlbumImages.reduceFilters: " + arrayName + ".length = " + _decimalFormat0.format (filters.size()) + " (after shuffling and limiting to maxFilters)");
+		}
+
+		return filters;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<String> generateCopyCommandsForMisMatchedDuplicateImages (AlbumAlbumPairs albumPairs) //mis-matched by size in pixels
 	{
 		return albumPairs.generateCopyCommandsForMisMatchedDuplicateImages();
 	}
@@ -1608,6 +1639,9 @@ public class AlbumImages
 		if (currentAlbumIndex < numAlbums - 1) {
 			sb.append (generateAlbumLinksHelper (albums.get(currentAlbumIndex + 1), "[Next]"));
 		}
+		if (currentAlbumIndex == numAlbums - 1) {
+			sb.append (_spacing + "[Next]" + _spacing); //just add dead link
+		}
 //TODO - skip this until I fix it
 //		if (lastAlbumIndex < numAlbums - 1) {
 			sb.append (generateAlbumLinksHelper (albums.get(numAlbums - 1), "[Last]"));
@@ -1668,7 +1702,7 @@ public class AlbumImages
 				.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 				.append ("&useExifDates=").append (_form.getUseExifDates ())
 				.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
-				.append ("&useCase=").append (_form.getUseCase ())
+//				.append ("&useCase=").append (_form.getUseCase ())
 				.append ("&reverseSort=").append (_form.getReverseSort ())
 //				.append ("&screenWidth=").append (_form.getScreenWidth ())
 //				.append ("&screenHeight=").append (_form.getScreenHeight ())
@@ -1798,7 +1832,7 @@ public class AlbumImages
 			.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 			.append ("&useExifDates=").append (_form.getUseExifDates ())
 			.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
-			.append ("&useCase=").append (_form.getUseCase ())
+//			.append ("&useCase=").append (_form.getUseCase ())
 			.append ("&reverseSort=").append (_form.getReverseSort ())
 //			.append ("&screenWidth=").append (_form.getScreenWidth ())
 //			.append ("&screenHeight=").append (_form.getScreenHeight ())
@@ -1858,7 +1892,7 @@ public class AlbumImages
 			.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 			.append ("&useExifDates=").append (_form.getUseExifDates ())
 //			.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
-			.append ("&useCase=").append (_form.getUseCase ())
+//			.append ("&useCase=").append (_form.getUseCase ())
 //			.append ("&reverseSort=").append (_form.getReverseSort ())
 //			.append ("&screenWidth=").append (_form.getScreenWidth ())
 //			.append ("&screenHeight=").append (_form.getScreenHeight ())
@@ -2679,11 +2713,18 @@ public class AlbumImages
 		StringBuilder sb = new StringBuilder (64);
 
 		Set<String> imageNamesInSlice = imagesInSlice.stream()
-//													 .map(i -> i.getBaseName(false))
 													 .map(i -> i.getBaseName(collapseGroupsForTags))
 													 .collect(Collectors.toSet());
+		List<String> tags = AlbumTags.getInstance ().getTagsForBaseNames(imageNamesInSlice, collapseGroupsForTags, false);
 
-		List<String> tags = AlbumTags.getInstance ().getTagsForBaseNames (imageNamesInSlice, collapseGroupsForTags);
+		if (!collapseGroupsForTags) { //HACK - query again against raw table (tags is broken; this is a workaround)
+			Set<String> imageNamesInSlice2 = imagesInSlice.stream()
+														  .map(i -> i.getBaseName(true) + "+")
+														  .collect(Collectors.toSet());
+			tags.addAll(AlbumTags.getInstance ().getTagsForBaseNames(imageNamesInSlice2, collapseGroupsForTags, true));
+			tags = tags.stream().sorted(new AlphanumComparator()).distinct().collect(Collectors.toList());
+		}
+
 		final int numTagsOriginal = tags.size();
 		if (numTagsOriginal > 0) {
 			final int maxTagsToShow = 50; //TODO - hardcoded
@@ -2693,10 +2734,10 @@ public class AlbumImages
 			}
 
 			sb.append (" (")
-				.append (numTagsOriginal)
-				.append (" tags: ")
-				.append (String.join(", ", tags))
-				.append (")");
+				.append(numTagsOriginal)
+				.append(" tags: ")
+				.append(String.join(", ", tags))
+				.append(")");
 		}
 
 		return sb.toString ();
@@ -3557,6 +3598,7 @@ public class AlbumImages
 			List<String> pixelsDist = new ArrayList<>();
 			Map<String, String> dimensionToPixelsMap = new ConcurrentHashMap<>();
 			Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
+//					.peek(i -> System.out.println("***DEBUG*** " + i.getName())) //note this is written to file tomcat8-stdout.yyyy-mm-dd.log in tomcat log directory
 					//prepend string with total pixels (for sorting) which will be stripped out while printing
 					.collect(Collectors.groupingBy(i -> {
 						String valueForSorting = VendoUtils.unitSuffixScale(i.getPixels(), "P", true); //"P" for Pixels
@@ -3566,7 +3608,7 @@ public class AlbumImages
 					}));
 			pixelsDist.add(topBottom + " " + maxItemsToPrint + " by pixels (rounded)");
 			pixelMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
-					.forEach(p -> pixelsDist.add(p.replaceAll("<.*>", "") + " -> " + pixelMap.get(p).size() + " images")
+					.forEach(p -> pixelsDist.add(p.replaceAll("<.*?>", "") + " -> " + pixelMap.get(p).size() + " images") //lazy regex
 			);
 
 			//size in bytes distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
@@ -3575,7 +3617,6 @@ public class AlbumImages
 			List<String> bytesDist = new ArrayList<>();
 			Map<Long, List<AlbumImage>> bytesMap = _imageDisplayList.stream()
 					.collect(Collectors.groupingBy(i -> VendoUtils.roundUp(i.getNumBytes(), roundToKB)));
-//			bytesDist.add(topBottom + " " + maxItemsToPrint + " largest by Bytes (rounded to " + roundTo + " KB)");
 			bytesDist.add(topBottom + " " + maxItemsToPrint + " by bytes (rounded)");
 			bytesMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
 					.forEach(b -> bytesDist.add(VendoUtils.unitSuffixScaleBytes(VendoUtils.roundUp(b, roundToKB)) + " -> " + bytesMap.get(b).size() + " images")

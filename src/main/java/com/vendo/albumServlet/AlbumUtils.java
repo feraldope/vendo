@@ -14,6 +14,10 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -65,8 +69,6 @@ public class AlbumUtils {
 
 	///////////////////////////////////////////////////////////////////////////
 	private Boolean processArgs(String[] args) {
-		String subFoldersOverrideStr = "";
-
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
@@ -79,14 +81,6 @@ public class AlbumUtils {
 
 				} else if (arg.equalsIgnoreCase("test") || arg.equalsIgnoreCase("tst")) {
 					_Test = true;
-
-//				} else if (arg.equalsIgnoreCase("subFolders") || arg.equalsIgnoreCase("sub") || arg.equalsIgnoreCase("s")) {
-//					try {
-//						_subFolders = null; //force this to be recalculated
-//						subFoldersOverrideStr = args[++ii];
-//					} catch (ArrayIndexOutOfBoundsException exception) {
-//						displayUsage("Missing value for /" + arg, true);
-//					}
 
 				} else {
 					displayUsage("Unrecognized argument '" + args[ii] + "'", true);
@@ -129,87 +123,147 @@ public class AlbumUtils {
 			ex.printStackTrace();
 		}
 
-		String downloadFolder = properties.getProperty("downloadFolder").trim();
-		String movHistoryFile = properties.getProperty("movHistoryFile").trim();
+		String aliasesFile = getStringProperty(properties, "aliasesFile");
+		String downloadZipFolder = getStringProperty(properties, "downloadZipFolder");
+		String downloadMp4Folder = getStringProperty(properties, "downloadMp4Folder");
+		String movHistoryFile = getStringProperty(properties, "movHistoryFile");
+
+		if (null == aliasesFile || null == downloadZipFolder || null == downloadMp4Folder || null == movHistoryFile) {
+			return false; //getStringProperty printed error
+		}
+
+		if (!VendoUtils.fileExists (aliasesFile)) {
+			_log.error ("AlbumUtils.run: error: aliases file does not exist: " + aliasesFile);
+			return false;
+		}
+
+		if (!VendoUtils.fileExists (downloadZipFolder)) {
+			_log.error ("AlbumUtils.run: error: download zip folder does not exist: " + downloadZipFolder);
+			return false;
+		}
+
+		if (!VendoUtils.fileExists (downloadMp4Folder)) {
+			_log.error ("AlbumUtils.run: error: download mp4 folder does not exist: " + downloadMp4Folder);
+			return false;
+		}
+
+		if (!VendoUtils.fileExists(movHistoryFile)) {
+			_log.error ("AlbumUtils.run: error: mov history file does not exist: " + movHistoryFile);
+			return false;
+		}
 
 		//process baseNames
 		List<String> baseNames = Arrays.stream(properties.getProperty("baseNames").split(","))
 				.map(String::trim)
 				.filter(s -> !s.isEmpty())
 				.collect(Collectors.toList());
-		String baseName = baseNames.get(0);
+		String baseName = baseNames.get(0); //FOR NOW, JUST PROCESS FIRST ONE
 
-		//process pairs
-		Map<String, String> pairsMap = new HashMap<>();
-		Arrays.stream(properties.getProperty("pairs").split(";"))
-			.map(String::trim)
-			.filter(s -> !s.isEmpty())
-			.forEach(r -> {
-					String[] items = r.split(":");
-					pairsMap.put(items[0].trim(), items[1].trim());
-			});
+		//process aliases
+		final Path aliasesPath = FileSystems.getDefault().getPath(aliasesFile);
+		final Pattern aliasesPattern = Pattern.compile("([A-Za-z]+) = ([A-Za-z]+) \\(" + baseName.toLowerCase() + "\\).*");
+		final Aliases aliases = new Aliases(baseName);
+		try {
+			final List<String> matchingLines = Files.readAllLines(aliasesPath, StandardCharsets.ISO_8859_1).stream() //Note: using StandardCharsets.UTF_8 threw MalformedInputException; not sure why
+					.filter(l -> {
+						Matcher movMatcher = aliasesPattern.matcher(l);
+						if (movMatcher.find()) {
+							String nameInAlbum = movMatcher.group(1);
+							String nameFromAlias = movMatcher.group(2);
+							aliases.add(nameInAlbum, nameFromAlias);
+							return true;
+						}
+						return false;
+					})
+					.collect(Collectors.toList());
 
-		if (!Files.exists (FileSystems.getDefault ().getPath (downloadFolder))) {
-			_log.error ("AlbumUtils.run: error: download folder does not exist: " + downloadFolder);
+		} catch (IOException ex) {
+			_log.error ("AlbumUtils.run: error reading/parsing aliases file: " + aliasesFile, ex);
 			return false;
 		}
 
-		if (!Files.exists (FileSystems.getDefault ().getPath (movHistoryFile))) {
-			_log.error ("AlbumUtils.run: error: mov history file does not exist: " + movHistoryFile);
-			return false;
-		}
+//old way to read aliases (KEEP - see properties file for reason)
+//		Map<String, String> aliasesMap = new HashMap<>();
+//		Arrays.stream(properties.getProperty("aliases").split(";"))
+//			.map(String::trim)
+//			.filter(s -> !s.isEmpty())
+//			.forEach(r -> {
+//					String[] items = r.split(":");
+//					aliasesMap.put(items[0].trim(), items[1].trim());
+//			});
 
-		readAndProcessAllRecords(baseName, downloadFolder, movHistoryFile);
+		readAndProcessAllRecords(baseName, downloadZipFolder, downloadMp4Folder, movHistoryFile, aliases);
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean readAndProcessAllRecords(String baseName, String downloadFolder, String movHistoryFile) {
-		String wildName = baseName + "*.zip";
+	private boolean readAndProcessAllRecords(String baseName, String downloadZipFolder, String downloadMp4Folder, String movHistoryFile, Aliases aliases) {
+		_log.debug("AlbumUtils.readAndProcessAllRecords: baseName: " + baseName);
 
-		List<NameComponentsDownload> downloadRecords;
+		Instant startInstant = Instant.now ();
+		List<NameComponentsDownload> downloadZipRecords;
 		try {
-			downloadRecords = getAllValidDownloadRecords(downloadFolder, baseName, wildName, true);
+			downloadZipRecords = getAllValidDownloadRecords(downloadZipFolder, baseName, "zip", true);
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			return false;
 		}
-		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + downloadRecords.size() + " download records");
+		String elapsedString = "elapsed time: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format(_dateTimeFormatter);
+		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + downloadZipRecords.size() + " download zip records, " + elapsedString);
+
+		startInstant = Instant.now ();
+		List<NameComponentsDownload> downloadMp4Records;
+		try {
+			downloadMp4Records = getAllValidDownloadRecords(downloadMp4Folder, baseName, "mp4", true);
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return false;
+		}
+		elapsedString = "elapsed time: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format(_dateTimeFormatter);
+		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + downloadMp4Records.size() + " download mp4 records, " + elapsedString);
 
 		Path movHistoryPath = FileSystems.getDefault().getPath(movHistoryFile);
-
+		startInstant = Instant.now ();
 		List<NameComponentsMovHistory> movHistoryRecords;
 		try {
-			movHistoryRecords = getAllDistinctValidMovHistoryRecords(movHistoryPath, baseName, true);
+			movHistoryRecords = getAllDistinctValidMovHistoryRecords(movHistoryPath, baseName, aliases, true);
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
 			return false;
 		}
-		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + movHistoryRecords.size() + " mov history records");
+		elapsedString = "elapsed time: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format(_dateTimeFormatter);
+		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + movHistoryRecords.size() + " mov history records, " + elapsedString);
 
-		linkTheRecords(downloadRecords, movHistoryRecords);
+		linkTheRecords(downloadZipRecords, movHistoryRecords);
 
 		checkForRelativeDuplicateMovHistoryRecords(movHistoryRecords);
 
-		checkForMisMatchesBetweenMovHistoryAndDownloads(downloadRecords, movHistoryRecords);
+		checkForDuplicateDownloads(downloadZipRecords);
 
-		checkForMisMatchesWithinMovHistoryForAlbumNames(movHistoryRecords);
+		checkForDuplicateDownloads(downloadMp4Records);
+
+		checkForMisMatchesBetweenMovHistoryAndDownloadZips(downloadZipRecords, movHistoryRecords);
+
+		checkForMisMatchesWithinMovHistoryForAlbumNames(baseName, movHistoryRecords);
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<NameComponentsDownload> getAllValidDownloadRecords(String downloadFolder, String baseName, String wildName, final boolean printSkippedLines) {
+	private List<NameComponentsDownload> getAllValidDownloadRecords(String downloadFolder, String baseName, String extension, final boolean printSkippedLines) {
 		final List<String> skippedLines = new ArrayList<>();
 		final List<NameComponentsDownload> nameComponents = new ArrayList<>();
 
-		final Pattern downloadPatternStrict = Pattern.compile("(" + baseName + ")_(\\d{4}-\\d{2}-\\d{2})_(.*)-by-.*_(high|med)\\.zip");
-		final Pattern downloadPatternLoose = Pattern.compile("(" + baseName + ")_.*\\.zip");
+		final Pattern downloadPatternStrict = "zip".equals(extension)
+				? Pattern.compile("(" + baseName + ")_(\\d{4}-\\d{2}-\\d{2})_(.*)-by-.*_(high|med)\\." + extension)
+				: Pattern.compile("(" + baseName + ")-(\\d{4}-\\d{2}-\\d{2})-(.*)(-1080|-1080-scaled|-4k)\\." + extension);
+		final Pattern downloadPatternLoose = Pattern.compile("(" + baseName + ")[_-].*\\." + extension);
 
-		List<String> fileList = new VFileList(downloadFolder, wildName, false).getFileList(VFileList.ListMode.FileOnly);
+		final List<String> fileList = new VFileList(downloadFolder, baseName + "*." + extension, false).getFileList(VFileList.ListMode.FileOnly);
 		if (fileList.isEmpty()) {
 			throw new IllegalArgumentException("no matching files found in download folder \"" + downloadFolder + "\"");
 		}
@@ -221,7 +275,7 @@ public class AlbumUtils {
 						String prefix = downloadMatcher.group(1);
 						String dateString = downloadMatcher.group(2);
 						String middle = downloadMatcher.group(3);
-						NameComponentsDownload componentsDownload = new NameComponentsDownload(prefix, middle, dateString);
+						NameComponentsDownload componentsDownload = new NameComponentsDownload(l, prefix, middle, dateString);
 						nameComponents.add(componentsDownload);
 						return true;
 					} else if (downloadPatternLoose.matcher(l).matches()) {
@@ -235,7 +289,7 @@ public class AlbumUtils {
 		if (printSkippedLines && !skippedLines.isEmpty()) {
 			final int maxCharsToPrint = 100; //hardcoded
 
-			System.out.println("AlbumUtils.readAllValidLines: SKIPPED LINES");
+			System.out.println("AlbumUtils.getAllValidDownloadRecords: SKIPPED LINES (did not match pattern):");
 			skippedLines.stream().sorted().forEach(l -> {
 				int charsToPrint = Math.min(l.length(), maxCharsToPrint);
 				boolean truncated = l.length() > charsToPrint;
@@ -248,12 +302,12 @@ public class AlbumUtils {
 			}
 		}
 
-		List<NameComponentsDownload> sortedList = nameComponents.stream().sorted(new NameComponentsDownload("", "", "")).collect(Collectors.toList());
+		List<NameComponentsDownload> sortedList = nameComponents.stream().sorted(new NameComponentsDownload("", "", "", "")).collect(Collectors.toList());
 		return sortedList;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<NameComponentsMovHistory> getAllDistinctValidMovHistoryRecords(Path filePath, String baseName, final boolean printSkippedLines) throws Exception {
+	private List<NameComponentsMovHistory> getAllDistinctValidMovHistoryRecords(Path filePath, String baseName, Aliases aliases, boolean printSkippedLines) throws Exception {
 		final List<String> skippedLines = new ArrayList<>();
 		final List<NameComponentsMovHistory> nameComponents = new ArrayList<>();
 
@@ -267,7 +321,7 @@ public class AlbumUtils {
 						String prefix = movMatcher.group(1);
 						String middle = movMatcher.group(2);
 						String albumName = movMatcher.group(5);
-						NameComponentsMovHistory componentsMovHistory = new NameComponentsMovHistory(prefix, middle, albumName);
+						NameComponentsMovHistory componentsMovHistory = new NameComponentsMovHistory(l, prefix, middle, albumName, aliases);
 						nameComponents.add(componentsMovHistory);
 						return true;
 					} else if (movPatternLoose.matcher(l).matches()) {
@@ -281,7 +335,7 @@ public class AlbumUtils {
 		if (printSkippedLines && !skippedLines.isEmpty()) {
 			final int maxCharsToPrint = 100; //hardcoded
 
-			System.out.println("AlbumUtils.getAllDistinctValidMovHistoryRecords: SKIPPED LINES");
+			System.out.println("AlbumUtils.getAllDistinctValidMovHistoryRecords: SKIPPED LINES: ");
 			skippedLines.stream().sorted().forEach(l -> {
 				int charsToPrint = Math.min(l.length(), maxCharsToPrint);
 				boolean truncated = l.length() > charsToPrint;
@@ -311,7 +365,7 @@ public class AlbumUtils {
 
 		{ 	//check for duplicates by component
 			Map<String, Long> movHistoryComponentCountMap = movHistoryRecords.stream()
-					.map(NameComponentsMovHistory::getComponentsAsNormalizedString)
+					.map(NameComponentsMovHistory::getComponentsDashed)
 					.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
 //this syntax does not work
@@ -320,10 +374,8 @@ public class AlbumUtils {
 //					.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
 /* example that might work
-https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
         // create multimap and store the value of list
-        Map<Integer, List<String> >
-            multimap = lt.stream()
+        Map<Integer, List<String>> multimap = lt.stream()
                          .collect(Collectors.groupingBy(
                                        Student::getId,
                                        Collectors.mapping(
@@ -332,8 +384,8 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 */
 
 			dupsByComponent = movHistoryRecords.stream()
-					.filter(r -> r.getNameComponentsMatching() != null) //only match linked records (is this correct??)
-					.filter(r -> movHistoryComponentCountMap.get(r.getComponentsAsNormalizedString()) > 1)
+					.filter(r -> null != r.getNameComponentsMatching()) //only match linked records (is this correct??)
+					.filter(r -> movHistoryComponentCountMap.get(r.getComponentsDashed()) > 1)
 					.collect(Collectors.toList());
 
 			_log.debug("AlbumUtils.checkForRelativeDuplicateMovHistoryRecords: found " + dupsByComponent.size() + " duplicate mov history records BY COMPONENT");
@@ -345,7 +397,7 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 					.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
 
 			dupsByAlbumName = movHistoryRecords.stream()
-					.filter(r -> r.getNameComponentsMatching() != null) //only match linked records (is this correct??)
+					.filter(r -> null != r.getNameComponentsMatching()) //only match linked records (is this correct??)
 					.filter(r -> movHistoryAlbumNameCountMap.get(r.getAlbumName()) > 1)
 					.collect(Collectors.toList());
 
@@ -356,104 +408,219 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	boolean checkForMisMatchesBetweenMovHistoryAndDownloads(List<NameComponentsDownload> downloadRecords, List<NameComponentsMovHistory> movHistoryRecords) {
-		List<String> listByDownloadComponents = downloadRecords.stream()
-				.map(NameComponentsDownload::getComponentsAsNormalizedString)
+	boolean checkForMisMatchesBetweenMovHistoryAndDownloadZips(List<NameComponentsDownload> downloadZipRecords, List<NameComponentsMovHistory> movHistoryRecords) {
+		List<String> listByDownloadZipComponents = downloadZipRecords.stream()
+				.map(NameComponentsDownload::getComponentsDashedLower)
 				.collect(Collectors.toList());
 
 		List<String> listByMovHistoryComponents = movHistoryRecords.stream()
-				.map(NameComponentsMovHistory::getComponentsAsNormalizedString)
+				.map(NameComponentsMovHistory::getComponentsDashedLower)
 				.collect(Collectors.toList());
 
-		Collection<String> setByDownloadComponents = new HashSet(listByDownloadComponents);
+		Collection<String> setByDownloadZipComponents = new HashSet(listByDownloadZipComponents);
 		Collection<String> setByMovHistoryComponents = new HashSet(listByMovHistoryComponents);
 
-		Collection<String> missingFromDownload = VendoUtils.subtractCollections(setByMovHistoryComponents, setByDownloadComponents);
-		Collection<String> missingFromMovHistory = VendoUtils.subtractCollections(setByDownloadComponents, setByMovHistoryComponents);
+		Collection<String> missingFromDownloadZips = VendoUtils.subtractCollections(setByMovHistoryComponents, setByDownloadZipComponents);
+		Collection<String> missingFromMovHistory = VendoUtils.subtractCollections(setByDownloadZipComponents, setByMovHistoryComponents);
 
-		_log.debug("AlbumUtils.checkForMisMatchesBetweenMovHistoryAndDownloads: found " + missingFromDownload.size() + " items missing from downloads");
-		_log.debug("AlbumUtils.checkForMisMatchesBetweenMovHistoryAndDownloads: found " + missingFromMovHistory.size() + " items missing from mov history");
+		_log.debug("AlbumUtils.checkForMisMatchesBetweenMovHistoryAndDownloadZips: found " + missingFromDownloadZips.size() + " items missing from zip downloads");
+		_log.debug("AlbumUtils.checkForMisMatchesBetweenMovHistoryAndDownloadZips: found " + missingFromMovHistory.size() + " items missing from mov history");
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	boolean checkForMisMatchesWithinMovHistoryForAlbumNames(List<NameComponentsMovHistory> movHistoryRecords) {
+	boolean checkForMisMatchesWithinMovHistoryForAlbumNames(String baseName, List<NameComponentsMovHistory> movHistoryRecords) {
 		List<NameComponentsMovHistory> listMisMatchesWithinMovHistory = movHistoryRecords.stream()
 				.filter(r -> {
-					return !r.getComponents().contains(r.getAlbumNameFirstName());
+					//check name
+					if (null != r.getNameInAlbumDashed() && r.getComponentsDashed().contains(r.getNameInAlbumDashed())) {
+						return false;
+					}
+					//check alias
+					if (null != r.getNameFromAliasDashed() && r.getComponentsDashed().contains(r.getNameFromAliasDashed())) {
+						return false;
+					}
+					return true;
 				})
 				.collect(Collectors.toList());
 
 		_log.debug("AlbumUtils.checkForMisMatchesWithinMovHistoryForAlbumNames: found " + listMisMatchesWithinMovHistory.size() + " mismatched items");
 
-		return true;
-	}
+		if (true) {
+			final int limit = 20; //hardcoded
+			String limitString = listMisMatchesWithinMovHistory.size() > limit ? "(limited to first " + limit + " items)" : "";
+			_log.debug("AlbumUtils.checkForMisMatchesWithinMovHistoryForAlbumNames: listMisMatchesWithinMovHistory: " + limitString + NL +
+//					"CONSIDER ADDING THESE TO ALIASES FILE:" + NL +
+					listMisMatchesWithinMovHistory.stream()
+///*TEMP HACK*/ .filter(r -> !r.getNameInAlbumDashed().endsWith("-A") && !r.getNameInAlbumDashed().endsWith("-B")) //to help debugging, filter out any records that might match the case where Foo is saved as FooA or FooB (which we have not solved yet)
+							.limit(limit)
+							.map(NameComponentsMovHistory::toString)
+							.collect(Collectors.joining(NL))
+					+ NL);
+		}
 
-	///////////////////////////////////////////////////////////////////////////
-	boolean linkTheRecords(List<NameComponentsDownload> downloadRecords, List<NameComponentsMovHistory> movHistoryRecords) {
-		Map<String, NameComponentsMovHistory> movHistoryComponentsMap = movHistoryRecords.stream()
-				.collect(Collectors.toMap(NameComponentsBase::getComponentsAsNormalizedString, k -> k, (oldValue, newValue) -> { //using merge function
-//					_log.debug("AlbumUtils.linkTheRecords: mov history dups that need to be merged: " + oldValue.getAlbumName() + ", " + newValue.getAlbumName());
-					return oldValue;
-				}));
+		if (true) {
+			Map<String, String> suggestedAliasesMap = listMisMatchesWithinMovHistory.stream()
+///*TEMP HACK*/ .filter(r -> !r.getNameInAlbumDashed().endsWith("-A") && !r.getNameInAlbumDashed().endsWith("-B")) //to help debugging, filter out any records that might match the case where Foo is saved as FooA or FooB (which we have not solved yet)
+					.collect(Collectors.toMap(k -> k.getNameInAlbumDashed().replaceAll("-", ""),
+											  k -> k.getComponentsDashed(),
+											  (oldValue, newValue) -> { //using merge function
+													return oldValue;
+											  }));
 
-		Map<String, NameComponentsDownload> downloadComponentsMap = downloadRecords.stream()
-				.collect(Collectors.toMap(NameComponentsBase::getComponentsAsNormalizedString, k -> k, (oldValue, newValue) -> { //using merge function
-//					_log.debug("AlbumUtils.linkTheRecords: download dups that need to be merged: " + oldValue.getComponentsAsNormalizedString() + ", " + newValue.getComponentsAsNormalizedString());
-					return oldValue;
-				}));
-
-		//link the two collections together - NOTE WE MERGED AWAY THE DUPS ABOVE and those dups won't get matched
-		movHistoryComponentsMap.entrySet().forEach(i -> i.getValue().setNameComponentsMatching(downloadComponentsMap.get(i.getKey())));
-		downloadComponentsMap.entrySet().forEach(i -> i.getValue().setNameComponentsMatching(movHistoryComponentsMap.get(i.getKey())));
-
-		if (false) { //print the results
-			movHistoryComponentsMap.entrySet().stream()
-				.filter(i -> i.getValue().getNameComponentsMatching() == null)
-				.forEach(i -> _log.debug("AlbumUtils.linkTheRecords: mov history: no matching download for: [" + i.getKey() + "] -> " + i.getValue()));
-
-			downloadComponentsMap.entrySet().stream()
-				.filter(i -> i.getValue().getNameComponentsMatching() == null)
-				.forEach(i -> _log.debug("AlbumUtils.linkTheRecords: download: no matching mov history for: [" + i.getKey() + "] -> " + i.getValue()));
+			final int limit = 100; //hardcoded
+			String limitString = suggestedAliasesMap.size() > limit ? "(limited to first " + limit + " items)" : "";
+			_log.debug("AlbumUtils.checkForMisMatchesWithinMovHistoryForAlbumNames: suggestedAliasesMap: " + limitString + NL +
+					"CONSIDER ADDING THESE TO ALIASES FILE:" + NL +
+					suggestedAliasesMap.entrySet().stream()
+							.limit(limit)
+							.map(r -> r.getKey().replaceAll("-", "") + " = " + r.getValue() + " (" + baseName.toLowerCase() + ")")
+							.sorted()
+							.distinct()
+							.collect(Collectors.joining(NL))
+					+ NL);
 		}
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	boolean checkForDuplicateDownloads(List<NameComponentsDownload> downloadRecords) {
+		Map<String, List<String>> multimap = downloadRecords.stream()
+				.collect(Collectors.groupingBy(r -> r.getOriginalString().replaceAll("_(high|med).zip", "")
+																		 .replaceAll("-(1080|4k).*", ""),
+											   Collectors.mapping(NameComponentsDownload::getOriginalString,
+																  Collectors.toList())));
+
+		List<String> dups = multimap.entrySet().stream()
+				.filter(e -> e.getValue().size() > 1)
+				.map(e -> String.join(NL, e.getValue()))
+				.collect(Collectors.toList());
+
+		_log.debug("AlbumUtils.checkForDuplicateDownloads: found " + dups.size() + " dups: " + NL + String.join(NL, dups));
+
+		if (dups.size() > 0) {
+			multimap.entrySet().stream()
+					.filter(e -> e.getValue().size() > 1)
+					.map(e -> "dir " + e.getKey() + "*")
+					.forEach(System.out::println);
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	boolean linkTheRecords(List<NameComponentsDownload> downloadZipRecords, List<NameComponentsMovHistory> movHistoryRecords) {
+		Map<String, NameComponentsMovHistory> movHistoryComponentsMap = movHistoryRecords.stream()
+				.collect(Collectors.toMap(NameComponentsBase::getComponentsDashedLower, k -> k, (oldValue, newValue) -> { //using merge function
+//					_log.debug("AlbumUtils.linkTheRecords: mov history dups that need to be merged: " + oldValue.getAlbumName() + ", " + newValue.getAlbumName());
+					return oldValue;
+				}));
+
+		Map<String, NameComponentsDownload> downloadZipComponentsMap = downloadZipRecords.stream()
+				.collect(Collectors.toMap(NameComponentsBase::getComponentsDashedLower, k -> k, (oldValue, newValue) -> { //using merge function
+//					_log.debug("AlbumUtils.linkTheRecords: download dups that need to be merged: " + oldValue.getComponentsDashed() + ", " + newValue.getComponentsDashed());
+					return oldValue;
+				}));
+
+		//link the two collections together - NOTE WE MERGED AWAY THE DUPS ABOVE and those dups won't get matched
+		movHistoryComponentsMap.entrySet().forEach(i -> i.getValue().setNameComponentsMatching(downloadZipComponentsMap.get(i.getKey())));
+		downloadZipComponentsMap.entrySet().forEach(i -> i.getValue().setNameComponentsMatching(movHistoryComponentsMap.get(i.getKey())));
+
+		if (true) { //print the results
+			final int limit = 20; //hardcoded
+			String limitString = movHistoryComponentsMap.size() > limit ? "(limited to first " + limit + " items)" : "";
+			_log.debug("AlbumUtils.linkTheRecords: mov history: no matching zip download for: " + limitString + NL +
+					movHistoryComponentsMap.entrySet().stream()
+						.filter(i -> null == i.getValue().getNameComponentsMatching())
+						.limit(limit)
+						.map(i -> "[" + i.getKey() + "] -> " + i.getValue())
+						.collect(Collectors.joining(NL))
+					+ NL);
+
+			limitString = downloadZipComponentsMap.size() > limit ? "(limited to first " + limit + " items)" : "";
+			_log.debug("AlbumUtils.linkTheRecords: zip download: no matching mov history for: " + limitString + NL +
+					downloadZipComponentsMap.entrySet().stream()
+						.filter(i -> null == i.getValue().getNameComponentsMatching())
+						.limit(limit)
+						.map(i -> "[" + i.getKey() + "] -> " + i.getValue())
+						.collect(Collectors.joining(NL))
+					+ NL);
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	String getStringProperty(Properties properties, String propertyName) {
+		String propertyValue = properties.getProperty(propertyName);
+		if (null == propertyValue || propertyValue.trim().isEmpty()) {
+			_log.debug("AlbumUtils.getStringProperty: error: no value found for property named '" + propertyName + "'");
+			return null;
+		}
+
+		return propertyValue.trim();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private static class Aliases {
+		///////////////////////////////////////////////////////////////////////////
+		Aliases(String baseName) {
+			this.baseName = baseName;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public void add(String nameInAlbum, String nameFromAlias) {
+			aliasesMap.put(nameInAlbum, nameFromAlias);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		protected String getNameFromAlias(String nameInAlbum) {
+			String nameFromAlias = aliasesMap.get(nameInAlbum);
+			return nameFromAlias;
+		}
+
+		protected final String baseName;
+		protected final Map<String, String> aliasesMap = new HashMap<>();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private static class NameComponentsBase {
 		///////////////////////////////////////////////////////////////////////////
-		NameComponentsBase(String prefix, String middle) {
+		NameComponentsBase(String originalString, String prefix, String middle) {
+			this.originalString = originalString;
 			this.prefix = prefix;
 			components = Arrays.stream(middle.split("[_-]"))
 					.map(String::trim)
 					.filter(s -> !s.isEmpty())
-					.map(String::toLowerCase)
 					.collect(Collectors.toList());
 
-			if (components.contains("aneli")) {
-				int bh = 1;
-			}
-
 			//some hacks - if the last two pairs of components are the same, remove the dups (i.e., [cat, dog, cat, dog] -> [cat, dog)
-			int lastComponent = getComponents().size() - 1;
-			if (lastComponent >= 3 && getComponents().get(lastComponent).equals(getComponents().get(lastComponent - 2)) && getComponents().get(lastComponent - 1).equals(getComponents().get(lastComponent - 3))) {
-				getComponents().remove(lastComponent);
-				getComponents().remove(lastComponent - 1);
+			int lastIndex = components.size() - 1;
+			if (lastIndex >= 3 && components.get(lastIndex).equalsIgnoreCase(components.get(lastIndex - 2)) && components.get(lastIndex - 1).equalsIgnoreCase(components.get(lastIndex - 3))) {
+				components.remove(lastIndex);
+				components.remove(lastIndex - 1);
 			}
 
 			//some hacks - if the last two components are the same, remove the dup (i.e., [cat, cat] -> [cat])
-			lastComponent = getComponents().size() - 1;
-			if (lastComponent >= 2 && getComponents().get(lastComponent - 1).equals(getComponents().get(lastComponent - 2))) {
-				getComponents().remove(lastComponent - 1);
+			lastIndex = components.size() - 1;
+			if (lastIndex >= 2 && components.get(lastIndex - 1).equalsIgnoreCase(components.get(lastIndex - 2))) {
+				components.remove(lastIndex - 1);
 			}
 
 			//some hacks - if the two components before the last are the same, remove the dup (i.e., [cat, cat, dog] -> [cat, dog])
-			lastComponent = getComponents().size() - 1;
-			if (lastComponent >= 1 && getComponents().get(lastComponent).equals(getComponents().get(lastComponent - 1))) {
-				getComponents().remove(lastComponent);
+			lastIndex = components.size() - 1;
+			if (lastIndex >= 1 && components.get(lastIndex).equalsIgnoreCase(components.get(lastIndex - 1))) {
+				components.remove(lastIndex);
 			}
+
+			componentsDashed = String.join("-", getComponents());
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		protected String getOriginalString() {
+			return originalString;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -467,8 +634,13 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		protected String getComponentsAsNormalizedString() {
-			return String.join("-", getComponents());
+		protected String getComponentsDashed() {
+			return componentsDashed;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		protected String getComponentsDashedLower() {
+			return componentsDashed.toLowerCase();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -500,8 +672,10 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 			return Objects.hash(getPrefix(), getComponents());
 		}
 
+		protected final String originalString;
 		protected final String prefix;
 		protected final List<String> components;
+		protected final String componentsDashed;
 		protected NameComponentsBase nameComponentsMatching;
 	}
 
@@ -509,12 +683,12 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 	private static class NameComponentsDownload extends NameComponentsBase implements Comparator<NameComponentsDownload> {
 		///////////////////////////////////////////////////////////////////////////
 		NameComponentsDownload() {
-			this("uninitialized","uninitialized","uninitialized"); //ctor to be used only to initialize for Comparator
+			this("uninitialized", "uninitialized", "uninitialized", "uninitialized"); //ctor to be used only to initialize for Comparator
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		NameComponentsDownload(String prefix, String middle, String dateString) {
-			super(prefix, middle);
+		NameComponentsDownload(String originalString, String prefix, String middle, String dateString) {
+			super(originalString, prefix, middle);
 			this.dateString = dateString;
 		}
 
@@ -543,12 +717,12 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 		@Override
 		public String toString() {
 			String matchingAlbumName = "";
-			if (nameComponentsMatching != null && nameComponentsMatching instanceof NameComponentsMovHistory) {
+			if (null != nameComponentsMatching && nameComponentsMatching instanceof NameComponentsMovHistory) {
 				matchingAlbumName = ((NameComponentsMovHistory) nameComponentsMatching).getAlbumName();
 			}
 			final StringBuffer sb = new StringBuffer("NameComponentsDownload{");
 			sb.append("prefix='").append(prefix).append('\'');
-			sb.append(", components=").append(components);
+			sb.append(", componentsDashed=").append(componentsDashed);
 			sb.append(", dateString='").append(dateString).append('\'');
 			sb.append(", matchingAlbumName='").append(matchingAlbumName).append('\'');
 			sb.append('}');
@@ -584,20 +758,27 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 	private static class NameComponentsMovHistory extends NameComponentsBase implements Comparator<NameComponentsMovHistory> {
 		///////////////////////////////////////////////////////////////////////////
 		NameComponentsMovHistory() {
-			this("uninitialized","uninitialized","uninitialized"); //ctor to be used only to initialize for Comparator
+			this("uninitialized", "uninitialized", "uninitialized", "uninitialized", null); //ctor to be used only to initialize for Comparator
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		NameComponentsMovHistory(String prefix, String middle, String albumName) {
-			super(prefix, middle);
-			this.albumName = albumName.toLowerCase();
+		NameComponentsMovHistory(String originalString, String prefix, String middle, String albumName, Aliases aliases) {
+			super(originalString, prefix, middle);
+			this.albumName = albumName;
 
-			final Pattern firstNamePattern = Pattern.compile("([A-Z][a-z]+)([A-Z].*|)[0-9]+$");
-			Matcher firstNameMatcher = firstNamePattern.matcher(albumName); //method param has mixed case, we need to operate on this param
-			if (firstNameMatcher.find()) {
-				albumNameFirstName = firstNameMatcher.group(1).toLowerCase();
+//TODO - handle case where Foo is being saved as FooA, etc.
+
+			if ("uninitialized".equals(albumName)) {
+				nameInAlbumDashed = "uninitialized";  //used in ctor when initializing for Comparator
 			} else {
-				albumNameFirstName = this.albumName;
+				nameInAlbumDashed = dashTheName(albumName);
+			}
+
+			if (null != aliases) {
+				String nameFromAlias = aliases.getNameFromAlias(albumName.replaceAll("\\d+", ""));
+				if (null != nameFromAlias && !nameFromAlias.isEmpty()) {
+					nameFromAliasDashed = dashTheName(nameFromAlias);
+				}
 			}
 		}
 
@@ -607,8 +788,32 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		protected String getAlbumNameFirstName() {
-			return albumNameFirstName;
+		protected String getNameInAlbumDashed() {
+			return nameInAlbumDashed;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		protected String getNameFromAliasDashed() {
+			return nameFromAliasDashed;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		protected String dashTheName(String undashedName) {
+			final Pattern undashedNamePattern = Pattern.compile("([A-Z][a-z]+)([A-Z][a-z]+|[A-Z]|).*$");
+
+			String dashedName;
+
+			undashedName = undashedName.replaceAll("\\d+", "");
+			Matcher undashedNameMatcher = undashedNamePattern.matcher(undashedName); //method param has mixed case, we need to operate on this param
+			if (undashedNameMatcher.find()) {
+				String lastName = undashedNameMatcher.group(2);
+				dashedName = undashedNameMatcher.group(1) + (lastName.isEmpty() ? "" : "-" + lastName);
+			} else {
+				dashedName = undashedName; //failed to dash the name
+				_log.warn("AlbumUtils.dashTheName: failed for undashedName: " + undashedName);
+			}
+
+			return dashedName;
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -621,14 +826,15 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 		@Override
 		public String toString() {
 			String matchingDateString = "";
-			if (nameComponentsMatching != null && nameComponentsMatching instanceof NameComponentsDownload) {
+			if (null != nameComponentsMatching && nameComponentsMatching instanceof NameComponentsDownload) {
 				matchingDateString = ((NameComponentsDownload) nameComponentsMatching).getDateString();
 			}
 			final StringBuffer sb = new StringBuffer("NameComponentsMovHistory{");
 			sb.append("prefix='").append(prefix).append('\'');
-			sb.append(", components=").append(components);
+			sb.append(", componentsDashed=").append(componentsDashed);
 			sb.append(", albumName='").append(albumName).append('\'');
-			sb.append(", albumNameFirstName='").append(albumNameFirstName).append('\'');
+			sb.append(", nameInAlbumDashed='").append(nameInAlbumDashed).append('\'');
+			sb.append(", nameFromAliasDashed='").append(nameFromAliasDashed).append('\'');
 			sb.append(", matchingDateString='").append(matchingDateString).append('\'');
 			sb.append('}');
 			return sb.toString();
@@ -647,17 +853,18 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 				return false;
 			}
 			NameComponentsMovHistory that = (NameComponentsMovHistory) o;
-			return getAlbumName().equals(that.getAlbumName()) && getAlbumNameFirstName().equals(that.getAlbumNameFirstName());
+			return getAlbumName().equals(that.getAlbumName()) && getNameInAlbumDashed().equals(that.getNameInAlbumDashed());
 		}
 
 		///////////////////////////////////////////////////////////////////////////
 		@Override
 		public int hashCode() {
-			return Objects.hash(super.hashCode(), getAlbumName(), getAlbumNameFirstName());
+			return Objects.hash(super.hashCode(), getAlbumName(), getNameInAlbumDashed());
 		}
 
 		protected final String albumName;
-		protected final String albumNameFirstName;
+		protected final String nameInAlbumDashed;
+		protected String nameFromAliasDashed;
 	}
 
 
@@ -665,6 +872,7 @@ https://www.geeksforgeeks.org/java/program-to-convert-list-to-map-in-java/
 //	private SqlSessionFactory _sqlSessionFactory = null;
 
 	private static final String NL = System.getProperty ("line.separator");
+	private static final DateTimeFormatter _dateTimeFormatter = DateTimeFormatter.ofPattern ("HH'h':mm'm':ss's'"); //for example: 01h:03m:12s (note this wraps values >= 24 hours)
 
 	private static boolean _Debug = false;
 	private static boolean _Test = false;

@@ -220,68 +220,86 @@ select lower(substring(name_no_ext,1,2)) as sub_folder2, sub_folder as sub_folde
 select substring(name_no_ext,1,3) as first_three, count(*) as count from images where lower(name_no_ext) like 'qq%' group by first_three order by count desc
 
 -- distribution of images in 1-, 2-, and 3-char subfolders
--- single-char subfolder (NOTE SORT ASCENDING: for single char we want to see which folders are least used)
-select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count asc
--- two-char subfolder
-select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from images group by sub_folder2 order by count desc
--- three-char subfolder
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
--- four-char subfolder
-select lower(substring(name_no_ext,1,4)) as sub_folder4, count(*) as count from images group by sub_folder4 order by count desc
--- five-char subfolder
-select lower(substring(name_no_ext,1,5)) as sub_folder5, count(*) as count from images group by sub_folder5 order by count desc
 
--- WHEN a subfolder shows up at the top of the previous query, see how it needs to be split
--- !!! distribution of images in set of subfolders ('ka', 'ni', etc.)
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ka%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ni%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'se%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'sa%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'mi%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ch%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ja%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'li%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'al%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'lu%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'da%' group by sub_folder3 order by count desc
-select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'na%' group by sub_folder3 order by count desc
+-- NOTE: YOU CAN NOW USE THIS APP TO FIND THE WORST FOLDERS: D:\Netscape\Program\bin\printFolderDist.bat
 
---STOP Tomcat8 SERVICE FIRST
---FIRST update DB
---move to three-char subfolder
-update images set sub_folder = 'kat' where lower(name_no_ext) like 'kat%'
-update images set sub_folder = 'kar' where lower(name_no_ext) like 'kar%'
-update images set sub_folder = 'mar' where lower(name_no_ext) like 'mar%'
-update images set sub_folder = 'jen' where lower(name_no_ext) like 'jen%'
-update images set sub_folder = 'car' where lower(name_no_ext) like 'car%'
-update images set sub_folder = 'ang' where lower(name_no_ext) like 'ang%'
-update images set sub_folder = 'ale' where lower(name_no_ext) like 'ale%'
-update images set sub_folder = 'nik' where lower(name_no_ext) like 'nik%'
-update images set sub_folder = 'jes' where lower(name_no_ext) like 'jes%'
-update images set sub_folder = 'sex' where lower(name_no_ext) like 'sex%'
-update images set sub_folder = 'sar' where lower(name_no_ext) like 'sar%'
-update images set sub_folder = 'sam' where lower(name_no_ext) like 'sam%'
-update images set sub_folder = 'mic' where lower(name_no_ext) like 'mic%'
-update images set sub_folder = 'mia' where lower(name_no_ext) like 'mia%'
-update images set sub_folder = 'cha' where lower(name_no_ext) like 'cha%'
-update images set sub_folder = 'ann' where lower(name_no_ext) like 'ann%'
-update images set sub_folder = 'jan' where lower(name_no_ext) like 'jan%'
-update images set sub_folder = 'lil' where lower(name_no_ext) like 'lil%'
-update images set sub_folder = 'ali' where lower(name_no_ext) like 'ali%'
-update images set sub_folder = 'luc' where lower(name_no_ext) like 'luc%'
-update images set sub_folder = 'dan' where lower(name_no_ext) like 'dan%'
-update images set sub_folder = 'nat' where lower(name_no_ext) like 'nat%'
---move to one-char subfoler
-update images set sub_folder = 'u' where lower(name_no_ext) like 'u%'
-update images set sub_folder = 'y' where lower(name_no_ext) like 'y%'
-update images set sub_folder = 'w' where lower(name_no_ext) like 'w%'
-update images set sub_folder = 'o' where lower(name_no_ext) like 'o%'
--- should also do image_counts??
---SECOND move files to new folder on D: and B:
---see todo.txt for steps to move files (search for !!!IMPORTANT!!!)
---THEN RUN "ud" to update image counts
+	-- single-char subfolder (NOTE SORT ASCENDING: for single char we want to see which folders are least used)
+	select lower(substring(name_no_ext,1,1)) as sub_folder1, count(*) as count from images group by sub_folder1 order by count asc
+	-- two-char subfolder
+	select lower(substring(name_no_ext,1,2)) as sub_folder2, count(*) as count from images group by sub_folder2 order by count desc
+	-- three-char subfolder
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images group by sub_folder3 order by count desc
+	-- four-char subfolder
+	select lower(substring(name_no_ext,1,4)) as sub_folder4, count(*) as count from images group by sub_folder4 order by count desc
+	-- five-char subfolder
+	select lower(substring(name_no_ext,1,5)) as sub_folder5, count(*) as count from images group by sub_folder5 order by count desc
+
+	-- WHEN a subfolder shows up at the top of the previous query, see how it needs to be split
+	-- !!! distribution of images in set of subfolders ('ka', 'ni', etc.)
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ka%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ni%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'se%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'sa%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'mi%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ch%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'an%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'ja%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'li%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'al%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'lu%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'da%' group by sub_folder3 order by count desc
+	select lower(substring(name_no_ext,1,3)) as sub_folder3, count(*) as count from images where lower(name_no_ext) like 'na%' group by sub_folder3 order by count desc
+
+	--STOP Tomcat8 SERVICE FIRST
+	--FIRST update DB
+	--move to four-char subfolder
+	update images set sub_folder = 'alzz' where lower(name_no_ext) like 'alzz%'
+	--move to three-char subfolder
+	update images set sub_folder = 'kat' where lower(name_no_ext) like 'kat%'
+	update images set sub_folder = 'kar' where lower(name_no_ext) like 'kar%'
+	update images set sub_folder = 'mar' where lower(name_no_ext) like 'mar%'
+	update images set sub_folder = 'jen' where lower(name_no_ext) like 'jen%'
+	update images set sub_folder = 'car' where lower(name_no_ext) like 'car%'
+	update images set sub_folder = 'ang' where lower(name_no_ext) like 'ang%'
+	update images set sub_folder = 'ale' where lower(name_no_ext) like 'ale%'
+	update images set sub_folder = 'nik' where lower(name_no_ext) like 'nik%'
+	update images set sub_folder = 'jes' where lower(name_no_ext) like 'jes%'
+	update images set sub_folder = 'sar' where lower(name_no_ext) like 'sar%'
+	update images set sub_folder = 'sam' where lower(name_no_ext) like 'sam%'
+	update images set sub_folder = 'mic' where lower(name_no_ext) like 'mic%'
+	update images set sub_folder = 'mia' where lower(name_no_ext) like 'mia%'
+	update images set sub_folder = 'cha' where lower(name_no_ext) like 'cha%'
+	update images set sub_folder = 'ann' where lower(name_no_ext) like 'ann%'
+	update images set sub_folder = 'jan' where lower(name_no_ext) like 'jan%'
+	update images set sub_folder = 'lil' where lower(name_no_ext) like 'lil%'
+	update images set sub_folder = 'ali' where lower(name_no_ext) like 'ali%'
+	update images set sub_folder = 'luc' where lower(name_no_ext) like 'luc%'
+	update images set sub_folder = 'dan' where lower(name_no_ext) like 'dan%'
+	update images set sub_folder = 'nat' where lower(name_no_ext) like 'nat%'
+	update images set sub_folder = 'can' where lower(name_no_ext) like 'can%'
+	update images set sub_folder = 'cas' where lower(name_no_ext) like 'cas%'
+	update images set sub_folder = 'lau' where lower(name_no_ext) like 'lau%'
+	update images set sub_folder = 'lan' where lower(name_no_ext) like 'lan%'
+	update images set sub_folder = 'lex' where lower(name_no_ext) like 'lex%'
+	update images set sub_folder = 'len' where lower(name_no_ext) like 'len%'
+	update images set sub_folder = 'lin' where lower(name_no_ext) like 'lin%'
+	update images set sub_folder = 'liz' where lower(name_no_ext) like 'liz%'
+	update images set sub_folder = 'mil' where lower(name_no_ext) like 'mil%'
+	update images set sub_folder = 'mis' where lower(name_no_ext) like 'mis%'
+	update images set sub_folder = 'san' where lower(name_no_ext) like 'san%'
+	update images set sub_folder = 'sab' where lower(name_no_ext) like 'sab%'
+	update images set sub_folder = 'bri' where lower(name_no_ext) like 'bri%'
+	update images set sub_folder = 'bro' where lower(name_no_ext) like 'bro%'
+
+	--move to one-char subfoler
+	update images set sub_folder = 'u' where lower(name_no_ext) like 'u%'
+	update images set sub_folder = 'y' where lower(name_no_ext) like 'y%'
+	update images set sub_folder = 'w' where lower(name_no_ext) like 'w%'
+	update images set sub_folder = 'o' where lower(name_no_ext) like 'o%'
+	--SECOND move files to new folder on D: (jpg and dat) and B: (jpg only)
+	--see todo.txt for steps to move files (search for !!!IMPORTANT!!! -> do not use windows move command)
+	--THEN RUN "uds.bat" to update image counts
 
 
 -- manual cleanup of image_counts (1)

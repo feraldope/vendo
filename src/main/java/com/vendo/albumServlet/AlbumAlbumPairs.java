@@ -253,7 +253,7 @@ public class AlbumAlbumPairs {
 
 				if (!copyCommandsLtoR.isEmpty()) {
 					AlbumImagePair firstPair = imagePairs.iterator().next();
-					copyCommands.add("REM copy larger images L->R (" + copyCommandsLtoR.size() + "): " + firstPair.getImage1().getBaseName(false) + " " + firstPair.getImage2().getBaseName(false) + " ------------------------------------------------");
+					copyCommands.add("REM copy larger images L->R (" + copyCommandsLtoR.size() + "): " + firstPair.getImage1().getBaseName(false) + " -> " + firstPair.getImage2().getBaseName(false) + " ------------------------------------------------");
 					copyCommands.addAll(copyCommandsLtoR);
 				}
 			}
@@ -274,7 +274,7 @@ public class AlbumAlbumPairs {
 
 				if (!copyCommandsRtoL.isEmpty()) {
 					AlbumImagePair firstPair = imagePairs.iterator().next();
-					copyCommands.add("REM copy larger images R->L (" + copyCommandsRtoL.size() + "): " + firstPair.getImage2().getBaseName(false) + " " + firstPair.getImage1().getBaseName(false) + " ------------------------------------------------");
+					copyCommands.add("REM copy larger images R->L (" + copyCommandsRtoL.size() + "): " + firstPair.getImage2().getBaseName(false) + " -> " + firstPair.getImage1().getBaseName(false) + " ------------------------------------------------");
 					copyCommands.addAll(copyCommandsRtoL);
 				}
 			}
@@ -309,9 +309,6 @@ public class AlbumAlbumPairs {
 							+ " (" + albumPair.getNumberOfImagesInAlbum(1) + ")"
 					);
 				}
-
-				//HACK - let's try this nasty test
-				VendoUtils.myAssert(baseNames.size() == 2, "baseNames.size() == 2"); //do not use Java's assert as it is disabled by default
 
 				String filters = String.join(",", baseNames);
 				AlbumFormInfo form = AlbumFormInfo.getInstance();

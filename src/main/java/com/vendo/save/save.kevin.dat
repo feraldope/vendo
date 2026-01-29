@@ -3,16 +3,16 @@ BirthDate = 4/1998
 RetirementAge = 65
 
 [No. 1]
-Name = ROTH IRA
-Balance = 35000
+Name = Roth IRA
+Balance = 40254
 AnnualContribution = 7500
 GrowthRateOfInvestment = 7
 GrowthRateOfContribution = 1
 
 [No. 2]
-Name = 401(k)
-Balance = 5000
-AnnualContribution = 4000
+Name = Roth 401(k)
+Balance = 6000
+AnnualContribution = 8000
 GrowthRateOfInvestment = 7
 GrowthRateOfContribution = 1
 
@@ -24,9 +24,27 @@ GrowthRateOfInvestment = 6
 GrowthRateOfContribution = 0
 
 
+#NOTES
+#TRowePrice 401(k) is taxable, will be xfered to Fidelity
+#Fidelity 401(k) is Roth
+
+
 #Kevin Vanguard ROTH IRA balances as of 10/15/25
 #VHT    ~3000
 #VBR    ~7900
 #VTI   ~13500
 #VOO   ~10500
 #total ~35000
+
+#Kevin balances as of 01/20/26
+#Vanguard ROTH IRA 
+#VHT        3274
+#VBR        8484
+#VTI       13815
+#VOO       10681
+#subtotal  36254
+#Fidelity ROTH IRA 
+#IXUS       2000
+#ITOT       2000
+#subtotal   4000
+#total     40254

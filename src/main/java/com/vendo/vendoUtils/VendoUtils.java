@@ -10,10 +10,7 @@ import org.apache.logging.log4j.Logger;
 
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
-import java.io.File;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.lang.management.ManagementFactory;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -604,6 +601,37 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public static List<String> executeCommand (String command, Logger log) {
+		Process process;
+		try {
+			process = Runtime.getRuntime ().exec (command);
+		} catch (Exception ee) {
+			log.error("VendoUtils.executeCommand: exception executing \"" + command + "\"");
+			log.error(ee); //print exception, but no stack trace
+			return null;
+		}
+
+		List<String> lines = new ArrayList<>();
+		try (BufferedReader reader = new BufferedReader (new InputStreamReader (process.getInputStream ()))) {
+			String line;
+			while ((line = reader.readLine()) != null) {
+				lines.add(line);
+			}
+
+		} catch (IOException ee) {
+			log.error("VendoUtils.executeCommand: exception reading command output");
+			log.error(ee); //print exception, but no stack trace
+			return null;
+		}
+
+//		if (_Debug) {
+//			log.debug("VendoUtils.executeCommand: command output:" + NL + String.join(NL, lines) + NL);
+//		}
+
+		return lines;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	//simple test to determine if running at home or work
 	public static boolean isWorkEnvironment ()
 	{
@@ -933,9 +961,11 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void myAssert (boolean booleanExpression, String stringExpression) { //be careful using Java's "assert" because it is disabled by default (it is enabled with "enableassertions" arg to JVM)
+	public static void myAssert (boolean booleanExpression, String stringExpression, String message) { //be careful using Java's "assert" because it is disabled by default (it is enabled with "enableassertions" arg to JVM)
 		if (!booleanExpression) {
-			throw new AssertionError("expression \"" + stringExpression + "\" is false" + NL + "at:" + getStackTrace(new Exception()));
+			throw new AssertionError("expression \"" + stringExpression + "\" is false" +
+					(message == null ? "" : " " + message) +
+					" at:" + NL + getStackTrace(new Exception()));
 		}
 	}
 
@@ -972,7 +1002,11 @@ public class VendoUtils
 		final String[] unitSuffixArray = new String[] { text + " ", "K" + text, "M" + text, "G" + text, "T" + text, "P" + text };
 		final DecimalFormat decimalFormat = new DecimalFormat ("#,##0." + StringUtils.repeat("0", precision));
 
-		myAssert(value >= 0., "value >= 0."); //do not use Java's assert as it is disabled by default
+//		myAssert(value >= 0., "value >= 0."); //do not use Java's assert as it is disabled by default
+		if (value < 0) {
+//			return decimalFormat.format(value); //TODO - skipping suffixing for now
+			return Double.toString(value); //TODO - skipping suffixing for now
+		}
 
 		int digitGroups = 0;
 		if (value < 1) {
@@ -987,7 +1021,7 @@ public class VendoUtils
 
 			if (roundButDontScale) {
 				//TODO - rewrite this so it doesn't go: double->string->double->string
-				valueString = decimalFormat.format(Double.parseDouble(valueString) * Math.pow(base, digitGroups)).replaceAll(",", "");
+				valueString = decimalFormat.format(Double.parseDouble(valueString.replaceAll(",", "")) * Math.pow(base, digitGroups)).replaceAll(",", "");
 			} else {
 				valueString += spacing + unitSuffixArray[digitGroups];
 			}
@@ -1043,8 +1077,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getRealPathString (Path file)
-	{
+	public static String getRealPathString (Path file) {
 		String realPath;
 		try {
 			realPath = file.toRealPath ().toString ();
@@ -1059,15 +1092,13 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getCurrentDirectory ()
-	{
+	public static String getCurrentDirectory () {
 		Path file = FileSystems.getDefault ().getPath ("");
 		return file.toAbsolutePath ().toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean isDirectory (String filename)
-	{
+	public static boolean isDirectory (String filename) {
 		boolean isDirectory = false;
 		try {
 			Path file = FileSystems.getDefault ().getPath (filename);
@@ -1083,8 +1114,7 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	//expects full path with wildcard "*" in the name only
 	//returns true if it finds any matches
-	public static boolean fileExistsWild (String wildname)
-	{
+	public static boolean fileExistsWild (String wildname) {
 		boolean fileExists = false;
 
 		try {
@@ -1105,8 +1135,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean fileExists (String filename)
-	{
+	public static boolean fileExists (String filename) {
 		boolean fileExists = false;
 		try {
 			Path file = FileSystems.getDefault ().getPath (filename);
@@ -1120,8 +1149,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean fileExists (Path path)
-	{
+	public static boolean fileExists (Path path) {
 		boolean fileExists = false;
 		try {
 			fileExists = Files.exists (path);
@@ -1134,8 +1162,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getFileNameFromPath (String fullPath)
-	{
+	public static String getFileNameFromPath (String fullPath) {
 		try {
 			Path path = FileSystems.getDefault ().getPath (fullPath);
 			return path.getFileName ().toString ();

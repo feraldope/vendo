@@ -24,7 +24,6 @@ public enum AlbumSortType {
 	ByHash ("Hash", true, false, false),
 	ByRgb ("RGB", true, false, false),
 	ByRandom ("Random", true, false, false);
-//	ByImageNumber ("Image Number", true, false);
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns, boolean comparatorUsesCache) {

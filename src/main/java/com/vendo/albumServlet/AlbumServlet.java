@@ -319,9 +319,9 @@ public class AlbumServlet extends HttpServlet
 			   .append ("<TR>").append (NL)
 
 			   .append ("<TD ALIGN=RIGHT>").append (NL)
-			   .append (inputElement ("Filter 1", "filter1", form.getFilter1 (), filterFieldWidth)).append (_break).append (NL)
-			   .append (inputElement ("Filter 2", "filter2", form.getFilter2 (), filterFieldWidth)).append (_break).append (NL)
-			   .append (inputElement ("Filter 3", "filter3", form.getFilter3 (), filterFieldWidth)).append (_break).append (NL)
+			   .append (inputElement ("Filter 1", "filter1", form.getFilter1 (), filterFieldWidth, !isAndroidDevice)).append (_break).append (NL)
+			   .append (inputElement ("Filter 2", "filter2", form.getFilter2 (), filterFieldWidth, false)).append (_break).append (NL)
+			   .append (inputElement ("Filter 3", "filter3", form.getFilter3 (), filterFieldWidth, false)).append (_break).append (NL)
 			   .append ("</TD>").append (NL);
 
 			StringBuilder sb2 = new StringBuilder (4096);
@@ -347,9 +347,9 @@ public class AlbumServlet extends HttpServlet
 
 			sb3.append ("<TD ALIGN=CENTER>").append (NL)
 //			   .append ("<TD ALIGN=LEFT>").append (NL)
-			   .append (inputElement ("Exclude 1", "exclude1", form.getExclude1 (), excludeFieldWidth)).append (_break).append (NL)
-			   .append (inputElement ("Exclude 2", "exclude2", form.getExclude2 (), excludeFieldWidth)).append (_break).append (NL)
-			   .append (inputElement ("Exclude 3", "exclude3", form.getExclude3 (), excludeFieldWidth)).append (_break).append (NL)
+			   .append (inputElement ("Exclude 1", "exclude1", form.getExclude1 (), excludeFieldWidth, false)).append (_break).append (NL)
+			   .append (inputElement ("Exclude 2", "exclude2", form.getExclude2 (), excludeFieldWidth, false)).append (_break).append (NL)
+			   .append (inputElement ("Exclude 3", "exclude3", form.getExclude3 (), excludeFieldWidth, false)).append (_break).append (NL)
 			   .append ("</TD>").append (NL)
 			   .append ("</TR>").append (NL)
 			   .append ("</TABLE>").append (NL)
@@ -358,7 +358,7 @@ public class AlbumServlet extends HttpServlet
 			   .append ("<TR>").append (NL)
 			   .append ("<TD ALIGN=CENTER>").append (NL)
 
-//			   .append (inputElement ("Extension", "extension", form.getExtension (), 10)) //could make this hidden??
+//			   .append (inputElement ("Extension", "extension", form.getExtension (), 10, false)) //could make this hidden??
 			   .append (radioButtons ("Columns", "columns", form.getColumns (), 1, maxColumns, 4)).append (_break).append (NL)
 			   .append ("</TD>").append (NL)
 			   .append ("</TR>").append (NL)
@@ -374,18 +374,18 @@ public class AlbumServlet extends HttpServlet
 						   )).append (_spacing).append (NL)
 			   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_break).append (NL)
 
-			   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth)).append (_spacing).append (NL)
-//			   .append (inputElement ("Since Days", "sinceDays", form.getSinceDays (), numberFieldWidth)).append (_spacing).append (NL)
-			   .append (inputElement ("Max Filters", "maxFilters", form.getMaxFilters (), numberFieldWidth)).append (_spacing).append (NL)
-			   .append (inputElement ("Highlight Days", "highlightDays", form.getHighlightDays (), numberFieldWidth)).append (_spacing).append (NL)
-//			   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth)).append (_spacing).append (NL)
-			   .append (inputElement ("Max StdDev", "maxStdDev", form.getMaxStdDev (), numberFieldWidth)).append (_spacing).append (NL)
-			   .append (inputElement ("Large Album*", "minImagesToFlagAsLargeAlbum", form.getMinImagesToFlagAsLargeAlbum (), numberFieldWidth)).append (_spacing).append (NL)
-			   .append (inputElement ("Near BorW*", "colorNearlyBlackOrWhite", form.getColorNearlyBlackOrWhite (), numberFieldWidth)).append (_spacing).append (NL)
-//			   .append (inputElement ("Folder", "rootFolder", form.getRootFolder (), 4)).append (_spacing).append (NL)
+			   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth, false)).append (_spacing).append (NL)
+//			   .append (inputElement ("Since Days", "sinceDays", form.getSinceDays (), numberFieldWidth, false)).append (_spacing).append (NL)
+			   .append (inputElement ("Max Filters", "maxFilters", form.getMaxFilters (), numberFieldWidth, false)).append (_spacing).append (NL)
+			   .append (inputElement ("Highlight Days", "highlightDays", form.getHighlightDays (), numberFieldWidth, false)).append (_spacing).append (NL)
+//			   .append (inputElement ("EXIF Date Index", "exifDateIndex", form.getExifDateIndex (), numberFieldWidth, false)).append (_spacing).append (NL)
+			   .append (inputElement ("Max StdDev", "maxStdDev", form.getMaxStdDev (), numberFieldWidth, false)).append (_spacing).append (NL)
+			   .append (inputElement ("Large Album*", "minImagesToFlagAsLargeAlbum", form.getMinImagesToFlagAsLargeAlbum (), numberFieldWidth, false)).append (_spacing).append (NL)
+			   .append (inputElement ("Near BorW*", "colorNearlyBlackOrWhite", form.getColorNearlyBlackOrWhite (), numberFieldWidth, false)).append (_spacing).append (NL)
+//			   .append (inputElement ("Folder", "rootFolder", form.getRootFolder (), 4, false)).append (_spacing).append (NL)
 
-//			   .append (inputElement ("", "slice", 1, 0)) //form submit always sets slice to 1
-			   .append (inputElement ("", "slice", form.getSlice (), 0))
+//			   .append (inputElement ("", "slice", 1, 0, false)) //form submit always sets slice to 1
+			   .append (inputElement ("", "slice", form.getSlice (), 0, false))
 			   .append (checkbox ("Tag Oper OR", "tagFilterOperandOr", form.getTagFilterOperandOr ())).append (_spacing).append (NL)
 			   .append (checkbox ("Collapse Groups", "collapseGroups", form.getCollapseGroups ())).append (_spacing).append (NL)
 			   .append (checkbox ("Limited Compare", "limitedCompare", form.getLimitedCompare ())).append (_spacing).append (NL)
@@ -479,7 +479,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String inputElement (String prompt, String name, String value, int size)
+	private String inputElement (String prompt, String name, String value, int size, boolean setAutoFocus)
 	{
 		//hide control if prompt is empty string
 		boolean isHidden = prompt.length () == 0;
@@ -496,25 +496,27 @@ public class AlbumServlet extends HttpServlet
 		  .append (size)
 		  .append ("\" VALUE=\"")
 		  .append (value)
-		  .append ("\">")
+		  .append ("\"")
+		  .append (setAutoFocus ? " autofocus" : "")
+		  .append (">")
 		  .append (NL);
 
 		return sb.toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String inputElement (String prompt, String name, int value, int size)
+	private String inputElement (String prompt, String name, int value, int size, boolean setAutoFocus)
 	{
 		String num = "";
 		if (value != 0) {
 			num = String.valueOf (value);
 		}
 
-		return (inputElement (prompt, name, num, size));
+		return (inputElement (prompt, name, num, size, setAutoFocus));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String inputElement (String prompt, String name, double value, int size)
+	private String inputElement (String prompt, String name, double value, int size, boolean setAutoFocus)
 	{
 		String num = "";
 		if (value != 0) {
@@ -529,7 +531,7 @@ public class AlbumServlet extends HttpServlet
 			num = num.substring (0, num.length () - 1);
 		}
 
-		return (inputElement (prompt, name, num, size));
+		return (inputElement (prompt, name, num, size, setAutoFocus));
 	}
 
 	///////////////////////////////////////////////////////////////////////////

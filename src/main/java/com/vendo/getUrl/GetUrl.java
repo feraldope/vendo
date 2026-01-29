@@ -265,7 +265,7 @@ public class GetUrl {
 				_numberPrefix = "";
 			}
 
-			setFileType();
+			setFileTypeFromExtension();
 		}
 
 		if (!_TestMode && _fromFilename == null) {
@@ -326,15 +326,10 @@ public class GetUrl {
 			readFromFromFile();
 		}
 
-//		if (_fromFilename == null) {
-			if (!parseModel()) {
-				return false;
-			}
-//		}
-
-		if (_fromFilename != null) {
-			setFileType();
+		if (!parseModel()) {
+			return false;
 		}
+		setFileTypeFromExtension();
 
 		if (!parseOutputPrefix()) {
 			return false;
@@ -384,6 +379,13 @@ public class GetUrl {
 		_fromFileIndex = 0;
 		while (true) {
 			handlePauseAction();
+//			setFileTypeFromExtension();
+			if (_fromFilename != null) {
+				if (!parseModel()) {
+					return false;
+				}
+				setFileTypeFromExtension();
+			}
 			buildTempString();
 
 			if (!knowDigits) {
@@ -472,10 +474,10 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean getUrl() {
-		if (_fromFilename != null) {
-			parseModel();
+//		if (_fromFilename != null) {
+//			parseModel();
 //			_model = _fromFileContents.get(_fromFileIndex);
-		}
+//		}
 
 		buildStrings();
 
@@ -501,6 +503,7 @@ public class GetUrl {
 
 		int totalBytesRead = 0;
 		double imageElapsedNanos = 0;
+		_fileSignature = null;
 
 		int retryCount = _retryCount;
 		int retrySleepStepMillis = 250; //increase sleep time on each failure
@@ -523,6 +526,12 @@ public class GetUrl {
 				while (true) {
 					int imageBytesRead = in.read(bytes, 0, size);
 					if (imageBytesRead > 0) {
+
+						if (_fileSignature == null) {
+							_fileSignature = new byte[4];
+							System.arraycopy(bytes, 0, _fileSignature, 0, 4);
+						}
+
 						totalBytesRead += imageBytesRead;
 						out.write(bytes, 0, imageBytesRead);
 //for testing: force invalid image
@@ -756,10 +765,10 @@ public class GetUrl {
 		switch (_fileType) {
 			default:
 			case Other:
-			case WEBP: //TODO - read first bytes of file and check for signature, like "RIFF....WEBPVP8"
 				return true;
 			case JPG:
 			case PNG:
+			case WEBP:
 				return validImage(filename, imageSize);
 			case MPG:
 			case WMV:
@@ -772,9 +781,15 @@ public class GetUrl {
 	///////////////////////////////////////////////////////////////////////////
 	private boolean validImage(String filename, ImageSize imageSize) {
 		try {
+			setFileTypeFromFileContents(filename);
+
+			if (_fileType == FileType.WEBP) {// || _fileType == FileType.PNG) {
+				return true;
+			}
+
 			BufferedImage image = JpgUtils.readImage(new File(filename));
 
-			if (!JpgUtils.validateImageData(image)) {
+			if (image == null || !JpgUtils.validateImageData(image)) {
 				VendoUtils.printWithColor(_alertColor, "Image corrupt");
 				return false; //image corrupt
 			}
@@ -870,6 +885,41 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private boolean setFileTypeFromFileContents(String filename) {
+		//WEBP - Record 1 of 655 (bytes 0 to 127)
+		//       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+		//0000  52 49 46 46 5A 47 01 00 57 45 42 50 56 50 38 20 RIFFZG..WEBPVP8
+		//
+		//JPG - Record 1 of 978 (bytes 0 to 127)
+		//       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+		//0000  FF D8 FF E0 00 10 4A 46 49 46 00 01 01 00 00 01 ......JFIF......
+		//
+		//PNG - Record 1 of 1301 (bytes 0 to 127)
+		//       0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
+		//0000  89 50 4E 47 0D 0A 1A 0A 00 00 00 0D 49 48 44 52 .PNG........IHDR
+
+		final byte[] signatureJPG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF}; //, (byte) 0xE0}; //only compare first three bytes for JPG
+		final byte[] signaturePNG = {(byte) 0x89, 0x50, 0x4E, 0x47};
+		final byte[] signatureWEBP = {0x52, 0x49, 0x46, 0x46};
+
+		if (compareBytes(_fileSignature, signatureJPG)) {
+			_fileType = FileType.JPG;
+
+		} else if (compareBytes(_fileSignature, signaturePNG)) {
+			_fileType = FileType.PNG;
+
+		} else if (compareBytes(_fileSignature, signatureWEBP)) {
+			_fileType = FileType.WEBP;
+
+		} else {
+			_log.error("setFileTypeFromFileContents: unhandled file type in file: " + filename + " for bytes: " + Arrays.toString(_fileSignature));
+			return true; //unknown type, let it pass
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private static boolean compareBytes(byte[] b0, byte[] b1) {
 		int len = Math.min(b0.length, b1.length);
 
@@ -883,47 +933,12 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//TODO - move to VendoUtils
-	public static Collection<String> executeCommand (String command) {
-		Process process;
-		try {
-			process = Runtime.getRuntime ().exec (command);
-		} catch (Exception ee) {
-			_log.error("executeCommand: exception executing \"" + command + "\"");
-			_log.error(ee); //print exception, but no stack trace
-			return null;
-		}
-
-		Collection<String> lines = new ArrayList<>();
-		try (BufferedReader reader = new BufferedReader (new InputStreamReader (process.getInputStream ()))) {
-			String line;
-			do {
-				line = reader.readLine();
-				if (line != null) { //EOF
-					lines.add(line);
-				}
-			} while (line != null);
-
-		} catch (IOException ee) {
-			_log.error("executeCommand: exception reading command output");
-			_log.error(ee); //print exception, but no stack trace
-			return null;
-		}
-
-//		if (_Debug) {
-//			_log.debug("executeCommand: command output:" + NL + String.join(NL, lines) + NL);
-//		}
-
-		return lines;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
 	private static boolean doWebp (String srcName, String destName) {
 		String command = "C:/libwebp-1.4.0-windows-x64/bin/dwebp.exe \"" + srcName + "\" -o \"" + destName + "\"";
 //		if (_Debug) {
 //			_log.debug("doWebp: command: " + command);
 //		}
-		Collection<String> lines = executeCommand(command);
+		List<String> lines = VendoUtils.executeCommand(command, _log);
 
 		return lines != null; // && !lines.isEmpty();
 	}
@@ -1376,7 +1391,7 @@ public class GetUrl {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private FileType setFileType() {
+	private FileType setFileTypeFromExtension() {
 		String model = _model.toLowerCase();
 
 		if (model.endsWith(".jpg") || model.endsWith(".jpeg")) {
@@ -1700,11 +1715,11 @@ public class GetUrl {
 			String numberStr = parts1[0].replaceAll("\\D+", ""); //replace all non-digits (with empty string)
 
 			int nextNumber = 1 + Integer.parseInt(numberStr);
-			if (_fromFilename == null) {
-				if ((nextNumber % 10) == 0) {
-					nextNumber++;
-				}
-			}
+//			if (_fromFilename == null) {
+//				if ((nextNumber % 10) == 0) {
+//					nextNumber++;
+//				}
+//			}
 
 			String format = "%0" + numberStr.length() + "d";
 
@@ -1843,6 +1858,7 @@ public class GetUrl {
 	private String _tempFilename1 = null; //for original downloaded file
 	private String _tempFilename2 = null; //for intermediate file, if necessary, to convert from WEBP
 	private Instant _globalStartInstant;
+	private byte[] _fileSignature = null;
 	private FileType _fileType = FileType.Other;
 	private SizeDist _sizeDist = new SizeDist ();
 	private PerfStats _perfStats = null;

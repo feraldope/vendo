@@ -3,7 +3,7 @@
 
 <configuration>
 
-<!--
+<!-- by default, this logs way too much stuff (too many TRACEs)
 	<settings>
 		<setting name="logImpl" value="LOG4J2"/>
 	</settings>
@@ -18,12 +18,15 @@
 				<property name="username" value="root"/>
 				<property name="password" value="root"/>
 
-<!--
-				<property name="poolMaximumActiveConnections" value="20" />
--->
+<!-- see also "max_connections=NN" in "C:\Program Files\MariaDB 11.2\data\my.ini" -->
+				<property name="poolMaximumActiveConnections" value="50" />
+
 				<property name="poolPingEnabled" value="true" />
 				<property name="poolPingQuery" value="select 1" />
-				<property name="poolPingConnectionsNotUsedFor" value="1000" />
+				<property name="poolPingConnectionsNotUsedFor" value="1000" /> <!-- timeout value in milliseconds-->
+
+				<property name="poolMaximumCheckoutTime" value="180000" /> <!-- timeout value in milliseconds-->
+				<property name="poolTimeToWait" value="180000" /> <!-- timeout value in milliseconds-->
 			</dataSource>
 		</environment>
 	</environments>
@@ -36,3 +39,21 @@
 	</mappers>
 
 </configuration>
+
+
+<!--
+https://mybatis.org/mybatis-3/configuration.html
+
+POOLED – This implementation of DataSource pools JDBC Connection objects to avoid the initial connection and authentication time required to create a new Connection instance. This is a popular approach for concurrent web applications to achieve the fastest response.
+
+In addition to the (UNPOOLED) properties above, there are many more properties that can be used to configure the POOLED datasource:
+
+    poolMaximumActiveConnections – This is the number of active (i.e. in use) connections that can exist at any given time. Default: 10
+    poolMaximumIdleConnections – The number of idle connections that can exist at any given time.
+    poolMaximumCheckoutTime – This is the amount of time that a Connection can be “checked out” of the pool before it will be forcefully returned. Default: 20000ms (i.e. 20 seconds)
+    poolTimeToWait – This is a low level setting that gives the pool a chance to print a log status and re-attempt the acquisition of a connection in the case that it’s taking unusually long (to avoid failing silently forever if the pool is misconfigured). Default: 20000ms (i.e. 20 seconds)
+    poolMaximumLocalBadConnectionTolerance – This is a low level setting about tolerance of bad connections got for any thread. If a thread got a bad connection, it may still have another chance to re-attempt to get another connection which is valid. But the retrying times should not more than the sum of poolMaximumIdleConnections and poolMaximumLocalBadConnectionTolerance. Default: 3 (Since: 3.4.5)
+    poolPingQuery – The Ping Query is sent to the database to validate that a connection is in good working order and is ready to accept requests. The default is “NO PING QUERY SET”, which will cause most database drivers to fail with a decent error message.
+    poolPingEnabled – This enables or disables the ping query. If enabled, you must also set the poolPingQuery property with a valid SQL statement (preferably a very fast one). Default: false.
+    poolPingConnectionsNotUsedFor – This configures how often the poolPingQuery will be used. This can be set to match the typical timeout for a database connection, to avoid unnecessary pings. Default: 0 (i.e. all connections are pinged every time – but only if poolPingEnabled is true of course).
+-->

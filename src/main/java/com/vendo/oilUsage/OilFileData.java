@@ -41,7 +41,7 @@ public class OilFileData
 	}
 	public void setStartDate (LocalDate startDate)
 	{
-		VendoUtils.myAssert(_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate), "_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate)"); //do not use Java's assert as it is disabled by default
+		VendoUtils.myAssert(_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate), "_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate)", null); //do not use Java's assert as it is disabled by default
 
 		_startDate = startDate;
 	}

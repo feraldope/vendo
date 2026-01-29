@@ -9,6 +9,7 @@ import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.iptc.IptcDirectory;
 import com.drew.metadata.xmp.XmpDirectory;
 import com.vendo.jpgUtils.JpgUtils;
+import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
@@ -30,8 +31,8 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 public class AlbumImage implements Comparable<AlbumImage>
@@ -135,7 +136,8 @@ public class AlbumImage implements Comparable<AlbumImage>
 				_log.error ("AlbumImage ctor: error reading file attributes \"" + _imagePath + nameWithExt + "\"", ee);
 
 			} finally {
-				VendoUtils.myAssert(attrs != null, "attrs != null"); //do not use Java's assert as it is disabled by default
+//_log.debug ("DEBUG DEBUG DEBUG DEBUG - AlbumImage ctor: in finally block");
+				VendoUtils.myAssert(attrs != null, "attrs != null", "for: " + _file.getPath()); //do not use Java's assert as it is disabled by default
 				_numBytes = attrs.size ();
 				_modified = attrs.lastModifiedTime ().toMillis (); //millisecs
 			}
@@ -265,7 +267,6 @@ public class AlbumImage implements Comparable<AlbumImage>
 				  .append(exifDateString);
 			}
 
-//			String tagStr = AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups);
 			String tagStr = getTagString(collapseGroups);
 			if (tagStr.length() != 0) {
 				sb.append(HtmlNewline)
@@ -409,13 +410,19 @@ public class AlbumImage implements Comparable<AlbumImage>
 	{
 		if (!collapseGroups) {
 			if (_tagString1 == null) {
-				_tagString1 = String.join(", ", AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups));
+				String baseName1 = getBaseName (collapseGroups);
+				String baseName2 = baseName1.replaceAll("[0-9]+$", "+");
+
+				List <String> tagStrings = AlbumTags.getInstance ().getTagsForBaseName (baseName1, collapseGroups, false);
+				//HACK - query again against raw table (tags is broken; this is a workaround)
+				tagStrings.addAll(AlbumTags.getInstance ().getTagsForBaseName (baseName2, collapseGroups, true));
+				_tagString1 = tagStrings.stream().sorted(new AlphanumComparator()).distinct().collect(Collectors.joining(", "));
 			}
 			return _tagString1;
 
 		} else { //collapseGroups
 			if (_tagString2 == null) {
-				_tagString2 = String.join(", ", AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups));
+				_tagString2 = String.join(", ", AlbumTags.getInstance ().getTagsForBaseName (getBaseName (collapseGroups), collapseGroups, false));
 			}
 			return _tagString2;
 		}
@@ -427,32 +434,10 @@ public class AlbumImage implements Comparable<AlbumImage>
 		return _subFolder;
 	}
 
-//remove "helper" method; just have callers call DAO method directly
-	///////////////////////////////////////////////////////////////////////////
-//	public static String getSubFolderFromName (String name)
-//	{
-//		return AlbumImageDao.getInstance ().getSubFolderFromImageName (name);
-//	}
-
 	///////////////////////////////////////////////////////////////////////////
 	public String getImagePath ()
 	{
 		return _imagePath;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	// getName() returns string in form: <image name><album number>-<image number>.<extension>
-	public int getImageNumber ()
-	{
-		int imageNumber = -1;
-
-		final Pattern pattern = Pattern.compile ("-(\\d+)");
-		Matcher matcher = pattern.matcher (getName());
-		if (matcher.find ()) {
-			imageNumber = Integer.parseInt(matcher.group (1));
-		}
-
-		return imageNumber;
 	}
 
 	///////////////////////////////////////////////////////////////////////////

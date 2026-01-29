@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -30,15 +31,13 @@ import java.util.stream.Collectors;
 public class AlbumTags
 {
 	///////////////////////////////////////////////////////////////////////////
-	static
-	{
+	static {
 		Thread.setDefaultUncaughtExceptionHandler (new AlbumUncaughtExceptionHandler ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//entry point for "update tags database" feature
-	public static void main (String[] args)
-	{
+	public static void main (String[] args) {
 //TODO - change CLI to read properties file, too
 
 		AlbumFormInfo.getInstance (); //call ctor to load class defaults
@@ -52,7 +51,7 @@ public class AlbumTags
 		AlbumFormInfo._logLevel = 5;
 		AlbumFormInfo._profileLevel = 0; //enable profiling just before calling run0()
 
-//		AlbumProfiling.getInstance ().enter/*AndTrace*/ (1); //called in run1()
+//		AlbumProfiling.getInstance ().enter/*AndTrace*/ (1); //called in processTagsFile()
 
 		AlbumTags albumTags = AlbumTags.getInstance ();
 
@@ -68,18 +67,17 @@ public class AlbumTags
 			_log.error ("AlbumTags.main: ", ee);
 		}
 
-//		AlbumProfiling.getInstance ().exit (1); //called in run1()
+//		AlbumProfiling.getInstance ().exit (1); //called in processTagsFile()
 
 		AlbumImages.shutdownExecutor ();
 
 //		if (_databaseNeedsUpdate || _checkForOrphanFilters) {
-//			AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true); //called in run1()
+//			AlbumProfiling.getInstance ().print (/*showMemoryUsage*/ true); //called in processTagsFile()
 //		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String[] args)
-	{
+	private Boolean processArgs (String[] args) {
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
 
@@ -113,6 +111,18 @@ public class AlbumTags
 
 				} else if (arg.equalsIgnoreCase ("resetTables") || arg.equalsIgnoreCase ("reset")) {
 					_resetTables = true;
+
+				} else if (arg.equalsIgnoreCase ("startupDelayInSeconds")) {
+					try {
+						_startupDelayInSeconds = Integer.parseInt (args[++ii]);
+						if (_startupDelayInSeconds < 0) {
+							throw (new NumberFormatException());
+						}
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage ("Missing values for /" + arg, true);
+					} catch (NumberFormatException exception) {
+						displayUsage ("Invalid value for /" + arg + " '" + args[ii] + "'", true);
+					}
 
 				} else if (arg.equalsIgnoreCase ("tagFilename") || arg.equalsIgnoreCase ("tagFile")) {
 					try {
@@ -164,14 +174,13 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
+	private void displayUsage (String message, Boolean exit) {
 		String msg = "";
 		if (message != null) {
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " /tagFilename <file> [/debug] [/batchInsertSize <rows>] [/checkForOrphans] [/continuous] [/dumpTagData] [/resetTables] [/tagPatternString]";
+		msg += "Usage: " + _AppName + " /tagFilename <file> [/debug] [/batchInsertSize <rows>] [/checkForOrphans] [/continuous] [/dumpTagData] [/resetTables] [/startupDelayInSeconds] [/tagPatternString]";
 		System.err.println ("Error: " + msg + NL);
 
 		if (exit) {
@@ -181,8 +190,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public static AlbumTags getInstance()
-	{
+	public static AlbumTags getInstance() {
 		if (_instance == null) {
 			synchronized (AlbumTags.class) {
 				if (_instance == null) {
@@ -195,17 +203,15 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private AlbumTags () //singleton
-	{
+	private AlbumTags () { //singleton
 		if (AlbumFormInfo._logLevel >= 9) {
 			_log.debug ("AlbumTags ctor");
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void run0 ()
-	{
-		run1 ();
+	private void run0 () {
+		processTagsFile ();
 
 		if (!_runContinuous) {
 			return;
@@ -234,7 +240,7 @@ public class AlbumTags
 
 					if (pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_MODIFY) ||
 						pathEvent.kind ().equals (StandardWatchEventKinds.ENTRY_CREATE)) {
-						run1 ();
+						processTagsFile ();
 					}
 				}
 
@@ -257,36 +263,41 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void run1 ()
-	{
+	private void processTagsFile () {
+		if (_startupDelayInSeconds > 0) {
+			_log.debug ("AlbumTagServer.run: startupDelay: sleeping " + _startupDelayInSeconds + " seconds");
+			VendoUtils.sleepMillis (_startupDelayInSeconds * 1000); //HACK - try to give AlbumImageDao some time to finish starting
+			_startupDelayInSeconds = 0;
+		}
+
 		AlbumProfiling.getInstance ().enterAndTrace (5);
 
 		RowCounts initialCounts = new RowCounts ();
 
 		if (!databaseNeedsUpdate () && !_dumpTagData && !_resetTables && !_checkForOrphanFilters) {
-			_log.debug ("AlbumTags.run1: no changes: skipping update");
+			_log.debug ("AlbumTags.processTagsFile: no changes: skipping update");
 
 			AlbumProfiling.getInstance ().exit (5);
 
 			if (_Debug) {
 ///				AlbumProfiling.getInstance ().print (true);
-				_log.debug ("--------------- AlbumTags.run1 - done ---------------");
+				_log.debug ("--------------- AlbumTags.processTagsFile - done ---------------");
 			}
 
 			return;
 		}
 
-		_log.debug ("AlbumTags.run1: running update...");
+		_log.debug ("AlbumTags.processTagsFile: running update...");
 
 		generateAlbumBase1NameMap ();
 
 		Map<String, Set<String>> tagFileMap = readTagFile (_tagFilename, _tagPatternString);
-//		_log.debug ("AlbumTags.run1: tagFileMap.size() = " + tagFileMap.size ());
+//		_log.debug ("AlbumTags.processTagsFile: tagFileMap.size() = " + tagFileMap.size ());
 
 		Map<String, Set<String>> tagDatabaseMap = null;
 		if (!_resetTables) {
 			tagDatabaseMap = readTagDatabase ();
-//			_log.debug ("AlbumTags.run1: tagDatabaseMap.size() = " + tagDatabaseMap.size ());
+//			_log.debug ("AlbumTags.processTagsFile: tagDatabaseMap.size() = " + tagDatabaseMap.size ());
 
 			//log new tags
 			Collection<String> newTags = VendoUtils.subtractCollections (tagFileMap.keySet (), tagDatabaseMap.keySet ());
@@ -305,20 +316,20 @@ public class AlbumTags
 		tagFileKeys.sort (VendoUtils.caseInsensitiveStringComparator);
 
 		for (String tag : tagFileKeys) {
-//			_log.debug ("AlbumTags.run1: processing tag = \"" + tag + "\"");
+//			_log.debug ("AlbumTags.processTagsFile: processing tag = \"" + tag + "\"");
 
 			Collection<String> newFilters = tagFileMap.get (tag);
 
 			if (!_resetTables) {
 				//log removed filters
 				Collection<String> oldFilters = tagDatabaseMap.get (tag);
-				oldFilters = VendoUtils.subtractCollections (oldFilters, tagFileMap.get (tag));
+				oldFilters = VendoUtils.subtractCollections (oldFilters, tagFileMap.get (tag)).stream().sorted().collect(Collectors.toList());
 				if (oldFilters.size () > 0) {
 					printWithColor (_warningColor, "removed " + oldFilters.size () + " old filters for tag: " + tag + ": " + oldFilters);
 				}
 
 				//determine any new filters: if tag exists in database map, remove all the values it contains
-				newFilters = VendoUtils.subtractCollections (newFilters, tagDatabaseMap.get (tag));
+				newFilters = VendoUtils.subtractCollections (newFilters, tagDatabaseMap.get (tag)).stream().sorted().collect(Collectors.toList());
 				if (newFilters.size () > 0) {
 					printWithColor (_highlightColor, "found " + newFilters.size () + " new filters for tag: " + tag + ": " + newFilters);
 				}
@@ -345,14 +356,14 @@ public class AlbumTags
 		RowCounts finalCounts = new RowCounts ();
 		RowCounts diffCounts = new RowCounts (finalCounts).subtract (initialCounts);
 
-		_log.debug ("AlbumTags.run1: final counts:");
-		_log.debug ("AlbumTags.run1: tags: " + _decimalFormat1.format (diffCounts._numTags) + " -> " + _decimalFormat2.format (finalCounts._numTags));
-		_log.debug ("AlbumTags.run1: base1_names: " + _decimalFormat1.format (diffCounts._numBase1Names) + " -> " + _decimalFormat2.format (finalCounts._numBase1Names));
-		_log.debug ("AlbumTags.run1: base2_names: " + _decimalFormat1.format (diffCounts._numBase2Names) + " -> " + _decimalFormat2.format (finalCounts._numBase2Names));
-		_log.debug ("AlbumTags.run1: raw_names: " + _decimalFormat1.format (diffCounts._numRawNames) + " -> " + _decimalFormat2.format (finalCounts._numRawNames));
-		_log.debug ("AlbumTags.run1: base1_names_tags: " + _decimalFormat1.format (diffCounts._numBase1NamesTags) + " -> " + _decimalFormat2.format (finalCounts._numBase1NamesTags));
-		_log.debug ("AlbumTags.run1: base2_names_tags: " + _decimalFormat1.format (diffCounts._numBase2NamesTags) + " -> " + _decimalFormat2.format (finalCounts._numBase2NamesTags));
-		_log.debug ("AlbumTags.run1: raw_names_tags: " + _decimalFormat1.format (diffCounts._numRawNamesTags) + " -> " + _decimalFormat2.format (finalCounts._numRawNamesTags));
+		_log.debug ("AlbumTags.processTagsFile: final counts:");
+		_log.debug ("AlbumTags.processTagsFile: tags: " + _decimalFormat1.format (diffCounts._numTags) + " -> " + _decimalFormat2.format (finalCounts._numTags));
+		_log.debug ("AlbumTags.processTagsFile: base1_names: " + _decimalFormat1.format (diffCounts._numBase1Names) + " -> " + _decimalFormat2.format (finalCounts._numBase1Names));
+		_log.debug ("AlbumTags.processTagsFile: base2_names: " + _decimalFormat1.format (diffCounts._numBase2Names) + " -> " + _decimalFormat2.format (finalCounts._numBase2Names));
+		_log.debug ("AlbumTags.processTagsFile: raw_names: " + _decimalFormat1.format (diffCounts._numRawNames) + " -> " + _decimalFormat2.format (finalCounts._numRawNames));
+		_log.debug ("AlbumTags.processTagsFile: base1_names_tags: " + _decimalFormat1.format (diffCounts._numBase1NamesTags) + " -> " + _decimalFormat2.format (finalCounts._numBase1NamesTags));
+		_log.debug ("AlbumTags.processTagsFile: base2_names_tags: " + _decimalFormat1.format (diffCounts._numBase2NamesTags) + " -> " + _decimalFormat2.format (finalCounts._numBase2NamesTags));
+		_log.debug ("AlbumTags.processTagsFile: raw_names_tags: " + _decimalFormat1.format (diffCounts._numRawNamesTags) + " -> " + _decimalFormat2.format (finalCounts._numRawNamesTags));
 
 		if (_checkForOrphanFilters) {
 			checkForOrphanFilters (tagFileMap);
@@ -363,7 +374,7 @@ public class AlbumTags
 //		if (_runContinuous && _Debug) {
 		if (_Debug) {
 			AlbumProfiling.getInstance ().print (true);
-			_log.debug ("--------------- AlbumTags.run1 - done ---------------");
+			_log.debug ("--------------- AlbumTags.processTagsFile - done ---------------");
 		}
 	}
 
@@ -502,6 +513,21 @@ public class AlbumTags
 			String tag = parts[0].trim ();
 			String[] filterArray = parts[1].split (", "); //require comma+space as separator
 
+			//check here before 'fixing' below
+			checkForNotMalformedFilters (filterArray); //prints any malformed filters
+
+			//make sure every tag has a valid termination (if not digit, ']', '*' or already '+', then append a '+')
+			final Predicate<String> suffixes = Pattern.compile(".*[+\\d\\]*]$").asPredicate ();
+			filterArray = Arrays.stream(filterArray)
+					.map(s -> {
+						if (!suffixes.test(s)) {
+							return s + "+";
+						}
+						return s;
+					})
+					.collect(Collectors.toList())
+					.toArray(new String[] {});
+
 			checkForEmptyFilters (tag, filterArray);
 			checkForIncorrectSorting (tag, filterArray);
 			checkForDuplicateEntries (tag, filterArray);
@@ -533,22 +559,23 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Map<String, Set<String>> readTagDatabase ()
+	private Map<String, Set<String>> readTagDatabase()
 	{
-		AlbumProfiling.getInstance ().enter (5);
+		AlbumProfiling.getInstance().enter(5);
 
-		final Map<String, Set<String>> tagDatabaseMap = new HashMap<> ();
+		final Map<String, Set<String>> tagDatabaseMap = new HashMap<>();
 
 		String sql = "select tag, filters from tags_filters";
-		final Map<String, String> tempMap = getStringMapFromDatabase (sql);
+		final Map<String, String> tempMap = getStringMapFromDatabase(sql);
 
-		for (String tag : tempMap.keySet ()) {
-			String[] filterArray = tempMap.get (tag).split (", "); //require comma+space as separator
+		for (String tag : tempMap.keySet()) {
+			String[] filterArray = tempMap.get(tag).split(", "); //require comma+space as separator
 			Set<String> filters = new HashSet<> (Arrays.asList (filterArray));
-			tagDatabaseMap.put (tag, filters);
+
+			tagDatabaseMap.put(tag, filters);
 		}
 
-		AlbumProfiling.getInstance ().exit (5);
+		AlbumProfiling.getInstance().exit(5);
 
 		return tagDatabaseMap;
 	}
@@ -576,10 +603,15 @@ public class AlbumTags
 			Thread thread = new Thread (() -> {
 				final List<String> outFilterList = new ArrayList<> ();
 				for (String inFilter : inFilterSet) {
-					if (checkForMalformedFilter (inFilter)) {
-						String firstCharsLower = AlbumImageDao.getInstance ().getSubFolderFromImageName (inFilter);
-						if (subFolder.compareTo (firstCharsLower) == 0 || "*".compareTo (firstCharsLower) == 0) {
-							outFilterList.add (inFilter);
+					if (checkForNotMalformedFilter (inFilter)) {
+						String firstCharsLower = AlbumImageDao.getInstance().getSubFolderFromImageName(inFilter);
+						if (firstCharsLower != null) {
+//							if (subFolder.compareTo (firstCharsLower) == 0 || "*".compareTo (firstCharsLower) == 0) {
+							if (subFolder.compareTo(firstCharsLower) == 0 || "*".compareTo(inFilter) == 0) {
+								outFilterList.add(inFilter);
+							}
+						} else {
+							_log.error ("AlbumTags.generateTagData: " + subFolder + ": " + tag + ": no matching subFolder found for filter \"" + inFilter + "\"");
 						}
 					} else {
 						_log.error ("AlbumTags.generateTagData: " + subFolder + ": " + tag + ": ignoring malformed filter \"" + inFilter + "\"");
@@ -623,7 +655,7 @@ public class AlbumTags
 					final String[] filters = filterStrings.toArray (new String[] {});
 					final AlbumFileFilter filter = new AlbumFileFilter (filters, null, false, 0);
 
-					checkForMalformedFilters (filters); //prints any malformed filters
+					checkForNotMalformedFilters (filters); //prints any malformed filters
 
 					synchronized (filterMap) {
 						filterMap.put (subFolder, filter);
@@ -869,13 +901,13 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void checkForMalformedFilters (String[] filters) {
+	private void checkForNotMalformedFilters (String[] filters) {
 //Note this process could be improved by de-duplicating the list before checking for patterns -- but it seems fast enough that it might not be worth it
 
-//		_log.debug ("AlbumTags.checkForMalformedFilters: filters = " + VendoUtils.arrayToString (filters));
+//		_log.debug ("AlbumTags.checkForNotMalformedFilters: filters = " + VendoUtils.arrayToString (filters));
 
 		for (String filter : filters) {
-			if (!checkForMalformedFilter (filter)) {
+			if (!checkForNotMalformedFilter (filter)) {
 				printWithColor(_alertColor, "malformed filter: " + filter);
 			}
 		}
@@ -883,9 +915,9 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns false if malformed
-	private boolean checkForMalformedFilter (String filter)
+	private boolean checkForNotMalformedFilter (String filter)
 	{
-//		_log.debug ("AlbumTags.checkForMalformedFilter: filter = " + filters);
+//		_log.debug ("AlbumTags.checkForNotMalformedFilter: filter = " + filters);
 
 		final String whiteList = "[0-9A-Za-z\\+\\[\\]\\*]"; //all valid characters
 
@@ -894,8 +926,9 @@ public class AlbumTags
 
 		final Pattern badPattern1 = Pattern.compile (".*[A-Z]$"); //bad: ends with uppercase letter
 		final Pattern badPattern2 = Pattern.compile (".*[0-9].*[A-Za-z]"); //bad: any letters follow any numbers
-		final Pattern badPattern3 = Pattern.compile (".*[\\+\\*].*[\\+\\*].*"); //bad: more than one plus sign or asterisk
+		final Pattern badPattern3 = Pattern.compile (".*[+*].*[+*].*"); //bad: more than one plus sign or asterisk
 		final Pattern badPattern4 = Pattern.compile (".*\\+[0-9A-Za-z].*"); //bad: any alpha or number following plus sign
+		final Pattern badPattern5 = Pattern.compile (".*[A-Z][a-z]$"); //bad: ends with uppercase then lowercase letter
 
 		boolean status = true;
 
@@ -918,9 +951,10 @@ public class AlbumTags
 		boolean bad2 = badPattern2.matcher (filter).matches ();
 		boolean bad3 = badPattern3.matcher (filter).matches ();
 		boolean bad4 = badPattern4.matcher (filter).matches ();
+		boolean bad5 = badPattern5.matcher (filter).matches ();
 
 		//none of these must be true
-		if (bad1 || bad2 || bad3 || bad4) {
+		if (bad1 || bad2 || bad3 || bad4 || bad5) {
 			status = false;
 		}
 
@@ -1670,20 +1704,23 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string on error, or if no entries found
-	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups)
+	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups, boolean queryRawTable)
 	{
 		List<String> baseNames = new ArrayList<> ();
 		baseNames.add (baseName);
-		return getTagsForBaseNames (baseNames, collapseGroups);
+		return getTagsForBaseNames (baseNames, collapseGroups, queryRawTable);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string on error, or if no entries found
-	public List<String> getTagsForBaseNames (Collection<String> baseNames, boolean collapseGroups)
+	public List<String> getTagsForBaseNames (Collection<String> baseNames, boolean collapseGroups, boolean queryRawTable)
 	{
 		AlbumProfiling.getInstance ().enter (5);
 
 		String tablePrefix = (collapseGroups ? "base2" : "base1");
+		if (queryRawTable) {
+			tablePrefix = "raw";
+		}
 
 		String sql1 = "select distinct tag" + NL +
 					  "from " + tablePrefix + "_names bn" + NL +
@@ -1710,8 +1747,10 @@ public class AlbumTags
 				ps.setString (++baseNameIndex, baseName);
 			}
 
-//			String finalSql = ps.toString ().replaceFirst (" ", NL);
-//			_log.debug ("AlbumTags.getTagsForBaseNames: sql: " + finalSql);
+			if (AlbumFormInfo._logLevel >= 15) {
+				String finalSql = ps.toString().replaceFirst(" ", NL);
+				_log.debug("AlbumTags.getTagsForBaseNames: sql: " + finalSql);
+			}
 
 			rs = ps.executeQuery ();
 
@@ -2169,6 +2208,7 @@ public class AlbumTags
 	//members
 	private boolean _dumpTagData = false;
 	private boolean _resetTables = false;
+	private int _startupDelayInSeconds = 0; //during Tomcat service startup, use this to wait for AlbumImageServer to start
 
 	private static boolean _runContinuous = false; //static so it can be accessed from main()
 	private static boolean _checkForOrphanFilters = false; //static so it can be accessed from main()
@@ -2199,7 +2239,7 @@ public class AlbumTags
 	private static final String _tagMarker2 = " == ";
 	private static final String _noTagsTag = "[no tags]";
 	private static final String _noTattoosTag = "[no tattoos]";
-	private static final String _wildTagsTag = "*";
+	private static final String _wildTagsTag = "[has note]";
 
 	private static final String NL = System.getProperty ("line.separator");
 	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("+###,##0;-###,##0"); //format integer with +/- sign

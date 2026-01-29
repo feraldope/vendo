@@ -578,7 +578,7 @@ public final class JHistory {
 //TODO - create helper method:
 //	Elements elements = documentSelect (UrlData urlData, Document document, String cssQuery, String attributeKey, ...);
 
-//first attempt
+//first attempt (if Mode3)
 			Elements elements; //debugging
 			if (_operatingMode == OperatingMode.Mode3) {
 				elements = document.select("img"); //debugging
@@ -652,7 +652,7 @@ public final class JHistory {
 						.filter(s ->
 								(_operatingMode == OperatingMode.Mode1 && (s.contains("/galleries/") || s.contains("/picz/") || s.contains("/pic/"))) //TODO - add components here
 								||
-								(_operatingMode == OperatingMode.Mode2 && (s.contains("/pic/") || s.contains("/uploads/") /*|| s.matches(".*-\\d+/$")*/))
+								(_operatingMode == OperatingMode.Mode2 && (s.contains("/pic/") || s.contains("/picture/") || s.contains("/uploads/") /*|| s.matches(".*-\\d+/$")*/))
 								||
 								(_operatingMode == OperatingMode.Mode3 && (s.contains("/uploads/") || hasImageExtension.test(s))))
 						.filter(s -> !s.contains("/287586/")) //HACK - this gets rid of one who will not be named

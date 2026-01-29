@@ -2,15 +2,18 @@ package com.vendo.jRetirement;
 
 
 /* This is how IRA distributions are presented:
-C:\Users\david\OneDrive\Documents\Fidelity\Accounts_History_2024-Q4.csv
+C:\Users\%USERNAME%\OneDrive\Documents\Fidelity\Accounts_History_2024-Q4.csv
  10/01/2024,"Rollover IRA" 242813142," STATE TAX W/H MA STAT WTH (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-2000,
  10/01/2024,"Rollover IRA" 242813142," FED TAX W/H FEDERAL TAX WITHHELD (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-4000,
  10/01/2024,"Rollover IRA" 242813142," NORMAL DISTR PARTIAL VS X64-835730-1 CASH (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-34000,
 
-C:\Users\david\OneDrive\Documents\Fidelity\Accounts_History_2025-Q1.csv
+C:\Users\%USERNAME%\OneDrive\Documents\Fidelity\Accounts_History_2025-Q1.csv
  04/02/2025,"Traditional IRA","239971099"," STATE TAX W/H MA STAT WTH ED68394242 /WEB (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-1000,
  04/02/2025,"Traditional IRA","239971099"," FED TAX W/H RET FED WTH ED68394242 /WEB (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-3000,
  04/02/2025,"Traditional IRA","239971099"," NORMAL DISTR PARTIAL ED68394242 /WEB (Cash)", ," No Description",Cash,0,,0.000,USD,,0,,,,-16000,
+
+Example command to find them (for 2025)
+C:\Users\david\OneDrive\Documents\Fidelity> search /q /o Accounts_History*csv TAX DISTR | grep 2025 | sorti /u
 * */
 
 import com.opencsv.bean.CsvToBean;
@@ -66,8 +69,9 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected Boolean processArgs(String[] args) {
+		String userName = System.getProperty ("user.name");
 		String filenamePatternString = "Portfolio_Positions_*.csv";
-		String sourceRootName = "C:\\Users\\david\\OneDrive\\Documents\\Fidelity\\";
+		String sourceRootName = "C:/Users/" + userName + "/david/OneDrive/Documents/Fidelity/";
 
 		for (int ii = 0; ii < args.length; ii++) {
 			String arg = args[ii];
@@ -192,7 +196,7 @@ public /*final*/ class JRetirement {
 		}
 
 		List<CsvFundsBean> records = processFile(sourcePath);
-		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
+		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
 		final Instant dateDownloaded = parseDateDownloadedField(dateDownloadedList);
 		records.forEach(r -> r.setDateDownloaded(dateDownloaded));
@@ -271,7 +275,7 @@ public /*final*/ class JRetirement {
 		List<CsvFundsBean> records;
 		try {
 			records = generateFilteredRecordList(inputCsvFilePath, true);
-			VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
+			VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
 			//data integrity check - we should have 4 or more accounts in the file
 			final int expectedAccounts = 4; //hardcoded
@@ -315,6 +319,7 @@ public /*final*/ class JRetirement {
 			double totalCash = 0;
 			double totalEquity = 0;
 			double totalHealth = 0;
+			double totalInternational = 0;
 			double totalActive = 0;
 			double totalIndex = 0;
 			double totalRoth = 0;
@@ -361,7 +366,17 @@ public /*final*/ class JRetirement {
 //						+ "." + fund.getManagementStyle()
 						+ "." + fund.getCategory();
 
-				groupBy = fund.getFundTheme().toString();
+				groupBy = ""
+//						+ "[" + fund.getExpenseRatio() + "] "
+//						+ "[" + fundOwner + "] "
+						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
+						+ " => " + fund.getFundFamily()
+//						+ "." + fundOwner
+//						+ "." + fund.getFundType()
+//						+ "." + fund.getManagementStyle()
+						+ "." + fund.getCategory();
+
+//				groupBy = fund.getFundTheme().toString();
 
 				Double balance = balancesByGroupingMap.computeIfAbsent(groupBy, k -> 0.); //if key not present, balance is 0.
 
@@ -380,6 +395,10 @@ public /*final*/ class JRetirement {
 
 				if (fund.isHealth()) {
 					totalHealth += record.getCurrentValue();
+				}
+
+				if (fund.isInternational()) {
+					totalInternational += record.getCurrentValue();
 				}
 
 				if (fund.isActive()) {
@@ -443,6 +462,7 @@ public /*final*/ class JRetirement {
 				double percentCash = 100 * totalCash / totalAllFunds;
 				double percentEquity = 100 * totalEquity / totalAllFunds;
 				double percentHealth = 100 * totalHealth / totalAllFunds;
+				double percentInternational = 100 * totalInternational / totalAllFunds;
 				double percentActive = 100 * totalActive / totalAllFunds;
 				double percentIndex = 100 * totalIndex / totalAllFunds;
 				double percentRoth = 100 * totalRoth / totalAllFunds;
@@ -451,6 +471,7 @@ public /*final*/ class JRetirement {
 				totals.add(new FundResult("Total Cash/CDs", totalCash, percentCash, foundPendingActivity ? " <<< adjusted for " + PendingActivityString : ""));
 				totals.add(new FundResult("Total Equity", totalEquity, percentEquity));
 				totals.add(new FundResult("Total Health", totalHealth, percentHealth));
+				totals.add(new FundResult("Total International", totalInternational, percentInternational));
 				totals.add(new FundResult("Total Active", totalActive, percentActive));
 				totals.add(new FundResult("Total Index", totalIndex, percentIndex));
 				if (percentRoth != 0. && percentRoth != 100.) { //hack
@@ -593,7 +614,13 @@ public /*final*/ class JRetirement {
 
 		AtomicInteger currentLineNumber = new AtomicInteger(0);
 		List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8).stream()
-			.map(l -> currentLineNumber.incrementAndGet() == 1 ? repairFileHeaderLine(l) : l)
+			.map(l -> {
+				if (currentLineNumber.incrementAndGet() == 1) {
+					return repairAndVerifyFileHeaderLine(l);
+				} else {
+					return repairDataLines(l);
+				}
+			})
 			.map(l -> l.toLowerCase().contains(PendingActivityString.toLowerCase()) ? repairPendingActivityLine(l) : l) //HACK
 			.filter(l -> {
 				boolean keepLine = true;
@@ -652,11 +679,29 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	//remove unicode character at beginning of CSV file that prevents successful parsing of first column
-	protected String repairFileHeaderLine(String line) {
+	//also verify the number of commas is as expected
+	protected String repairAndVerifyFileHeaderLine(String line) {
 		final int ZWNBSP = '\uFEFF'; //ZWNBSP (unicode zero-width no-break space) a.k.a. BOM (byte-order-mark) character
 		if (!line.isEmpty() && line.charAt(0) == ZWNBSP) {
 			line = line.substring(1);
 		}
+
+		if (csvExpectedCommas != countCommas(line)) {
+			throw new RuntimeException("Error: number of commas in header line (" + countCommas(line) + ") does not equal the expected number (" + csvExpectedCommas + ").");
+		}
+
+		return line;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//this "repair" hack is because sometimes the data lines have extra unexpected commas at the end
+	protected String repairDataLines(String line) {
+		if (countCommas(line) > csvExpectedCommas) {
+			if (line.endsWith(",")) {
+				line = line.substring(0, line.length() - 1);
+			}
+		}
+
 		return line;
 	}
 
@@ -709,7 +754,7 @@ public /*final*/ class JRetirement {
 				.toFormatter();
 
 		//go ahead and throw an exception if any of this fails
-		VendoUtils.myAssert(dateDownloadedList.size() == 1, "dateDownloadedList.size() == 1"); //there must be only one (do not use Java's assert as it is disabled by default)
+		VendoUtils.myAssert(dateDownloadedList.size() == 1, "dateDownloadedList.size() == 1", null); //there must be only one (do not use Java's assert as it is disabled by default)
 		String dateString = dateDownloadedList.get(0)
 				.replaceAll(DateDownloadedString, "")
 				.replaceAll("[\".]", "") //remove quotes and any errant periods
@@ -723,10 +768,12 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected void generatePlotFile(List<AggregateRecord> records) throws Exception {
-		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
+		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
-		final int yMax = 2600000; //TODO - calculate!
-		final int yMin = yMax - 1000000; //TODO - calculate!
+		final int yMax = 2_250_000; //TODO - calculate!
+		final int yMin = yMax - 250_000; //TODO - calculate!
+
+		final int days = 120; //180;
 
 		String timestamp = dateTimeFormatter.format (Instant.now());
 
@@ -741,7 +788,7 @@ public /*final*/ class JRetirement {
 //			"xAxisDataType=monthOfDecade", //TODO
 			"xAxisDataType=normal",
 			"xAxisSkipTicks=30", //30 days ~ one month
-			"xAxisLabel=Date",
+			"xAxisLabel=Date (" + days + " days)",
 
 			"yTransform=linear",
 			"yAxisDataType=normal",
@@ -756,7 +803,6 @@ public /*final*/ class JRetirement {
 			out.println();
 			out.println("[Total]");
 
-			final int days = 180;
 			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
 			records.stream()
 				   .filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
@@ -779,7 +825,7 @@ public /*final*/ class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected void printHistoricalData(List<AggregateRecord> records) throws Exception {
-		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()"); //do not use Java's assert as it is disabled by default
+		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
 		{
 			final int lastN = 10;
@@ -798,7 +844,7 @@ public /*final*/ class JRetirement {
 		}
 
 		final AggregateRecord maxRecord = records.stream().max(new AggregateRecord()).orElse(null);
-		VendoUtils.myAssert(maxRecord != null, "maxRecord != null"); //do not use Java's assert as it is disabled by default
+		VendoUtils.myAssert(maxRecord != null, "maxRecord != null", null); //do not use Java's assert as it is disabled by default
 		System.out.println(NL + "Max record:");
 		System.out.println(maxRecord);
 
@@ -943,7 +989,7 @@ public /*final*/ class JRetirement {
 					remainingIncome -= incomeForThisBracket;
 				}
 			}
-			VendoUtils.myAssert(remainingIncome == 0, "remainingIncome == 0"); //do not use Java's assert as it is disabled by default
+			VendoUtils.myAssert(remainingIncome == 0, "remainingIncome == 0", null); //do not use Java's assert as it is disabled by default
 
 			return tax;
 		}
@@ -1120,7 +1166,7 @@ public /*final*/ class JRetirement {
 
 		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
 			int index = 0;
-			VendoUtils.myAssert(null != record.getDateDownloaded(), "null != record.getDateDownloaded()"); //do not use Java's assert as it is disabled by default
+			VendoUtils.myAssert(null != record.getDateDownloaded(), "null != record.getDateDownloaded()", null); //do not use Java's assert as it is disabled by default
 			stmt.setTimestamp(++index, java.sql.Timestamp.from(record.getDateDownloaded()));
 			stmt.setString(++index, record.getAccountNumber());
 			stmt.setString(++index, record.getAccountName());

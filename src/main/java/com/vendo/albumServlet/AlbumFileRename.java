@@ -181,6 +181,10 @@ public class AlbumFileRename
 			displayUsage (message, true);
 		}
 
+		if (_endIndex > 0 && _endIndex < _startIndex) {
+			displayUsage ("<end index> can't be less than <start index>", true);
+		}
+
 //TODO - will these work for files NOT in or under PR_ROOT? _startIndex, _endIndex, _exactDigits
 
 //TODO - verify dir exists, and is writable??

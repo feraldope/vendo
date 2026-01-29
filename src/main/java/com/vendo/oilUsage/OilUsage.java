@@ -2,19 +2,18 @@
 
 package com.vendo.oilUsage;
 
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.text.DecimalFormat;
-import java.util.Collection;
-
+import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jfree.chart.ChartPanel;
 import org.jfree.ui.ApplicationFrame;
 import org.jfree.ui.RefineryUtilities;
 
-import com.vendo.vendoUtils.VendoUtils;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.text.DecimalFormat;
+import java.util.Collection;
 
 
 public class OilUsage
@@ -24,8 +23,9 @@ public class OilUsage
 	{
 		OilUsage app = new OilUsage ();
 
-		if (!app.processArgs (args))
+		if (!app.processArgs (args)) {
 			System.exit (1); //processArgs displays error
+		}
 
 		app.run ();
 	}
@@ -68,7 +68,7 @@ public class OilUsage
 
 		//check for required args, set defaults
 		if (inputFile == null) {
-			inputFile = "C:/Users/doc/pers/oil.txt";
+			inputFile = "C:/Users/java/vendo/src/main/java/com/vendo/oilUsage/oil.txt";
 		}
 
 		try {
@@ -90,8 +90,9 @@ public class OilUsage
 	private void displayUsage (String message, Boolean exit)
 	{
 		String msg = new String ();
-		if (message != null)
+		if (message != null) {
 			msg = message + NL;
+		}
 
 		msg += "Usage: " + _AppName + " [/debug] <input file>";
 		System.err.println ("Error: " + msg + NL);
