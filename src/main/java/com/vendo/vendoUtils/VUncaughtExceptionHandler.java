@@ -2,15 +2,13 @@
 
 package com.vendo.vendoUtils;
 
-import java.lang.Thread.*;
+import java.lang.Thread.UncaughtExceptionHandler;
 
 
-public class VUncaughtExceptionHandler implements UncaughtExceptionHandler
-{
+public class VUncaughtExceptionHandler implements UncaughtExceptionHandler {
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void uncaughtException (Thread thread, Throwable ex)
-	{
+	public void uncaughtException (Thread thread, Throwable ex) {
 		System.err.println ("UncaughtException: " + thread.getName () + ": ");
 		ex.printStackTrace ();
 

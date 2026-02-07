@@ -16,27 +16,23 @@ import java.util.stream.Collectors;
 //import org.apache.logging.log4j.*;
 
 
-public class VFileList
-{
+public class VFileList {
 	public enum ListMode {CompletePath, FileOnly}
 
 	///////////////////////////////////////////////////////////////////////////
-	public VFileList (String folderName, List<Pattern> filePatterns, boolean recurseSubdirs)
-	{
+	public VFileList (String folderName, List<Pattern> filePatterns, boolean recurseSubdirs) {
 		_folder = Paths.get (folderName); //note this can be a folder or a file
 		_filePatterns = filePatterns; //may be null
 		_recurseSubdirs = recurseSubdirs;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public VFileList (String folderName, String wildName, boolean recurseSubdirs)
-	{
+	public VFileList (String folderName, String wildName, boolean recurseSubdirs) {
 		this (folderName, getPatternsFromWildname (wildName), recurseSubdirs);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static List<Pattern> getPatternsFromWildname (String wildName)
-	{
+	private static List<Pattern> getPatternsFromWildname (String wildName) {
 		List<Pattern> filePatterns = new ArrayList<Pattern> ();
 
 		wildName = wildName.replace ("*", ".*").trim (); //convert to regex
@@ -46,8 +42,7 @@ public class VFileList
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<Path> getPathList ()
-	{
+	public List<Path> getPathList () {
 		return generatePathList ().stream ()
 								  .sorted ((p1, p2) -> p1.toAbsolutePath ().normalize ().toString ().compareToIgnoreCase (
 										  			   p2.toAbsolutePath ().normalize ().toString ()))
@@ -55,8 +50,7 @@ public class VFileList
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> getFileList (ListMode mode)
-	{
+	public List<String> getFileList (ListMode mode) {
 		final Function<Path, Path> completePath = p -> p.toAbsolutePath ().normalize ();
 		final Function<Path, Path> fileOnly = p -> p.getName (p.getNameCount () - 1);
 
@@ -68,8 +62,7 @@ public class VFileList
 
 /* old way; keep as example
 	///////////////////////////////////////////////////////////////////////////
-	private List<String> getFileList1 () //does not recurse subdirs
-	{
+	private List<String> getFileList1 () //does not recurse subdirs {
 		List<String> fileList = new ArrayList<String> ();
 
 //TODO: since we can't pass file to Files.list
@@ -91,8 +84,7 @@ public class VFileList
 */
 
 	///////////////////////////////////////////////////////////////////////////
-	private List<Path> generatePathList ()
-	{
+	private List<Path> generatePathList () {
 		List<Path> pathList = new ArrayList<Path> ();
 
 		Set<FileVisitOption> opts = Collections.emptySet ();
@@ -103,8 +95,7 @@ public class VFileList
 		try {
 			Files.walkFileTree (_folder, opts, maxDepth, new SimpleFileVisitor<Path> () {
  				@Override
-				public FileVisitResult visitFile (Path path, BasicFileAttributes attrs)
-				{
+				public FileVisitResult visitFile (Path path, BasicFileAttributes attrs) {
 //					System.err.println ("VFileList.generatePathList: visitFile: path = " + path.toAbsolutePath ().normalize ().toString ());
 					if (matchesLeaf (path)) {
 						pathList.add (path);
@@ -114,8 +105,7 @@ public class VFileList
 				}
 
 				@Override
-				public FileVisitResult visitFileFailed (Path path, IOException ex)
-				{
+				public FileVisitResult visitFileFailed (Path path, IOException ex) {
 					if (ex != null) {
 						ex.printStackTrace ();
 					}
@@ -124,8 +114,7 @@ public class VFileList
 				}
 
 				@Override
-				public FileVisitResult postVisitDirectory (Path dir, IOException ex)
-				{
+				public FileVisitResult postVisitDirectory (Path dir, IOException ex) {
 					if (ex != null) {
 						ex.printStackTrace ();
 					}
@@ -143,8 +132,7 @@ public class VFileList
 
 	///////////////////////////////////////////////////////////////////////////
 	//match on leaf name (not whole path)
-	boolean matchesLeaf (Path path)
-	{
+	boolean matchesLeaf (Path path) {
 		if (_filePatterns == null) {
 			return true;
 		}
@@ -163,8 +151,7 @@ public class VFileList
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public String toString ()
-	{
+	public String toString () {
 		StringBuilder sb = new StringBuilder ();
 		sb.append ("VFileList");
 		sb.append (": folder: ");

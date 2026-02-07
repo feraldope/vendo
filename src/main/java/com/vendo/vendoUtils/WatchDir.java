@@ -49,11 +49,9 @@ import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
 import static java.nio.file.StandardWatchEventKinds.*;
 
 
-public abstract class WatchDir implements Runnable
-{
+public abstract class WatchDir implements Runnable {
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String[] args) throws IOException
-	{
+	public static void main (String[] args) throws IOException {
 		String destDir = null;
 		String patternString = null;
 		Pattern pattern = null;
@@ -117,11 +115,9 @@ public abstract class WatchDir implements Runnable
 		patternString = patternString.replace ("*", ".*");
 		pattern = Pattern.compile (patternString, Pattern.CASE_INSENSITIVE);
 
-		WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
-		{
+		WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs) {
 			@Override
-			protected void notify (Path dir, WatchEvent<Path> pathEvent)
-			{
+			protected void notify (Path dir, WatchEvent<Path> pathEvent) {
 				VendoUtils.sleepMillis (_sleepMillis);
 
 				Path file = pathEvent.context ();
@@ -134,8 +130,7 @@ public abstract class WatchDir implements Runnable
 			}
 
 			@Override
-			protected void overflow (WatchEvent<?> event)
-			{
+			protected void overflow (WatchEvent<?> event) {
 				long nowInMillis = new GregorianCalendar ().getTimeInMillis ();
 				String nowString = _dateFormat.format (new Date (nowInMillis));
 
@@ -155,8 +150,7 @@ public abstract class WatchDir implements Runnable
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected static void displayUsage (String message, Boolean exit)
-	{
+	protected static void displayUsage (String message, Boolean exit) {
 		String msg = "";
 		if (message != null) {
 			msg = message + NL;
@@ -171,8 +165,7 @@ public abstract class WatchDir implements Runnable
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected WatchDir (Path dir, Pattern pattern, boolean recurseSubdirs) throws IOException
-	{
+	protected WatchDir (Path dir, Pattern pattern, boolean recurseSubdirs) throws IOException {
 		_watcher = FileSystems.getDefault ().newWatchService ();
 		_keys = new HashMap<WatchKey, Path> ();
 
@@ -193,15 +186,13 @@ public abstract class WatchDir implements Runnable
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected <T> WatchEvent<T> asWatchEvent (WatchEvent<?> event) //cast
-	{
+	protected <T> WatchEvent<T> asWatchEvent (WatchEvent<?> event) { //cast
 		return event != null ? (WatchEvent<T>) event : null;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	// Register the given directory with the WatchService
-	protected void register (Path dir) throws IOException
-	{
+	protected void register (Path dir) throws IOException {
 		WatchKey key = dir.register (_watcher, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
 		if (_trace) {
 			Path prev = _keys.get (key);
@@ -219,8 +210,7 @@ public abstract class WatchDir implements Runnable
 
 	///////////////////////////////////////////////////////////////////////////
 	// Register the given directory, and all its sub-directories, with the WatchService.
-	protected void registerAll (final Path start) throws IOException
-	{
+	protected void registerAll (final Path start) throws IOException {
 		// register directory and sub-directories
 		Files.walkFileTree (start, new SimpleFileVisitor<Path> () {
 			@Override
@@ -234,15 +224,13 @@ public abstract class WatchDir implements Runnable
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void run ()
-	{
+	public void run () {
 		processEvents ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	// Process all events for keys queued to the watcher
-	protected void processEvents ()
-	{
+	protected void processEvents () {
 		while (true) {
 			// wait for key to be signalled
 			WatchKey key;
@@ -312,8 +300,7 @@ public abstract class WatchDir implements Runnable
 	protected abstract void overflow (WatchEvent<?> event);
 
 	///////////////////////////////////////////////////////////////////////////
-	private static String getRealPathString (Path path)
-	{
+	private static String getRealPathString (Path path) {
 		try {
 			return path.toRealPath ().toString ();
 
