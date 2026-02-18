@@ -9,8 +9,6 @@ mysql -u root -proot retirement -e "describe retirement"
 REM testing
 select * from portfolio_positions_data order by downloaded_timestamp, account_number
 select count(*) from portfolio_positions_data
--- summary
-select downloaded_timestamp, count(*), sum(value), sum(value) - sum(cost_basis) as gain from portfolio_positions_data group by downloaded_timestamp order by downloaded_timestamp
 
 select * from portfolio_positions_data where symbol = 'VGHCX' order by downloaded_timestamp, account_number
 
@@ -66,6 +64,7 @@ CREATE OR REPLACE TABLE portfolio_positions_data (
 	symbol	       VARCHAR(16) NOT NULL,
 	description	   VARCHAR(64) NOT NULL,
 	value          DECIMAL(10, 2) NOT NULL, -- enough for $99,999,999.99
+	cost_basis     DECIMAL(10, 2) NOT NULL, -- enough for $99,999,999.99
 	taxable_type   VARCHAR(16) NOT NULL,
 	fund_owner     VARCHAR(8) NOT NULL,
 	PRIMARY KEY (downloaded_timestamp, account_number, account_name, symbol), -- prevent duplicates, creates composite index
@@ -128,14 +127,31 @@ select count(*) from funds_meta_data
 
 select distinct symbol from funds_meta_data order by symbol
 
+select * from funds_meta_data order by symbol
+
 -- -----------------------------------------------------------------------------
 select count(*) from portfolio_positions_data;
+
+-- summary
+select downloaded_timestamp, count(*), format(sum(value) / 1000, 0) as 'Value $K', 
+ case
+    when cost_basis = 0 then 'unknown'
+    else format((sum(value) - sum(cost_basis)) / 1000, 0)
+ end as 'Gain  $K'
+ from portfolio_positions_data 
+ group by downloaded_timestamp 
+ order by downloaded_timestamp
+
+select * from portfolio_positions_data where fund_owner = 'unknown'
+select distinct account_number, symbol, account_name, description from portfolio_positions_data where fund_owner = 'unknown'
 
 select count(distinct downloaded_timestamp) from portfolio_positions_data;
 
 select date(p.downloaded_timestamp) as date, p.* from portfolio_positions_data p
-where date(p.downloaded_timestamp) >= '2026-02-04'
-order by p.symbol, p.account_name
+ where date(p.downloaded_timestamp) >= '2026-02-18'
+ order by p.symbol, p.account_name
+
+select * from portfolio_positions_data where account_name = 'ROTH IRA' and value = 7500
 
 -- -----------------------------------------------------------------------------
 select count(*) from account_history_data;
@@ -144,13 +160,32 @@ select count(distinct run_date) from account_history_data;
 
 select date(a.run_date) as date, a.* from account_history_data a
 -- where date(a.run_date) >= '2026-02-04'
-order by a.symbol, a.account
+ order by a.symbol, a.account
 
+select * from account_history_data where cast(action as binary) rlike '.*CONTR.*' -- rlike is not case sensitive unless used on binary string
+
+select * from account_history_data where lower(action) rlike '.*bought.*'
+
+select * from account_history_data where (fees > 0 OR commission > 0) OR (action rlike '.*FEE.*' AND amount < 0) order by run_date
+
+-- contributions
 select * from account_history_data
+ where upper(action) rlike '.*CONTR.*' 
+ and account not rlike 'FIS.*'
+ order by run_date
 
-select * from account_history_data 
-where symbol = 'Pending Activity' and account rlike 'FIS.*'
-order by run_date
+-- distributions - detail
+select * from account_history_data
+ where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')
+ and amount < 0
+ order by run_date
 
+-- distributions - aggregate
+select run_date, account, account_number, action, symbol, description, sum(commission), sum(fees), sum(amount), settlement_date
+ from account_history_data
+ where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')
+ and amount < (-1000)
+ group by run_date, account, account_number, symbol, description
+ order by run_date
 
 */

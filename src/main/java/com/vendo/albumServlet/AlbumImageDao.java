@@ -616,7 +616,7 @@ public class AlbumImageDao {
 					.sorted(VendoUtils.caseInsensitiveStringComparator)
 					.collect(Collectors.toList());
 			for (String str : sorted) {
-				String filePath = Paths.get(_rootPath, subFolder, str + ".dat").toString();
+				String filePath = Paths.get(_rootPath, subFolder, AlbumFormInfo._RgbDataFolder, str + ".dat").toString();
 				_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: missing .jpg for: " + filePath);
 			}
 		}

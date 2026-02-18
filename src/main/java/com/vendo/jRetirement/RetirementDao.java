@@ -132,7 +132,7 @@ public class RetirementDao {
 		final Map<String, FundsMetaData> fundsMetaDataMap = queryFundsMetaDataFromDatabase().stream()
 				.collect(Collectors.toMap(FundsMetaData::getSymbol, Function.identity()));
 
-		String sql = "select downloaded_timestamp, account_number, account_name, symbol, description, value, taxable_type, fund_owner" + NL +
+		String sql = "select downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis, taxable_type, fund_owner" + NL +
 				" from portfolio_positions_data";
 		if (!dateDownloaded.equals(AllDates)) {
 			sql += NL + " where downloaded_timestamp = ?";
@@ -159,6 +159,7 @@ public class RetirementDao {
 				String symbol = rs.getString ("symbol");
 				String description = rs.getString ("description");
 				Double currentValue = rs.getDouble ("value");
+				Double costBasis = rs.getDouble ("cost_basis");
 				String taxableTypeStr = rs.getString ("taxable_type");
 				String fundOwnerStr = rs.getString ("fund_owner");
 
@@ -168,7 +169,7 @@ public class RetirementDao {
 				FundsMetaData fundsMetaData = fundsMetaDataMap.get(symbol);
 				VendoUtils.myAssert(fundsMetaData != null, "fundsMetaData != null", "FK in DB should prevent this"); //do not use Java's assert as it is disabled by default
 
-				PortfolioPositionsData record = new PortfolioPositionsData(timestamp.toInstant(), accountNumber, accountName, symbol, description, currentValue, taxableType, fundOwner, fundsMetaData);
+				PortfolioPositionsData record = new PortfolioPositionsData(timestamp.toInstant(), accountNumber, accountName, symbol, description, currentValue, costBasis, taxableType, fundOwner, fundsMetaData);
 				records.add(record);
 			}
 
@@ -205,8 +206,8 @@ public class RetirementDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	public boolean persistPortfolioPositionsDataToDatabase(Connection connection, PortfolioPositionsData record) throws Exception {
-		final String sql = "insert into portfolio_positions_data (downloaded_timestamp, account_number, account_name, symbol, description, value, taxable_type, fund_owner)" + NL +
-				" values (?, ?, ?, ?, ?, ?, ?, ?)";
+		final String sql = "insert into portfolio_positions_data (downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis, taxable_type, fund_owner)" + NL +
+				" values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 //		String sqlOnDup = " on duplicate key update ... [TBD]
 
 		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -218,6 +219,7 @@ public class RetirementDao {
 			stmt.setString(++index, record.getSymbol());
 			stmt.setString(++index, record.getDescription());
 			stmt.setDouble(++index, record.getCurrentValue());
+			stmt.setDouble(++index, record.getCostBasis());
 			stmt.setString(++index, record.getTaxableType().toString());
 			stmt.setString(++index, record.getFundOwner().toString());
 
@@ -343,11 +345,69 @@ public class RetirementDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public List<AccountsHistoryData> queryDistributionDataFromDatabase(Instant runDate) {
+		final int skipSmallerAmounts = -500;
+
+		String sql = "select run_date, account, account_number, action, symbol, description, sum(commission) as commission, sum(fees) as fees, sum(amount) as amount, settlement_date" + NL +
+				" from account_history_data" + NL +
+				" where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')" + NL + //NOTE: rlike is not case sensitive unless used on binary string
+				" and amount < (" + skipSmallerAmounts + ")" + NL; //skip smaller transactions
+		if (!runDate.equals(AllDates)) {
+			sql += " and run_date = ?" + NL;
+		}
+		sql += " group by run_date, account, account_number, symbol, description" + NL +
+			   " order by run_date" + NL;
+
+		List<AccountsHistoryData> records = new ArrayList<>();
+
+		ResultSet rs = null;
+		try (Connection connection = connectDatabase();
+			 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
+			if (!runDate.equals(AllDates)) {
+				java.sql.Timestamp timestamp = java.sql.Timestamp.from(runDate);
+				stmt.setTimestamp(1, timestamp);
+			}
+
+			rs = stmt.executeQuery ();
+
+			while (rs.next ()) {
+				java.sql.Timestamp runDateTimestamp = rs.getTimestamp("run_date");
+				String account = rs.getString ("account");
+				String accountNumber = rs.getString ("account_number");
+				String action = rs.getString ("action");
+				String symbol = rs.getString ("symbol");
+				String description = rs.getString ("description");
+				Double commission = rs.getDouble ("commission");
+				Double fees = rs.getDouble ("fees");
+				Double amount = rs.getDouble ("amount");
+				java.sql.Timestamp settlementDateTimestamp = rs.getTimestamp("settlement_date");
+				Instant settlementDateInstant = settlementDateTimestamp == null ? null : settlementDateTimestamp.toInstant(); //handle null
+
+				AccountsHistoryData record = new AccountsHistoryData(runDateTimestamp.toInstant(), account, accountNumber, action, symbol, description, commission, fees, amount, settlementDateInstant);
+				records.add(record);
+			}
+
+		} catch (Exception ex) {
+			System.err.println("queryAccountsHistoryDataFromDatabase: error running sql <" + sql + "> for runDate <" + runDate + ">");
+			System.err.println(ex.getMessage());
+			return records;
+
+		} finally {
+			if (rs != null) {
+				try { rs.close (); } catch (SQLException ignored) {}
+			}
+		}
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	protected List<JRetirement.AggregateRecord> queryAggregateRecordsFromDatabase() {
 		String sql = "select downloaded_timestamp, count(*) records, sum(value) total_value" + NL +
-				" from portfolio_positions_data" +
-				" group by downloaded_timestamp" +
-				" order by downloaded_timestamp";
+					 " from portfolio_positions_data" + NL +
+					 " group by downloaded_timestamp" + NL +
+					 " order by downloaded_timestamp";
 
 		List<JRetirement.AggregateRecord> records = new ArrayList<>();
 
@@ -412,7 +472,7 @@ public class RetirementDao {
 	}
 
 
-	//members
+	//private members
 	private static volatile RetirementDao instance = null;
 
 	public static final Instant AllDates = Instant.ofEpochSecond(9999); //some fixed, hopefully unique time

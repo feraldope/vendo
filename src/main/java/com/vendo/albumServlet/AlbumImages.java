@@ -1248,16 +1248,17 @@ public class AlbumImages
 				if (allAlbumsAcrossAllMatches.size() <= 200) { //hardcoded
 					String newFilters1 = allAlbumsAcrossAllMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
 					String newFilters2 = allAlbumsAcrossAllMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
+					String newFiltersBoth = newFilters1 + (newFilters2.isEmpty() ? "" : " + " + newFilters2);
 					String href = AlbumImages.getInstance().generateImagesLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
-							.append(href)
-							.append("\" ")
-							.append("title=\"").append(newFilters1).append(" + ").append(newFilters2)
-							.append("\" target=_blank>")
-							.append(newFilters1).append(" + ").append(newFilters2)
-							.append("</A>");
+						.append(href)
+						.append("\" ")
+						.append("title=\"").append(newFiltersBoth)
+						.append("\" target=_blank>")
+						.append(newFiltersBoth)
+						.append("</A>");
 					_form.addServletError("Info: all albums across all matches: [" + allAlbumsAcrossAllMatches.size() + "] " + html);
 				} else {
 					_form.addServletError("Info: all albums across all matches: exceeded count@1; not shown (" + allAlbumsAcrossAllMatches.size() + ")");
@@ -1270,16 +1271,17 @@ public class AlbumImages
 				if (allAlbumsAcrossAllInputFiltersAndMatches.size() <= 200) { //hardcoded
 					String newFilters1 = allAlbumsAcrossAllInputFiltersAndMatches.stream().filter(a -> filter1.accept(null, a)).collect(Collectors.joining(","));
 					String newFilters2 = allAlbumsAcrossAllInputFiltersAndMatches.stream().filter(a -> filter2.accept(null, a)).collect(Collectors.joining(","));
+					String newFiltersBoth = newFilters1 + (newFilters2.isEmpty() ? "" : " + " + newFilters2);
 					String href = AlbumImages.getInstance().generateImagesLink(newFilters1, newFilters2, AlbumMode.DoSampler, form.getColumns(), form.getSinceDays(), true, true);
 					StringBuilder html = new StringBuilder();
 //TODO - move to helper class/method
 					html.append("<A HREF=\"")
-							.append(href)
-							.append("\" ")
-							.append("title=\"").append(newFilters1).append(" + ").append(newFilters2)
-							.append("\" target=_blank>")
-							.append(newFilters1).append(" + ").append(newFilters2)
-							.append("</A>");
+						.append(href)
+						.append("\" ")
+						.append("title=\"").append(newFiltersBoth)
+						.append("\" target=_blank>")
+						.append(newFiltersBoth)
+						.append("</A>");
 					_form.addServletError("Info: all albums across all input filters and matches: [" + allAlbumsAcrossAllInputFiltersAndMatches.size() + "] " + html);
 				} else {
 					_form.addServletError("Info: all albums across all input filters and matches: exceeded count@0; not shown (" + allAlbumsAcrossAllInputFiltersAndMatches.size() + ")");

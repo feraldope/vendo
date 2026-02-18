@@ -1,6 +1,6 @@
 //CsvAccountsHistoryBean.java -
 
-/* Yuck! Three different (as of 01/26) Headers for these files:
+/* Yuck! Three different (as of 01/26) Headers for this file:
 search /q account*csv run date | sorti/u
 Run Date,Account,Account Number,Action,Symbol,Description,Type,Exchange Quantity,Exchange Currency,Currency,Price,Quantity,Exchange Rate,Commission,Fees,Accrued Interest,Amount,Settlement Date
 Run Date,Account,Account Number,Action,Symbol,Description,Type,Exchange Quantity,Exchange Currency,Quantity,Currency,Price,Exchange Rate,Commission,Fees,Accrued Interest,Amount,Settlement Date
@@ -36,52 +36,15 @@ import com.opencsv.bean.CsvBindByName;
 import org.apache.commons.lang3.StringUtils;
 
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-public class CsvAccountsHistoryBean {
+public class CsvAccountsHistoryBean extends CsvBaseBean {
     ///////////////////////////////////////////////////////////////////////////
     public CsvAccountsHistoryBean() {
     }
-
-    ///////////////////////////////////////////////////////////////////////////
-    protected double parseNumberAmount(String stringValue) {
-        if (StringUtils.isBlank(stringValue)) {
-            return 0.;
-        }
-
-        return Double.parseDouble(stringValue.replaceFirst("\\$", ""));
-    }
-
-	///////////////////////////////////////////////////////////////////////////
-	protected Instant parseDateMmDdYyyy(String dateString) {
-		final DateTimeFormatter formatter = new DateTimeFormatterBuilder()
-				.parseCaseInsensitive()
-				.parseLenient()
-				.appendOptional(DateTimeFormatter.ofPattern("MM/dd/yyyy"))
-				.toFormatter();
-
-        Instant instant = null;
-
-        if (!StringUtils.isBlank(dateString)) {
-            try {
-                LocalDate localDate = LocalDate.parse(dateString.trim(), formatter);
-                instant = localDate.atStartOfDay(ZoneId.systemDefault()).toInstant();
-
-            } catch (Exception ex) {
-                System.out.println("Error parsing date string: \"" + dateString + "\"");
-                ex.printStackTrace();
-            }
-        }
-
-		return instant;
-	}
 
     ///////////////////////////////////////////////////////////////////////////
     //Prior to 2025 or so, the Account field includes the Account Number, and the Account Number field is empty
@@ -127,7 +90,7 @@ public class CsvAccountsHistoryBean {
         return account;
     }
     public void setAccount(String account) {
-        this.account = account.trim();
+        this.account = stripTrailingCopyrightChar(account.trim());
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -145,42 +108,6 @@ public class CsvAccountsHistoryBean {
     }
     public void setAction(String action) {
         this.action = action.trim();
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public String getSymbol() {
-        return symbol;
-    }
-    public void setSymbol(String symbol) {
-        symbol = symbol.trim();
-
-        if ("315994103".equals(symbol)) {
-            symbol = "SPAXX"; //HACK
-
-        } else if (symbol.endsWith("**")) { //HACK - cleanup for example 'SPAXX**'
-            symbol = symbol.substring(0, symbol.length() - 2);
-
-        } else if (StringUtils.isBlank(symbol)) {
-            symbol = FundsEnum.PendingActivity.getSymbol(); //HACK
-        }
-
-        this.symbol = symbol;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public String getDescription() {
-        return description;
-    }
-    public void setDescription(String description) {
-        this.description = description.trim();
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public String getType() {
-        return typeUnused;
-    }
-    public void setType(String type) {
-        this.typeUnused = type.trim();
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -340,12 +267,12 @@ public class CsvAccountsHistoryBean {
     @Override
     public String toString() {
         final StringBuffer sb = new StringBuffer("CsvAccountsHistoryBean{");
-        sb.append("runDate='").append(runDate).append('\'');
-        sb.append(", account='").append(account).append('\'');
-        sb.append(", accountNumber='").append(accountNumber).append('\'');
-        sb.append(", action='").append(action).append('\'');
-        sb.append(", symbol='").append(symbol).append('\'');
-        sb.append(", description='").append(description).append('\'');
+        sb.append("runDate='").append(getRunDate()).append('\'');
+        sb.append(", account='").append(getAccount()).append('\'');
+        sb.append(", accountNumber='").append(getAccountNumber()).append('\'');
+        sb.append(", action='").append(getAction()).append('\'');
+        sb.append(", symbol='").append(getSymbol()).append('\'');
+        sb.append(", description='").append(getDescription()).append('\'');
 //        sb.append(", type='").append(typeUnused).append('\'');
 //        sb.append(", exchangeQuantity='").append(exchangeQuantity).append('\'');
 //        sb.append(", exchangeCurrency='").append(exchangeCurrency).append('\'');
@@ -353,11 +280,11 @@ public class CsvAccountsHistoryBean {
 //        sb.append(", currency='").append(currency).append('\'');
 //        sb.append(", price='").append(price).append('\'');
 //        sb.append(", exchangeRate='").append(exchangeRate).append('\'');
-        sb.append(", commission='").append(commission).append('\'');
-        sb.append(", fees='").append(fees).append('\'');
+        sb.append(", commission='").append(getCommission()).append('\'');
+        sb.append(", fees='").append(getFees()).append('\'');
 //        sb.append(", accruedInterest='").append(accruedInterest).append('\'');
-        sb.append(", amount='").append(amount).append('\'');
-        sb.append(", settlementDate='").append(settlementDate).append('\'');
+        sb.append(", amount='").append(getAmount()).append('\'');
+        sb.append(", settlementDate='").append(getSettlementDate()).append('\'');
         sb.append('}');
         return sb.toString();
     }
@@ -368,9 +295,6 @@ public class CsvAccountsHistoryBean {
     @CsvBindByName (column = "Account")             private String account;
     @CsvBindByName (column = "Account Number")      private String accountNumber;
     @CsvBindByName (column = "Action")              private String action;
-    @CsvBindByName (column = "Symbol")              private String symbol;
-    @CsvBindByName (column = "Description")         private String description;
-    @CsvBindByName (column = "Type")                private String typeUnused; //seems to always be "Cash" in the CSV file
     @CsvBindByName (column = "Exchange Quantity")   private String exchangeQuantity;
     @CsvBindByName (column = "Exchange Currency")   private String exchangeCurrency;
     @CsvBindByName (column = "Quantity")            private String quantity;

@@ -7,7 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.Comparator;
 import java.util.Objects;
 
-public class FundsMetaData implements Comparator<FundsMetaData> {
+public class FundsMetaData extends RetirementBaseData implements Comparator<FundsMetaData> {
 	///////////////////////////////////////////////////////////////////////////
 	public FundsMetaData(String symbol,
 						 String fundFamily,
@@ -18,9 +18,8 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 						 FundsEnum.ManagementStyle managementStyle,
 						 String category,
 						 String investmentStyle) {
-		this.symbol = symbol;
+		super(symbol, description);
 		this.fundFamily = fundFamily;
-		this.description = description;
 		this.expenseRatio = expenseRatio;
 		this.fundTheme = fundTheme;
 		this.fundType = fundType;
@@ -31,9 +30,8 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 
 	///////////////////////////////////////////////////////////////////////////
 	public FundsMetaData(FundsEnum fundsEnum) {
-		symbol = fundsEnum.getSymbol();
+		super(fundsEnum.getSymbol(), fundsEnum.getDescription());
 		fundFamily = fundsEnum.getFundFamily();
-		description = fundsEnum.getDescription();
 		expenseRatio = fundsEnum.getExpenseRatio();
 		fundTheme = fundsEnum.getFundTheme();
 		fundType = fundsEnum.getFundType();
@@ -43,18 +41,8 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol() {
-		return symbol;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
 	public String getFundFamily() {
 		return fundFamily;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	public String getDescription() {
-		return description;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -87,39 +75,43 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 		return investmentStyle;
 	}
 
-
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isBond () {
+	public boolean isBond() {
 		return fundType == FundsEnum.FundType.BondETF || fundType == FundsEnum.FundType.BondFund;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isCash () {
+	public boolean isCash() {
 		return fundType == FundsEnum.FundType.Cash;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isHealth () {
+	public boolean isCrypto() {
+		return fundType == FundsEnum.FundType.Crypto;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public boolean isHealth() {
 		return "Health".equals(getCategory());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isInternational () {
+	public boolean isInternational() {
 		return "International".equals(getCategory());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isActive () {
+	public boolean isActive() {
 		return FundsEnum.ManagementStyle.Active.equals(getManagementStyle());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isIndex () {
+	public boolean isIndex() {
 		return FundsEnum.ManagementStyle.Index.equals(getManagementStyle());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbolForGrouping () {
+	public String getSymbolForGrouping() {
 		String symbol = getSymbol();
 		if (symbol.startsWith("61690DP") || symbol.startsWith("06051XD") || symbol.startsWith("05584CN") || symbol.startsWith("949764")) {
 			symbol = "CD";
@@ -128,7 +120,7 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getURL (String suffix) {
+	public String getURL(String suffix) {
 		StringBuilder url = new StringBuilder("https://www.google.com/search?q=");
 		url.append(getFundFamily())
 				.append("+")
@@ -150,7 +142,7 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public boolean equals(Object o) {
+	public boolean equals(Object o) { //includes fields from the base class
 		if (this == o) {
 			return true;
 		}
@@ -171,7 +163,7 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public int hashCode() {
+	public int hashCode() { //includes fields from the base class
 		return Objects.hash(getSymbol(),
 							getFundFamily(),
 							getDescription(),
@@ -185,26 +177,24 @@ public class FundsMetaData implements Comparator<FundsMetaData> {
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public String toString() {
+	public String toString() { //includes fields from the base class
 		final StringBuffer sb = new StringBuffer("FundsMetaData{");
-		sb.append("symbol='").append(symbol).append('\'');
-		sb.append(", fundFamily='").append(fundFamily).append('\'');
-		sb.append(", description='").append(description).append('\'');
-		sb.append(", expenseRatio='").append(expenseRatio).append('\'');
-		sb.append(", fundTheme=").append(fundTheme);
-		sb.append(", fundType=").append(fundType);
-		sb.append(", managementStyle=").append(managementStyle);
-		sb.append(", category='").append(category).append('\'');
-		sb.append(", investmentStyle='").append(investmentStyle).append('\'');
+		sb.append("symbol='").append(getSymbol()).append('\'');
+		sb.append(", fundFamily='").append(getFundFamily()).append('\'');
+		sb.append(", description='").append(getDescription()).append('\'');
+		sb.append(", expenseRatio='").append(getExpenseRatio()).append('\'');
+		sb.append(", fundTheme=").append(getFundTheme());
+		sb.append(", fundType=").append(getFundType());
+		sb.append(", managementStyle=").append(getManagementStyle());
+		sb.append(", category='").append(getCategory()).append('\'');
+		sb.append(", investmentStyle='").append(getInvestmentStyle()).append('\'');
 		sb.append('}');
 		return sb.toString();
 	}
 
 
 	//members
-	private final String symbol;
 	private final String fundFamily;
-	private final String description;
 	private final Double expenseRatio; //adjusted expense ratio, if applies
 	private final FundsEnum.FundTheme fundTheme;
 	private final FundsEnum.FundType fundType;

@@ -7,45 +7,24 @@ import java.util.Comparator;
 import java.util.Objects;
 import java.util.function.Predicate;
 
-public class PortfolioPositionsData implements Comparator<PortfolioPositionsData> {
+public class PortfolioPositionsData extends RetirementBaseData implements Comparator<PortfolioPositionsData> {
 	///////////////////////////////////////////////////////////////////////////
 	public PortfolioPositionsData(Instant dateDownloaded,
 								  String accountNumber,
 								  String accountName,
 								  String symbol,
 								  String description,
-//								  Double quantity,
-//								  Double lastPrice,
-//								  Double lastPriceChange,
 								  Double currentValue,
-//								  Double todaysGainLossDollar,
-//								  Double todaysGainLossPercent,
-//								  Double totalGainLossDollar,
-//								  Double totalGainLossPercent,
-//								  Double percentOfAccount,
-//								  Double costBasisTotal,
-//								  Double averageCostBasis,
-//								  String type,
+								  Double costBasis,
 								  FundsEnum.TaxableType taxableType,
 								  FundsEnum.FundOwner fundOwner,
 								  FundsMetaData fundsMetaData) {
+		super(symbol, description);
 		this.dateDownloaded = dateDownloaded;
 		this.accountNumber = accountNumber;
 		this.accountName = accountName;
-		this.symbol = symbol;
-		this.description = description;
-//		this.quantity = quantity;
-//		this.lastPrice = lastPrice;
-//		this.lastPriceChange = lastPriceChange;
 		this.currentValue = currentValue;
-//		this.todaysGainLossDollar = todaysGainLossDollar;
-//		this.todaysGainLossPercent = todaysGainLossPercent;
-//		this.totalGainLossDollar = totalGainLossDollar;
-//		this.totalGainLossPercent = totalGainLossPercent;
-//		this.percentOfAccount = percentOfAccount;
-//		this.costBasisTotal = costBasisTotal;
-//		this.averageCostBasis = averageCostBasis;
-//		this.type = type;
+		this.costBasis = costBasis;
 		this.taxableType = taxableType;
 		this.fundOwner = fundOwner;
 		this.fundsMetaData = fundsMetaData;
@@ -53,12 +32,12 @@ public class PortfolioPositionsData implements Comparator<PortfolioPositionsData
 
 	///////////////////////////////////////////////////////////////////////////
 	public PortfolioPositionsData(CsvPortfolioPositionsBean bean) {
+		super(bean.getSymbol(), bean.getDescription());
 		this.dateDownloaded = bean.getDateDownloaded();
 		this.accountNumber = bean.getAccountNumber();
 		this.accountName = bean.getAccountName();
-		this.symbol = bean.getSymbol();
-		this.description = bean.getDescription();
 		this.currentValue = bean.getCurrentValue();
+		this.costBasis = bean.getCostBasis();
 		this.taxableType = bean.getTaxableType();
 		this.fundOwner = bean.getFundOwner();
 		this.fundsMetaData = null;
@@ -80,74 +59,14 @@ public class PortfolioPositionsData implements Comparator<PortfolioPositionsData
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol() {
-		return symbol;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	public String getDescription() {
-		return description;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getQuantity() {
-//		return quantity;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getLastPrice() {
-//		return lastPrice;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getLastPriceChange() {
-//		return lastPriceChange;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
 	public Double getCurrentValue() {
 		return currentValue;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-//	public Double getTodaysGainLossDollar() {
-//		return todaysGainLossDollar;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getTodaysGainLossPercent() {
-//		return todaysGainLossPercent;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getTotalGainLossDollar() {
-//		return totalGainLossDollar;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getTotalGainLossPercent() {
-//		return totalGainLossPercent;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getPercentOfAccount() {
-//		return percentOfAccount;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getCostBasisTotal() {
-//		return costBasisTotal;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public Double getAverageCostBasis() {
-//		return averageCostBasis;
-//	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public String getType() {
-//		return type;
-//	}
+	public Double getCostBasis() {
+		return costBasis;
+	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public FundsEnum.TaxableType getTaxableType() {
@@ -177,7 +96,7 @@ public class PortfolioPositionsData implements Comparator<PortfolioPositionsData
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public boolean equals(Object o) {
+	public boolean equals(Object o) { //includes fields from the base class
 		if (this == o) {
 			return true;
 		}
@@ -190,94 +109,52 @@ public class PortfolioPositionsData implements Comparator<PortfolioPositionsData
 				getAccountName().equals(that.getAccountName()) &&
 				getSymbol().equals(that.getSymbol()) &&
 				getDescription().equals(that.getDescription()) &&
-//				Objects.equals(getQuantity(), that.getQuantity()) &&
-//				Objects.equals(getLastPrice(), that.getLastPrice()) &&
-//				Objects.equals(getLastPriceChange(), that.getLastPriceChange()) &&
 				getCurrentValue().equals(that.getCurrentValue()) &&
-//				Objects.equals(getTodaysGainLossDollar(), that.getTodaysGainLossDollar()) &&
-//				Objects.equals(getTodaysGainLossPercent(), that.getTodaysGainLossPercent()) &&
-//				Objects.equals(getTotalGainLossDollar(), that.getTotalGainLossDollar()) &&
-//				Objects.equals(getTotalGainLossPercent(), that.getTotalGainLossPercent()) &&
-//				Objects.equals(getPercentOfAccount(), that.getPercentOfAccount()) &&
-//				Objects.equals(getCostBasisTotal(), that.getCostBasisTotal()) &&
-//				Objects.equals(getAverageCostBasis(), that.getAverageCostBasis()) &&
-//				Objects.equals(getType(), that.getType()) &&
+				Objects.equals(getCostBasis(), that.getCostBasis()) &&
 				Objects.equals(getTaxableType(), that.getTaxableType()) &&
 				Objects.equals(getFundOwner(), that.getFundOwner());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public int hashCode() {
+	public int hashCode() { //includes fields from the base class
 		return Objects.hash(getDateDownloaded(),
 							getAccountNumber(),
 							getAccountName(),
 							getSymbol(),
 							getDescription(),
-//							getQuantity(),
-//							getLastPrice(),
-//							getLastPriceChange(),
 							getCurrentValue(),
-//							getTodaysGainLossDollar(),
-//							getTodaysGainLossPercent(),
-//							getTotalGainLossDollar(),
-//							getTotalGainLossPercent(),
-//							getPercentOfAccount(),
-//							getCostBasisTotal(),
-//							getAverageCostBasis(),
-//							getType(),
+							getCostBasis(),
 							getTaxableType(),
 							getFundOwner());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public String toString() {
+	public String toString() { //includes fields from the base class
 		final StringBuffer sb = new StringBuffer("PortfolioPositionsData{");
-		sb.append("dateDownloaded=").append(dateDownloaded);
-		sb.append(", accountNumber='").append(accountNumber).append('\'');
-		sb.append(", accountName='").append(accountName).append('\'');
-		sb.append(", symbol='").append(symbol).append('\'');
-		sb.append(", description='").append(description).append('\'');
-//		sb.append(", quantity=").append(quantity);
-//		sb.append(", lastPrice=").append(lastPrice);
-//		sb.append(", lastPriceChange=").append(lastPriceChange);
-		sb.append(", currentValue=").append(currentValue);
-//		sb.append(", todaysGainLossDollar=").append(todaysGainLossDollar);
-//		sb.append(", todaysGainLossPercent=").append(todaysGainLossPercent);
-//		sb.append(", totalGainLossDollar=").append(totalGainLossDollar);
-//		sb.append(", totalGainLossPercent=").append(totalGainLossPercent);
-//		sb.append(", percentOfAccount=").append(percentOfAccount);
-//		sb.append(", costBasisTotal=").append(costBasisTotal);
-//		sb.append(", averageCostBasis=").append(averageCostBasis);
-//		sb.append(", type='").append(type).append('\'');
-		sb.append(", taxableType='").append(taxableType).append('\'');
-		sb.append(", fundOwner='").append(fundOwner).append('\'');
+		sb.append("dateDownloaded=").append(getDateDownloaded());
+		sb.append(", accountNumber='").append(getAccountNumber()).append('\'');
+		sb.append(", accountName='").append(getAccountName()).append('\'');
+		sb.append(", symbol='").append(getSymbol()).append('\'');
+		sb.append(", description='").append(getDescription()).append('\'');
+		sb.append(", currentValue=").append(getCurrentValue());
+		sb.append(", costBasis=").append(getCostBasis());
+		sb.append(", taxableType='").append(getTaxableType()).append('\'');
+		sb.append(", fundOwner='").append(getFundOwner()).append('\'');
 		sb.append('}');
 
 		return sb.toString();
 	}
 
 
-	//members
+	//private members
 	//originally from CSV file
 	private final Instant dateDownloaded;
 	private final String accountNumber;
 	private final String accountName;
-	private final String symbol;
-	private final String description;
-//	private final Double quantity;
-//	private final Double lastPrice;
-//	private final Double lastPriceChange;
 	private final Double currentValue;
-//	private final Double todaysGainLossDollar;
-//	private final Double todaysGainLossPercent;
-//	private final Double totalGainLossDollar;
-//	private final Double totalGainLossPercent;
-//	private final Double percentOfAccount;
-//	private final Double costBasisTotal;
-//	private final Double averageCostBasis;
-//	private final String type;
+	private final Double costBasis;
 
 	//calculated
 	private final FundsEnum.TaxableType taxableType;

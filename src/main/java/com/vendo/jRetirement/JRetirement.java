@@ -19,15 +19,14 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static com.vendo.jRetirement.FundsEnum.FundOwner;
 import static com.vendo.jRetirement.RetirementDao.AllDates;
 
 
@@ -71,6 +70,9 @@ public class JRetirement {
 
 				} else if (arg.equalsIgnoreCase("test") || arg.equalsIgnoreCase("tst")) {
 					Test = true;
+
+				} else if (arg.equalsIgnoreCase("verbose") || arg.equalsIgnoreCase("v")) {
+					Verbose = true;
 
 				} else if (arg.equalsIgnoreCase ("pattern") || arg.equalsIgnoreCase ("pat")) {
 					try {
@@ -178,12 +180,6 @@ public class JRetirement {
 	protected boolean printLatestPortfolioPositionsData() throws Exception {
 		final RetirementDao retirementDao = RetirementDao.getInstance();
 
-//		final List<FundsMetaData> fundsMetaDataFromDb = retirementDao.queryFundsMetaDataFromDatabase();
-		final Map<String, FundsMetaData> fundsMetaDataMap = retirementDao.queryFundsMetaDataFromDatabase().stream()
-				.collect(Collectors.toMap(FundsMetaData::getSymbol, Function.identity()));
-
-////Map<String, Integer> map = list.stream().collect(Collectors.toMap(AlbumImageCount::getBaseName, AlbumImageCount::getCount));
-
 		final List<PortfolioPositionsData> portfolioPositionsDataFromDb = retirementDao.queryPortfolioPositionsDataFromDatabase(AllDates);
 
 		Instant latestDateDownloadedFromDb = portfolioPositionsDataFromDb.stream()
@@ -192,15 +188,9 @@ public class JRetirement {
 
 		final List<PortfolioPositionsData> records = portfolioPositionsDataFromDb.stream()
 				.filter(p -> p.getDateDownloaded().equals(latestDateDownloadedFromDb))
-//TODO - this should be done in DAO (adding FundsMetaData object to PortfolioPositionsData records
-//				.filter(p -> {
-//					FundsMetaData fundsMetaData = fundsMetaDataMap.get(p.getSymbol());
-//					p.setFundsMetaData(fundsMetaData);
-//					return true;
-//				})
 				.collect(Collectors.toList());
 
-		System.out.println(NL + "Data for: " + dateTimeFormatterMdyHms.format(latestDateDownloadedFromDb));
+		System.out.println(NL + "Detail data for: " + dateTimeFormatterMdyHms.format(latestDateDownloadedFromDb));
 
 //where should this live? Also, it needs to be reviewed/rewritten
 //		if (deleteDuplicateRecords) {
@@ -221,6 +211,11 @@ public class JRetirement {
 			printTaxes();
 		}
 
+		List<AccountsHistoryData> accountDistributions = retirementDao.queryDistributionDataFromDatabase(AllDates);
+		if (!accountDistributions.isEmpty()) {
+			System.out.println(NL + "Account Distributions: " + NL + accountDistributions.stream().map(AccountsHistoryData::toStringDistributionDetail).collect(Collectors.joining(NL)));
+		}
+
 		if (printHistoricalData || generatePlotFile) {
 			List<AggregateRecord> aggregateRecords = retirementDao.queryAggregateRecordsFromDatabase();
 
@@ -229,7 +224,7 @@ public class JRetirement {
 			}
 
 			if (generatePlotFile) {
-				generatePlotFile(aggregateRecords);
+				generatePlotFile(aggregateRecords, accountDistributions);
 
 				if (false) {
 					String command = PlotExecutable + " " + PlotFileName;
@@ -269,17 +264,17 @@ public class JRetirement {
 				printUrls();
 			}
 
-			if (false) {
+			if (Verbose) {
 				System.out.println(NL + "Filtered records (" + records.size() + "):");
 				records.forEach(System.out::println);
 			}
 
-			if (false) {
+			if (Verbose) {
 				System.out.println(NL + "Read file: " + inputCsvFilePath);
 				System.out.println("Records found: " + records.size());
 			}
 
-//			if (false) {
+//			if (Verbose) {
 //				List<CsvPortfolioPositionsBean> pendingActivity = records.stream().filter(CsvPortfolioPositionsBean::isPendingActivity).collect(Collectors.toList());
 //				if (!pendingActivity.isEmpty()) {
 //					System.out.println(NL + "Pending Activity:");
@@ -303,12 +298,12 @@ public class JRetirement {
 			records = generateFilteredAccountsHistoryRecordList(inputCsvFilePath, true);
 			VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
-			if (false) {
+			if (Verbose) {
 				System.out.println(NL + "Filtered records (" + records.size() + "):");
 				records.forEach(System.out::println);
 			}
 
-			if (false) {
+			if (Verbose) {
 				System.out.println(NL + "Read file: " + inputCsvFilePath);
 				System.out.println("Records found: " + records.size());
 			}
@@ -326,6 +321,7 @@ public class JRetirement {
 		try {
 			double totalBond = 0;
 			double totalCash = 0;
+			double totalCrypto = 0;
 			double totalEquity = 0;
 			double totalHealth = 0;
 			double totalInternational = 0;
@@ -336,59 +332,58 @@ public class JRetirement {
 			double totalAllFunds = 0;
 			boolean foundPendingActivity = false;
 
-			Map<String, Double> balancesByGroupingMap = new HashMap<>();
+			final int paddingForSymbol = 7;
+			final Map<String, Double> balancesByGroupingMap = new HashMap<>();
 
 			for (PortfolioPositionsData record : records) {
 				if (!predicate.test(record)) {
 					continue;
 				}
 
-				FundOwner fundOwner = record.getFundOwner();
+//				FundOwner fundOwner = record.getFundOwner();
 
-//				FundsEnum fund = getValue(record.getSymbol());
-				FundsMetaData fund = record.getFundsMetaData();
+				FundsMetaData fundMetaData = record.getFundsMetaData();
 
-
-				//				String groupBy = fund.getFundFamily() + "." + fund.getStyle();
-//				String groupBy = fund.getFundFamily() + "." + fund.getCategory();
-//				String groupBy = fund.getFundFamily() + "." + fund.getFundType() + "." + fund.getCategory();
+//				String groupBy = fundMetaData.getFundFamily() + "." + fundMetaData.getStyle();
+//				String groupBy = fundMetaData.getFundFamily() + "." + fundMetaData.getCategory();
+//				String groupBy = fundMetaData.getFundFamily() + "." + fundMetaData.getFundType() + "." + fundMetaData.getCategory();
 
 				String groupBy;
 
 /*
 				groupBy = ""
-//						+ "[" + fund.getExpenseRatio() + "] "
+//						+ "[" + fundMetaData.getExpenseRatio() + "] "
 //						+ "[" + fundOwner + "] "
-///						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
-//						+ " => " + fund.getFundFamily()
-///						+ " => " + fund.getDescription()
+///						+ StringUtils.rightPad(fundMetaData.getSymbolForGrouping(), paddingForSymbol, ' ')
+//						+ " => " + fundMetaData.getFundFamily()
+///						+ " => " + fundMetaData.getDescription()
 //						+ "." + fundOwner
-///						+ "." + fund.getFundType()
-//						+ "." + fund.getManagementStyle()
-						+ "." + fund.getCategory();
+///						+ "." + fundMetaData.getFundType()
+//						+ "." + fundMetaData.getManagementStyle()
+						+ "." + fundMetaData.getCategory();
 */
 
 				groupBy = ""
-//						+ "[" + fund.getExpenseRatio() + "] "
+//						+ "[" + fundMetaData.getExpenseRatio() + "] "
 //						+ "[" + fundOwner + "] "
-						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
-//						+ " => " + fund.getFundFamily()
+						+ StringUtils.rightPad(fundMetaData.getSymbolForGrouping(), paddingForSymbol, ' ')
+//						+ " => " + fundMetaData.getFundFamily()
 //						+ "." + fundOwner
-//						+ "." + fund.getFundType()
-//						+ "." + fund.getManagementStyle()
-						+ "." + fund.getCategory();
+//						+ "." + fundMetaData.getFundType()
+//						+ "." + fundMetaData.getManagementStyle()
+						+ "." + fundMetaData.getCategory();
 
 				groupBy = ""
-//						+ "[" + fund.getExpenseRatio() + "] "
+//						+ "[" + fundMetaData.getExpenseRatio() + "] "
 //						+ "[" + fundOwner + "] "
-						+ StringUtils.rightPad(fund.getSymbolForGrouping(), 5, ' ')
-						+ " => " + fund.getFundFamily()
+						+ StringUtils.rightPad(fundMetaData.getSymbolForGrouping(), paddingForSymbol, ' ')
+						+ " => " + fundMetaData.getFundFamily()
 //						+ "." + fundOwner
-//						+ "." + fund.getFundType()
-//						+ "." + fund.getManagementStyle()
-						+ "." + fund.getCategory();
+//						+ "." + fundMetaData.getFundType()
+//						+ "." + fundMetaData.getManagementStyle()
+						+ "." + fundMetaData.getCategory();
 
-//				groupBy = fund.getFundTheme().toString();
+//				groupBy = fundMetaData.getFundTheme().toString();
 
 				Double balance = balancesByGroupingMap.computeIfAbsent(groupBy, k -> 0.); //if key not present, balance is 0.
 
@@ -397,29 +392,33 @@ public class JRetirement {
 
 				totalAllFunds += record.getCurrentValue();
 
-				if (fund.isBond()) {
+				if (fundMetaData.isBond()) {
 					totalBond += record.getCurrentValue();
-				} else if (fund.isCash()) {
+				} else if (fundMetaData.isCash()) {
 					totalCash += record.getCurrentValue();
 				} else {
 					totalEquity += record.getCurrentValue();
 				}
 
-				if (fund.isHealth()) {
+				if (fundMetaData.isCrypto()) {
+					totalCrypto += record.getCurrentValue();
+				}
+
+				if (fundMetaData.isHealth()) {
 					totalHealth += record.getCurrentValue();
 				}
 
-				if (fund.isInternational()) {
+				if (fundMetaData.isInternational()) {
 					totalInternational += record.getCurrentValue();
 				}
 
-				if (fund.isActive()) {
+				if (fundMetaData.isActive()) {
 					totalActive += record.getCurrentValue();
-				} else if (fund.isIndex()) {
+				} else if (fundMetaData.isIndex()) {
 					totalIndex += record.getCurrentValue();
 				}
 
-				if (record.getTaxableType() == FundsEnum.TaxableType.ROTH) {
+				if (FundsEnum.TaxableType.ROTH == record.getTaxableType()) {
 					totalRoth += record.getCurrentValue();
 				}
 
@@ -472,6 +471,7 @@ public class JRetirement {
 				List<FundResult> totals = new ArrayList<>();
 				double percentBond = 100 * totalBond / totalAllFunds;
 				double percentCash = 100 * totalCash / totalAllFunds;
+				double percentCrypto = 100 * totalCrypto / totalAllFunds;
 				double percentEquity = 100 * totalEquity / totalAllFunds;
 				double percentHealth = 100 * totalHealth / totalAllFunds;
 				double percentInternational = 100 * totalInternational / totalAllFunds;
@@ -481,6 +481,9 @@ public class JRetirement {
 
 				totals.add(new FundResult("Total Bond", totalBond, percentBond));
 				totals.add(new FundResult("Total Cash/CDs", totalCash, percentCash, foundPendingActivity ? " <<< adjusted for " + PendingActivityString : ""));
+				if (percentCrypto != 0. && percentCrypto != 100.) {
+					totals.add(new FundResult("Total Crypto", totalCrypto, percentCrypto));
+				}
 				totals.add(new FundResult("Total Equity", totalEquity, percentEquity));
 				totals.add(new FundResult("Total Health", totalHealth, percentHealth));
 				totals.add(new FundResult("Total International", totalInternational, percentInternational));
@@ -562,7 +565,7 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	public Reader getReaderForStringList(List<String> list) {
-		return new BufferedReader(new StringReader(String.join("\n", list)));
+		return new BufferedReader(new StringReader(String.join(NL, list)));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -594,7 +597,7 @@ public class JRetirement {
 			return null;
 		}
 
-		if (false && printSkippedRecords && !skippedRecords.isEmpty()) {
+		if (Verbose && printSkippedRecords && !skippedRecords.isEmpty()) {
 			System.out.println("JRetirement.generateFilteredPortfolioPositionsRecordList:");
 			skippedRecords.stream().sorted().forEach(System.out::println);
 		}
@@ -653,7 +656,7 @@ public class JRetirement {
 		if (printSkippedLines && !skippedLines.isEmpty()) {
 			final int maxCharsToPrint = 100; //hardcoded
 
-			if (false) {
+			if (Verbose) {
 				System.out.println("JRetirement.readAllValidPortfolioPositionsLines:");
 				skippedLines.stream().sorted().forEach(l -> {
 					int charsToPrint = Math.min(l.length(), maxCharsToPrint);
@@ -662,7 +665,7 @@ public class JRetirement {
 				});
 			}
 
-			final int maxExpectedSkippedLines = 3;
+			final int maxExpectedSkippedLines = 4; //there are disclaimer lines at the end of the file that we skip
 			if (skippedLines.size() > maxExpectedSkippedLines) { //hack
 				throw new RuntimeException("Error: number of skipped lines (" + skippedLines.size() + ") is greater than expected (" + maxExpectedSkippedLines + ").");
 			}
@@ -696,7 +699,7 @@ public class JRetirement {
 			return null;
 		}
 
-		if (false && printSkippedRecords && !skippedRecords.isEmpty()) {
+		if (Verbose && printSkippedRecords && !skippedRecords.isEmpty()) {
 			System.out.println("JRetirement.generateFilteredAccountsHistoryRecordList:");
 			skippedRecords.stream().sorted().forEach(System.out::println);
 		}
@@ -730,7 +733,8 @@ public class JRetirement {
 	public List<String> readAllValidAccountsHistoryLines(Path filePath, final boolean printSkippedLines) throws Exception {
 		final List<String> skippedLines = new ArrayList<>();
 
-		AtomicInteger requiredCommas = new AtomicInteger(0);
+		final AtomicInteger requiredCommas = new AtomicInteger(0); //will be calculated from header line
+
 		List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8).stream()
 //			.peek(l -> System.out.println("***DEBUG*** " + l)) //note this is written to file tomcat8-stdout.yyyy-mm-dd.log in tomcat log directory
 			.map(this::stripLeadingBomUnicodeChar)
@@ -759,10 +763,10 @@ public class JRetirement {
 			})
 			.collect(Collectors.toList());
 
-		if (false && printSkippedLines && !skippedLines.isEmpty()) {
+		if (printSkippedLines && !skippedLines.isEmpty()) {
 			final int maxCharsToPrint = 100; //hardcoded
 
-			if (true) {
+			if (Verbose) {
 				System.out.println("JRetirement.readAllValidAccountsHistoryLines:");
 				skippedLines.stream().sorted().forEach(l -> {
 					int charsToPrint = Math.min(l.length(), maxCharsToPrint);
@@ -771,7 +775,7 @@ public class JRetirement {
 				});
 			}
 
-			final int maxExpectedSkippedLines = 8;
+			final int maxExpectedSkippedLines = 17; //8;
 			if (skippedLines.size() > maxExpectedSkippedLines) { //HACK
 				throw new RuntimeException("Error: number of skipped lines (" + skippedLines.size() + ") is greater than expected (" + maxExpectedSkippedLines + ").");
 			}
@@ -880,29 +884,35 @@ public class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected void generatePlotFile(List<AggregateRecord> records) throws Exception {
-		VendoUtils.myAssert(records != null && !records.isEmpty(), "records != null && !records.isEmpty()", null); //do not use Java's assert as it is disabled by default
+	protected void generatePlotFile(List<AggregateRecord> aggregateRecords, List<AccountsHistoryData> accountDistributionsRecords) throws Exception {
+		VendoUtils.myAssert(aggregateRecords != null && !aggregateRecords.isEmpty(), "aggregateRecords != null && !aggregateRecords.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
 		final int yMax = 2_250_000; //TODO - calculate!
 		final int yMin = yMax - 250_000; //TODO - calculate!
 
-		final int days = 150; //180;
+		final int days = 200; //hardcoded
+		final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
 
-		String timestamp = dateTimeFormatterMdyHms.format (Instant.now());
+		AtomicInteger index = new AtomicInteger(2); //"Total" is plot 1, so start this list with 2
+		List<String> distributionPlotList = accountDistributionsRecords.stream()
+				.filter(r -> earliestDate.compareTo(r.getRunDate()) <= 0)
+				.map(r -> r.getAccount() + " Distribution on " + dateTimeFormatterMdy.format(r.getRunDate()) + "=" + index.getAndIncrement())
+				.collect(Collectors.toList());
 
+		String now = dateTimeFormatterMdyHms.format (Instant.now());
 		List<String> headers = Arrays.asList(
-			"# do not edit: file auto generated by JRetirement on: " + timestamp,
+			PlotFileCommentDelimiter + "do not edit: file auto generated by JRetirement on: " + now,
 			"",
 			"[PlotList]",
 			"Total=1",
+			String.join(NL, distributionPlotList),
 			"",
 			"[PlotFileOptions]",
 			"xTransform=linear",
 //			"xAxisDataType=monthOfDecade", //TODO
 			"xAxisDataType=normal",
-			"xAxisSkipTicks=30", //30 days ~ one month
+			"xAxisSkipTicks=30", //30 days ~ one month per tick
 			"xAxisLabel=Date (" + days + " days)",
-
 			"yTransform=linear",
 			"yAxisDataType=normal",
 			"yAxisLabel=($)",
@@ -910,22 +920,37 @@ public class JRetirement {
 			"yMax=" + yMax  //hardcoded
 		);
 
+		final Map<LocalDate, AggregateRecord> localDateToIndexMap = new ConcurrentHashMap<>();
+
 		try (PrintWriter out = new PrintWriter(Files.newOutputStream(new File(PlotFileName).toPath()))) {
 			headers.forEach(out::println);
 
 			out.println();
 			out.println("[Total]");
 
-			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
-			records.stream()
+			aggregateRecords.stream()
 				   .filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
-				   .filter(r -> {
-					   if (false) {
-						   System.out.println("generatePlotFile: debug stream: " + r);
-					   }
-					   return true;
-				   })
-				   .forEach(r -> out.println("" + r.index + "=" + r.totalValue));
+//				   .filter(r -> {
+//					   if (false) {
+//						   System.out.println("generatePlotFile: debug stream: " + r);
+//					   }
+//					   return true;
+//				   })
+				   .forEach(r -> {
+					   LocalDate localDate = r.dateDownloaded.atZone(ZoneId.systemDefault()).toLocalDate();
+					   localDateToIndexMap.put(localDate, r);
+					   out.println("" + r.index + "=" + decimalFormat0.format(r.totalValue) + " " + PlotFileCommentDelimiter + dateTimeFormatterMdy.format(localDate));
+				   });
+
+			accountDistributionsRecords.stream()
+					.filter(r -> earliestDate.compareTo(r.getRunDate()) <= 0)
+					.forEach(r -> {
+						out.println();
+						out.println("[" + r.getAccount() + " Distribution on " + dateTimeFormatterMdy.format(r.getRunDate()) + "]");
+						AggregateRecord matchingAggregateRecord = localDateToIndexMap.get(r.getRunDate().atZone(ZoneId.systemDefault()).toLocalDate());
+						out.println(matchingAggregateRecord.index + "=" + decimalFormat0.format(matchingAggregateRecord.totalValue) + " " + PlotFileCommentDelimiter + "distribution = " + r.getAmount());
+						out.println(1 + matchingAggregateRecord.index + "=" + decimalFormat0.format(matchingAggregateRecord.totalValue + r.getAmount()));
+					});
 
 		} catch (Exception ex) {
 			System.out.println("generatePlotFile: error writing to output file \"" + PlotFileName + "\"");
@@ -948,7 +973,7 @@ public class JRetirement {
 			lastNRecords.forEach(System.out::println);
 		}
 
-		if (false) {
+		if (true) {
 			final int topN = 10;
 			List<AggregateRecord> topNRecords = records.stream().sorted(new AggregateRecord().reversed()).limit(topN).collect(Collectors.toList());
 
@@ -1080,7 +1105,6 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected static class TaxBracket {
-
 		///////////////////////////////////////////////////////////////////////////
 		TaxBracket(int percentRate, int minValue, int maxValue) {
 			this.percentRate = percentRate;
@@ -1161,7 +1185,6 @@ public class JRetirement {
 	///////////////////////////////////////////////////////////////////////////
 	//to sort filenames by embedded date (newest first), with this date format in file name: path1\path2\Portfolio_Positions_Feb-24-2024.csv
 	protected static class PortfolioFilenameComparatorByDateReverse implements Comparator<Path> {
-
 		///////////////////////////////////////////////////////////////////////////
 		@Override
 		public int compare(Path filename1, Path filename2) {
@@ -1279,6 +1302,7 @@ public class JRetirement {
 		if (!toBeAdded.isEmpty()) {
 			rowsPersisted = retirementDao.persistFundsMetaDataToDatabase(toBeAdded);
 		}
+
 		System.out.println();
 		System.out.println("New FundsMetaData rows persisted to database: " + rowsPersisted);
 		System.out.println("Total FundsMetaData rows in database: " + fundsMetaDataFromDb.size());
@@ -1330,6 +1354,7 @@ public class JRetirement {
 		if (!toBeAdded.isEmpty()) {
 			rowsPersisted = retirementDao.persistPortfolioPositionsDataToDatabase(toBeAdded);
 		}
+
 		System.out.println();
 		System.out.println("PortfolioPositions CSV files parsed/failed: " + filesParsedSuccess.get() + "/" + filesParsedFailed.get());
 		System.out.println("New PortfolioPositionsData rows persisted to database: " + rowsPersisted);
@@ -1367,7 +1392,7 @@ public class JRetirement {
 					}
 				});
 
-//		if (false) {
+//		if (Verbose) {
 ////TODO - implement compare
 //			List<AccountsHistoryData> sorted = accountsHistoryDataFromCsvFiles.stream()
 //					.sorted(new AccountsHistoryData())
@@ -1375,7 +1400,7 @@ public class JRetirement {
 //					.collect(Collectors.toList());
 //		}
 
-		if (true) { //debug
+		if (false) { //debug
 			List<AccountsHistoryData> nullSymbolField = accountsHistoryDataFromCsvFiles.stream()
 					.filter(r -> StringUtils.isBlank(r.getSymbol()))
 					.collect(Collectors.toList());
@@ -1385,17 +1410,7 @@ public class JRetirement {
 			}
 		}
 
-		if (false) { //debug
-			List<AccountsHistoryData> tmp = accountsHistoryDataFromCsvFiles.stream()
-					.filter(r -> Math.abs(r.getAmount()) == 284.45)
-					.collect(Collectors.toList());
-
-			if (!tmp.isEmpty()) {
-				System.out.println("The following records have ***: " + NL + tmp.stream().map(Object::toString).collect(Collectors.joining(NL)));
-			}
-		}
-
-		if (false) { //debug
+		if (false) { //debug - find longest instance of field in CSV files
 			int longest = accountsHistoryDataFromCsvFiles.stream().map(r -> r.getAction().length()).max(Integer::compare).orElse(0);
 			int bh = 1;
 		}
@@ -1412,6 +1427,7 @@ public class JRetirement {
 		if (!toBeAdded.isEmpty()) {
 			rowsPersisted = retirementDao.persistAccountsHistoryDataToDatabase(toBeAdded);
 		}
+
 		System.out.println();
 		System.out.println("AccountsHistory CSV files parsed/failed: " + filesParsedSuccess.get() + "/" + filesParsedFailed.get());
 		System.out.println("New AccountsHistoryData rows persisted to database: " + rowsPersisted);
@@ -1437,11 +1453,12 @@ public class JRetirement {
 
 		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public int compare (AggregateRecord r1, AggregateRecord r2) {
+		public int compare(AggregateRecord r1, AggregateRecord r2) {
 			return r1.totalValue.compareTo(r2.totalValue);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		//used to print rows for tables in printHistoricalData, etc.
 		@Override
 		public String toString() {
 			return index + "  " +
@@ -1474,11 +1491,14 @@ public class JRetirement {
 
 	private static final DecimalFormat dollarFormat0 = new DecimalFormat ("$###,##0;($###,##0)"); //embedded "$"; format negative numbers with parenthesis
 	private static final DecimalFormat decimalFormat1 = new DecimalFormat ("###,##0.0;-###,##0.0"); //format negative numbers with minus sign
+	private static final DecimalFormat decimalFormat0 = new DecimalFormat ("#######0"); //format as integer without thousands separator
 
 	protected static final DateTimeFormatter dateTimeFormatterMdyHms = DateTimeFormatter.ofPattern("MM/dd/yy HH:mm:ss").withZone(ZoneId.systemDefault());
+	protected static final DateTimeFormatter dateTimeFormatterMdy = DateTimeFormatter.ofPattern("MM/dd/yy").withZone(ZoneId.systemDefault());
 	protected static final DateTimeFormatter dateTimeFormatterMmSs = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	//global members
+	public static final String PlotFileCommentDelimiter = ";";
 	public static final String CsvCommentDelimiter = "#";
 	public static final String DateDownloadedString = "Date downloaded";
 	public static final String RunDateString = "Run Date";
@@ -1490,6 +1510,7 @@ public class JRetirement {
 
 	public static boolean Debug = false;
 	public static boolean Test = false;
+	public static boolean Verbose = false;
 
 	public static final String AppName = "JRetirement";
 	public static final String NL = System.getProperty ("line.separator");

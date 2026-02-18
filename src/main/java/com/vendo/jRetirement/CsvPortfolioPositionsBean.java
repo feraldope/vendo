@@ -14,7 +14,6 @@ X64000000,Individual - TOD,FCASH**,HELD IN FCASH,,,,$55.87,,,,,100.00%,,,Cash,
 package com.vendo.jRetirement;
 
 import com.opencsv.bean.CsvBindByName;
-import org.apache.commons.lang3.StringUtils;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -23,19 +22,9 @@ import java.util.List;
 import java.util.Objects;
 
 
-public class CsvPortfolioPositionsBean {
-
+public class CsvPortfolioPositionsBean extends CsvBaseBean {
     ///////////////////////////////////////////////////////////////////////////
     public CsvPortfolioPositionsBean() {
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    protected double parseNumberAmount(String stringValue) {
-        if (StringUtils.isBlank(stringValue)) {
-            return 0.;
-        }
-
-        return Double.parseDouble(stringValue.replaceFirst("\\$", ""));
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -59,27 +48,7 @@ public class CsvPortfolioPositionsBean {
         return accountName;
     }
     public void setAccountName(String accountName) {
-        this.accountName = accountName;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public String getSymbol() {
-        return symbol;
-    }
-    public void setSymbol(String symbol) {
-        if (symbol.endsWith("**")) { //HACK - cleanup for example 'SPAXX**'
-            symbol = symbol.substring(0, symbol.length() - 2);
-        }
-
-        this.symbol = symbol;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public String getDescription() {
-        return description;
-    }
-    public void setDescription(String description) {
-        this.description = description;
+        this.accountName = stripTrailingCopyrightChar(accountName);
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -161,17 +130,18 @@ public class CsvPortfolioPositionsBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public Double getCostBasisTotal() {
-        if ("--".equals(costBasisTotal) || "n/a".equalsIgnoreCase(costBasisTotal)) {
-            return 0.;
+    public Double getCostBasis() {
+        if ("--".equals(costBasis) || "n/a".equalsIgnoreCase(costBasis)) {
+            return 0.; //TODO - probably not correct
         }
-        return parseNumberAmount(costBasisTotal);
+
+        return parseNumberAmount(costBasis);
     }
-    public String getCostBasisTotalString() {
-        return costBasisTotal;
+    public String getCostBasisString() {
+        return costBasis;
     }
-    public void setCostBasisTotal(String costBasisTotal) {
-        this.costBasisTotal = costBasisTotal;
+    public void setCostBasis(String costBasis) {
+        this.costBasis = costBasis;
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -183,22 +153,25 @@ public class CsvPortfolioPositionsBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public String getType() {
-        return typeUnused;
-    }
-    public void setType(String type) {
-        this.typeUnused = type;
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    public FundsEnum.FundOwner getFundOwner() {
+    public FundsEnum.FundOwner getFundOwner() { //calculate fundOwner from accountNumber
         FundsEnum.FundOwner fundOwner = FundsEnum.FundOwner.unknown;
 
         String accountNumber = getAccountNumber();
-        if (accountNumber.matches("23\\d+11") || accountNumber.matches("24\\d+42") || accountNumber.matches("8\\d+8") || accountNumber.matches("X\\d+0")) { //scrubbed
+        if (accountNumber.matches("23\\d+11") ||  //hardcoded values are scrubbed
+                accountNumber.matches("24\\d+42") ||
+                accountNumber.matches("24\\d+36") ||
+                accountNumber.matches("8\\d+8") ||
+                accountNumber.matches("X\\d+0") ||
+                accountNumber.matches("16\\d+67")) {
             fundOwner = FundsEnum.FundOwner.dr;
-        } else if (accountNumber.matches("23\\d+9[39]")) { //scrubbed
+
+        } else if (accountNumber.matches("23\\d+9[39]") || //hardcoded values are scrubbed
+                accountNumber.matches("2BN\\d+55") ||
+                accountNumber.matches("2BN\\d+63")) {
             fundOwner = FundsEnum.FundOwner.mr;
+
+        } else {
+            System.out.println("Warning: getFundOwner: unable to determine fundOwner for record: " + this);
         }
 
         return fundOwner;
@@ -229,7 +202,7 @@ public class CsvPortfolioPositionsBean {
 //                ", TotalGainLossDollar='" + getTotalGainLossDollar + '\'' +
 //                ", TotalGainLossPercent='" + getTotalGainLossPercent + '\'' +
 //                ", PercentOfAccount='" + getPercentOfAccount() + '\'' +
-//                ", costBasis='" + getCostBasisTotalString() + '\'' +
+                ", costBasis='" + getCostBasisString() + '\'' +
 //                ", AverageCostBasis='" + getAverageCostBasis() + '\'' +
 //                ", Type='" + getType() + '\'' +
                 '}';
@@ -255,7 +228,7 @@ public class CsvPortfolioPositionsBean {
 //                Objects.equals(getTotalGainLossDollar(), that.getTotalGainLossDollar()) &&
 //                Objects.equals(getTotalGainLossPercent(), that.getTotalGainLossPercent()) &&
 //                Objects.equals(getPercentOfAccount(), that.getPercentOfAccount()) &&
-                Objects.equals(getCostBasisTotal(), that.getCostBasisTotal());
+                Objects.equals(getCostBasis(), that.getCostBasis());
 //                Objects.equals(getAverageCostBasis(), that.getAverageCostBasis()) &&
 //                Objects.equals(getType(), that.getType());
     }
@@ -272,13 +245,13 @@ public class CsvPortfolioPositionsBean {
 //                getQuantity(),
 //                getLastPrice(),
 //                getLastPriceChange(),
-                getCurrentValue());
+                getCurrentValue(),
 //                getTodaysGainLossDollar(),
 //                getTodaysGainLossPercent(),
 //                getTotalGainLossDollar(),
 //                getTotalGainLossPercent(),
 //                getPercentOfAccount(),
-//                getCostBasisTotal(),
+                getCostBasis());
 //                getAverageCostBasis(),
 //                getType())
     }
@@ -287,8 +260,6 @@ public class CsvPortfolioPositionsBean {
     Instant dateDownloaded;
     @CsvBindByName (column = "Account Number")            private String accountNumber;
     @CsvBindByName (column = "Account Name")              private String accountName;
-    @CsvBindByName (column = "Symbol")                    private String symbol;
-    @CsvBindByName (column = "Description")               private String description;
     @CsvBindByName (column = "Quantity")                  private String quantity;
     @CsvBindByName (column = "Last Price")                private String lastPrice;
     @CsvBindByName (column = "Last Price Change")         private String lastPriceChange;
@@ -298,7 +269,6 @@ public class CsvPortfolioPositionsBean {
     @CsvBindByName (column = "Total Gain/Loss Dollar")    private String totalGainLossDollar;
     @CsvBindByName (column = "Total Gain/Loss Percent")   private String totalGainLossPercent;
     @CsvBindByName (column = "Percent Of Account")        private String percentOfAccount;
-    @CsvBindByName (column = "Cost Basis Total")          private String costBasisTotal;
+    @CsvBindByName (column = "Cost Basis Total")          private String costBasis;
     @CsvBindByName (column = "Average Cost Basis")        private String averageCostBasis;
-    @CsvBindByName (column = "Type")                      private String typeUnused; //seems to always be "Cash" in the CSV file
 }
