@@ -1,5 +1,6 @@
 package com.vendo.jRetirement;
 
+import com.google.common.collect.Iterables;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.vendo.vendoUtils.VFileList;
@@ -198,17 +199,22 @@ public class JRetirement {
 //			System.out.println("Duplicate records deleted: " + duplicateRecordsDeleted);
 //		}
 
-		System.out.println(NL + "Roth Accounts -----------------------------------------------------------");
-		printDistribution(records, PortfolioPositionsData.rothAccounts, true, false);
+		System.out.println(NL + "Tax Free (ROTH & HSA) Accounts -----------------------------------------------------------");
+		printDetailTable(records, PortfolioPositionsData.taxFreeAccounts, true, false);
 
-		System.out.println(NL + "Traditional Accounts ----------------------------------------------------");
-		printDistribution(records, PortfolioPositionsData.traditionalAccounts, true, true);
+		System.out.println(NL + "Tax Deferred (Traditional) Accounts ----------------------------------------------------");
+		printDetailTable(records, PortfolioPositionsData.taxDeferredlAccounts, true, true);
 
 		System.out.println(NL + "All Accounts ------------------------------------------------------------");
-		printDistribution(records, PortfolioPositionsData.allAccounts, true, true);
+		printDetailTable(records, PortfolioPositionsData.allAccounts, true, true);
 
 		if (printTaxes) {
 			printTaxes();
+		}
+
+		List<AccountsHistoryData> accountContributions = retirementDao.queryContributionDataFromDatabase(AllDates);
+		if (!accountContributions.isEmpty()) {
+			System.out.println(NL + "Account Contributions: " + NL + accountContributions.stream().map(AccountsHistoryData::toStringContributionDetail).collect(Collectors.joining(NL)));
 		}
 
 		List<AccountsHistoryData> accountDistributions = retirementDao.queryDistributionDataFromDatabase(AllDates);
@@ -216,15 +222,22 @@ public class JRetirement {
 			System.out.println(NL + "Account Distributions: " + NL + accountDistributions.stream().map(AccountsHistoryData::toStringDistributionDetail).collect(Collectors.joining(NL)));
 		}
 
+		List<AccountsHistoryData> accountRedemptions = retirementDao.queryRedemptionDataFromDatabase(AllDates);
+		if (!accountRedemptions.isEmpty()) {
+			System.out.println(NL + "Account Redemptions: " + NL + accountRedemptions.stream().map(AccountsHistoryData::toStringRedemptionDetail).collect(Collectors.joining(NL)));
+		}
+
 		if (printHistoricalData || generatePlotFile) {
-			List<AggregateRecord> aggregateRecords = retirementDao.queryAggregateRecordsFromDatabase();
+			List<AggregateRecord> aggregateAllAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.Unspecified);
+			List<AggregateRecord> aggregateTaxFreeAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.TaxFree);
+			List<AggregateRecord> aggregateTaxDeferredAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.TaxDeferred);
 
 			if (printHistoricalData) {
-				printHistoricalData(aggregateRecords);
+				printHistoricalData(aggregateAllAccountsRecords);
 			}
 
 			if (generatePlotFile) {
-				generatePlotFile(aggregateRecords, accountDistributions);
+				generatePlotFile(aggregateAllAccountsRecords, aggregateTaxFreeAccountsRecords, aggregateTaxDeferredAccountsRecords, accountContributions, accountDistributions, accountRedemptions);
 
 				if (false) {
 					String command = PlotExecutable + " " + PlotFileName;
@@ -317,7 +330,7 @@ public class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected boolean printDistribution(List<PortfolioPositionsData> records, /*FundsMetaData fundsMetaDataRecords,*/ Predicate<PortfolioPositionsData> predicate, boolean includeBreakOut, boolean includeWithdrawalAmounts) {
+	protected boolean printDetailTable(List<PortfolioPositionsData> records, Predicate<PortfolioPositionsData> predicate, boolean includeBreakOut, boolean includeWithdrawalAmounts) {
 		try {
 			double totalBond = 0;
 			double totalCash = 0;
@@ -327,12 +340,12 @@ public class JRetirement {
 			double totalInternational = 0;
 			double totalActive = 0;
 			double totalIndex = 0;
-			double totalRoth = 0;
+			double totalTaxFree = 0;
 			double totalPendingActivity = 0;
 			double totalAllFunds = 0;
 			boolean foundPendingActivity = false;
 
-			final int paddingForSymbol = 7;
+			final int paddingForSymbol = 7; //hardcoded
 			final Map<String, Double> balancesByGroupingMap = new HashMap<>();
 
 			for (PortfolioPositionsData record : records) {
@@ -340,7 +353,7 @@ public class JRetirement {
 					continue;
 				}
 
-//				FundOwner fundOwner = record.getFundOwner();
+				FundsEnum.FundOwner fundOwner = record.getFundOwner();
 
 				FundsMetaData fundMetaData = record.getFundsMetaData();
 
@@ -418,8 +431,8 @@ public class JRetirement {
 					totalIndex += record.getCurrentValue();
 				}
 
-				if (FundsEnum.TaxableType.ROTH == record.getTaxableType()) {
-					totalRoth += record.getCurrentValue();
+				if (FundsEnum.TaxableType.TaxFree == record.getTaxableType()) {
+					totalTaxFree += record.getCurrentValue();
 				}
 
 				if (record.isPendingActivity()) {
@@ -432,11 +445,11 @@ public class JRetirement {
 			totalCash += totalPendingActivity; //pending activity should be negative
 
 			List<FundResult> results = new ArrayList<>();
-			for (Map.Entry<String, Double> entry : balancesByGroupingMap.entrySet().stream()
-					.sorted(Map.Entry.comparingByKey()).collect(Collectors.toList())) {
+			for (Map.Entry<String, Double> entry : balancesByGroupingMap.entrySet().stream().sorted(Map.Entry.comparingByKey()).collect(Collectors.toList())) {
 				String grouping = entry.getKey();
 				double total = entry.getValue();
 				double percent = 100. * total / totalAllFunds;
+
 				results.add(new FundResult(grouping, total, percent, grouping.contains(PendingActivityString) ? " <<< " + PendingActivityString : ""));
 
 //TODO - this does not work for all values of groupBy - specifically those that do not include the symbol
@@ -455,7 +468,7 @@ public class JRetirement {
 				List<Integer> percents = Arrays.asList(2, 3, 4);
 				for (Integer percent : percents) {
 					double withdrawalPercent = percent * totalAllFunds / 100;
-					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent /*, " <<< divide by 2 for 2024"*/));
+					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent));
 				}
 			}
 
@@ -464,7 +477,7 @@ public class JRetirement {
 			int longestPercent = FundResult.getMaxPercentLength(results);
 
 			for (FundResult result : results) {
-				System.out.println(FundResult.generateString(result, longestLabel, longestTotal, longestPercent));
+				System.out.println(FundResult.toStringDetail(result, longestLabel, longestTotal, longestPercent));
 			}
 
 			if (includeBreakOut) {
@@ -477,20 +490,20 @@ public class JRetirement {
 				double percentInternational = 100 * totalInternational / totalAllFunds;
 				double percentActive = 100 * totalActive / totalAllFunds;
 				double percentIndex = 100 * totalIndex / totalAllFunds;
-				double percentRoth = 100 * totalRoth / totalAllFunds;
+				double percentTaxFree = 100 * totalTaxFree / totalAllFunds;
 
 				totals.add(new FundResult("Total Bond", totalBond, percentBond));
 				totals.add(new FundResult("Total Cash/CDs", totalCash, percentCash, foundPendingActivity ? " <<< adjusted for " + PendingActivityString : ""));
+				totals.add(new FundResult("Total Equity", totalEquity, percentEquity));
 				if (percentCrypto != 0. && percentCrypto != 100.) {
 					totals.add(new FundResult("Total Crypto", totalCrypto, percentCrypto));
 				}
-				totals.add(new FundResult("Total Equity", totalEquity, percentEquity));
 				totals.add(new FundResult("Total Health", totalHealth, percentHealth));
 				totals.add(new FundResult("Total International", totalInternational, percentInternational));
 				totals.add(new FundResult("Total Active", totalActive, percentActive));
 				totals.add(new FundResult("Total Index", totalIndex, percentIndex));
-				if (percentRoth != 0. && percentRoth != 100.) { //hack
-					totals.add(new FundResult("Total Roth", totalRoth, percentRoth));
+				if (percentTaxFree != 0. && percentTaxFree != 100.) { //hack
+					totals.add(new FundResult("Total Tax Free", totalTaxFree, percentTaxFree));
 				}
 
 				longestLabel = FundResult.getMaxLabelLength(totals);
@@ -499,7 +512,7 @@ public class JRetirement {
 
 				System.out.println();
 				for (FundResult total : totals) {
-					System.out.println(FundResult.generateString(total, longestLabel, longestTotal, longestPercent));
+					System.out.println(FundResult.toStringDetail(total, longestLabel, longestTotal, longestPercent));
 				}
 			}
 
@@ -539,7 +552,7 @@ public class JRetirement {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public static String generateString(FundResult result, int longestLabel, int longestTotal, int longestPercent) {
+		public static String toStringDetail(FundResult result, int longestLabel, int longestTotal, int longestPercent) {
 			if (BlankLine.equals(result)) {
 				return "";
 			} else {
@@ -884,35 +897,63 @@ public class JRetirement {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected void generatePlotFile(List<AggregateRecord> aggregateRecords, List<AccountsHistoryData> accountDistributionsRecords) throws Exception {
-		VendoUtils.myAssert(aggregateRecords != null && !aggregateRecords.isEmpty(), "aggregateRecords != null && !aggregateRecords.isEmpty()", null); //do not use Java's assert as it is disabled by default
+	protected void generatePlotFile(List<AggregateRecord> aggregateAllAccountsRecords,
+									List<AggregateRecord> aggregateTaxFreeAccountsRecords,
+									List<AggregateRecord> aggregateTaxDeferredAccountsRecords,
+									List<AccountsHistoryData> accountContributionsRecords,
+									List<AccountsHistoryData> accountDistributionsRecords,
+									List<AccountsHistoryData> accountRedemptionRecords) throws Exception {
+		VendoUtils.myAssert(aggregateAllAccountsRecords != null && !aggregateAllAccountsRecords.isEmpty(), "aggregateAllAccountsRecords != null && !aggregateAllAccountsRecords.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
-		final int yMax = 2_250_000; //TODO - calculate!
-		final int yMin = yMax - 250_000; //TODO - calculate!
+		final int yMax = 2_600_000; //TODO - calculate!
+		final int yMin = 0;
 
-		final int days = 200; //hardcoded
-		final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
+		final int workDaysInMonth = (int) (30. /*nominal work days/month*/ * 240. /*nominal work days/year*/ / 365. /*calendar days/year*/); //hack
+		final int calendarDays = 240; //hardcoded
+		final Instant earliestDate = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(calendarDays, ChronoUnit.DAYS);
 
-		AtomicInteger index = new AtomicInteger(2); //"Total" is plot 1, so start this list with 2
-		List<String> distributionPlotList = accountDistributionsRecords.stream()
-				.filter(r -> earliestDate.compareTo(r.getRunDate()) <= 0)
-				.map(r -> r.getAccount() + " Distribution on " + dateTimeFormatterMdy.format(r.getRunDate()) + "=" + index.getAndIncrement())
-				.collect(Collectors.toList());
+		double allAccountsLastBalance = Iterables.getLast(aggregateAllAccountsRecords).getTotalValue();
+		double taxFreeAccountsLastBalance = Iterables.getLast(aggregateTaxFreeAccountsRecords).getTotalValue();
+		double taxDeferredAccountsLastBalance = Iterables.getLast(aggregateTaxDeferredAccountsRecords).getTotalValue();
+		double taxFreeAccountsPercent = 100. * taxFreeAccountsLastBalance / allAccountsLastBalance;
+		double taxDeferredAccountsPercent = 100. * taxDeferredAccountsLastBalance / allAccountsLastBalance;
 
-		String now = dateTimeFormatterMdyHms.format (Instant.now());
+		List<String> allPlotsList = new ArrayList<>(Arrays.asList(
+				"All Accounts",
+				"Tax Free Accounts (" + decimalFormat1.format(taxFreeAccountsPercent) + "%)",
+				"Tax Deferred Accounts (" + decimalFormat1.format(taxDeferredAccountsPercent) + "%)"));
+
+		allPlotsList.addAll(accountContributionsRecords.stream()
+				.filter(r -> r.getRunDate().isAfter(earliestDate))
+				.map(r -> "Contribution on " + r.toStringContributionDetail())
+				.collect(Collectors.toList()));
+
+		allPlotsList.addAll(accountDistributionsRecords.stream()
+				.filter(r -> r.getRunDate().isAfter(earliestDate))
+				.map(r -> "Distribution on " + r.toStringDistributionDetail())
+				.collect(Collectors.toList()));
+
+		allPlotsList.addAll(accountRedemptionRecords.stream()
+				.filter(r -> r.getRunDate().isAfter(earliestDate))
+				.map(r -> "Redemption on " + r.toStringRedemptionDetail())
+				.collect(Collectors.toList()));
+
+		final AtomicInteger index = new AtomicInteger(1); //Plot.exe wants the plot numbering to start at 1
+
 		List<String> headers = Arrays.asList(
-			PlotFileCommentDelimiter + "do not edit: file auto generated by JRetirement on: " + now,
+			CommentDelimiter + "do not edit: file auto generated by JRetirement on: " + dateTimeFormatterMdyHms.format (Instant.now()),
 			"",
 			"[PlotList]",
-			"Total=1",
-			String.join(NL, distributionPlotList),
+			allPlotsList.stream().map(s -> s + "=" + index.getAndIncrement()).collect(Collectors.joining(NL)),
 			"",
 			"[PlotFileOptions]",
 			"xTransform=linear",
 //			"xAxisDataType=monthOfDecade", //TODO
 			"xAxisDataType=normal",
-			"xAxisSkipTicks=30", //30 days ~ one month per tick
-			"xAxisLabel=Date (" + days + " days)",
+			"xAxisSkipTicks=" + workDaysInMonth, //hack
+			"xAxisSkipLabels=" + workDaysInMonth / 2, //hack
+			"xAxisLabel=Date (" + calendarDays + " days)",
+			"xAxisTickLabelsAngle=45",
 			"yTransform=linear",
 			"yAxisDataType=normal",
 			"yAxisLabel=($)",
@@ -920,36 +961,72 @@ public class JRetirement {
 			"yMax=" + yMax  //hardcoded
 		);
 
-		final Map<LocalDate, AggregateRecord> localDateToIndexMap = new ConcurrentHashMap<>();
+		final int stepToNextDay = 1;
+		final Map<LocalDate, AggregateRecord> localDateToAggregateRecordMap = new ConcurrentHashMap<>();
 
+		index.set(0); //we want to step through allPlotsList below
 		try (PrintWriter out = new PrintWriter(Files.newOutputStream(new File(PlotFileName).toPath()))) {
 			headers.forEach(out::println);
 
-			out.println();
-			out.println("[Total]");
+			out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
+			aggregateAllAccountsRecords.stream()
+					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
+				   	.forEach(r -> {
+						LocalDate localDate = r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate();
+					    localDateToAggregateRecordMap.put(localDate, r);
+					    out.println("" + r.getIndex() + "=" + decimalFormat0.format(r.getTotalValue()) + " " + CommentDelimiter + dateTimeFormatterMdy.format(localDate));
+				    });
 
-			aggregateRecords.stream()
-				   .filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
-//				   .filter(r -> {
-//					   if (false) {
-//						   System.out.println("generatePlotFile: debug stream: " + r);
-//					   }
-//					   return true;
-//				   })
-				   .forEach(r -> {
-					   LocalDate localDate = r.dateDownloaded.atZone(ZoneId.systemDefault()).toLocalDate();
-					   localDateToIndexMap.put(localDate, r);
-					   out.println("" + r.index + "=" + decimalFormat0.format(r.totalValue) + " " + PlotFileCommentDelimiter + dateTimeFormatterMdy.format(localDate));
-				   });
+			out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
+			aggregateTaxFreeAccountsRecords.stream()
+					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
+				   	.forEach(r -> {
+						LocalDate localDate = r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate();
+					    out.println("" + r.getIndex() + "=" + decimalFormat0.format(r.getTotalValue()) + " " + CommentDelimiter + dateTimeFormatterMdy.format(localDate));
+				    });
 
-			accountDistributionsRecords.stream()
-					.filter(r -> earliestDate.compareTo(r.getRunDate()) <= 0)
+			out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
+			aggregateTaxDeferredAccountsRecords.stream()
+					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
+				   	.forEach(r -> {
+						LocalDate localDate = r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate();
+					    out.println("" + r.getIndex() + "=" + decimalFormat0.format(r.getTotalValue()) + " " + CommentDelimiter + dateTimeFormatterMdy.format(localDate));
+				    });
+
+			//Note specific handling for day0Value, day1Value
+			accountContributionsRecords.stream()
+					.filter(r -> r.getRunDate().isAfter(earliestDate))
 					.forEach(r -> {
-						out.println();
-						out.println("[" + r.getAccount() + " Distribution on " + dateTimeFormatterMdy.format(r.getRunDate()) + "]");
-						AggregateRecord matchingAggregateRecord = localDateToIndexMap.get(r.getRunDate().atZone(ZoneId.systemDefault()).toLocalDate());
-						out.println(matchingAggregateRecord.index + "=" + decimalFormat0.format(matchingAggregateRecord.totalValue) + " " + PlotFileCommentDelimiter + "distribution = " + r.getAmount());
-						out.println(1 + matchingAggregateRecord.index + "=" + decimalFormat0.format(matchingAggregateRecord.totalValue + r.getAmount()));
+						out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
+						AggregateRecord matchingAggregateRecord = localDateToAggregateRecordMap.get(r.getRunDate().atZone(ZoneId.systemDefault()).toLocalDate());
+						double day0Value = matchingAggregateRecord.getTotalValue();
+						double day1Value = day0Value + r.getAmount();
+						out.println(matchingAggregateRecord.getIndex() + "=" + decimalFormat0.format(day0Value));
+						out.println(stepToNextDay + matchingAggregateRecord.getIndex() + "=" + decimalFormat0.format(day1Value));
+					});
+
+			//Note specific handling for day0Value, day1Value
+			accountDistributionsRecords.stream()
+					.filter(r -> r.getRunDate().isAfter(earliestDate))
+					.forEach(r -> {
+						out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
+						AggregateRecord matchingAggregateRecord = localDateToAggregateRecordMap.get(r.getRunDate().atZone(ZoneId.systemDefault()).toLocalDate());
+						double day0Value = matchingAggregateRecord.getTotalValue();
+						double day1Value = day0Value + r.getAmount(); //Note amount is negative for distributions
+						out.println(matchingAggregateRecord.getIndex() + "=" + decimalFormat0.format(day0Value));
+						out.println(stepToNextDay + matchingAggregateRecord.getIndex() + "=" + decimalFormat0.format(day1Value));
+					});
+
+			//Note specific handling for day0Value, day1Value
+			accountRedemptionRecords.stream()
+					.filter(r -> r.getRunDate().isAfter(earliestDate))
+					.forEach(r -> {
+						out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
+						AggregateRecord matchingAggregateRecord = localDateToAggregateRecordMap.get(r.getRunDate().atZone(ZoneId.systemDefault()).toLocalDate());
+						double day0Value = matchingAggregateRecord.getTotalValue() - r.getAmount(); //Note amount is negative for redemptions
+						double day1Value = matchingAggregateRecord.getTotalValue();
+						out.println(matchingAggregateRecord.getIndex() + "=" + decimalFormat0.format(day0Value));
+						out.println(stepToNextDay + matchingAggregateRecord.getIndex() + "=" + decimalFormat0.format(day1Value));
 					});
 
 		} catch (Exception ex) {
@@ -992,14 +1069,14 @@ public class JRetirement {
 			final int weeks = 52;
 			final Instant earliestDate = Instant.now().minus(7 * weeks, ChronoUnit.DAYS);
 			AggregateRecord filteredMax = records.stream()
-					.filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
 					.max(new AggregateRecord()).orElse(null);
 
 			System.out.println(NL + "Max record (for previous " + weeks + " weeks):");
 			if (filteredMax != null) {
 				System.out.println(filteredMax);
-				double diffFromMax = lastRecord.totalValue - filteredMax.totalValue;
-				double percentDiff = 100. * (lastRecord.totalValue - filteredMax.totalValue) / filteredMax.totalValue;
+				double diffFromMax = lastRecord.getTotalValue() - filteredMax.getTotalValue();
+				double percentDiff = 100. * (lastRecord.getTotalValue() - filteredMax.getTotalValue()) / filteredMax.getTotalValue();
 				System.out.println("Diff from that max: " + dollarFormat0.format(diffFromMax) + " -> " + decimalFormat1.format(percentDiff) + "%");
 			} else {
 				System.out.println("No data available");
@@ -1010,14 +1087,14 @@ public class JRetirement {
 			final int days = 90;
 			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
 			AggregateRecord filteredMax = records.stream()
-					.filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
 					.max(new AggregateRecord()).orElse(null);
 
 			System.out.println(NL + "Max record (for previous " + days + " days):");
 			if (filteredMax != null) {
 				System.out.println(filteredMax);
-				double diffFromMax = lastRecord.totalValue - filteredMax.totalValue;
-				double percentDiff = 100. * (lastRecord.totalValue - filteredMax.totalValue) / filteredMax.totalValue;
+				double diffFromMax = lastRecord.getTotalValue() - filteredMax.getTotalValue();
+				double percentDiff = 100. * (lastRecord.getTotalValue() - filteredMax.getTotalValue()) / filteredMax.getTotalValue();
 				System.out.println("Diff from that max: " + dollarFormat0.format(diffFromMax) + " -> " + decimalFormat1.format(percentDiff) + "%");
 			} else {
 				System.out.println("No data available");
@@ -1028,14 +1105,14 @@ public class JRetirement {
 			final int days = 30;
 			final Instant earliestDate = Instant.now().minus(days, ChronoUnit.DAYS);
 			AggregateRecord filteredMax = records.stream()
-					.filter(r -> earliestDate.compareTo(r.dateDownloaded) <= 0)
+					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
 					.max(new AggregateRecord()).orElse(null);
 
 			System.out.println(NL + "Max record (for previous " + days + " days):");
 			if (filteredMax != null) {
 				System.out.println(filteredMax);
-				double diffFromMax = lastRecord.totalValue - filteredMax.totalValue;
-				double percentDiff = 100. * (lastRecord.totalValue - filteredMax.totalValue) / filteredMax.totalValue;
+				double diffFromMax = lastRecord.getTotalValue() - filteredMax.getTotalValue();
+				double percentDiff = 100. * (lastRecord.getTotalValue() - filteredMax.getTotalValue()) / filteredMax.getTotalValue();
 				System.out.println("Diff from that max: " + dollarFormat0.format(diffFromMax) + " -> " + decimalFormat1.format(percentDiff) + "%");
 			} else {
 				System.out.println("No data available");
@@ -1298,13 +1375,18 @@ public class JRetirement {
 				.filter(i -> !fundsMetaDataFromDb.contains(i))
 				.collect(Collectors.toList());
 
+		if (!toBeAdded.isEmpty()) {
+			System.out.println("FundsMetaData: new/updated rows to be inserted:");
+			toBeAdded.forEach(System.out::println);
+		}
+
 		int rowsPersisted = 0;
 		if (!toBeAdded.isEmpty()) {
 			rowsPersisted = retirementDao.persistFundsMetaDataToDatabase(toBeAdded);
 		}
 
 		System.out.println();
-		System.out.println("New FundsMetaData rows persisted to database: " + rowsPersisted);
+		System.out.println("New/updated FundsMetaData rows persisted to database: " + rowsPersisted);
 		System.out.println("Total FundsMetaData rows in database: " + fundsMetaDataFromDb.size());
 		System.out.println("Elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format (dateTimeFormatterMmSs));
 
@@ -1452,25 +1534,45 @@ public class JRetirement {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		public int getIndex() {
+			return index;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public Instant getDateDownloaded() {
+			return dateDownloaded;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public int getNumRecords() {
+			return numRecords;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public Double getTotalValue() {
+			return totalValue;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
 		@Override
 		public int compare(AggregateRecord r1, AggregateRecord r2) {
-			return r1.totalValue.compareTo(r2.totalValue);
+			return r1.getTotalValue().compareTo(r2.getTotalValue());
 		}
 
 		///////////////////////////////////////////////////////////////////////////
 		//used to print rows for tables in printHistoricalData, etc.
 		@Override
 		public String toString() {
-			return index + "  " +
-				   numRecords + "  " +
-				   dateTimeFormatterMdyHms.format(dateDownloaded) + "  " +
-				   dollarFormat0.format(totalValue);
+			return getIndex() + "  " +
+				   getNumRecords() + "  " +
+				   dateTimeFormatterMdyHms.format(getDateDownloaded()) + "  " +
+				   dollarFormat0.format(getTotalValue());
 		}
 
-		final int index;
-		final Instant dateDownloaded;
-		final int numRecords;
-		final Double totalValue;
+		private final int index;
+		private final Instant dateDownloaded;
+		private final int numRecords;
+		private final Double totalValue;
 	}
 
 
@@ -1498,7 +1600,7 @@ public class JRetirement {
 	protected static final DateTimeFormatter dateTimeFormatterMmSs = DateTimeFormatter.ofPattern ("mm'm':ss's'"); //for example: 03m:12s (note this wraps values >= 60 minutes)
 
 	//global members
-	public static final String PlotFileCommentDelimiter = ";";
+	public static final String CommentDelimiter = ";"; //for comments in plot file
 	public static final String CsvCommentDelimiter = "#";
 	public static final String DateDownloadedString = "Date downloaded";
 	public static final String RunDateString = "Run Date";

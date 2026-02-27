@@ -16,9 +16,6 @@ package com.vendo.jRetirement;
 import com.opencsv.bean.CsvBindByName;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Objects;
 
 
@@ -153,11 +150,11 @@ public class CsvPortfolioPositionsBean extends CsvBaseBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public FundsEnum.FundOwner getFundOwner() { //calculate fundOwner from accountNumber
+    public FundsEnum.FundOwner getFundOwner() { //calculate fundOwner from accountNumber field
         FundsEnum.FundOwner fundOwner = FundsEnum.FundOwner.unknown;
 
         String accountNumber = getAccountNumber();
-        if (accountNumber.matches("23\\d+11") ||  //hardcoded values are scrubbed
+        if (accountNumber.matches("23\\d+11") || //hardcoded values are scrubbed
                 accountNumber.matches("24\\d+42") ||
                 accountNumber.matches("24\\d+36") ||
                 accountNumber.matches("8\\d+8") ||
@@ -178,10 +175,35 @@ public class CsvPortfolioPositionsBean extends CsvBaseBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
+//TODO - this *could* be moved to base class (but one class uses getAccountName and the other uses getAccount
     public FundsEnum.TaxableType getTaxableType() {
-        final List<String> RothAccountNames = new ArrayList<>(Arrays.asList("ROTH IRA", "FIS 401(K) PLAN"));
+        FundsEnum.TaxableType taxableType = FundsEnum.TaxableType.Unspecified;
 
-        return RothAccountNames.contains(getAccountName()) ? FundsEnum.TaxableType.ROTH : FundsEnum.TaxableType.Traditional;
+        switch(getAccountName()) {
+            case "Fidelity Crypto":
+            case "Individual - TOD":
+                taxableType = FundsEnum.TaxableType.Taxable;
+                break;
+
+            case "Rollover IRA":
+            case "Traditional IRA":
+                taxableType = FundsEnum.TaxableType.TaxDeferred;
+                break;
+
+            case "FIS 401(K) PLAN":
+            case "Health Savings Account":
+            case "ROTH IRA":
+                taxableType = FundsEnum.TaxableType.TaxFree;
+                break;
+
+            default: //fall through
+        }
+
+        if (FundsEnum.TaxableType.Unspecified == taxableType) {
+            throw new RuntimeException ("CsvPortfolioPositionsBean.getTaxableType: unhandled accountName: '" + getAccountName() + "'");
+        }
+
+        return taxableType;
     }
 
     ///////////////////////////////////////////////////////////////////////////

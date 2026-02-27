@@ -3,6 +3,7 @@
 package com.vendo.jRetirement;
 
 import com.vendo.vendoUtils.VendoUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.*;
 import java.time.Instant;
@@ -45,14 +46,14 @@ public class RetirementDao {
 			 ResultSet rs = stmt.executeQuery()) {
 
 			while (rs.next()) {
-				String symbol          = rs.getString("symbol");
-				String fundFamily      = rs.getString("fund_family");
-				String description     = rs.getString("description");
-				Double expenseRatio    = rs.getDouble("expense_ratio");
-				String fundThemeStr    = rs.getString("fund_theme");
-				String fundTypeStr     = rs.getString("fund_type");
+				String symbol = rs.getString("symbol");
+				String fundFamily = rs.getString("fund_family");
+				String description = rs.getString("description");
+				Double expenseRatio = rs.getDouble("expense_ratio");
+				String fundThemeStr = rs.getString("fund_theme");
+				String fundTypeStr = rs.getString("fund_type");
 				String managementStyleStr = rs.getString("management_style");
-				String category        = rs.getString("category");
+				String category = rs.getString("category");
 				String investmentStyle = rs.getString("investment_style");
 
 				FundsEnum.FundTheme fundTheme = FundsEnum.FundTheme.valueOf(fundThemeStr);
@@ -92,16 +93,16 @@ public class RetirementDao {
 	///////////////////////////////////////////////////////////////////////////
 	public boolean persistFundsMetaDataToDatabase(Connection connection, FundsMetaData record) {
 		String sql = "insert into funds_meta_data (symbol, fund_family, description, expense_ratio, fund_theme, fund_type, management_style, category, investment_style)" + NL +
-					 " values (?, ?, ?, ?, ?, ?, ?, ?, ?)" + NL;
-		String sqlOnDup = " on duplicate key update symbol = values (symbol)," + NL +
-												  " fund_family = values (fund_family)," + NL +
-												  " description = values (description)," + NL +
-												  " expense_ratio = values (expense_ratio)," + NL +
-												  " fund_theme = values (fund_theme)," + NL +
-												  " fund_type = values (fund_type)," + NL +
-												  " management_style = values (management_style)," + NL +
-												  " category = values (category)," + NL +
-												  " investment_style = values (investment_style)";
+					 " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)" + NL;
+		String sqlOnDup = " on duplicate key update symbol = VALUES(symbol)," + NL +
+												  " fund_family = VALUES(fund_family)," + NL +
+												  " description = VALUES(description)," + NL +
+												  " expense_ratio = VALUES(expense_ratio)," + NL +
+												  " fund_theme = VALUES(fund_theme)," + NL +
+												  " fund_type = VALUES(fund_type)," + NL +
+												  " management_style = VALUES(management_style)," + NL +
+												  " category = VALUES(category)," + NL +
+												  " investment_style = VALUES(investment_style)";
 
 		try (PreparedStatement stmt = connection.prepareStatement(sql + sqlOnDup)) {
 			int index = 0;
@@ -133,11 +134,11 @@ public class RetirementDao {
 				.collect(Collectors.toMap(FundsMetaData::getSymbol, Function.identity()));
 
 		String sql = "select downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis, taxable_type, fund_owner" + NL +
-				" from portfolio_positions_data";
+				" from portfolio_positions_data" + NL;
 		if (!dateDownloaded.equals(AllDates)) {
-			sql += NL + " where downloaded_timestamp = ?";
+			sql += " where downloaded_timestamp = ?" + NL;
 		}
-		sql += NL + "order by downloaded_timestamp, account_number, account_name, symbol";
+		sql += " order by downloaded_timestamp, account_number, account_name, symbol";
 
 		List<PortfolioPositionsData> records = new ArrayList<>();
 
@@ -154,14 +155,14 @@ public class RetirementDao {
 
 			while (rs.next ()) {
 				java.sql.Timestamp timestamp = rs.getTimestamp("downloaded_timestamp");
-				String accountNumber = rs.getString ("account_number");
-				String accountName = rs.getString ("account_name");
-				String symbol = rs.getString ("symbol");
-				String description = rs.getString ("description");
-				Double currentValue = rs.getDouble ("value");
-				Double costBasis = rs.getDouble ("cost_basis");
-				String taxableTypeStr = rs.getString ("taxable_type");
-				String fundOwnerStr = rs.getString ("fund_owner");
+				String accountNumber = rs.getString("account_number");
+				String accountName = rs.getString("account_name");
+				String symbol = rs.getString("symbol");
+				String description = rs.getString("description");
+				Double currentValue = rs.getDouble("value");
+				Double costBasis = rs.getDouble("cost_basis");
+				String taxableTypeStr = rs.getString("taxable_type");
+				String fundOwnerStr = rs.getString("fund_owner");
 
 				FundsEnum.TaxableType taxableType = FundsEnum.TaxableType.valueOf(taxableTypeStr);
 				FundsEnum.FundOwner fundOwner = FundsEnum.FundOwner.valueOf(fundOwnerStr);
@@ -207,7 +208,7 @@ public class RetirementDao {
 	///////////////////////////////////////////////////////////////////////////
 	public boolean persistPortfolioPositionsDataToDatabase(Connection connection, PortfolioPositionsData record) throws Exception {
 		final String sql = "insert into portfolio_positions_data (downloaded_timestamp, account_number, account_name, symbol, description, value, cost_basis, taxable_type, fund_owner)" + NL +
-				" values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+				" VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)";
 //		String sqlOnDup = " on duplicate key update ... [TBD]
 
 		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -225,14 +226,6 @@ public class RetirementDao {
 
 			stmt.executeUpdate();
 
-//obsolete - keep as example
-//		} catch (SQLIntegrityConstraintViolationException ex) {
-//			if (!ex.getMessage().matches("Duplicate entry.*PRIMARY.*")) { //we expect to get duplicate entries because we aren't checking before persisting (which is a TODO)
-//				System.err.println("persistPortfolioPositionsDataToDatabase: error persisting record <" + record + ">");
-//				System.err.println(ex.getMessage());
-//			}
-//			return false;
-
 		} catch (Exception ex) {
 			System.err.println("persistPortfolioPositionsDataToDatabase: error persisting record <" + record + ">");
 			System.err.println(ex.getMessage());
@@ -243,13 +236,85 @@ public class RetirementDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<AccountsHistoryData> queryAccountsHistoryDataFromDatabase(Instant runDate) {
-		String sql = "select run_date, account, account_number, action, symbol, description, commission, fees, amount, settlement_date" + NL +
-				" from account_history_data";
+	public List<AccountsHistoryData> queryContributionDataFromDatabase(Instant runDate) {
+		String accountsToSkip = "FIS 401(K) PLAN"; //not interesting for now
+
+		//Note distributions are already negative in the database
+		String sql = "select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity" + NL +
+				     " from account_history_data" + NL +
+//				     " where UPPER(action) rlike '.*CONTR.*'" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
+				     " where activity = '" + FundsEnum.Activity.Contribution + "'" + NL +
+					 " and account != '" + accountsToSkip + "'" + NL +
+				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
 		if (!runDate.equals(AllDates)) {
-			sql += NL + " where run_date = ?";
+			sql += " and run_date = ?" + NL;
 		}
-		sql += NL + "order by run_date, account, account_number, action, symbol";
+		sql += " group by run_date, account, account_number, symbol, description" + NL +
+			   " order by run_date";
+
+		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<AccountsHistoryData> queryDistributionDataFromDatabase(Instant runDate) {
+		//Note distributions are already negative in the database
+		String sql = "select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity" + NL +
+				     " from account_history_data" + NL +
+//				     " where (UPPER(action) rlike '.*DISTR.*' OR UPPER(action) rlike '.*TAX.*')" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
+				     " where activity = '" + FundsEnum.Activity.Distribution + "'" + NL +
+				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
+		if (!runDate.equals(AllDates)) {
+			sql += " and run_date = ?" + NL;
+		}
+		sql += " group by run_date, account, account_number, symbol, description" + NL +
+			   " order by run_date";
+
+		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<AccountsHistoryData> queryRedemptionDataFromDatabase(Instant runDate) {
+		//Note redemptions are not negative in the database, so we need to negate them
+		String sql = "select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, (-1) * SUM(amount) as amount, settlement_date, activity" + NL +
+				     " from account_history_data" + NL +
+//				     " where UPPER(action) rlike 'REDEMPTION FROM CORE ACCOUNT.*'" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
+				     " where activity = '" + FundsEnum.Activity.Redemption + "'" + NL +
+				     " and account = 'Individual - TOD'" + NL +
+				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
+		if (!runDate.equals(AllDates)) {
+			sql += " and run_date = ?" + NL;
+		}
+		sql += " group by run_date, account, account_number, symbol, description" + NL +
+			   " order by run_date";
+
+		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public List<AccountsHistoryData> queryAccountsHistoryDataFromDatabase(Instant runDate) {
+		String sql = "select run_date, account, account_number, action, symbol, description, commission, fees, amount, settlement_date, activity" + NL +
+				     " from account_history_data" + NL;
+		if (!runDate.equals(AllDates)) {
+			sql += " where run_date = ?" + NL;
+		}
+		sql += " order by run_date, account, account_number, action, symbol";
+
+		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
+
+		return records;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private List<AccountsHistoryData> queryAccountsHistoryDataFromDatabase(Instant runDate, String sql) {
+		if (!runDate.equals(AllDates)) {
+			throw new RuntimeException ("RetirementDao.queryAccountsHistoryDataFromDatabase: code path not implemented"); //TODO - implement
+		}
 
 		List<AccountsHistoryData> records = new ArrayList<>();
 
@@ -266,18 +331,21 @@ public class RetirementDao {
 
 			while (rs.next ()) {
 				java.sql.Timestamp runDateTimestamp = rs.getTimestamp("run_date");
-				String account = rs.getString ("account");
-				String accountNumber = rs.getString ("account_number");
-				String action = rs.getString ("action");
-				String symbol = rs.getString ("symbol");
-				String description = rs.getString ("description");
-				Double commission = rs.getDouble ("commission");
-				Double fees = rs.getDouble ("fees");
-				Double amount = rs.getDouble ("amount");
+				String account = rs.getString("account");
+				String accountNumber = rs.getString("account_number");
+				String action = rs.getString("action");
+				String symbol = rs.getString("symbol");
+				String description = rs.getString("description");
+				Double commission = rs.getDouble("commission");
+				Double fees = rs.getDouble("fees");
+				Double amount = rs.getDouble("amount");
 				java.sql.Timestamp settlementDateTimestamp = rs.getTimestamp("settlement_date");
 				Instant settlementDateInstant = settlementDateTimestamp == null ? null : settlementDateTimestamp.toInstant(); //handle null
+				String activityStr = rs.getString("activity");
 
-				AccountsHistoryData record = new AccountsHistoryData(runDateTimestamp.toInstant(), account, accountNumber, action, symbol, description, commission, fees, amount, settlementDateInstant);
+				FundsEnum.Activity activity = StringUtils.isBlank(activityStr) ? FundsEnum.Activity.Unspecified : FundsEnum.Activity.valueOf(activityStr); //handle null
+
+				AccountsHistoryData record = new AccountsHistoryData(runDateTimestamp.toInstant(), account, accountNumber, action, symbol, description, commission, fees, amount, settlementDateInstant, activity);
 				records.add(record);
 			}
 
@@ -314,8 +382,8 @@ public class RetirementDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	public boolean persistAccountsHistoryDataToDatabase(Connection connection, AccountsHistoryData record) throws Exception {
-		final String sql = "insert into account_history_data (run_date, account, account_number, action, symbol, description, commission, fees, amount, settlement_date)" + NL +
-				" values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+		final String sql = "insert into account_history_data (run_date, account, account_number, action, symbol, description, commission, fees, amount, settlement_date, activity)" + NL +
+				           " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 //		String sqlOnDup = " on duplicate key update ... [TBD]
 
 		try (PreparedStatement stmt = connection.prepareStatement(sql)) {
@@ -332,6 +400,8 @@ public class RetirementDao {
 			stmt.setDouble(++index, record.getAmount());
 			java.sql.Timestamp timestamp = record.getSettlementDate() != null ? java.sql.Timestamp.from(record.getSettlementDate()) : null; //handle null
 			stmt.setTimestamp(++index, timestamp);
+			FundsEnum.Activity activity = record.getActivity();
+			stmt.setString(++index, activity == FundsEnum.Activity.Unspecified ? null : activity.toString()); //don't write 'Unspecified' to DB, leave as null
 
 			stmt.executeUpdate();
 
@@ -345,69 +415,14 @@ public class RetirementDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<AccountsHistoryData> queryDistributionDataFromDatabase(Instant runDate) {
-		final int skipSmallerAmounts = -500;
-
-		String sql = "select run_date, account, account_number, action, symbol, description, sum(commission) as commission, sum(fees) as fees, sum(amount) as amount, settlement_date" + NL +
-				" from account_history_data" + NL +
-				" where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')" + NL + //NOTE: rlike is not case sensitive unless used on binary string
-				" and amount < (" + skipSmallerAmounts + ")" + NL; //skip smaller transactions
-		if (!runDate.equals(AllDates)) {
-			sql += " and run_date = ?" + NL;
+	public List<JRetirement.AggregateRecord> queryAggregateRecordsFromDatabase(FundsEnum.TaxableType taxableType) {
+		String sql = "select downloaded_timestamp, count(*) as records, SUM(value) as total_value" + NL +
+					 " from portfolio_positions_data" + NL;
+		if (FundsEnum.TaxableType.Unspecified != taxableType) {
+			sql += " where taxable_type = '" + taxableType + "'" + NL;
 		}
-		sql += " group by run_date, account, account_number, symbol, description" + NL +
-			   " order by run_date" + NL;
-
-		List<AccountsHistoryData> records = new ArrayList<>();
-
-		ResultSet rs = null;
-		try (Connection connection = connectDatabase();
-			 PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-			if (!runDate.equals(AllDates)) {
-				java.sql.Timestamp timestamp = java.sql.Timestamp.from(runDate);
-				stmt.setTimestamp(1, timestamp);
-			}
-
-			rs = stmt.executeQuery ();
-
-			while (rs.next ()) {
-				java.sql.Timestamp runDateTimestamp = rs.getTimestamp("run_date");
-				String account = rs.getString ("account");
-				String accountNumber = rs.getString ("account_number");
-				String action = rs.getString ("action");
-				String symbol = rs.getString ("symbol");
-				String description = rs.getString ("description");
-				Double commission = rs.getDouble ("commission");
-				Double fees = rs.getDouble ("fees");
-				Double amount = rs.getDouble ("amount");
-				java.sql.Timestamp settlementDateTimestamp = rs.getTimestamp("settlement_date");
-				Instant settlementDateInstant = settlementDateTimestamp == null ? null : settlementDateTimestamp.toInstant(); //handle null
-
-				AccountsHistoryData record = new AccountsHistoryData(runDateTimestamp.toInstant(), account, accountNumber, action, symbol, description, commission, fees, amount, settlementDateInstant);
-				records.add(record);
-			}
-
-		} catch (Exception ex) {
-			System.err.println("queryAccountsHistoryDataFromDatabase: error running sql <" + sql + "> for runDate <" + runDate + ">");
-			System.err.println(ex.getMessage());
-			return records;
-
-		} finally {
-			if (rs != null) {
-				try { rs.close (); } catch (SQLException ignored) {}
-			}
-		}
-
-		return records;
-	}
-
-	///////////////////////////////////////////////////////////////////////////
-	protected List<JRetirement.AggregateRecord> queryAggregateRecordsFromDatabase() {
-		String sql = "select downloaded_timestamp, count(*) records, sum(value) total_value" + NL +
-					 " from portfolio_positions_data" + NL +
-					 " group by downloaded_timestamp" + NL +
-					 " order by downloaded_timestamp";
+		sql += " group by downloaded_timestamp" + NL +
+			   " order by downloaded_timestamp";
 
 		List<JRetirement.AggregateRecord> records = new ArrayList<>();
 
@@ -435,7 +450,7 @@ public class RetirementDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected int deleteRecordsFromDatabase(List<Instant> instants) {
+	public int deleteRecordsFromDatabase(List<Instant> instants) {
 		final String sql = "delete from portfolio_positions_data where downloaded_timestamp = ?";
 
 		int totalRowsDeleted = 0;
@@ -460,7 +475,7 @@ public class RetirementDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected Connection connectDatabase () throws Exception {
+	private Connection connectDatabase () throws Exception {
 		//TODO - move connection info to properties file, with hard-coded defaults
 		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
 		final String dbUrl = "jdbc:mysql://localhost/retirement";
@@ -474,6 +489,7 @@ public class RetirementDao {
 
 	//private members
 	private static volatile RetirementDao instance = null;
+	private final int skipSmallerAmounts = 500;
 
 	public static final Instant AllDates = Instant.ofEpochSecond(9999); //some fixed, hopefully unique time
 	public static final String NL = System.getProperty ("line.separator");

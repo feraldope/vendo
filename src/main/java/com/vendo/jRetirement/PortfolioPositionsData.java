@@ -161,7 +161,8 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 	private final FundsEnum.FundOwner fundOwner;
 	private final FundsMetaData fundsMetaData;
 
-	public static final Predicate<PortfolioPositionsData> rothAccounts = (p -> p.getTaxableType() == FundsEnum.TaxableType.ROTH);
-	public static final Predicate<PortfolioPositionsData> traditionalAccounts = (p -> p.getTaxableType() == FundsEnum.TaxableType.Traditional);
+	public static final Predicate<PortfolioPositionsData> taxFreeAccounts = (p -> p.getTaxableType() == FundsEnum.TaxableType.TaxFree);
+	public static final Predicate<PortfolioPositionsData> taxDeferredlAccounts = (p -> p.getTaxableType() == FundsEnum.TaxableType.TaxDeferred);
+	public static final Predicate<PortfolioPositionsData> taxableAccounts = (p -> p.getTaxableType() == FundsEnum.TaxableType.Taxable);
 	public static final Predicate<PortfolioPositionsData> allAccounts = p -> true;
 }

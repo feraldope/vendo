@@ -101,6 +101,7 @@ CREATE OR REPLACE TABLE account_history_data (
 	fees            DECIMAL(8, 2), -- enough for $999,999.99
 	amount          DECIMAL(10, 2) NOT NULL, -- enough for $99,999,999.99
 	settlement_date TIMESTAMP,
+	activity        VARCHAR(16),
 	PRIMARY KEY (run_date, account_number, action, symbol, amount), -- prevent duplicates, creates composite index
     CONSTRAINT fk_ah_symbol FOREIGN KEY (symbol) REFERENCES funds_meta_data(symbol) -- constraint name must be unique across all tables
 );
@@ -127,25 +128,28 @@ select count(*) from funds_meta_data
 
 select distinct symbol from funds_meta_data order by symbol
 
-select * from funds_meta_data order by symbol
+select * from funds_meta_data order by fund_family, symbol
 
 -- -----------------------------------------------------------------------------
 select count(*) from portfolio_positions_data;
 
 -- summary
-select downloaded_timestamp, count(*), format(sum(value) / 1000, 0) as 'Value $K', 
+select downloaded_timestamp, count(*), format(sum(value) / 1000, 0) as 'Value $K',
  case
     when cost_basis = 0 then 'unknown'
     else format((sum(value) - sum(cost_basis)) / 1000, 0)
  end as 'Gain  $K'
- from portfolio_positions_data 
- group by downloaded_timestamp 
+ from portfolio_positions_data
+ group by downloaded_timestamp
  order by downloaded_timestamp
 
 select * from portfolio_positions_data where fund_owner = 'unknown'
 select distinct account_number, symbol, account_name, description from portfolio_positions_data where fund_owner = 'unknown'
 
 select count(distinct downloaded_timestamp) from portfolio_positions_data;
+
+select distinct taxable_type from portfolio_positions_data order by taxable_type;
+select distinct account_name from portfolio_positions_data order by account_name;
 
 select date(p.downloaded_timestamp) as date, p.* from portfolio_positions_data p
  where date(p.downloaded_timestamp) >= '2026-02-18'
@@ -158,34 +162,76 @@ select count(*) from account_history_data;
 
 select count(distinct run_date) from account_history_data;
 
+select distinct account from account_history_data order by account;
+
 select date(a.run_date) as date, a.* from account_history_data a
 -- where date(a.run_date) >= '2026-02-04'
  order by a.symbol, a.account
 
-select * from account_history_data where cast(action as binary) rlike '.*CONTR.*' -- rlike is not case sensitive unless used on binary string
-
 select * from account_history_data where lower(action) rlike '.*bought.*'
 
-select * from account_history_data where (fees > 0 OR commission > 0) OR (action rlike '.*FEE.*' AND amount < 0) order by run_date
+select * from account_history_data where (ABS(fees) > 0 OR ABS(commission) > 0) OR (action rlike '.*FEE.*' AND ABS(amount) > 0) order by run_date
 
--- contributions
-select * from account_history_data
- where upper(action) rlike '.*CONTR.*' 
- and account not rlike 'FIS.*'
- order by run_date
-
--- distributions - detail
-select * from account_history_data
- where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')
- and amount < 0
- order by run_date
-
--- distributions - aggregate
-select run_date, account, account_number, action, symbol, description, sum(commission), sum(fees), sum(amount), settlement_date
+-- get list of all 'interesting' actions
+select action, count(amount), min(cast(run_date as date)), max(cast(run_date as date)), sum(amount)
  from account_history_data
- where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')
- and amount < (-1000)
- group by run_date, account, account_number, symbol, description
+ where action not rlike 'DIVIDEND.*'
+  and action not rlike 'Change in Market.*'
+  and action not rlike 'COMMISSION CREDIT.*'
+  and action not rlike 'Exchange In.*'
+  and action not rlike 'Exchange Out.*'
+  and action not rlike 'INTEREST.*'
+  and action not rlike 'LONG-TERM CAP GAIN.*'
+  and action not rlike 'RECEIVED FROM YOU.*'
+  and action not rlike 'RECORDKEEPING FEE.*'
+  and action not rlike 'REINVESTMENT.*'
+  and action not rlike 'REVENUE CREDIT.*'
+  and action not rlike 'ROLLOVER CASH.*'
+  and action not rlike 'ROLLOVER SHARES.*'
+  and action not rlike 'SHORT-TERM CAP GAIN.*'
+  and action not rlike 'TERMINATED MAINTENANCE.*'
+  and action not rlike 'TFR OF ASSETS.*'
+  and action not rlike 'TRANSFER OF ASSETS.*'
+  and action not rlike 'TRANSFERRED FROM.*'
+  and action not rlike 'YOU BOUGHT.*'
+  and action not rlike 'YOU SOLD.*'
+ group by action
+ order by action
+
+select * from account_history_data
+ where activity is not null
+-- and activity = 'Redemption'
  order by run_date
+
+-- obsolete after adding 'activity' column
+    -- contributions
+    select * from account_history_data
+     where upper(action) rlike '.*CONTR.*'
+     and account not rlike 'FIS.*'
+     order by run_date
+
+    -- distributions - detail
+    select * from account_history_data
+     where (upper(action) rlike '.*DISTR.*' OR upper(action) rlike '.*TAX.*')
+     and amount < 0
+     order by run_date
+
+    -- distributions - aggregate (Note distributions are already negative in the database)
+    select run_date, account, account_number, action, symbol, description, SUM(commission), SUM(fees), SUM(amount), settlement_date
+     from account_history_data
+     where (UPPER(action) rlike '.*DISTR.*' OR UPPER(action) rlike '.*TAX.*')
+     and ABS(amount) > 500
+     group by run_date, account, account_number, symbol, description
+     order by run_date
+
+    -- redemptions - aggregate (Note redemptions are not negative in the database, so we need to negate them)
+    select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, (-1) * SUM(amount) as amount, settlement_date
+     from account_history_data
+    -- where UPPER(action) rlike 'REDEMPTION FROM CORE ACCOUNT.*'
+     where UPPER(action) rlike 'REDEMPTION.*'
+     and account = 'Individual - TOD'
+     and ABS(amount) > 500
+     group by run_date, account, account_number, symbol, description
+     order by run_date
 
 */

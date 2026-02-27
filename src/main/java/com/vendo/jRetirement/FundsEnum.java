@@ -6,6 +6,7 @@ public enum FundsEnum {
     SPAXX  ("SPAXX",   "HELD IN MONEY MARKET",                            0.420, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
     FCASH  ("FCASH",   "HELD IN FCASH",                                   0.420, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
     FDRXX  ("FDRXX",   "HELD IN MONEY MARKET",                            0.420, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
+    FZFXX  ("FZFXX",   "HELD IN MONEY MARKET",                            0.420, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
     FRSXX  ("FRSXX",   "FIMM TREASURY ONLY PORTFOLIO: INSTL CL",          0.420, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"), //expense ratio copied from SPAXX
     VMFXX  ("VMFXX",   "VANGUARD FED RESERVE MMKT INVESTOR CL",           0.110, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
     VUSXX  ("VUSXX",   "VANGUARD TREASURY MMKT INV CL",                   0.090, FundTheme.Cash,          FundType.Cash,      ManagementStyle.NA,     "Money Market",       "Money Market"),
@@ -67,15 +68,16 @@ public enum FundsEnum {
     public enum FundType {Unknown, BondETF, BondFund, Cash, Crypto, StockETF, StockFund}
     public enum FundTheme {Unknown, CD, Cash, Crypto, Bonds, SP500, Dividends, TotalMarket, SmallCap, MidCap, LargeCap, HealthCare, Balanced, International, Pending}
     public enum ManagementStyle {NA, Active, Index}
-    public enum TaxableType {ROTH, Traditional}
+
+    //used in PortfolioPositionsBean/Data
+    public enum TaxableType {Unspecified, TaxFree /*ROTH*/, TaxDeferred /*Traditional*/, Taxable /*Non-retirement*/}
+
+    //used in AccountsHistoryBean/Data
+    public enum Activity {Unspecified, Contribution, Distribution, Redemption}
 
 
     ///////////////////////////////////////////////////////////////////////////
     FundsEnum (String symbol, String description, Double expenseRatio, FundTheme fundTheme, FundType fundType, ManagementStyle managementStyle, String category, String investmentStyle) {
-//        if (symbol.endsWith("**")) { //Hack - cleanup for example 'SPAXX**'
-//            symbol = symbol.substring(0, symbol.length() - 2);
-//        }
-
         this.symbol = symbol;
         this.description = description;
         this.expenseRatio = expenseRatio;
@@ -85,55 +87,56 @@ public enum FundsEnum {
         this.category = category;               //from MorningStar.com
         this.investmentStyle = investmentStyle; //from MorningStar.com
 
-        //calculate fundFamily from description from CSV file
+        //calculate fundFamily from description field in CSV file
         String[] descArray = description.split(" ");
-        switch (descArray[0]) {
-        default:
-            fundFamily = descArray[0].charAt(0) + descArray[0].substring(1).toLowerCase();
-            break;
+        switch(descArray[0]) {
+            default:
+                fundFamily = descArray[0].charAt(0) + descArray[0].substring(1).toLowerCase();
+                break;
 
-        case "HELD":
-        case "Fid":
-        case "US": //"US DOLLARS"
-            fundFamily = "Fidelity";
-            break;
+            case "HELD": //e.g., "HELD IN MONEY MARKET"
+            case "Fid":  //e.g., "FID BLUE CHP GR CP A"
+            case "FIMM": //e.g., "FIMM TREASURY ONLY PORTFOLIO: INSTL CL"
+            case "US":   //e.g., "US DOLLARS"
+                fundFamily = "Fidelity";
+                break;
 
-        case "VANG":
-            fundFamily = "Vanguard";
-            break;
+            case "VANG":
+                fundFamily = "Vanguard";
+                break;
 
-        case "ISHARES":
-            fundFamily = "IShares";
-            break;
+            case "ISHARES":
+                fundFamily = "IShares";
+                break;
 
-        case "JPM":
-            fundFamily = "JPMorgan";
-            break;
+            case "JPM":
+                fundFamily = "JPMorgan";
+                break;
 
-        case "SCHWAB":
-            fundFamily = "Schwab";
-            break;
+            case "SCHWAB":
+                fundFamily = "Schwab";
+                break;
 
-        case "BANK":
-            fundFamily = "BankOfAmerica";
-            break;
+            case "BANK":
+                fundFamily = "BankOfAmerica";
+                break;
 
-        case "BNY":
-            fundFamily = "BNYMellon";
-            break;
+            case "BNY":
+                fundFamily = "BNYMellon";
+                break;
 
-        case "MORGAN":
-            fundFamily = "MorganStanley";
-            break;
+            case "MORGAN":
+                fundFamily = "MorganStanley";
+                break;
 
-        case "Pending":
-            fundFamily = "PendingActivity";
-            break;
+            case "Pending":
+                fundFamily = "PendingActivity";
+                break;
 
-        case "SS":
-            fundFamily = "StateStreet";
-            break;
-        }
+            case "SS":
+                fundFamily = "StateStreet";
+                break;
+            }
     }
 
     ///////////////////////////////////////////////////////////////////////////
@@ -194,7 +197,7 @@ public enum FundsEnum {
     }
 
 
-    //members
+    //private members
     private final String symbol;
     private final String fundFamily;
     private final String description;

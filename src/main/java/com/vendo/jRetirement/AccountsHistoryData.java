@@ -17,7 +17,8 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 							   Double commission,
 							   Double fees,
 							   Double amount,
-							   Instant settlementDate) {
+							   Instant settlementDate,
+							   FundsEnum.Activity activity) {
 		super(symbol, description);
 		this.runDate = runDate;
 		this.account = account;
@@ -27,6 +28,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		this.fees = fees;
 		this.amount = amount;
 		this.settlementDate = settlementDate;
+		this.activity = activity;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -40,6 +42,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		this.fees = bean.getFees();
 		this.amount = bean.getAmount();
 		this.settlementDate = bean.getSettlementDate();
+		this.activity = bean.getActivity();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -54,6 +57,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		this.fees = null;
 		this.amount = null;
 		this.settlementDate = null;
+		this.activity = null;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -97,6 +101,11 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public FundsEnum.Activity getActivity() {
+		return activity;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public int compare(AccountsHistoryData o1, AccountsHistoryData o2) {
 		throw new RuntimeException ("AccountsHistoryData.compare: not implemented"); //TODO - implement
@@ -121,7 +130,8 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 				Objects.equals(getCommission(), that.getCommission()) &&
 				Objects.equals(getFees(), that.getFees()) &&
 				getAmount().equals(that.getAmount()) &&
-				Objects.equals(getSettlementDate(), that.getSettlementDate());
+				Objects.equals(getSettlementDate(), that.getSettlementDate()) &&
+				Objects.equals(getActivity(), that.getActivity());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -136,7 +146,8 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 							getCommission(),
 							getFees(),
 							getAmount(),
-							getSettlementDate());
+							getSettlementDate(),
+							getActivity());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -153,6 +164,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		sb.append(", fees=").append(getFees());
 		sb.append(", amount=").append(getAmount());
 		sb.append(", settlementDate=").append(getSettlementDate());
+		sb.append(", activity=").append(getActivity());
 		sb.append('}');
 		return sb.toString();
 	}
@@ -166,6 +178,16 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		return sb.toString();
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	public String toStringRedemptionDetail() {
+		return toStringDistributionDetail(); //for now, the same
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String toStringContributionDetail() {
+		return toStringDistributionDetail(); //for now, the same
+	}
+
 	//private members
 	//originally from CSV file
 	private final Instant runDate;
@@ -176,4 +198,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	private final Double fees;
 	private final Double amount;
 	private final Instant settlementDate;
+
+	//calculated
+	private final FundsEnum.Activity activity;
 }

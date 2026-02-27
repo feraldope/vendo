@@ -74,6 +74,25 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
+    public FundsEnum.Activity getActivity() { //calculate activity from action field
+        FundsEnum.Activity activity = FundsEnum.Activity.Unspecified;
+
+        String action = getAction();
+
+        if (action.contains("CONTR")) {
+            activity = FundsEnum.Activity.Contribution;
+
+        } else if (action.contains("DISTR") || action.contains("TAX")) {
+            activity = FundsEnum.Activity.Distribution;
+
+        } else if (action.contains("REDEMPTION FROM CORE ACCOUNT")) {
+            activity = FundsEnum.Activity.Redemption;
+        }
+
+        return activity;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
     public Instant getRunDate() {
         return parseDateMmDdYyyy(runDate);
     }
