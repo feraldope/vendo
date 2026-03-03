@@ -18,7 +18,7 @@ public class FundsMetaData extends RetirementBaseData implements Comparator<Fund
 						 FundsEnum.ManagementStyle managementStyle,
 						 String category,
 						 String investmentStyle) {
-		super(symbol, description);
+		super("not used", symbol, description);
 		this.fundFamily = fundFamily;
 		this.expenseRatio = expenseRatio;
 		this.fundTheme = fundTheme;
@@ -30,7 +30,7 @@ public class FundsMetaData extends RetirementBaseData implements Comparator<Fund
 
 	///////////////////////////////////////////////////////////////////////////
 	public FundsMetaData(FundsEnum fundsEnum) {
-		super(fundsEnum.getSymbol(), fundsEnum.getDescription());
+		super("not used", fundsEnum.getSymbol(), fundsEnum.getDescription());
 		fundFamily = fundsEnum.getFundFamily();
 		expenseRatio = fundsEnum.getExpenseRatio();
 		fundTheme = fundsEnum.getFundTheme();

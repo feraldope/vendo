@@ -19,10 +19,10 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 								  FundsEnum.TaxableType taxableType,
 								  FundsEnum.FundOwner fundOwner,
 								  FundsMetaData fundsMetaData) {
-		super(symbol, description);
+		super(accountName, symbol, description);
 		this.dateDownloaded = dateDownloaded;
 		this.accountNumber = accountNumber;
-		this.accountName = accountName;
+//		this.accountName = accountName;
 		this.currentValue = currentValue;
 		this.costBasis = costBasis;
 		this.taxableType = taxableType;
@@ -32,10 +32,10 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 
 	///////////////////////////////////////////////////////////////////////////
 	public PortfolioPositionsData(CsvPortfolioPositionsBean bean) {
-		super(bean.getSymbol(), bean.getDescription());
+		super(bean.getAccountName(), bean.getSymbol(), bean.getDescription());
 		this.dateDownloaded = bean.getDateDownloaded();
 		this.accountNumber = bean.getAccountNumber();
-		this.accountName = bean.getAccountName();
+//		this.accountName = bean.getAccountName();
 		this.currentValue = bean.getCurrentValue();
 		this.costBasis = bean.getCostBasis();
 		this.taxableType = bean.getTaxableType();
@@ -54,9 +54,9 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getAccountName() {
-		return accountName;
-	}
+//	public String getAccountName() {
+//		return accountName;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public Double getCurrentValue() {
@@ -152,7 +152,7 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 	//originally from CSV file
 	private final Instant dateDownloaded;
 	private final String accountNumber;
-	private final String accountName;
+//	private final String accountName;
 	private final Double currentValue;
 	private final Double costBasis;
 

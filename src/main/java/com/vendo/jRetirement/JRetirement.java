@@ -699,7 +699,7 @@ public class JRetirement {
 			records = readAccountsHistoryCsvFile(inputCsvFilePath, CsvAccountsHistoryBean.class).stream()
 					.filter(r -> {
 						boolean keepRecord = true;
-						if (accountsToSkip.contains(r.getAccount())) {
+						if (accountsToSkip.contains(r.getAccountName())) {
 							skippedRecords.add("skipped record (account): " + r);
 							keepRecord = false;
 						}

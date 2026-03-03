@@ -240,16 +240,16 @@ public class RetirementDao {
 		String accountsToSkip = "FIS 401(K) PLAN"; //not interesting for now
 
 		//Note distributions are already negative in the database
-		String sql = "select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity" + NL +
+		String sql = "select run_date, account_name, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity" + NL +
 				     " from account_history_data" + NL +
 //				     " where UPPER(action) rlike '.*CONTR.*'" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
 				     " where activity = '" + FundsEnum.Activity.Contribution + "'" + NL +
-					 " and account != '" + accountsToSkip + "'" + NL +
+					 " and account_name != '" + accountsToSkip + "'" + NL +
 				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
 		if (!runDate.equals(AllDates)) {
 			sql += " and run_date = ?" + NL;
 		}
-		sql += " group by run_date, account, account_number, symbol, description" + NL +
+		sql += " group by run_date, account_name, account_number, symbol, description" + NL +
 			   " order by run_date";
 
 		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
@@ -260,7 +260,7 @@ public class RetirementDao {
 	///////////////////////////////////////////////////////////////////////////
 	public List<AccountsHistoryData> queryDistributionDataFromDatabase(Instant runDate) {
 		//Note distributions are already negative in the database
-		String sql = "select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity" + NL +
+		String sql = "select run_date, account_name, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity" + NL +
 				     " from account_history_data" + NL +
 //				     " where (UPPER(action) rlike '.*DISTR.*' OR UPPER(action) rlike '.*TAX.*')" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
 				     " where activity = '" + FundsEnum.Activity.Distribution + "'" + NL +
@@ -268,7 +268,7 @@ public class RetirementDao {
 		if (!runDate.equals(AllDates)) {
 			sql += " and run_date = ?" + NL;
 		}
-		sql += " group by run_date, account, account_number, symbol, description" + NL +
+		sql += " group by run_date, account_name, account_number, symbol, description" + NL +
 			   " order by run_date";
 
 		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
@@ -279,16 +279,16 @@ public class RetirementDao {
 	///////////////////////////////////////////////////////////////////////////
 	public List<AccountsHistoryData> queryRedemptionDataFromDatabase(Instant runDate) {
 		//Note redemptions are not negative in the database, so we need to negate them
-		String sql = "select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, (-1) * SUM(amount) as amount, settlement_date, activity" + NL +
+		String sql = "select run_date, account_name, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, (-1) * SUM(amount) as amount, settlement_date, activity" + NL +
 				     " from account_history_data" + NL +
 //				     " where UPPER(action) rlike 'REDEMPTION FROM CORE ACCOUNT.*'" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
 				     " where activity = '" + FundsEnum.Activity.Redemption + "'" + NL +
-				     " and account = 'Individual - TOD'" + NL +
+				     " and account_name = 'Individual - TOD'" + NL +
 				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
 		if (!runDate.equals(AllDates)) {
 			sql += " and run_date = ?" + NL;
 		}
-		sql += " group by run_date, account, account_number, symbol, description" + NL +
+		sql += " group by run_date, account_name, account_number, symbol, description" + NL +
 			   " order by run_date";
 
 		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
@@ -298,12 +298,12 @@ public class RetirementDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	public List<AccountsHistoryData> queryAccountsHistoryDataFromDatabase(Instant runDate) {
-		String sql = "select run_date, account, account_number, action, symbol, description, commission, fees, amount, settlement_date, activity" + NL +
+		String sql = "select run_date, account_name, account_number, action, symbol, description, commission, fees, amount, settlement_date, activity" + NL +
 				     " from account_history_data" + NL;
 		if (!runDate.equals(AllDates)) {
 			sql += " where run_date = ?" + NL;
 		}
-		sql += " order by run_date, account, account_number, action, symbol";
+		sql += " order by run_date, account_name, account_number, action, symbol";
 
 		List<AccountsHistoryData> records = queryAccountsHistoryDataFromDatabase(runDate, sql);
 
@@ -331,7 +331,7 @@ public class RetirementDao {
 
 			while (rs.next ()) {
 				java.sql.Timestamp runDateTimestamp = rs.getTimestamp("run_date");
-				String account = rs.getString("account");
+				String accountName = rs.getString("account_name");
 				String accountNumber = rs.getString("account_number");
 				String action = rs.getString("action");
 				String symbol = rs.getString("symbol");
@@ -345,7 +345,7 @@ public class RetirementDao {
 
 				FundsEnum.Activity activity = StringUtils.isBlank(activityStr) ? FundsEnum.Activity.Unspecified : FundsEnum.Activity.valueOf(activityStr); //handle null
 
-				AccountsHistoryData record = new AccountsHistoryData(runDateTimestamp.toInstant(), account, accountNumber, action, symbol, description, commission, fees, amount, settlementDateInstant, activity);
+				AccountsHistoryData record = new AccountsHistoryData(runDateTimestamp.toInstant(), accountName, accountNumber, action, symbol, description, commission, fees, amount, settlementDateInstant, activity);
 				records.add(record);
 			}
 
@@ -382,7 +382,7 @@ public class RetirementDao {
 
 	///////////////////////////////////////////////////////////////////////////
 	public boolean persistAccountsHistoryDataToDatabase(Connection connection, AccountsHistoryData record) throws Exception {
-		final String sql = "insert into account_history_data (run_date, account, account_number, action, symbol, description, commission, fees, amount, settlement_date, activity)" + NL +
+		final String sql = "insert into account_history_data (run_date, account_name, account_number, action, symbol, description, commission, fees, amount, settlement_date, activity)" + NL +
 				           " VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 //		String sqlOnDup = " on duplicate key update ... [TBD]
 
@@ -390,7 +390,7 @@ public class RetirementDao {
 			int index = 0;
 			VendoUtils.myAssert(null != record.getRunDate(), "null != record.getRunDate()", null); //do not use Java's assert as it is disabled by default
 			stmt.setTimestamp(++index, java.sql.Timestamp.from(record.getRunDate()));
-			stmt.setString(++index, record.getAccount());
+			stmt.setString(++index, record.getAccountName());
 			stmt.setString(++index, record.getAccountNumber());
 			stmt.setString(++index, record.getAction());
 			stmt.setString(++index, record.getSymbol());

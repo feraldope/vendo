@@ -55,7 +55,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
         if (StringUtils.isBlank(accountNumber)) {
             Matcher matcher = pattern.matcher(combinedString.trim());
             if (matcher.find()) {
-                account = matcher.group(1);
+                accountName = matcher.group(1);
                 accountNumber = matcher.group(2);
 //            } else {
 //TODO - print message
@@ -66,7 +66,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
     ///////////////////////////////////////////////////////////////////////////
     //The 401(k) records are not unique enough in the fields I chose for the database PRIMARY KEY, so make them unique
     protected String handle401kActionField(String action) {
-        if ("FIS 401(K) PLAN".equals(account) && accountNumber.startsWith("8591")) {
+        if ("FIS 401(K) PLAN".equals(accountName) && accountNumber.startsWith("8591")) {
             return action + " : " + description; //HACK
         }
 
@@ -104,17 +104,17 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    public String getAccount() {
-        handleCombinedAccountAndAccountNumber(account);
-        return account;
+    public String getAccountName() {
+        handleCombinedAccountAndAccountNumber(accountName);
+        return accountName;
     }
-    public void setAccount(String account) {
-        this.account = stripTrailingCopyrightChar(account.trim());
+    public void setAccountName(String accountName) {
+        this.accountName = stripTrailingCopyrightChar(accountName.trim());
     }
 
     ///////////////////////////////////////////////////////////////////////////
     public String getAccountNumber() {
-        handleCombinedAccountAndAccountNumber(account);
+        handleCombinedAccountAndAccountNumber(accountName);
         return accountNumber;
     }
     public void setAccountNumber(String accountNumber) {
@@ -240,7 +240,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
         }
         CsvAccountsHistoryBean that = (CsvAccountsHistoryBean) o;
         return getRunDate().equals(that.getRunDate()) &&
-                getAccount().equals(that.getAccount()) &&
+                getAccountName().equals(that.getAccountName()) &&
                 Objects.equals(getAccountNumber(), that.getAccountNumber()) &&
                 getAction().equals(that.getAction()) &&
                 getSymbol().equals(that.getSymbol()) &&
@@ -263,7 +263,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
     @Override
     public int hashCode() {
         return Objects.hash(getRunDate(),
-                            getAccount(),
+                            getAccountName(),
                             getAccountNumber(),
                             getAction(),
                             getSymbol(),
@@ -287,7 +287,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
     public String toString() {
         final StringBuffer sb = new StringBuffer("CsvAccountsHistoryBean{");
         sb.append("runDate='").append(getRunDate()).append('\'');
-        sb.append(", account='").append(getAccount()).append('\'');
+        sb.append(", accountName='").append(getAccountName()).append('\'');
         sb.append(", accountNumber='").append(getAccountNumber()).append('\'');
         sb.append(", action='").append(getAction()).append('\'');
         sb.append(", symbol='").append(getSymbol()).append('\'');
@@ -311,7 +311,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
 
     //private members
     @CsvBindByName (column = "Run Date")            private String runDate;
-    @CsvBindByName (column = "Account")             private String account;
+    @CsvBindByName (column = "Account")             private String accountName; //Note: this is "Account" in the CSV file, but accountName everywhere else (java, DB)
     @CsvBindByName (column = "Account Number")      private String accountNumber;
     @CsvBindByName (column = "Action")              private String action;
     @CsvBindByName (column = "Exchange Quantity")   private String exchangeQuantity;

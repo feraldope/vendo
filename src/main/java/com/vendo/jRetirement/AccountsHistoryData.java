@@ -9,7 +9,7 @@ import java.util.Objects;
 public class AccountsHistoryData extends RetirementBaseData implements Comparator<AccountsHistoryData> {
 	///////////////////////////////////////////////////////////////////////////
 	public AccountsHistoryData(Instant runDate,
-							   String account,
+							   String accountName,
 							   String accountNumber,
 							   String action,
 							   String symbol,
@@ -19,9 +19,9 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 							   Double amount,
 							   Instant settlementDate,
 							   FundsEnum.Activity activity) {
-		super(symbol, description);
+		super(accountName, symbol, description);
 		this.runDate = runDate;
-		this.account = account;
+//		this.accountName = accountName;
 		this.accountNumber = accountNumber;
 		this.action = action;
 		this.commission = commission;
@@ -33,9 +33,9 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 
 	///////////////////////////////////////////////////////////////////////////
 	public AccountsHistoryData(CsvAccountsHistoryBean bean) {
-		super(bean.getSymbol(), bean.getDescription());
+		super(bean.getAccountName(), bean.getSymbol(), bean.getDescription());
 		this.runDate = bean.getRunDate();
-		this.account = bean.getAccount();
+//		this.accountName = bean.getAccountName();
 		this.accountNumber = bean.getAccountNumber();
 		this.action = bean.getAction();
 		this.commission = bean.getCommission();
@@ -48,9 +48,8 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	///////////////////////////////////////////////////////////////////////////
 	//ctor to use for sorting/Comparator
 	public AccountsHistoryData() {
-		super(null, null);
+		super("dummy for sorting", null, null);
 		this.runDate = RetirementDao.AllDates;
-		this.account = "dummy for sorting";
 		this.accountNumber = null;
 		this.action = null;
 		this.commission = null;
@@ -65,10 +64,10 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		return runDate;
 	}
 
-	///////////////////////////////////////////////////////////////////////////
-	public String getAccount() {
-		return account;
-	}
+//	///////////////////////////////////////////////////////////////////////////
+//	public String getAccountName() {
+//		return accountName;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getAccountNumber() {
@@ -122,7 +121,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 		}
 		AccountsHistoryData that = (AccountsHistoryData) o;
 		return getRunDate().equals(that.getRunDate()) &&
-				getAccount().equals(that.getAccount()) &&
+				getAccountName().equals(that.getAccountName()) &&
 				getAccountNumber().equals(that.getAccountNumber()) &&
 				getAction().equals(that.getAction()) &&
 				getSymbol().equals(that.getSymbol()) &&
@@ -138,7 +137,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	@Override
 	public int hashCode() { //includes fields from the base class
 		return Objects.hash(getRunDate(),
-							getAccount(),
+							getAccountName(),
 							getAccountNumber(),
 							getAction(),
 							getSymbol(),
@@ -155,7 +154,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	public String toString() { //includes fields from the base class
 		final StringBuffer sb = new StringBuffer("AccountsHistoryData{");
 		sb.append("runDate=").append(getRunDate());
-		sb.append(", account='").append(getAccount()).append('\'');
+		sb.append(", accountName='").append(getAccountName()).append('\'');
 		sb.append(", accountNumber='").append(getAccountNumber()).append('\'');
 		sb.append(", action='").append(getAction()).append('\'');
 		sb.append(", symbol='").append(getSymbol()).append('\'');
@@ -173,7 +172,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	public String toStringDistributionDetail() {
 		final StringBuffer sb = new StringBuffer();
 		sb.append(dateTimeFormatterMdy.format(getRunDate())).append(" ");
-		sb.append(getAccount()).append(" ");
+		sb.append(getAccountName()).append(" ");
 		sb.append(dollarFormat0.format(getAmount()));
 		return sb.toString();
 	}
@@ -191,7 +190,7 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	//private members
 	//originally from CSV file
 	private final Instant runDate;
-	private final String account;
+//	private final String accountName;
 	private final String accountNumber;
 	private final String action;
 	private final Double commission;

@@ -92,7 +92,7 @@ SELECT * FROM   INFORMATION_SCHEMA.KEY_COLUMN_USAGE
 -- -----------------------------------------------------------------------------
 CREATE OR REPLACE TABLE account_history_data (
 	run_date        TIMESTAMP NOT NULL,
-	account         VARCHAR(32) NOT NULL,
+	account_name    VARCHAR(32) NOT NULL,
 	account_number  VARCHAR(16) NOT NULL,
 	action	        VARCHAR(128) NOT NULL,
 	symbol	        VARCHAR(16) NOT NULL,
@@ -162,11 +162,11 @@ select count(*) from account_history_data;
 
 select count(distinct run_date) from account_history_data;
 
-select distinct account from account_history_data order by account;
+select distinct account_name from account_history_data order by account_name;
 
 select date(a.run_date) as date, a.* from account_history_data a
 -- where date(a.run_date) >= '2026-02-04'
- order by a.symbol, a.account
+ order by a.symbol, a.account_name
 
 select * from account_history_data where lower(action) rlike '.*bought.*'
 
@@ -207,7 +207,7 @@ select * from account_history_data
     -- contributions
     select * from account_history_data
      where upper(action) rlike '.*CONTR.*'
-     and account not rlike 'FIS.*'
+     and account_name not rlike 'FIS.*'
      order by run_date
 
     -- distributions - detail
@@ -217,21 +217,21 @@ select * from account_history_data
      order by run_date
 
     -- distributions - aggregate (Note distributions are already negative in the database)
-    select run_date, account, account_number, action, symbol, description, SUM(commission), SUM(fees), SUM(amount), settlement_date
+    select run_date, account_name, account_number, action, symbol, description, SUM(commission), SUM(fees), SUM(amount), settlement_date
      from account_history_data
      where (UPPER(action) rlike '.*DISTR.*' OR UPPER(action) rlike '.*TAX.*')
      and ABS(amount) > 500
-     group by run_date, account, account_number, symbol, description
+     group by run_date, account_name, account_number, symbol, description
      order by run_date
 
     -- redemptions - aggregate (Note redemptions are not negative in the database, so we need to negate them)
-    select run_date, account, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, (-1) * SUM(amount) as amount, settlement_date
+    select run_date, account_name, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, (-1) * SUM(amount) as amount, settlement_date
      from account_history_data
     -- where UPPER(action) rlike 'REDEMPTION FROM CORE ACCOUNT.*'
      where UPPER(action) rlike 'REDEMPTION.*'
-     and account = 'Individual - TOD'
+     and account_name = 'Individual - TOD'
      and ABS(amount) > 500
-     group by run_date, account, account_number, symbol, description
+     group by run_date, account_name, account_number, symbol, description
      order by run_date
 
 */

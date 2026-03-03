@@ -9,9 +9,15 @@ import java.util.Objects;
 
 public abstract class RetirementBaseData /*implements Comparator<RetirementBaseData>*/ {
 	///////////////////////////////////////////////////////////////////////////
-	public RetirementBaseData(String symbol, String description) {
+	public RetirementBaseData(String accountName, String symbol, String description) {
+		this.accountName = accountName;
 		this.symbol = symbol;
 		this.description = description;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public String getAccountName() {
+		return accountName;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -34,14 +40,16 @@ public abstract class RetirementBaseData /*implements Comparator<RetirementBaseD
 			return false;
 		}
 		RetirementBaseData that = (RetirementBaseData) o;
-		return getSymbol().equals(that.getSymbol()) &&
+		return getAccountName().equals(that.getAccountName()) &&
+				getSymbol().equals(that.getSymbol()) &&
 				Objects.equals(getDescription(), that.getDescription());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public int hashCode() {
-		return Objects.hash(getSymbol(),
+		return Objects.hash(getAccountName(),
+							getSymbol(),
 							getDescription());
 	}
 
@@ -49,13 +57,15 @@ public abstract class RetirementBaseData /*implements Comparator<RetirementBaseD
 	@Override
 	public String toString() {
 		final StringBuffer sb = new StringBuffer("RetirementBaseData{");
-		sb.append("symbol='").append(symbol).append('\'');
-		sb.append(", description='").append(description).append('\'');
+		sb.append("accountName='").append(getAccountName()).append('\'');
+		sb.append("symbol='").append(getSymbol()).append('\'');
+		sb.append(", description='").append(getDescription()).append('\'');
 		sb.append('}');
 		return sb.toString();
 	}
 
 	//protected members
+	protected final String accountName;
 	protected final String symbol;
 	protected final String description;
 
