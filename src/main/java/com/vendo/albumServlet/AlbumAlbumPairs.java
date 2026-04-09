@@ -253,7 +253,7 @@ public class AlbumAlbumPairs {
 
 				if (!copyCommandsLtoR.isEmpty()) {
 					AlbumImagePair firstPair = imagePairs.iterator().next();
-					copyCommands.add("REM copy larger images L->R (" + copyCommandsLtoR.size() + "): " + firstPair.getImage1().getBaseName(false) + " -> " + firstPair.getImage2().getBaseName(false) + " ------------------------------------------------");
+					copyCommands.add("REM copy larger images L->R (" + copyCommandsLtoR.size() + "): " + firstPair.getImage1().getBaseName(false) + " -> " + firstPair.getImage2().getBaseName(false) + "    REM");
 					copyCommands.addAll(copyCommandsLtoR);
 				}
 			}
@@ -274,7 +274,7 @@ public class AlbumAlbumPairs {
 
 				if (!copyCommandsRtoL.isEmpty()) {
 					AlbumImagePair firstPair = imagePairs.iterator().next();
-					copyCommands.add("REM copy larger images R->L (" + copyCommandsRtoL.size() + "): " + firstPair.getImage2().getBaseName(false) + " -> " + firstPair.getImage1().getBaseName(false) + " ------------------------------------------------");
+					copyCommands.add("REM copy larger images R->L (" + copyCommandsRtoL.size() + "): " + firstPair.getImage2().getBaseName(false) + " -> " + firstPair.getImage1().getBaseName(false) + "    REM");
 					copyCommands.addAll(copyCommandsRtoL);
 				}
 			}

@@ -1706,9 +1706,7 @@ public class AlbumTags
 	//used by servlet: returns empty string on error, or if no entries found
 	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups, boolean queryRawTable)
 	{
-		List<String> baseNames = new ArrayList<> ();
-		baseNames.add (baseName);
-		return getTagsForBaseNames (baseNames, collapseGroups, queryRawTable);
+		return getTagsForBaseNames (Collections.singletonList (baseName), collapseGroups, queryRawTable);
 	}
 
 	///////////////////////////////////////////////////////////////////////////

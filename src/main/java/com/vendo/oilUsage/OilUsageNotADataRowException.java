@@ -2,29 +2,24 @@
 
 package com.vendo.oilUsage;
 
-public class OilUsageNotADataRowException extends Exception
-{
+public class OilUsageNotADataRowException extends Exception {
 	///////////////////////////////////////////////////////////////////////////
-	public OilUsageNotADataRowException ()
-	{
+	public OilUsageNotADataRowException () {
 		super ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public OilUsageNotADataRowException (String message, Throwable cause)
-	{
+	public OilUsageNotADataRowException (String message, Throwable cause) {
 		super (message, cause);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public OilUsageNotADataRowException (String message)
-	{
+	public OilUsageNotADataRowException (String message) {
 		super (message);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public OilUsageNotADataRowException (Throwable cause)
-	{
+	public OilUsageNotADataRowException (Throwable cause) {
 		super (cause);
 	}
 }

@@ -4,14 +4,14 @@ RetirementAge = 65
 
 [No. 1]
 Name = Roth IRA
-Balance = 40296
+Balance = 41415
 AnnualContribution = 7500
 GrowthRateOfInvestment = 7
 GrowthRateOfContribution = 1
 
 [No. 2]
 Name = Roth 401(k)
-Balance = 7049
+Balance = 8363
 AnnualContribution = 8000
 GrowthRateOfInvestment = 7
 GrowthRateOfContribution = 1
@@ -57,3 +57,12 @@ GrowthRateOfContribution = 0
 #Fidelity ROTH 401(k)
 #subtotal   7049 (Note that most of this came from his Traditional 401(k) at TRowePrice so the value may be wrong
 #total     47345
+
+#03/22/26 - Kevin balances
+#Vanguard ROTH IRA 
+#subtotal  37620 (contributed $3000 on this day)
+#Fidelity ROTH IRA
+#subtotal   3795
+#Fidelity ROTH 401(k)
+#subtotal   8363
+#total     49778

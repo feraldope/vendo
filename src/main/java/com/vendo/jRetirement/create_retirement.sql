@@ -122,7 +122,78 @@ SELECT * FROM information_schema.TABLE_CONSTRAINTS
 SELECT * FROM   INFORMATION_SCHEMA.KEY_COLUMN_USAGE
  WHERE CONSTRAINT_SCHEMA = 'retirement'
 
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW data_view AS
+SELECT p.downloaded_timestamp as time,
+--     p.account_number,
+	   p.account_name,
+	   p.symbol,
+--	   p.description,
+	   p.value,
+--	   p.cost_basis,
+	   p.taxable_type,
+	   p.fund_owner,
+--     f.symbol,
+       f.fund_family,
+--     f.description,
+--	   f.expense_ratio,
+       f.fund_theme,
+       f.fund_type,
+       f.management_style,
+       f.category,
+       f.investment_style
+FROM funds_meta_data f
+JOIN portfolio_positions_data p on p.symbol = f.symbol
+WHERE p.symbol != 'Pending Activity';
+
 /*
+-- -----------------------------------------------------------------------------
+select count(*) from data_view
+
+select * from data_view
+ where date(time) >= '2026-04-01'
+ order by time desc, account_name, symbol
+
+-- query to investigate removing PendingActivity from view
+select distinct symbol, fund_family from data_view where (symbol = 'Pending Activity' OR fund_family = 'PendingActivity')
+select * from data_view where symbol = 'Pending Activity' and fund_family != 'PendingActivity'
+
+-- DOES NOT WORK YET
+with total_table as (
+ select time, symbol, sum(value) as total
+ from data_view
+ group by time, symbol
+) select d.time, d.symbol, d.taxable_type, sum(d.value), t.total
+from total_table t
+join data_view d on d.symbol = t.symbol and d.time = t.time
+group by d.time, d.symbol, d.taxable_type
+
+-- -----------------------------------------------------------------------------
+-- trying to fix timezone issue in grafana
+-- See https://stackoverflow.com/questions/930900/how-do-i-set-the-time-zone-of-mysql
+select now()
+ , @@session.time_zone
+ , UTC_TIMESTAMP
+ , UTC_TIMESTAMP()
+ , TIMEDIFF(NOW(), UTC_TIMESTAMP())
+
+-- NOTE (see also todo.txt): I had to "fix" this in grafana: set "Time Zone" = "Coordinated Universal Time" in Dashboard->Settings to get times to at least have the correct date
+
+-- -----------------------------------------------------------------------------
+-- grafana query doesn't work in grafana but works fine here
+SELECT $__timeGroup(time,$__interval,previous) AS "time", fund_theme, SUM(value) AS "value" FROM retirement.data_view GROUP BY $__timeGroup(time, $__interval), fund_theme ORDER BY $__timeGroupAlias(time, $__interval)
+SELECT time AS "time", fund_theme, SUM(value) AS "value" FROM retirement.data_view GROUP BY time, fund_theme ORDER BY time
+
+-- example that works?
+SELECT $__timeGroup(time,$__interval,previous) , fund_theme, SUM(value) AS "value"
+FROM retirement.data_view
+GROUP BY $__timeGroup(time, $__interval), fund_theme
+ORDER BY $__timeGroup(time, $__interval) , fund_theme
+
+-- if you get this error:
+db query error: Error 1064 (42000): You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'AS "time"' at line 1
+-- confirm that all of the uses of $__timeGroupXxx in the editor are the same (not mixed, like $__timeGroup and $__timeGroupAlias
+
 -- -----------------------------------------------------------------------------
 select count(*) from funds_meta_data
 

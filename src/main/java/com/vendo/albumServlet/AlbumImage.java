@@ -315,8 +315,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	public static String getBaseName (String name, boolean collapseGroups)
 	{
 		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
-//		final String regex2 = "\\d*-\\d*$";		//match trailing [digits][dash][digits]
-		final String regex2 = "[\\d-].*$";		//match everything starting with first digit or dash
+		final String regex2 = "[\\[\\d-].*$";	//match everything starting with first digit or dash, or open square bracket "["
 
 		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
 	}

@@ -396,7 +396,7 @@ public class JRetirement {
 //						+ "." + fundMetaData.getManagementStyle()
 						+ "." + fundMetaData.getCategory();
 
-//				groupBy = fundMetaData.getFundTheme().toString();
+				groupBy = fundMetaData.getFundTheme().toString();
 
 				Double balance = balancesByGroupingMap.computeIfAbsent(groupBy, k -> 0.); //if key not present, balance is 0.
 
@@ -583,7 +583,7 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected List<CsvPortfolioPositionsBean> generateFilteredPortfolioPositionsRecordList(Path inputCsvFilePath, final boolean printSkippedRecords) {
-		final double minimumValueToBeIncluded = 500.; //hardcoded - skip funds that have less than this amount
+//		final double minimumValueToBeIncluded = 500.; //hardcoded - skip funds that have less than this amount
 //		final List<String> accountsToSkip = new ArrayList<>(Arrays.asList("Fixed Annuity", "Individual - 529 - TOD", "Individual - TOD"));
 		final List<String> accountsToSkip = new ArrayList<>(Arrays.asList("Fixed Annuity", "Individual - 529 - TOD"));
 		final List<String> skippedRecords = new ArrayList<>();
@@ -597,9 +597,9 @@ public class JRetirement {
 						if (accountsToSkip.contains(r.getAccountName())) {
 							skippedRecords.add("skipped record (account): " + r);
 							keepRecord = false;
-						} else if (Math.abs(r.getCurrentValue()) < minimumValueToBeIncluded) {
-							skippedRecords.add("skipped record (amount): " + r);
-							keepRecord = false;
+//						} else if (Math.abs(r.getCurrentValue()) < minimumValueToBeIncluded) {
+//							skippedRecords.add("skipped record (amount): " + r);
+//							keepRecord = false;
 						}
 						return keepRecord;
 					})
@@ -1138,15 +1138,24 @@ public class JRetirement {
 //				new TaxBracket(22,  94300, 201050),
 //				new TaxBracket(24, 201050, 383900)
 //		);
+//		final int year = 2025;
+//		final int federalStandardDeduction2025 = 31500; //Married Filing Jointly
+//		final List<TaxBracket> federalTaxBracket2025 = Arrays.asList( //Married Filing Jointly
+//				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2025
+//				new TaxBracket(10,      0,  23850),
+//				new TaxBracket(12,  23850,  96950),
+//				new TaxBracket(22,  96950, 206700),
+//				new TaxBracket(24, 206700, 394600)
+//		);
 
-		final int year = 2025;
-		final int federalStandardDeduction2025 = 30000; //Married Filing Jointly
-		final List<TaxBracket> federalTaxBracket2025 = Arrays.asList( //Married Filing Jointly
-				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2025
-				new TaxBracket(10,      0,  23850),
-				new TaxBracket(12,  23850,  96950),
-				new TaxBracket(22,  96950, 206700),
-				new TaxBracket(24, 206700, 394600)
+		final int year = 2026;
+		final int federalStandardDeduction2026 = 32200; //Married Filing Jointly
+		final List<TaxBracket> federalTaxBracket2026 = Arrays.asList( //Married Filing Jointly
+				//https://www.irs.gov/filing/federal-income-tax-rates-and-brackets <<< makes sure it is the 2026 rates
+				new TaxBracket(10,      0,  24800),
+				new TaxBracket(12,  23850, 100800),
+				new TaxBracket(22,  96950, 211400),
+				new TaxBracket(24, 206700, 403550)
 		);
 
 		final List<TaxBracket> massTaxBracket202X = Collections.singletonList( //Married Filing Jointly
@@ -1157,10 +1166,10 @@ public class JRetirement {
 
 		System.out.println(NL + "Taxes (using rates for " + year + "):");
 
-		final int baseIncome = 100000;
+		final int baseIncome = 100000; //from annuity
 		double totalTaxOnBaseIncome = 0.;
 		for (int income = 100000; income <= 180000; income += 5000) {
-			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2025, federalTaxBracket2025);
+			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2026, federalTaxBracket2026);
 			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction202X, massTaxBracket202X);
 			int totalIncomeTax = federalIncomeTax + massIncomeTax;
 			if (income == baseIncome) {

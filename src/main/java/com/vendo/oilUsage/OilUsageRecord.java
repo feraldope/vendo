@@ -5,12 +5,10 @@ package com.vendo.oilUsage;
 //import org.apache.logging.log4j.*;
 
 
-public class OilUsageRecord
-{
+public class OilUsageRecord {
 	///////////////////////////////////////////////////////////////////////////
 	//exactly one record per day, used to accumulate all of the values for that day (only)
-	public void addData (double gallonsPerDay, double dollarsPerGallons)
-	{
+	public void addData (double gallonsPerDay, double dollarsPerGallons) {
 		_count++;
 		_gallonsPerDay += gallonsPerDay;
 		_dollarsPerGallons += dollarsPerGallons;
@@ -25,8 +23,7 @@ public class OilUsageRecord
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getAverageGallonsPerDay ()
-	{
+	public double getAverageGallonsPerDay () {
 		//if we have a minimum number of samples, discard the two extremes
 		if (_count >= 10) {
 			return (_gallonsPerDay - _minGallonsPerDay - _maxGallonsPerDay) / (_count - 2);
@@ -36,20 +33,17 @@ public class OilUsageRecord
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getMinGallonsPerDay ()
-	{
+	public double getMinGallonsPerDay () {
 		return _minGallonsPerDay;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getMaxGallonsPerDay ()
-	{
+	public double getMaxGallonsPerDay () {
 		return _maxGallonsPerDay;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getCount ()
-	{
+	public double getCount () {
 		return _count;
 	}
 

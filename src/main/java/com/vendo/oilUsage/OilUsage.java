@@ -16,11 +16,9 @@ import java.text.DecimalFormat;
 import java.util.Collection;
 
 
-public class OilUsage
-{
+public class OilUsage {
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String args[])
-	{
+	public static void main (String args[]) {
 		OilUsage app = new OilUsage ();
 
 		if (!app.processArgs (args)) {
@@ -31,8 +29,7 @@ public class OilUsage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String args[])
-	{
+	private Boolean processArgs (String args[]) {
 		String inputFile = null;
 
 		for (int ii = 0; ii < args.length; ii++) {
@@ -87,8 +84,7 @@ public class OilUsage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
+	private void displayUsage (String message, Boolean exit) {
 		String msg = new String ();
 		if (message != null) {
 			msg = message + NL;
@@ -103,8 +99,7 @@ public class OilUsage
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean run ()
-	{
+	private boolean run () {
 		OilFile oilFile = new OilFile (_dataFile);
 		Collection<OilFileData> oilFileDataList = oilFile.readFile ();
 		System.out.println ("Read " + oilFileDataList.size () + " records");

@@ -1196,14 +1196,21 @@ public class GetUrl {
 		final String pattern = "[0-9]+"; //sequence of digits
 		final String marker = "::::";
 
-		//split string on nth group of digits (reverse string, find nth group, reverse back, split)
+		//split string on last group of digits (reverse string, replace first group of digits, reverse back, split)
 		String s1 = VendoUtils.reverse(leaf);
 		String s2 = VendoUtils.replacePattern(s1, pattern, marker, blockNumber);
 		String s3 = VendoUtils.reverse(s2);
 		String[] parts = s3.split(marker);
 
-		if (_fromFilename != null && parts.length == 1) {
+		if (_fromFilename != null && parts.length == 1) { //leaf had no digits, but for fromFile we don't care
 			parts = leaf.split("\\.");
+
+			int numParts = parts.length;
+			if (numParts > 2) { //HACK - leaf had more than one dot "." so we need to shift down until extension is in parts[1]
+				String[] newParts = new String[2];
+				System.arraycopy(parts, numParts - 2, newParts, 0, parts.length - 1);
+				parts = newParts;
+			}
 		}
 
 		return parts;

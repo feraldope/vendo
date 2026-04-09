@@ -823,12 +823,19 @@ public final class JHistory {
 							System.out.print("."); //no linefeed
 						}
 						final UrlLinkData urlLinkData1 = getChildLinkDataHelper(l, verbose);
-						if (urlLinkData1 != null) {
+						try { //go ahead and throw an exception if any of this fails
 							final List<String> imageLinksList = urlLinkData1.getImageUrlList();
-							if (imageLinksList != null && imageLinksList.get(0) != null && !urlLinkDataMap.containsKey(imageLinksList.get(0))) {
-								urlLinkDataMap.put(imageLinksList.get(0), urlLinkData1);
-							}
+							urlLinkDataMap.put(imageLinksList.get(0), urlLinkData1);
+						} catch (Exception ee) {
+							VendoUtils.printWithColor(_alertColor, NL + "JHistory.getChildLinkData: error opening child URL: " + l + " -> " + ee);
 						}
+//old way
+//						if (urlLinkData1 != null) {
+//							final List<String> imageLinksList = urlLinkData1.getImageUrlList();
+//							if (imageLinksList != null && !imageLinksList.isEmpty() && imageLinksList.get(0) != null && !urlLinkDataMap.containsKey(imageLinksList.get(0))) {
+//								urlLinkDataMap.put(imageLinksList.get(0), urlLinkData1);
+//							}
+//						}
 					});
 		} else {
 			final UrlLinkData urlLinkData1 = new UrlLinkData(null, "mainTitle", "childTitle", "albumUrlStr", mainLinksList); //TODO fix this

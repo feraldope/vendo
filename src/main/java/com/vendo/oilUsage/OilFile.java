@@ -13,18 +13,15 @@ import java.util.Scanner;
 //import org.apache.logging.log4j.*;
 
 
-public class OilFile
-{
+public class OilFile {
 	///////////////////////////////////////////////////////////////////////////
-	public OilFile (Path dataFile)
-	{
+	public OilFile (Path dataFile) {
 		_dataFile = dataFile;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns sorted list of all data records in file
-	public Collection<OilFileData> readFile ()
-	{
+	public Collection<OilFileData> readFile () {
 		ArrayList<OilFileData> oilFileDataList = new ArrayList<OilFileData> ();
 
 		Scanner scanner = null;

@@ -22,7 +22,6 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 		super(accountName, symbol, description);
 		this.dateDownloaded = dateDownloaded;
 		this.accountNumber = accountNumber;
-//		this.accountName = accountName;
 		this.currentValue = currentValue;
 		this.costBasis = costBasis;
 		this.taxableType = taxableType;
@@ -35,7 +34,6 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 		super(bean.getAccountName(), bean.getSymbol(), bean.getDescription());
 		this.dateDownloaded = bean.getDateDownloaded();
 		this.accountNumber = bean.getAccountNumber();
-//		this.accountName = bean.getAccountName();
 		this.currentValue = bean.getCurrentValue();
 		this.costBasis = bean.getCostBasis();
 		this.taxableType = bean.getTaxableType();
@@ -52,11 +50,6 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 	public String getAccountNumber() {
 		return accountNumber;
 	}
-
-	///////////////////////////////////////////////////////////////////////////
-//	public String getAccountName() {
-//		return accountName;
-//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public Double getCurrentValue() {
@@ -152,7 +145,6 @@ public class PortfolioPositionsData extends RetirementBaseData implements Compar
 	//originally from CSV file
 	private final Instant dateDownloaded;
 	private final String accountNumber;
-//	private final String accountName;
 	private final Double currentValue;
 	private final Double costBasis;
 

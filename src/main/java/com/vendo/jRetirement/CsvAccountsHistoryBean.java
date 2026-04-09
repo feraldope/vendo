@@ -108,7 +108,7 @@ public class CsvAccountsHistoryBean extends CsvBaseBean {
         handleCombinedAccountAndAccountNumber(accountName);
         return accountName;
     }
-    public void setAccountName(String accountName) {
+    public void setAccountName(String accountName) { //Note: the setter used by the CSV layer is based on the Java name (accountName), not the CSV file name (account)
         this.accountName = stripTrailingCopyrightChar(accountName.trim());
     }
 

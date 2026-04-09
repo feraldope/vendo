@@ -9,13 +9,15 @@ import java.util.List;
 
 
 public enum AlbumDuplicateHandling {
-	SelectNone ("Select None",                                 Mode.IsForSelecting),
-	SelectFirst ("Select First",                               Mode.IsForSelecting), //select first image in pair
-	SelectSecond ("Select Second",                             Mode.IsForSelecting), //select second image in pair
-	SelectSmaller ("Select Smaller",                           Mode.IsForSelecting), //select the smaller image
-	SelectSmallerFirst ("Select Smaller / First",              Mode.IsForSelecting), //select the smaller image, or first in pair if same size
-	SelectSmallerSecond ("Select Smaller / Second",            Mode.IsForSelecting), //select the smaller image, or second in pair if same size
-	ShowOnlyMisMatchByPixels ("Show Only Mis-match By Pixels", Mode.IsForShowing);   //only show duplicates that are mis-matched by pixels size
+	SelectNone ("Select None",                    	Mode.IsForSelecting),
+	SelectFirst ("Select First",                      Mode.IsForSelecting), //select first image in pair
+	SelectSecond ("Select Second",                    Mode.IsForSelecting), //select second image in pair
+	SelectSmaller ("Select Smaller",                  Mode.IsForSelecting), //select the smaller image
+	SelectSmallerFirst ("Select Smaller / First",     Mode.IsForSelecting), //select the smaller image, or first in pair if same size
+	SelectSmallerSecond ("Select Smaller / Second",   Mode.IsForSelecting), //select the smaller image, or second in pair if same size
+	ShowOnlyMisMatchByPixelsAll ("Show Only Mis-match By Pixels (All)", 	Mode.IsForShowing),   //only show duplicates that are mis-matched by pixels size
+	ShowOnlyMisMatchByPixelsLeft ("Show Only Mis-match By Pixels (L>R)",  Mode.IsForShowing),   //only show duplicates that are mis-matched by pixels size
+	ShowOnlyMisMatchByPixelsRight ("Show Only Mis-match By Pixels (R>L)", Mode.IsForShowing);   //only show duplicates that are mis-matched by pixels size
 
 	public enum Mode {
 		IsForSelecting, //enums with this mode are used for selecting which duplicate images will be DELETED

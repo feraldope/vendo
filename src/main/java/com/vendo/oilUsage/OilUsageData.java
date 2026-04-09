@@ -4,19 +4,18 @@ package com.vendo.oilUsage;
 
 //import com.vendo.vendoUtils.*;
 
-import java.text.*;
-import java.util.*;
-import java.time.*;
+import java.text.DecimalFormat;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collection;
 
 //import org.apache.logging.log4j.*;
 
 
-public class OilUsageData
-{
+public class OilUsageData {
 	///////////////////////////////////////////////////////////////////////////
 	//contains one OilUsageRecord object for each day of the year
-	public OilUsageData (Collection<OilFileData> oilFileDataList)
-	{
+	public OilUsageData (Collection<OilFileData> oilFileDataList) {
 		for (int ii = 0; ii <= 365; ii++) { //notes: record 0 is unused
 			_oilUsageRecords.add (new OilUsageRecord ());
 		}
@@ -32,8 +31,7 @@ public class OilUsageData
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void addData (int dayOfYear, double gallonsPerDay, double dollarsPerGallons)
-	{
+	private void addData (int dayOfYear, double gallonsPerDay, double dollarsPerGallons) {
 		//note this does not handle leap years: Feb 29th and all days after are shifted by 1 day
 		//and the real Dec 31st is dropped
 		if (dayOfYear > 365) {
@@ -44,32 +42,27 @@ public class OilUsageData
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getDailyAverage (int dayOfYear)
-	{
+	public double getDailyAverage (int dayOfYear) {
 		return _oilUsageRecords.get (dayOfYear).getAverageGallonsPerDay ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getDailyMin (int dayOfYear)
-	{
+	public double getDailyMin (int dayOfYear) {
 		return _oilUsageRecords.get (dayOfYear).getMinGallonsPerDay ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getDailyMax (int dayOfYear)
-	{
+	public double getDailyMax (int dayOfYear) {
 		return _oilUsageRecords.get (dayOfYear).getMaxGallonsPerDay ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getDailyCount (int dayOfYear)
-	{
+	public double getDailyCount (int dayOfYear) {
 		return _oilUsageRecords.get (dayOfYear).getCount ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getOverallAverage ()
-	{
+	public double getOverallAverage () {
 		double total = 0;
 
 		for (int ii = 1; ii <= 365; ii++) {

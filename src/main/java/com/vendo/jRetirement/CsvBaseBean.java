@@ -103,7 +103,7 @@ public class CsvBaseBean {
         this.typeUnused = type.trim();
     }
 
-//TODO - move AccountName to base class with something like this:
+//TODO - move AccountName to CSV base class with something like this:
 // https://stackoverflow.com/questions/68531960/csvbindbyname-binding-column-with-alternate-column-name
 
     //protected members

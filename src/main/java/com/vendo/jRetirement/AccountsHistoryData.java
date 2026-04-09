@@ -21,7 +21,6 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 							   FundsEnum.Activity activity) {
 		super(accountName, symbol, description);
 		this.runDate = runDate;
-//		this.accountName = accountName;
 		this.accountNumber = accountNumber;
 		this.action = action;
 		this.commission = commission;
@@ -35,7 +34,6 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	public AccountsHistoryData(CsvAccountsHistoryBean bean) {
 		super(bean.getAccountName(), bean.getSymbol(), bean.getDescription());
 		this.runDate = bean.getRunDate();
-//		this.accountName = bean.getAccountName();
 		this.accountNumber = bean.getAccountNumber();
 		this.action = bean.getAction();
 		this.commission = bean.getCommission();
@@ -63,11 +61,6 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	public Instant getRunDate() {
 		return runDate;
 	}
-
-//	///////////////////////////////////////////////////////////////////////////
-//	public String getAccountName() {
-//		return accountName;
-//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	public String getAccountNumber() {
@@ -190,7 +183,6 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	//private members
 	//originally from CSV file
 	private final Instant runDate;
-//	private final String accountName;
 	private final String accountNumber;
 	private final String action;
 	private final Double commission;

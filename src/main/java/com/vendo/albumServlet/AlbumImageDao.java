@@ -107,7 +107,14 @@ public class AlbumImageDao {
 				} else if (arg.equalsIgnoreCase("server")) {
 					_isServer = true;
 
-				} else if (arg.equalsIgnoreCase("printFolderDistribution") || arg.equalsIgnoreCase("pfd")) {
+				} else if (arg.equalsIgnoreCase("ignoreErrorOnFolder")) {
+					try {
+						_ignoreErrorOnFolder = args[++ii].trim();
+					} catch (ArrayIndexOutOfBoundsException exception) {
+						displayUsage("Missing value for /" + arg, true);
+					}
+
+				} else if (arg.equalsIgnoreCase("printFolderDistribution")) {
 					_printFolderDistribution = true;
 					try {
 						_minThreshold1InThousands = Integer.parseInt(args[++ii]);
@@ -115,7 +122,6 @@ public class AlbumImageDao {
 					} catch (ArrayIndexOutOfBoundsException exception) {
 						displayUsage("Missing value for /" + arg, true);
 					}
-
 
 				} else if (arg.equalsIgnoreCase("subFolders") || arg.equalsIgnoreCase("sub") || arg.equalsIgnoreCase("s")) {
 					try {
@@ -181,7 +187,7 @@ public class AlbumImageDao {
 			msg = message + NL;
 		}
 
-		msg += "Usage: " + _AppName + " [/debug] [/subFolders <comma separated list of subfolders; * wildcard allowed>] [/syncOnly] [/printFolderDistribution <minThreshold1InThousands> <minThreshold2InThousands> TBD]";
+		msg += "Usage: " + _AppName + " [/debug] [/subFolders <comma separated list of subfolders; * wildcard allowed>] [/syncOnly] [/ignoreErrorOnFolder <subfolder>] [/printFolderDistribution <minThreshold1InThousands> <minThreshold2InThousands> TBD]";
 		System.err.println("Error: " + msg + NL);
 
 		if (exit) {
@@ -363,15 +369,19 @@ public class AlbumImageDao {
 
 		AlbumProfiling.getInstance().enter(4, "part 1");
 
-//TODO - add command line param to allow empty DB and/or FS for new folders, and continue
 		Collection<AlbumImageFileDetails> dbImageFileDetails = getImageFileDetailsFromImagesTable(subFolder); //result is sorted
-		if (/*dbImageFileDetails == null ||*/ dbImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
-			_log.error("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImagesTable(" + subFolder + ") returned null/empty - aborting for this subFolder");
-			return false;
+		if (dbImageFileDetails == null || dbImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
+			String subFolderEmptyMessage = "AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromImagesTable(" + subFolder + ") returned null/empty";
+			if (_ignoreErrorOnFolder != null && subFolder.equals(_ignoreErrorOnFolder)) {
+				_log.warn(subFolderEmptyMessage + " - continuing as requested by command line argument");
+			} else {
+				_log.error(subFolderEmptyMessage + " - aborting for this subFolder");
+				return false;
+			}
 		}
 
 		Collection<AlbumImageFileDetails> fsImageFileDetails = getImageFileDetailsFromFileSystem(subFolder, "", ".jpg"); //result is sorted
-		if (/*fsImageFileDetails == null ||*/ fsImageFileDetails.isEmpty()) { //empty can happen when a new folder is created
+		if (fsImageFileDetails == null || fsImageFileDetails.isEmpty()) {
 			_log.error("AlbumImageDao.syncFolder(" + subFolder + "): getImageFileDetailsFromFileSystem(" + subFolder + ") returned null/empty - aborting for this subFolder");
 			return false;
 		}
@@ -2218,6 +2228,7 @@ public class AlbumImageDao {
 	private static boolean _isServer = false; //true if running as (tomcat) server, false for CLI
 	private /*static*/ boolean _syncOnly = false; //used by CLI: sync DB to FS then exit, do not start any watchers
 	private /*static*/ boolean _printFolderDistribution = false; //used by CLI
+	private String _ignoreErrorOnFolder = null; //used by CLI
 	private int _minThreshold1InThousands = -1;
 	private int _minThreshold2InThousands = -1;
 	private SqlSessionFactory _sqlSessionFactory = null;

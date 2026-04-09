@@ -1026,33 +1026,36 @@ public class AlbumImages
 
 			AlbumProfiling.getInstance ().exit (5, "dups.logging");
 
-//			AlbumProfiling.getInstance ().enterAndTrace (5, "dups.add");
-
 			dups.addAll(pairsReady);
 
-			//if requested, remove all duplicates that are the same size
-			if (form.getDuplicateHandling() == AlbumDuplicateHandling.ShowOnlyMisMatchByPixels) {
+			//if requested, only show duplicates that have mis-matched sizes (by pixels)
+			if (AlbumDuplicateHandling.Mode.IsForShowing == form.getDuplicateHandling().getMode()) {
+				final Predicate<AlbumImagePair> misMatchByPixelsAll   = p -> compareToWithSlop(p.getImage1().getPixels(), p.getImage2().getPixels(), true, 0.5) == 0; //keep where L!=R
+				final Predicate<AlbumImagePair> misMatchByPixelsLeft  = p -> compareToWithSlop(p.getImage1().getPixels(), p.getImage2().getPixels(), true, 0.5) <= 0; //keep where L>R
+				final Predicate<AlbumImagePair> misMatchByPixelsRight = p -> compareToWithSlop(p.getImage1().getPixels(), p.getImage2().getPixels(), true, 0.5) >= 0; //keep where R>L
+
+				Predicate<AlbumImagePair> predicateForImagesToBeRemoved;
+				switch (form.getDuplicateHandling()) {
+					default: //should never happen; fall through
+					case ShowOnlyMisMatchByPixelsAll:   predicateForImagesToBeRemoved = misMatchByPixelsAll; break;
+					case ShowOnlyMisMatchByPixelsLeft:  predicateForImagesToBeRemoved = misMatchByPixelsLeft; break;
+					case ShowOnlyMisMatchByPixelsRight: predicateForImagesToBeRemoved = misMatchByPixelsRight; break;
+				}
+
 				int allDupsCount = dups.size();
-				boolean removedPairs = dups.removeIf((p) -> p.getImage1().getPixels() == p.getImage2().getPixels());
+				boolean removedPairs = dups.removeIf(predicateForImagesToBeRemoved);
 				if (removedPairs) {
 					int adjustedDupsCount = dups.size();
-					_log.debug("AlbumImages.doDup.duplicateHandling: ---------------------------------------------------");
-					_log.debug("AlbumImages.doDup.duplicateHandling: removed " + (allDupsCount - adjustedDupsCount) + " pairs that are the same size by pixels");
-					_log.debug("AlbumImages.doDup.duplicateHandling: ---------------------------------------------------");
+					_log.debug("AlbumImages.doDup.duplicateHandling: -------------------------------------------------------------");
+					_log.debug("AlbumImages.doDup.duplicateHandling: removed " + (allDupsCount - adjustedDupsCount) + " pairs that are the same size by pixels (with slop)");
+					_log.debug("AlbumImages.doDup.duplicateHandling: -------------------------------------------------------------");
 				}
 			}
-
-//			AlbumProfiling.getInstance ().exit (5, "dups.add");
 		}
 
 		if (!looseCompare || dbCompare) {
 			if (dbCompare) {
 				AlbumProfiling.getInstance ().enterAndTrace (5, "dups.db");
-
-//now handled below
-//				if (_imageDisplayList.isEmpty()) {
-//					form.addServletError("Warning: no images for Filters");
-//				}
 
 				//generate map of imageNames->images
 				Map<String, AlbumImage> imageMap = _imageDisplayList.stream ().collect (Collectors.toMap (AlbumImage::getName, i -> i));
@@ -2004,10 +2007,11 @@ public class AlbumImages
 
 		AlbumMode mode = _form.getMode ();
 		AlbumSortType sortType = _form.getSortType ();
-		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : 1; //TODO - hardcoded
+		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : _form.getInterleaveSort() ? 2 : 1; //TODO - hardcoded
+
 		int cols = _form.getColumns ();
 		if (isAndroidDevice) {
-			cols = mode == AlbumMode.DoDir ? 1 : 2; //hack - for android, only 1 or 2 columns (see also AlbumServlet.java)
+			cols = mode == AlbumMode.DoDir ? (_form.getInterleaveSort() ? 2 : 1) : 2; //hack - for android, only 1 or 2 columns (see also AlbumServlet.java)
 		}
 		int rows = getNumRows ();
 		int numSlices = getNumSlices ();
@@ -2094,7 +2098,7 @@ public class AlbumImages
 					missingImages = String.join(NL, missingImageNames);
 				}
 
-				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "NO gaps" : "a gap of " + gaps + " image(s)");
+				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "<B>NO</B> gaps" : "a gap of <B>" + gaps + "</B> image(s)");
 				_log.debug("AlbumImages.generateHtml: " + message + ":" + (gaps > 0 ? NL + missingImages : ""));
 				_form.addServletError("Info: " + message);
 			}

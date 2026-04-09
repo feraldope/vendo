@@ -854,7 +854,7 @@ public class AlbumImageDiffer
 	//cleanup obsolete rows: rows in image_diffs that are no longer in images
 	public long deleteFromImageDiffs ()
 	{
-		final int oneMillion = 1000 * 1000;
+		final int oneMillion = 1_000_000;
 		int numMillions = 1 + getMaxNameIdFromImages () / oneMillion;
 
 		final int nameIdMax = numMillions * oneMillion;

@@ -15,13 +15,11 @@ import java.util.Scanner;
 //import org.apache.logging.log4j.*;
 
 
-public class OilFileData
-{
+public class OilFileData {
 	///////////////////////////////////////////////////////////////////////////
 	//parse a string in this form: "12/04/15  116.5  1.999"
 	//throws exception on failure
-	public OilFileData (String string) throws Exception
-	{
+	public OilFileData (String string) throws Exception {
 		try (Scanner scanner = new Scanner (string)) {
 			scanner.useDelimiter ("\\s+");
 			_startDate = _endDate = LocalDate.parse (scanner.next (), _dateTimeFormatter);
@@ -35,44 +33,37 @@ public class OilFileData
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public LocalDate getStartDate ()
-	{
+	public LocalDate getStartDate () {
 		return _startDate;
 	}
-	public void setStartDate (LocalDate startDate)
-	{
+	public void setStartDate (LocalDate startDate) {
 		VendoUtils.myAssert(_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate), "_startDate.isBefore (_endDate) || _startDate.isEqual (_endDate)", null); //do not use Java's assert as it is disabled by default
 
 		_startDate = startDate;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public LocalDate getEndDate ()
-	{
+	public LocalDate getEndDate () {
 		return _endDate;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getGallons ()
-	{
+	public double getGallons () {
 		return _gallons;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getDollarsPerGallon ()
-	{
+	public double getDollarsPerGallon () {
 		return _dollarsPerGallon;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public long getPeriodInDays ()
-	{
+	public long getPeriodInDays () {
 		return ChronoUnit.DAYS.between (_startDate, _endDate);
  	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public double getGallonsPerDay ()
-	{
+	public double getGallonsPerDay () {
 		if (getPeriodInDays () == 0) {
 			return 0;
 		}
@@ -81,11 +72,9 @@ public class OilFileData
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static final Comparator<OilFileData> oilFileDataComparator = new Comparator<OilFileData> ()
-	{
+	public static final Comparator<OilFileData> oilFileDataComparator = new Comparator<OilFileData> () {
 		@Override
-		public int compare (OilFileData o1, OilFileData o2)
-		{
+		public int compare (OilFileData o1, OilFileData o2) {
 			return o1.getEndDate ().compareTo (o2.getEndDate ());
 		}
 	};
