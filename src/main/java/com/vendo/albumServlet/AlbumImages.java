@@ -557,7 +557,7 @@ public class AlbumImages
 //		int maxComparisons = getMaxComparisons (numImages);
 //		if (looseCompare && !dbCompare) {
 //			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat0.format (maxComparisons) + " (max possible combos, including mismatched orientation)");
-//			final int maxAllowedComparisons = 1000 * 1000 * 1000;
+//			final int maxAllowedComparisons = 1_000_000_000;
 //			if (maxComparisons > maxAllowedComparisons) {
 //				form.addServletError ("Warning: too many comparisons (" + _decimalFormat0.format (maxComparisons) + "), disabling looseCompare");
 //				looseCompare = false;
@@ -568,13 +568,11 @@ public class AlbumImages
 //			final int maxThreads = VendoUtils.getLogicalProcessors () - 1;
 //			final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
 			final int maxThreads = 4 * VendoUtils.getLogicalProcessors ();
-			final long maxPairsToPutInQueue = 3 * 1000 * 1000;
-//			final int queueSize = 2 * 1000 * 1000;
-			final int queueSize = 500 * 1000;
-//			final int queueSize = 100 * 1000;
-//			final int queueSize = 10 * 1000;
-//			final int queueSize = 1000;
-//			final int queueSize = 100;
+			final long maxPairsToPutInQueue = 3_000_000;
+//			final int queueSize = 2 * 1_000_000;
+			final int queueSize = 500_000;
+//			final int queueSize = 100_000;
+//			final int queueSize = 10_000;
 
 			CacheStats nameScaledImageCacheStatsStart = _nameScaledImageCache.stats();
 			_nameScaledImageCacheAdded = ConcurrentHashMap.newKeySet();
@@ -595,7 +593,7 @@ public class AlbumImages
 			List<Integer> imageIds = Arrays.stream(images).map(AlbumImage::getNameId).distinct().collect(Collectors.toList());
 
 			//query database for known diffs; has joined IDs as key
-			final int maxImagesToQuery = 20 * 1000;
+			final int maxImagesToQuery = 20_000;
 			Map<String, AlbumImageDiffDetails> imageDiffDetailsFromImageDiffs = AlbumImageDiffer.getInstance().getImagesFromImageDiffs(imageIds, maxImagesToQuery);
 			if (imageDiffDetailsFromImageDiffs != null && imageDiffDetailsFromImageDiffs.size() > 0) {
 				_log.debug("AlbumImages.doDup: imageDiffDetailsFromImageDiffs.size() before removing cruft: " + _decimalFormat0.format(imageDiffDetailsFromImageDiffs.size()));
@@ -704,7 +702,7 @@ public class AlbumImages
 			//start timer thread (optionally)
 			AtomicReference<Timer> timer = new AtomicReference<>();
 			Thread progessThread = null;
-			if (maxLoopCount > 100 * 1000) {
+			if (maxLoopCount > 100_000) {
 				progessThread = new Thread (() -> { //create high-priority thread to run timer
 					timer.set(new Timer());
 					TimerTask timerTask = new TimerTask() {
@@ -1968,6 +1966,7 @@ public class AlbumImages
 		}
 
 		boolean isAndroidDevice = _form.isAndroidDevice ();
+		boolean interleaveSort = _form.getInterleaveSort();
 
 		String font1 = !isAndroidDevice ? "fontsize10" : "fontsize24";
 		String tableWidthString = !isAndroidDevice ? "100%" : "2200"; //TODO - tablet hardcoded for portrait not landscape
@@ -2007,12 +2006,13 @@ public class AlbumImages
 
 		AlbumMode mode = _form.getMode ();
 		AlbumSortType sortType = _form.getSortType ();
-		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : _form.getInterleaveSort() ? 2 : 1; //TODO - hardcoded
+		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : interleaveSort ? 2 : 1; //TODO - hardcoded
 
 		int cols = _form.getColumns ();
 		if (isAndroidDevice) {
-			cols = mode == AlbumMode.DoDir ? (_form.getInterleaveSort() ? 2 : 1) : 2; //hack - for android, only 1 or 2 columns (see also AlbumServlet.java)
+			cols = mode == AlbumMode.DoDir ? (interleaveSort ? 2 : 1) : 2; //hack - for android, only 1 or 2 columns (see also AlbumServlet.java)
 		}
+
 		int rows = getNumRows ();
 		int numSlices = getNumSlices ();
 		int slice = _form.getSlice ();
@@ -2020,13 +2020,17 @@ public class AlbumImages
 		boolean collapseGroups = _form.getCollapseGroups ();
 		//for mode = AlbumMode.DoDup, disable collapseGroups for tags
 		boolean collapseGroupsForTags = mode == AlbumMode.DoDup ? false : collapseGroups;
-		boolean interleaveSort = _form.getInterleaveSort();
 		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling ();
 		String[] allFilters = _form.getFilters();
 
 		//reduce number of columns when it is greater than number of images
 		if (cols > numImages) {
 			cols = numImages;
+		}
+
+		//for these, make sure we have an even number of columns
+		if ((mode == AlbumMode.DoDup || (mode == AlbumMode.DoDir && interleaveSort)) && cols % 2 != 0) {
+			cols++;
 		}
 
 		int start = (slice - 1) * (rows * cols);
@@ -3586,7 +3590,7 @@ public class AlbumImages
 		final boolean reverseSort = !form.getReverseSort(); //normally we would sort descending (reverse), but if reverseSort is requested, reverse that back to normal
 		final String topBottom = reverseSort ? "Top" : "Bottom";
 
-		if (_imageDisplayList.size() < 10 * 1000) {
+		if (_imageDisplayList.size() < 10_000) {
 			AlbumProfiling.getInstance().enter(5);
 
 			int maxItemsToPrint = 10;

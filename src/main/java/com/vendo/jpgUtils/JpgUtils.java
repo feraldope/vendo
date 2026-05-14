@@ -525,6 +525,9 @@ public class JpgUtils {
 	///////////////////////////////////////////////////////////////////////////
 	//tries to read image from file, using fastest (hopefully) to slowest method
 	public static BufferedImage readImage (File file) {
+		return readImage(file, false);
+	}
+	public static BufferedImage readImage (File file, boolean showWarnings) {
 		if (_Debug) {
 			_log.trace ("JpgUtils.readImage(" + file + ")");
 		}
@@ -538,8 +541,10 @@ public class JpgUtils {
 			return image;
 
 		} catch (Exception ee) {
-			_log.warn ("JpgUtils.readImage: JPEGImageDecoderImpl failed on " + file.getName () + ": (falling back to next method)");
-			_log.warn (ee);
+			if (showWarnings) {
+				_log.warn("JpgUtils.readImage: JPEGImageDecoderImpl failed on " + file.getName() + ": (falling back to next method)");
+				_log.warn(ee);
+			}
 		}
 
 		//try again with deprecated Sun class: com.sun.image.codec.jpeg.JPEGCodec (from jai-codec-1.1.3.jar)
@@ -550,8 +555,10 @@ public class JpgUtils {
 			return image;
 
 		} catch (Exception ee) {
-			_log.warn ("JpgUtils.readImage: JPEGCodec.createJPEGDecoder failed on " + file.getName () + ": (falling back to next method)");
-			_log.warn (ee);
+			if (showWarnings) {
+				_log.warn("JpgUtils.readImage: JPEGCodec.createJPEGDecoder failed on " + file.getName() + ": (falling back to next method)");
+				_log.warn(ee);
+			}
 		}
 
 		//this returns null if no registered ImageReader claims to be able to read the resulting image
@@ -561,8 +568,8 @@ public class JpgUtils {
 			return image;
 
 		} catch (Exception ee) {
-			_log.warn ("JpgUtils.readImage: ImageIO.read failed on " + file.getName () + ": (no more tries)");
-			_log.warn (ee);
+			_log.error("JpgUtils.readImage: ImageIO.read failed on " + file.getName() + ": (no more tries)");
+			_log.error(ee);
 //			System.out.println("del " + file.getName());
 		}
 

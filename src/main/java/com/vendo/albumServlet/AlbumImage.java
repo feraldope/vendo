@@ -150,7 +150,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 			int width = -1;
 			int height = -1;
 			try {
-				BufferedImage image = JpgUtils.readImage (_file);
+				BufferedImage image = JpgUtils.readImage (_file, true);
 				width = image.getWidth ();
 				height = image.getHeight ();
 				image.getRGB (width / 2, height / 2, w, h, rgbIntArray, 0, w);
@@ -833,7 +833,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 			_log.debug ("AlbumImage.createRgbDataFile: " + rgbDatFileNameWithExt);
 		}
 
-		BufferedImage image = JpgUtils.readImage (_file);
+		BufferedImage image = JpgUtils.readImage (_file, true);
 
 		int scaledWidth = 0;
 		int scaledHeight = 0;

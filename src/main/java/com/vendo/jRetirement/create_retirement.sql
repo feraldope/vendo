@@ -123,12 +123,25 @@ SELECT * FROM   INFORMATION_SCHEMA.KEY_COLUMN_USAGE
  WHERE CONSTRAINT_SCHEMA = 'retirement'
 
 -- -----------------------------------------------------------------------------
+-- view with all raw portfolio data
 CREATE OR REPLACE VIEW data_view AS
 SELECT p.downloaded_timestamp as time,
 --     p.account_number,
 	   p.account_name,
-	   p.symbol,
---	   p.description,
+--	   p.symbol,
+       case
+          when f.category = 'CD' then f.category
+          when p.symbol = '31617E778' then p.description
+          when p.symbol = '857444624' then p.description
+          when p.symbol = '85744A687' then p.description
+          when p.symbol = '857480552' then p.description
+          else p.symbol
+       end as symbol,
+       p.description,
+       case
+          when f.category = 'CD' then CONCAT(f.category, ': ', f.description)
+          else CONCAT(p.symbol, ': ', f.description)
+       end as symbol_description,
 	   p.value,
 --	   p.cost_basis,
 	   p.taxable_type,
@@ -146,27 +159,34 @@ FROM funds_meta_data f
 JOIN portfolio_positions_data p on p.symbol = f.symbol
 WHERE p.symbol != 'Pending Activity';
 
+-- -----------------------------------------------------------------------------
+-- view with taxable_type percentages
+CREATE OR REPLACE VIEW percentage_view AS
+with total_table as (
+ select downloaded_timestamp as time, sum(value) as total
+ from portfolio_positions_data
+ group by time
+) select d.time, d.taxable_type, sum(d.value) as sub_total, t.total, 100 * sum(d.value) / t.total as percentage
+from total_table t
+join data_view d on d.time = t.time
+group by d.time, d.taxable_type
+order by d.time, d.taxable_type;
+
+select * from percentage_view
+
 /*
 -- -----------------------------------------------------------------------------
 select count(*) from data_view
 
 select * from data_view
- where date(time) >= '2026-04-01'
+-- where date(time) >= '2026-01-01'
+ where date(time) = '2026-04-02'
+-- and category = 'CD'
  order by time desc, account_name, symbol
 
 -- query to investigate removing PendingActivity from view
 select distinct symbol, fund_family from data_view where (symbol = 'Pending Activity' OR fund_family = 'PendingActivity')
 select * from data_view where symbol = 'Pending Activity' and fund_family != 'PendingActivity'
-
--- DOES NOT WORK YET
-with total_table as (
- select time, symbol, sum(value) as total
- from data_view
- group by time, symbol
-) select d.time, d.symbol, d.taxable_type, sum(d.value), t.total
-from total_table t
-join data_view d on d.symbol = t.symbol and d.time = t.time
-group by d.time, d.symbol, d.taxable_type
 
 -- -----------------------------------------------------------------------------
 -- trying to fix timezone issue in grafana
@@ -273,6 +293,25 @@ select * from account_history_data
  where activity is not null
 -- and activity = 'Redemption'
  order by run_date
+
+-- original query from queryDistributionDataFromDatabase()
+-- select run_date, account_name, account_number, action, symbol, description, SUM(commission) as commission, SUM(fees) as fees, SUM(amount) as amount, settlement_date, activity
+select run_date, account_name, account_number, action, symbol, description, (commission) as commission, (fees) as fees, (amount) as amount, settlement_date, activity
+ from account_history_data
+-- where (UPPER(action) rlike '.*DISTR.*' OR UPPER(action) rlike '.*TAX.*') -- NOTE: rlike is not case-sensitive unless used on binary string
+ where activity = 'Distribution'
+ and ABS(amount) >= 10 -- /skip smaller transactions
+ and run_date >= '2026-01-01'
+-- group by run_date, account_name, account_number, symbol, description
+ order by run_date
+
+select * from account_history_data where run_date = '2026-04-21'
+
+-- cleanup (you probably also need to delete the source Accounts_History_xxx.csv file that had the 'bad' entry)
+select * from account_history_data where run_date = '2026-04-29'
+delete from account_history_data where run_date = '2026-04-29'
+
+select * from account_history_data where run_date = '2024-07-29'
 
 -- obsolete after adding 'activity' column
     -- contributions

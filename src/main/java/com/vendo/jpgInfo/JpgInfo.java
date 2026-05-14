@@ -411,9 +411,9 @@ public class JpgInfo
 			//ignore
 		}
 
-		final int size20MegaPixels = 20 * 1000 * 1000 - 10000; //subtract a bit of slop
-		final int size21MegaPixels = 21 * 1000 * 1000 - 10000; //subtract a bit of slop
-		final int size24MegaPixels = 24 * 1000 * 1000 - 10000; //subtract a bit of slop
+		final int size20MegaPixels = 20_000_000 - 10_000; //subtract a bit of slop
+		final int size21MegaPixels = 21_000_000 - 10_000; //subtract a bit of slop
+		final int size24MegaPixels = 24_000_000 - 10_000; //subtract a bit of slop
 		final int size2point2MegaBytes = (22 * 1024 * 1024) / 10;
 		if (!(_ignoreSmallerThan > 0 && (width < _ignoreSmallerThan || height < _ignoreSmallerThan))) {
 			String details = filename + " " + orientation + " " + width + "x" + height + ", " +

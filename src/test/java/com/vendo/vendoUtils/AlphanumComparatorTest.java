@@ -16,7 +16,7 @@ public class AlphanumComparatorTest {
 	@Test
 	public void testSortAndReverseSort () {
 		final int numItems = 100;
-		final int maxRandValue = 10 * 1000;
+		final int maxRandValue = 10_000;
 
 		//create list of random ints
 		List<Integer> listInt =  new Random().ints(0,maxRandValue).limit(numItems).boxed().collect(Collectors.toList());

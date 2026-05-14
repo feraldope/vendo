@@ -127,6 +127,33 @@ public class AccountsHistoryData extends RetirementBaseData implements Comparato
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//special version used by JRetirement.findDuplicateAccountHistoryRecords
+	public boolean equalsNearly(Object o) { //includes fields from the base class
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+
+		final int numberOfCharactersOfActionToCompare = 12;
+
+		AccountsHistoryData that = (AccountsHistoryData) o;
+		return getRunDate().equals(that.getRunDate()) &&
+				getAccountName().equals(that.getAccountName()) &&
+				getAccountNumber().equals(that.getAccountNumber()) &&
+				//only compare first part of action field
+				getAction().substring(0, numberOfCharactersOfActionToCompare).equals(that.getAction().substring(0, numberOfCharactersOfActionToCompare)) &&
+				getSymbol().equals(that.getSymbol()) &&
+				Objects.equals(getDescription(), that.getDescription()) &&
+				Objects.equals(getCommission(), that.getCommission()) &&
+				Objects.equals(getFees(), that.getFees()) &&
+				getAmount().equals(that.getAmount()) &&
+				Objects.equals(getSettlementDate(), that.getSettlementDate()) &&
+				Objects.equals(getActivity(), that.getActivity());
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	@Override
 	public int hashCode() { //includes fields from the base class
 		return Objects.hash(getRunDate(),

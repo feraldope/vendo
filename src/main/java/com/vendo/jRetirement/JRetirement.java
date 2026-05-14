@@ -95,6 +95,9 @@ public class JRetirement {
 				} else if (arg.equalsIgnoreCase("generatePlotFile") || arg.equalsIgnoreCase("plot")) {
 					generatePlotFile = true;
 
+				} else if (arg.equalsIgnoreCase("print4PercentRule") || arg.equalsIgnoreCase("4Percent")) {
+					printFourPercentRule = true;
+
 				} else if (arg.equalsIgnoreCase("printHistoricalData") || arg.equalsIgnoreCase("hist")) {
 					printHistoricalData = true;
 
@@ -172,6 +175,12 @@ public class JRetirement {
 			updateAccountsHistoryDataInDatabase(sourceFilePathList);
 		}
 
+		List<AccountsHistoryData> duplicateAccountsHistoryData = findDuplicateAccountHistoryRecords();
+		if (!duplicateAccountsHistoryData.isEmpty()) {
+			System.out.println(NL + "Warning: found duplicate entries in AccountsHistoryData:");
+			duplicateAccountsHistoryData.forEach(System.out::println);
+		}
+
 		printLatestPortfolioPositionsData();
 
 		return true;
@@ -212,6 +221,10 @@ public class JRetirement {
 			printTaxes();
 		}
 
+		if (printFourPercentRule) {
+			printFourPercentRule();
+		}
+
 		List<AccountsHistoryData> accountContributions = retirementDao.queryContributionDataFromDatabase(AllDates);
 		if (!accountContributions.isEmpty()) {
 			System.out.println(NL + "Account Contributions: " + NL + accountContributions.stream().map(AccountsHistoryData::toStringContributionDetail).collect(Collectors.joining(NL)));
@@ -229,15 +242,15 @@ public class JRetirement {
 
 		if (printHistoricalData || generatePlotFile) {
 			List<AggregateRecord> aggregateAllAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.Unspecified);
-			List<AggregateRecord> aggregateTaxFreeAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.TaxFree);
 			List<AggregateRecord> aggregateTaxDeferredAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.TaxDeferred);
+			List<AggregateRecord> aggregateTaxFreeAccountsRecords = retirementDao.queryAggregateRecordsFromDatabase(FundsEnum.TaxableType.TaxFree);
 
 			if (printHistoricalData) {
 				printHistoricalData(aggregateAllAccountsRecords);
 			}
 
 			if (generatePlotFile) {
-				generatePlotFile(aggregateAllAccountsRecords, aggregateTaxFreeAccountsRecords, aggregateTaxDeferredAccountsRecords, accountContributions, accountDistributions, accountRedemptions);
+				generatePlotFile(aggregateAllAccountsRecords, aggregateTaxDeferredAccountsRecords, aggregateTaxFreeAccountsRecords, accountContributions, accountDistributions, accountRedemptions);
 
 				if (false) {
 					String command = PlotExecutable + " " + PlotFileName;
@@ -464,8 +477,8 @@ public class JRetirement {
 			results.add(new FundResult("Total", totalAllFunds, 100.));
 
 			if (includeWithdrawalAmounts) {
-				results.add(FundResult.BlankLine);
-				List<Integer> percents = Arrays.asList(2, 3, 4);
+				results.add(FundResult.EmptyFundResult);
+				List<Integer> percents = Arrays.asList(3, 4, 5);
 				for (Integer percent : percents) {
 					double withdrawalPercent = percent * totalAllFunds / 100;
 					results.add(new FundResult("Annual withdrawal at " + percent + " percent", withdrawalPercent, percent));
@@ -553,7 +566,7 @@ public class JRetirement {
 
 		///////////////////////////////////////////////////////////////////////////
 		public static String toStringDetail(FundResult result, int longestLabel, int longestTotal, int longestPercent) {
-			if (BlankLine.equals(result)) {
+			if (EmptyFundResult.equals(result)) {
 				return "";
 			} else {
 				return  String.format("%-" + longestLabel + "s", result.label) + space2 +
@@ -573,7 +586,7 @@ public class JRetirement {
 		protected static final int defaultFieldLength = 20; //hardcoded
 		protected static final String space2 = "  "; //hardcoded
 
-		protected static final FundResult BlankLine = new FundResult("blank line", 0, 0);
+		protected static final FundResult EmptyFundResult = new FundResult("[empty]", 0, 0); //to print blank line
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -898,8 +911,8 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	protected void generatePlotFile(List<AggregateRecord> aggregateAllAccountsRecords,
-									List<AggregateRecord> aggregateTaxFreeAccountsRecords,
 									List<AggregateRecord> aggregateTaxDeferredAccountsRecords,
+									List<AggregateRecord> aggregateTaxFreeAccountsRecords,
 									List<AccountsHistoryData> accountContributionsRecords,
 									List<AccountsHistoryData> accountDistributionsRecords,
 									List<AccountsHistoryData> accountRedemptionRecords) throws Exception {
@@ -913,15 +926,15 @@ public class JRetirement {
 		final Instant earliestDate = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(calendarDays, ChronoUnit.DAYS);
 
 		double allAccountsLastBalance = Iterables.getLast(aggregateAllAccountsRecords).getTotalValue();
-		double taxFreeAccountsLastBalance = Iterables.getLast(aggregateTaxFreeAccountsRecords).getTotalValue();
 		double taxDeferredAccountsLastBalance = Iterables.getLast(aggregateTaxDeferredAccountsRecords).getTotalValue();
-		double taxFreeAccountsPercent = 100. * taxFreeAccountsLastBalance / allAccountsLastBalance;
+		double taxFreeAccountsLastBalance = Iterables.getLast(aggregateTaxFreeAccountsRecords).getTotalValue();
 		double taxDeferredAccountsPercent = 100. * taxDeferredAccountsLastBalance / allAccountsLastBalance;
+		double taxFreeAccountsPercent = 100. * taxFreeAccountsLastBalance / allAccountsLastBalance;
 
 		List<String> allPlotsList = new ArrayList<>(Arrays.asList(
 				"All Accounts",
-				"Tax Free Accounts (" + decimalFormat1.format(taxFreeAccountsPercent) + "%)",
-				"Tax Deferred Accounts (" + decimalFormat1.format(taxDeferredAccountsPercent) + "%)"));
+				"Tax Deferred Accounts (" + decimalFormat1.format(taxDeferredAccountsPercent) + "%)",
+				"Tax Free Accounts (" + decimalFormat1.format(taxFreeAccountsPercent) + "%)"));
 
 		allPlotsList.addAll(accountContributionsRecords.stream()
 				.filter(r -> r.getRunDate().isAfter(earliestDate))
@@ -952,7 +965,7 @@ public class JRetirement {
 			"xAxisDataType=normal",
 			"xAxisSkipTicks=" + workDaysInMonth, //hack
 			"xAxisSkipLabels=" + workDaysInMonth / 2, //hack
-			"xAxisLabel=Date (" + calendarDays + " days)",
+			"xAxisLabel=Date (" + calendarDays + " days, elapsed)",
 			"xAxisTickLabelsAngle=45",
 			"yTransform=linear",
 			"yAxisDataType=normal",
@@ -978,7 +991,7 @@ public class JRetirement {
 				    });
 
 			out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
-			aggregateTaxFreeAccountsRecords.stream()
+			aggregateTaxDeferredAccountsRecords.stream()
 					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
 				   	.forEach(r -> {
 						LocalDate localDate = r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate();
@@ -986,12 +999,12 @@ public class JRetirement {
 				    });
 
 			out.println(NL + "[" + allPlotsList.get(index.getAndIncrement()) + "]");
-			aggregateTaxDeferredAccountsRecords.stream()
+			aggregateTaxFreeAccountsRecords.stream()
 					.filter(r -> r.getDateDownloaded().isAfter(earliestDate))
-				   	.forEach(r -> {
+					.forEach(r -> {
 						LocalDate localDate = r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate();
-					    out.println("" + r.getIndex() + "=" + decimalFormat0.format(r.getTotalValue()) + " " + CommentDelimiter + dateTimeFormatterMdy.format(localDate));
-				    });
+						out.println("" + r.getIndex() + "=" + decimalFormat0.format(r.getTotalValue()) + " " + CommentDelimiter + dateTimeFormatterMdy.format(localDate));
+					});
 
 			//Note specific handling for day0Value, day1Value
 			accountContributionsRecords.stream()
@@ -1123,7 +1136,7 @@ public class JRetirement {
 	///////////////////////////////////////////////////////////////////////////
 	protected void printTaxes() throws Exception {
 //		final int federalStandardDeduction2023 = 27700; //Married Filing Jointly
-//		final List<TaxBracket> federalTaxBracket2023 = Arrays.asList( //Married Filing Jointly
+//		final List<TaxBracket> federalTaxBrackets2023 = Arrays.asList( //Married Filing Jointly
 //				//https://www.irs.gov/filing/federal-income-tax-rates-and-brackets
 //				new TaxBracket(10, 0, 22000),
 //				new TaxBracket(12, 22000, 89450),
@@ -1131,7 +1144,7 @@ public class JRetirement {
 //				new TaxBracket(24, 190750, 364200)
 //		);
 //		final int federalStandardDeduction2024 = 29200; //Married Filing Jointly
-//		final List<TaxBracket> federalTaxBracket2024 = Arrays.asList( //Married Filing Jointly
+//		final List<TaxBracket> federalTaxBrackets2024 = Arrays.asList( //Married Filing Jointly
 //				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2024
 //				new TaxBracket(10,      0,  23200),
 //				new TaxBracket(12,  23200,  94300),
@@ -1140,7 +1153,7 @@ public class JRetirement {
 //		);
 //		final int year = 2025;
 //		final int federalStandardDeduction2025 = 31500; //Married Filing Jointly
-//		final List<TaxBracket> federalTaxBracket2025 = Arrays.asList( //Married Filing Jointly
+//		final List<TaxBracket> federalTaxBrackets2025 = Arrays.asList( //Married Filing Jointly
 //				//https://www.irs.gov/newsroom/irs-provides-tax-inflation-adjustments-for-tax-year-2025
 //				new TaxBracket(10,      0,  23850),
 //				new TaxBracket(12,  23850,  96950),
@@ -1150,42 +1163,46 @@ public class JRetirement {
 
 		final int year = 2026;
 		final int federalStandardDeduction2026 = 32200; //Married Filing Jointly
-		final List<TaxBracket> federalTaxBracket2026 = Arrays.asList( //Married Filing Jointly
+		final List<TaxBracket> federalTaxBrackets2026 = Arrays.asList( //Married Filing Jointly
 				//https://www.irs.gov/filing/federal-income-tax-rates-and-brackets <<< makes sure it is the 2026 rates
 				new TaxBracket(10,      0,  24800),
-				new TaxBracket(12,  23850, 100800),
-				new TaxBracket(22,  96950, 211400),
-				new TaxBracket(24, 206700, 403550)
+				new TaxBracket(12,  24800, 100800),
+				new TaxBracket(22, 100800, 211400),
+				new TaxBracket(24, 211400, 403550)
+//*** After changing this table, verify the results with an online calculator, like: https://www.forbes.com/advisor/income-tax-calculator/
+
 		);
 
 		final List<TaxBracket> massTaxBracket202X = Collections.singletonList( //Married Filing Jointly
-				new TaxBracket(5, 0, 999999)
+				new TaxBracket(5, 0, 999_999)
 		);
 		final int massStandardDeduction202X = 2 * 4400; //Married Filing Jointly (from HRBlock 2023 tax software)
 		//https://www.nerdwallet.com/article/taxes/massachusetts-state-tax-rates
 
 		System.out.println(NL + "Taxes (using rates for " + year + "):");
 
-		final int baseIncome = 100000; //from annuity
-		double totalTaxOnBaseIncome = 0.;
-		for (int income = 100000; income <= 180000; income += 5000) {
-			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2026, federalTaxBracket2026);
+		double previousTotalIncomeTax = 0;
+
+		final int baseIncome = 140_000;
+		for (int income = baseIncome; income <= 200_000; income += 5000) {
+			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2026, federalTaxBrackets2026);
 			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction202X, massTaxBracket202X);
 			int totalIncomeTax = federalIncomeTax + massIncomeTax;
-			if (income == baseIncome) {
-				totalTaxOnBaseIncome = totalIncomeTax;
-			}
-			double extraTax = totalIncomeTax - totalTaxOnBaseIncome;
 
+			int marginalFedRate = TaxBracket.getMarginalFedRate(income, federalStandardDeduction2026, federalTaxBrackets2026);
 			double federalTaxRate = 100. * (double) federalIncomeTax / (double) income;
 			double massTaxRate = 100. * (double) massIncomeTax / (double) income;
 			double totalTaxRate = 100. * (double) totalIncomeTax / (double) income;
+
+			double extraTax = totalIncomeTax - previousTotalIncomeTax;
+			previousTotalIncomeTax = totalIncomeTax;
 
 			System.out.println("Pre-tax income: " + dollarFormat0.format(income) + ", Post-tax income: " + dollarFormat0.format(income - totalIncomeTax) +
 								", Total tax: " + dollarFormat0.format(totalIncomeTax) + " (" + decimalFormat1.format(totalTaxRate) + "%)" +
 								", Fed: " + dollarFormat0.format(federalIncomeTax) + " (" + decimalFormat1.format(federalTaxRate) + "%)" +
 								", Mass: " + dollarFormat0.format(massIncomeTax) + " (" + decimalFormat1.format(massTaxRate) + "%)" +
-								", Extra tax beyond base income: " + dollarFormat0.format(extraTax));
+								", Marginal fed rate: " + decimalFormat1.format(marginalFedRate) + "%" +
+								(income == baseIncome ? "" : ", Extra tax beyond previous bucket: " + dollarFormat0.format(extraTax)));
 		}
 	}
 
@@ -1217,6 +1234,22 @@ public class JRetirement {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		static int getMarginalFedRate(int income, int deduction, List<TaxBracket> taxBrackets) {
+			int marginalFedRate = 0;
+			final int taxableIncome = income - deduction;
+
+			for (TaxBracket taxBracket : taxBrackets) {
+				if (taxableIncome > taxBracket.minValue && taxableIncome <= taxBracket.maxValue) {
+					marginalFedRate = taxBracket.percentRate;
+					break;
+				}
+			}
+			VendoUtils.myAssert(marginalFedRate > 0, "marginalFedRate > 0", null); //do not use Java's assert as it is disabled by default
+
+			return marginalFedRate;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
 		@Override
 		public String toString() {
 			return "TaxBracket{" +
@@ -1229,6 +1262,32 @@ public class JRetirement {
 		final int percentRate;
 		final int minValue;
 		final int maxValue;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	protected void printFourPercentRule() throws Exception {
+		final double initialPercent = 4.;
+		final double initialBalance = 1e6;
+		final double inflationPercent = 3.;
+		final double growthPercent = 4.;
+
+		final int startingAge = 62;
+		final int numberOfYears = 30;
+
+		System.out.println(NL + "4 percent rule, using initial balance: " + dollarFormat0.format(initialBalance) + ", initial percent: " + initialPercent + "%, inflation: " + inflationPercent + "%, investment growth: " + growthPercent + "%");
+
+		double withdrawalPercent = initialPercent;
+		double balance = initialBalance;
+		for (int ii = 0; ii < numberOfYears; ii++) {
+			final int age = startingAge + ii;
+			double withdrawalAmount = initialBalance * (withdrawalPercent / 100.); //withdrawalAmount is always calculated against *initial* balance
+			System.out.println("age = " + age + ", withdrawalPercent = " + decimalFormat1.format(withdrawalPercent) + "%, withdrawalAmount: " + dollarFormat0.format(withdrawalAmount) + ", balance: " + dollarFormat0.format(balance));
+
+			//bump these up for next pass through for loop
+			withdrawalPercent *= (1 + inflationPercent / 100.);
+			balance -= withdrawalAmount;
+			balance *= (1 + growthPercent / 100.);
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1370,7 +1429,7 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean updateFundsMetaDataInDatabase() throws Exception {
-		Instant startInstant = Instant.now ();
+		final Instant startInstant = Instant.now ();
 
 		RetirementDao retirementDao = RetirementDao.getInstance();
 
@@ -1384,14 +1443,17 @@ public class JRetirement {
 				.filter(i -> !fundsMetaDataFromDb.contains(i))
 				.collect(Collectors.toList());
 
+		int rowsPersisted = 0;
 		if (!toBeAdded.isEmpty()) {
 			System.out.println("FundsMetaData: new/updated rows to be inserted:");
 			toBeAdded.forEach(System.out::println);
+
+			rowsPersisted = retirementDao.persistFundsMetaDataToDatabase(toBeAdded);
 		}
 
-		int rowsPersisted = 0;
-		if (!toBeAdded.isEmpty()) {
-			rowsPersisted = retirementDao.persistFundsMetaDataToDatabase(toBeAdded);
+		if (rowsPersisted > 0) { //re-query the database
+			fundsMetaDataFromDb.clear();
+			fundsMetaDataFromDb.addAll(retirementDao.queryFundsMetaDataFromDatabase());
 		}
 
 		System.out.println();
@@ -1404,7 +1466,7 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean updatePortfolioPositionsDataInDatabase(List<Path> sourceFilePathList) throws Exception {
-		Instant startInstant = Instant.now ();
+		final Instant startInstant = Instant.now ();
 
 		final Pattern portfolioPositionsPattern = Pattern.compile("^.*?[\\\\/]Portfolio_Positions_.*.csv$", Pattern.CASE_INSENSITIVE);
 
@@ -1446,11 +1508,15 @@ public class JRetirement {
 			rowsPersisted = retirementDao.persistPortfolioPositionsDataToDatabase(toBeAdded);
 		}
 
+		if (rowsPersisted > 0) { //re-query the database
+			portfolioPositionsDataFromDb.clear();
+			portfolioPositionsDataFromDb.addAll(retirementDao.queryPortfolioPositionsDataFromDatabase(AllDates));
+		}
+
 		System.out.println();
 		System.out.println("PortfolioPositions CSV files parsed/failed: " + filesParsedSuccess.get() + "/" + filesParsedFailed.get());
 		System.out.println("New PortfolioPositionsData rows persisted to database: " + rowsPersisted);
 		System.out.println("Total PortfolioPositionsData rows in database: " + portfolioPositionsDataFromDb.size());
-//TODO - this does not include the possibility that we added a new date+time after the query was run above
 		System.out.println("Total PortfolioPositionsData unique *date+times* in database: " + portfolioPositionsDataFromDb.stream().map(PortfolioPositionsData::getDateDownloaded).collect(Collectors.toSet()).size());
 		System.out.println("Elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format (dateTimeFormatterMmSs));
 
@@ -1459,7 +1525,7 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	private boolean updateAccountsHistoryDataInDatabase(List<Path> sourceFilePathList) throws Exception {
-		Instant startInstant = Instant.now ();
+		final Instant startInstant = Instant.now ();
 
 		final Pattern accountsHistoryPattern = Pattern.compile("^.*?[\\\\/]Accounts_History_.*.csv$", Pattern.CASE_INSENSITIVE);
 		final Set<AccountsHistoryData> accountsHistoryDataFromCsvFiles = new HashSet<>(); //use Set to avoid duplicates
@@ -1492,12 +1558,12 @@ public class JRetirement {
 //		}
 
 		if (false) { //debug
-			List<AccountsHistoryData> nullSymbolField = accountsHistoryDataFromCsvFiles.stream()
+			List<AccountsHistoryData> nullSymbolFields = accountsHistoryDataFromCsvFiles.stream()
 					.filter(r -> StringUtils.isBlank(r.getSymbol()))
 					.collect(Collectors.toList());
 
-			if (!nullSymbolField.isEmpty()) {
-				System.out.println("The following records have symbol=null: " + NL + nullSymbolField.stream().map(Object::toString).collect(Collectors.joining(NL)));
+			if (!nullSymbolFields.isEmpty()) {
+				System.out.println("The following records have symbol=null: " + NL + nullSymbolFields.stream().map(Object::toString).collect(Collectors.joining(NL)));
 			}
 		}
 
@@ -1519,15 +1585,53 @@ public class JRetirement {
 			rowsPersisted = retirementDao.persistAccountsHistoryDataToDatabase(toBeAdded);
 		}
 
+		if (rowsPersisted > 0) { //re-query the database
+			accountsHistoryDataFromDb.clear();
+			accountsHistoryDataFromDb.addAll(retirementDao.queryAccountsHistoryDataFromDatabase(AllDates));
+		}
+
 		System.out.println();
 		System.out.println("AccountsHistory CSV files parsed/failed: " + filesParsedSuccess.get() + "/" + filesParsedFailed.get());
 		System.out.println("New AccountsHistoryData rows persisted to database: " + rowsPersisted);
 		System.out.println("Total AccountsHistoryData rows in database: " + accountsHistoryDataFromDb.size());
-//TODO - this does not include the possibility that we added a new date+time after the query was run above
 		System.out.println("Total AccountsHistoryData unique *dates* in database: " + accountsHistoryDataFromDb.stream().map(AccountsHistoryData::getRunDate).collect(Collectors.toSet()).size());
 		System.out.println("Elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format (dateTimeFormatterMmSs));
 
 		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	//HACK - we can get duplicates in the DB because sometimes Fidelity changes the "action" field when the AccountHistory data is downloaded on subsequent days (see below for examples)
+	private List<AccountsHistoryData> findDuplicateAccountHistoryRecords() throws Exception {
+		final RetirementDao retirementDao = RetirementDao.getInstance();
+		final List<AccountsHistoryData> accountsHistoryDataFromDb = retirementDao.queryAccountsHistoryDataFromDatabase(AllDates);
+		final List<AccountsHistoryData> duplicateAccountsHistoryData = new ArrayList<>();
+
+		for (int ii = 1; ii < accountsHistoryDataFromDb.size(); ii++) { //NOTE STARTS AT 1
+			AccountsHistoryData first = accountsHistoryDataFromDb.get(ii - 1);
+			AccountsHistoryData second = accountsHistoryDataFromDb.get(ii);
+			if (!first.getAction().contains("YOU SOLD CONF:24211I")) { //HACK - ignore these known entries that are not actually duplicates
+				if (first.equalsNearly(second) && !first.equals(second)) {
+					duplicateAccountsHistoryData.add(first);
+					duplicateAccountsHistoryData.add(second);
+				}
+			}
+		}
+
+/* example duplicate AccountHistory records (scrubbed)
+run_date	            account_name	account_number	action	                                    		symbol	    description		comm    fees    amount  		activity
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+2026-04-29 00:00:00.0	Rollover IRA	242xxxxxx		FED TAX W/H (Cash)	                            	Contr/Distr	No Description	0.00	0.00	-1500.00		Distribution
+2026-04-29 00:00:00.0	Rollover IRA	242xxxxxx		FED TAX W/H RET FED WTH ED20115990 /WEB (Cash)		Contr/Distr	No Description	0.00	0.00	-1500.00		Distribution
+
+2026-04-29 00:00:00.0	Rollover IRA	242xxxxxx		NORMAL DISTR PARTIAL (Cash)	                    	Contr/Distr	No Description	0.00	0.00	-8000.00		Distribution
+2026-04-29 00:00:00.0	Rollover IRA	242xxxxxx		NORMAL DISTR PARTIAL ED20115990 /WEB (Cash)	    	Contr/Distr	No Description	0.00	0.00	-8000.00		Distribution
+
+2026-04-29 00:00:00.0	Rollover IRA	242xxxxxx		STATE TAX W/H (Cash)	                        	Contr/Distr	No Description	0.00	0.00	-500.00			Distribution
+2026-04-29 00:00:00.0	Rollover IRA	242xxxxxx		STATE TAX W/H MA STAT WTH ED20115990 /WEB (Cash)	Contr/Distr	No Description	0.00	0.00	-500.00			Distribution
+*/
+
+		return duplicateAccountsHistoryData;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1590,6 +1694,7 @@ public class JRetirement {
 	private Pattern filenamePattern = null;
 	private boolean printHistoricalData = false;
 	private boolean printTaxes = false;
+	private boolean printFourPercentRule = false;
 	private boolean printUrls = false;
 	private boolean generatePlotFile = false;
 	private boolean deleteDuplicateRecords = false;

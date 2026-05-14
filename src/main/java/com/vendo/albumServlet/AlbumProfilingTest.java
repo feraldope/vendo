@@ -2,10 +2,10 @@
 
 package com.vendo.albumServlet;
 
-import java.util.Date;
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.Date;
 
 
 public class AlbumProfilingTest
@@ -107,10 +107,11 @@ public class AlbumProfilingTest
 		long startMillis = new Date ().getTime ();
 
 		for (int ii = 0; ii < iterations; ii++) {
-			if (enableProfiling)
+			if (enableProfiling) {
 				AlbumProfiling.getInstance ().enter (1, tag);
+			}
 
-			long endNano = System.nanoTime () + (long) (millis * 1000000);
+			long endNano = System.nanoTime () + (long) (millis * 1_000_000);
 			do {
 				try {
 					Thread.sleep (0, 1); //sleep 1ns
@@ -119,8 +120,9 @@ public class AlbumProfilingTest
 				}
 			} while (System.nanoTime () < endNano);
 
-			if (enableProfiling)
+			if (enableProfiling) {
 				AlbumProfiling.getInstance ().exit (1, tag);
+			}
 		}
 
 		long elapsedMillis = new Date ().getTime () - startMillis;

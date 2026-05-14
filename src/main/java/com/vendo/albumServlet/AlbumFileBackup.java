@@ -631,6 +631,7 @@ public class AlbumFileBackup {
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> destMap,
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> diffMap,
 											  ConcurrentHashMap<String, Collection<AlbumImageFileDetails>> orphanMap) {
+		final ConcurrentHashMap<String, String> folderDetailStringMap = new ConcurrentHashMap();
 		final CountDownLatch endGate = new CountDownLatch (sourceMap.keySet ().size ());
 
 //TODO - handle case where sourceMap.keySet() is not the same as destMap.keySet())
@@ -666,8 +667,10 @@ public class AlbumFileBackup {
 				Duration duration = Duration.between (startInstant, Instant.now ());
 
 				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
-					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format(_subFolderFormatString, subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
-								", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
+//					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format(_subFolderFormatString, subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
+//								", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
+					folderDetailStringMap.put(subFolder, String.format(_subFolderFormatString, subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
+															", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
 				}
 
 				endGate.countDown ();
@@ -680,6 +683,11 @@ public class AlbumFileBackup {
 		} catch (Exception ex) {
 			_log.error ("AlbumFileBackup.getSourceDestFolderDiffs: endGate: ", ex);
 		}
+
+		folderDetailStringMap.keySet().stream()
+				.sorted (VendoUtils.caseInsensitiveStringComparator)
+				.map(folderDetailStringMap::get)
+				.forEach(s -> _log.debug("AlbumFileBackup.getSourceDestFolderDiffs: " + s));
 
 		return true;
 	}

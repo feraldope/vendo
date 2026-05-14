@@ -14,7 +14,7 @@ public class JpgUtilsTest extends TestCase {
     }
 
     public void calculateDesiredDimensionsTest(String filename, int width, int height) {
-        final int fifteenMegaPixels = 15 * 1000 * 1000;
+        final int fifteenMegaPixels = 15_000_000;
 
         //these values are not important for the test, just example display values
         final long fourMegaBytes = 4L * 1024 * 1024;

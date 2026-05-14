@@ -435,7 +435,7 @@ public class VendoUtils
 	//compare performance or ArrayList vs LinkedList when adding many items
 	public static void compareLists ()
 	{
-		final int count = 1000 * 1000;
+		final int count = 1_000_000;
 		System.out.println ("compareLists: count: " + count);
 
 		{

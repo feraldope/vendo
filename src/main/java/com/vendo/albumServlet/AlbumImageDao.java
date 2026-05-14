@@ -5,6 +5,7 @@ package com.vendo.albumServlet;
 import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
 import com.vendo.vendoUtils.WatchDir;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.session.SqlSession;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -490,20 +491,46 @@ public class AlbumImageDao {
 
 		AlbumProfiling.getInstance().exit(4, "part 4");
 
-		//validate that there are no albums with same name but different case ------------------------------------------------
+		//validate that there are no albums with same name but different case part 1 ------------------------------------------------
 
 		AlbumProfiling.getInstance().enter(4, "part 5");
 
-		Set<String> albumsOriginalCase = dbImageFileDetails.stream()
-														   .map(i -> AlbumImage.getBaseName(i.getName(), true))
-														   .collect (Collectors.toSet());
-		Set<String> albumsLowerCase = dbImageFileDetails.stream()
-														.map(i -> AlbumImage.getBaseName(i.getName(), true).toLowerCase())
-														.collect (Collectors.toSet());
+		Set<String> albumsOriginalCase = dbImageFileDetails.stream().map(i -> AlbumImage.getBaseName(i.getName(), true)).collect (Collectors.toSet());
+		Set<String> albumsLowerCase = dbImageFileDetails.stream().map(i -> AlbumImage.getBaseName(i.getName(), true).toLowerCase()).collect (Collectors.toSet());
 		int diff = albumsOriginalCase.size() - albumsLowerCase.size();
 		if (diff != 0) {
 //TODO - print offending albums
-			_log.error("AlbumImageDao.syncFolder(" + subFolder + "): found " + diff + " albums with same name and different case in subFolder: " + subFolder);
+			_log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: found " + diff + " albums with same name and different case in subFolder: " + subFolder);
+		}
+
+		if (false) { //TODO: this does not work quite right yet
+			//validate that there are no q* albums with same name but different case part 2 ------------------------------------------------
+
+			List<String> baseNames = albumsOriginalCase.stream()
+					.filter(s -> s.startsWith("q")) //for now only do q*
+					.sorted(VendoUtils.caseInsensitiveStringComparator)
+					.collect(Collectors.toList());
+
+			List<String> misMatchMessages = new ArrayList<>();
+
+			String previousBaseName = baseNames.stream().findFirst().orElse("default");
+			for (int ii = 1; ii < baseNames.size(); ii++) { //NOTE START AT 1
+				String baseName = baseNames.get(ii);
+				if (true || baseName.length() == previousBaseName.length()) { //TODO: this is not the correct test
+					int firstMismatch1 = StringUtils.indexOfDifference(baseName, previousBaseName);
+					int firstMismatch2 = StringUtils.indexOfDifference(baseName.toLowerCase(), previousBaseName.toLowerCase());
+					if (firstMismatch1 > 4 && firstMismatch1 != firstMismatch2) { //hardcoded
+						misMatchMessages.add(previousBaseName + " <-> " + baseName);
+					}
+				}
+				previousBaseName = baseName;
+			}
+
+			if (!misMatchMessages.isEmpty()) {
+				misMatchMessages.stream()
+						.sorted(VendoUtils.caseInsensitiveStringComparator)
+						.forEach(s -> _log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: mismatched case: " + s));
+			}
 		}
 
 		AlbumProfiling.getInstance().exit(4, "part 5");
@@ -1820,9 +1847,9 @@ public class AlbumImageDao {
 	public boolean hasKnownFileExtensionOrName (String filename) //filename only, no path
 	{
 		final Pattern pattern = Pattern.compile("(.*\\" + AlbumFormInfo._ImageExtension
-											  + "|.*\\" + AlbumFormInfo._RgbDataExtension + "$"
-											  + "|.*\\" + AlbumFormInfo._DeleteSuffix //do not append "$" here because suffix could be repeated
-											  + "|" + AlbumFormInfo._RgbDataFolder + "$)");
+													 + "|.*\\" + AlbumFormInfo._RgbDataExtension + "$"
+													 + "|.*\\" + AlbumFormInfo._DeleteSuffix //do not append "$" here because suffix could be repeated
+													 + "|" + AlbumFormInfo._RgbDataFolder + "$)");
 
 		return pattern.matcher(filename).matches();
 	}

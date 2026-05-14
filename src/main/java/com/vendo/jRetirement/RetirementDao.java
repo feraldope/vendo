@@ -245,7 +245,7 @@ public class RetirementDao {
 //				     " where UPPER(action) rlike '.*CONTR.*'" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
 				     " where activity = '" + FundsEnum.Activity.Contribution + "'" + NL +
 					 " and account_name != '" + accountsToSkip + "'" + NL +
-				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
+				     " and ABS(amount) >= " + skipSmallerAmounts + NL; //skip smaller transactions
 		if (!runDate.equals(AllDates)) {
 			sql += " and run_date = ?" + NL;
 		}
@@ -264,7 +264,7 @@ public class RetirementDao {
 				     " from account_history_data" + NL +
 //				     " where (UPPER(action) rlike '.*DISTR.*' OR UPPER(action) rlike '.*TAX.*')" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
 				     " where activity = '" + FundsEnum.Activity.Distribution + "'" + NL +
-				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
+				     " and ABS(amount) >= " + skipSmallerAmounts + NL; //skip smaller transactions
 		if (!runDate.equals(AllDates)) {
 			sql += " and run_date = ?" + NL;
 		}
@@ -284,7 +284,7 @@ public class RetirementDao {
 //				     " where UPPER(action) rlike 'REDEMPTION FROM CORE ACCOUNT.*'" + NL + //NOTE: rlike is not case-sensitive unless used on binary string
 				     " where activity = '" + FundsEnum.Activity.Redemption + "'" + NL +
 				     " and account_name = 'Individual - TOD'" + NL +
-				     " and ABS(amount) > " + skipSmallerAmounts + NL; //skip smaller transactions
+				     " and ABS(amount) >= " + skipSmallerAmounts + NL; //skip smaller transactions
 		if (!runDate.equals(AllDates)) {
 			sql += " and run_date = ?" + NL;
 		}
@@ -489,7 +489,7 @@ public class RetirementDao {
 
 	//private members
 	private static volatile RetirementDao instance = null;
-	private final int skipSmallerAmounts = 500;
+	private final int skipSmallerAmounts = 10;
 
 	public static final Instant AllDates = Instant.ofEpochSecond(9999); //some fixed, hopefully unique time
 	public static final String NL = System.getProperty ("line.separator");

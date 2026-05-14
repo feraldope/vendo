@@ -2,6 +2,7 @@
 
 package com.vendo.getUrl;
 
+import com.vendo.albumServlet.AlbumImage;
 import com.vendo.albumServlet.AlbumImageDao;
 import com.vendo.jHistory.JHistory;
 import com.vendo.jpgUtils.JpgUtils;
@@ -26,6 +27,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -467,7 +469,11 @@ public class GetUrl {
 //			}
 //		}
 
-		_perfStats.print(Instant.now()); //end stats timing and print all records
+		_perfStats.printRecords(Instant.now()); //end stats timing and print all records
+
+		_perfStats.printMissingImages();
+
+		_perfStats.checkForInconsistentNumbering();
 
 		return true;
 	}
@@ -934,7 +940,8 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	private static boolean doWebp (String srcName, String destName) {
-		String command = "C:/libwebp-1.4.0-windows-x64/bin/dwebp.exe \"" + srcName + "\" -o \"" + destName + "\"";
+//		String command = "C:/libwebp-1.4.0-windows-x64/bin/dwebp.exe \"" + srcName + "\" -o \"" + destName + "\"";
+		String command = "C:/libwebp-1.6.0-windows-x64/bin/dwebp.exe \"" + srcName + "\" -o \"" + destName + "\"";
 //		if (_Debug) {
 //			_log.debug("doWebp: command: " + command);
 //		}
@@ -1081,9 +1088,9 @@ public class GetUrl {
 
 		String[] parts1 = splitLeaf(remainder, _blockNumber);
 
-		if (_Debug) {
-			_log.debug("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString(parts1));
-		}
+//		if (_Debug) {
+//			_log.debug("parts1[" + parts1.length + "] = " + VendoUtils.arrayToString(parts1));
+//		}
 
 		if (parts1.length != 2) {
 			_log.error("parseModel: splitLeaf() failed for '" + remainder + "'");
@@ -1119,16 +1126,17 @@ public class GetUrl {
 		}
 
 		if (_Debug) {
-			_log.debug("_model = " + _model);
-			_log.debug("_base = " + _base);
-			_log.debug("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
-			if (!"jpg".equalsIgnoreCase(_tailOrig)) {
-				_log.debug("_tailOrig = " + _tailOrig);
-			}
-			if (!"jpg".equalsIgnoreCase(_extension)) {
-				_log.debug("_extension = " + _extension);
-			}
-			_log.debug("_digits = " + _digits);
+//too much noise
+//			_log.debug("_model = " + _model);
+//			_log.debug("_base = " + _base);
+//			_log.debug("_headOrig = " + _headOrig + ", _headUsed = " + _headUsed);
+//			if (!"jpg".equalsIgnoreCase(_tailOrig)) {
+//				_log.debug("_tailOrig = " + _tailOrig);
+//			}
+//			if (!"jpg".equalsIgnoreCase(_extension)) {
+//				_log.debug("_extension = " + _extension);
+//			}
+//			_log.debug("_digits = " + _digits);
 		}
 
 		return true;
@@ -1452,7 +1460,10 @@ public class GetUrl {
 
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean hasImageExtension (String fileName) {
-		return fileName.toLowerCase().endsWith ("jpg") || fileName.toLowerCase().endsWith ("jpeg") || fileName.toLowerCase().endsWith ("png") || fileName.toLowerCase().endsWith ("webp");
+		return fileName.toLowerCase().endsWith ("jpg") ||
+			   fileName.toLowerCase().endsWith ("jpeg") ||
+			   fileName.toLowerCase().endsWith ("png") ||
+			   fileName.toLowerCase().endsWith ("webp");
 	}
 
 	private static class ImageSize {
@@ -1510,8 +1521,7 @@ public class GetUrl {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public void print(Instant endInstant)
-		{
+		public void printRecords(Instant endInstant) {
 //			String elapsedTimeString = Duration.between (_globalStartInstant, endInstant).toString (); //default ISO-8601 seconds-based representation
 			String elapsedTimeString = LocalTime.ofNanoOfDay(Duration.between(_globalStartInstant, endInstant).toNanos()).format(_dateTimeFormatter);
 
@@ -1535,11 +1545,71 @@ public class GetUrl {
 
 			System.out.println(_records.size() + " items downloaded, " +
 					VendoUtils.unitSuffixScaleBytes(totalBytes, 0) + ", " +
-					VendoUtils.unitSuffixScaleBytes(totalBitsPerSec, 0) + "ps average, "+
+					VendoUtils.unitSuffixScaleBytes(totalBitsPerSec, 0) + "ps average, " +
 					elapsedTimeString + " elapsed");
 		}
 
-		private final Vector<PerfStatsRecord> _records = new Vector<PerfStatsRecord>();
+		///////////////////////////////////////////////////////////////////////////
+		public void printMissingImages() { //gaps
+			List<String> fileNamesNoExt = _records.stream()
+					.map(r -> r.getFileName().replaceAll("\\..*$", "")) //remove extension
+					.sorted(new AlphanumComparator())
+					.collect(Collectors.toList());
+			int numFileNames = fileNamesNoExt.size();
+
+			String firstNumber = fileNamesNoExt.get(0).replaceAll(".*-", "");
+			String lastNumber = fileNamesNoExt.get(numFileNames - 1).replaceAll(".*-", "");
+			int firstInt = Integer.parseInt(firstNumber);
+			int lastInt = Integer.parseInt(lastNumber);
+
+			int range = lastInt - firstInt + 1;
+			int numMissingImages = range - numFileNames;
+
+			if (numMissingImages > 0) {
+				String missingImages = "[omitted for size]";
+				String baseName = AlbumImage.getBaseName(fileNamesNoExt.get(0), false);
+				if (numMissingImages <= 30) { //hardcoded
+					List<String> missingImageNames = new ArrayList<>();
+					final int digits = firstNumber.length();
+					for (int ii = firstInt; ii <= lastInt; ii++) {
+						missingImageNames.add(String.format("%s-%0" + digits + "d", baseName, ii));
+					}
+					missingImageNames.removeAll(fileNamesNoExt);
+					missingImages = String.join(NL, missingImageNames);
+				}
+
+				VendoUtils.printWithColor(_warningColor, "Missing images(" + numMissingImages + "):" + NL + missingImages);// URL in resultsMap, skipping: " + _urlStr);
+			}
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		public void checkForInconsistentNumbering() {
+			final Pattern imageNumberPattern = Pattern.compile("^[A-Z]+[0-9]+-([0-9]+).[A-Z]+$", Pattern.CASE_INSENSITIVE); //group1 is the image number
+
+			List<String> imageNumbers = _records.stream()
+					.map(PerfStatsRecord::getFileName)
+					.map(s -> {
+						Matcher imageNumberMatcher = imageNumberPattern.matcher(s);
+						if (imageNumberMatcher.find()) {
+							return imageNumberMatcher.group(1);
+						} else {
+							_log.warn("GetUrl.PerfStats:checkForInconsistentNumbering: imageName does not match pattern: " + s);
+							return "error"; //what to do here??
+						}
+					})
+					.sorted(new AlphanumComparator())
+					.collect(Collectors.toList());
+
+			Set<Integer> imageNumberLengthsSet = imageNumbers.stream()
+					.map(String::length)
+					.collect(Collectors.toSet());
+
+			if (imageNumberLengthsSet.size() > 1) {
+				VendoUtils.printWithColor(_warningColor, "Inconsistent numbering: " + imageNumberLengthsSet);
+			}
+		}
+
+		private final ArrayList<PerfStatsRecord> _records = new ArrayList<>();
 	}
 
 	private class PerfStatsRecord {
@@ -1559,10 +1629,15 @@ public class GetUrl {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
+		public String getFileName() {
+			return _filename;
+		}
+
+		///////////////////////////////////////////////////////////////////////////
 		//required for AlphanumComparator
 		@Override
 		public String toString() {
-			return _filename;
+			return getFileName();
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1577,12 +1652,12 @@ public class GetUrl {
 					(printDetail ? ", " + elapsedTimeString + " elapsed" : "");
 		}
 
-		public final String _filename;
-		public final double _imageBytesRead;
-		public final double _imageBitsPerSec;
-		public final double _imageElapsedNanos;
-		public final int _width;
-		public final int _height;
+		private final String _filename;
+		private final double _imageBytesRead;
+		private final double _imageBitsPerSec;
+		private final double _imageElapsedNanos;
+		private final int _width;
+		private final int _height;
 	}
 
 	private class ResultsMap {
@@ -1737,7 +1812,8 @@ public class GetUrl {
 		private List<String> getFileList(String dirName, final String nameWild) {
 			//digits in following pattern prevent e.g. "Foo01" from matching "FooBar01"
 //			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + _extension, Pattern.CASE_INSENSITIVE);
-			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + "jpg", Pattern.CASE_INSENSITIVE); //hardcoded extension
+//			Pattern pattern = Pattern.compile(nameWild + "[0-9].*" + "\\." + "jpg", Pattern.CASE_INSENSITIVE); //hardcoded extension
+			Pattern pattern = Pattern.compile("^" + nameWild + "[0-9].*" + "\\." + "(jpg|png)$", Pattern.CASE_INSENSITIVE); //hardcoded extension
 
 			if (_classDebug) {
 				System.out.println("GetUrl.getFileList: dirName = " + dirName + ", nameWild = " + nameWild + ", pattern = " + pattern.pattern());

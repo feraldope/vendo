@@ -125,10 +125,11 @@ public class AlbumUtils {
 
 		String aliasesFile = getStringProperty(properties, "aliasesFile");
 		String downloadZipFolder = getStringProperty(properties, "downloadZipFolder");
-		String downloadMp4Folder = getStringProperty(properties, "downloadMp4Folder");
+		String downloadAllMp4Folder = getStringProperty(properties, "downloadAllMp4Folder");
+		String downloadMetMp4Folder = getStringProperty(properties, "downloadMetMp4Folder");
 		String movHistoryFile = getStringProperty(properties, "movHistoryFile");
 
-		if (null == aliasesFile || null == downloadZipFolder || null == downloadMp4Folder || null == movHistoryFile) {
+		if (null == aliasesFile || null == downloadZipFolder || null == downloadAllMp4Folder || null == downloadMetMp4Folder || null == movHistoryFile) {
 			return false; //getStringProperty printed error
 		}
 
@@ -142,8 +143,13 @@ public class AlbumUtils {
 			return false;
 		}
 
-		if (!VendoUtils.fileExists (downloadMp4Folder)) {
-			_log.error ("AlbumUtils.run: error: download mp4 folder does not exist: " + downloadMp4Folder);
+		if (!VendoUtils.fileExists (downloadAllMp4Folder)) {
+			_log.error ("AlbumUtils.run: error: download mp4 folder does not exist: " + downloadAllMp4Folder);
+			return false;
+		}
+
+		if (!VendoUtils.fileExists (downloadMetMp4Folder)) {
+			_log.error ("AlbumUtils.run: error: download mp4 folder does not exist: " + downloadMetMp4Folder);
 			return false;
 		}
 
@@ -192,13 +198,17 @@ public class AlbumUtils {
 //					aliasesMap.put(items[0].trim(), items[1].trim());
 //			});
 
-		readAndProcessAllRecords(baseName, downloadZipFolder, downloadMp4Folder, movHistoryFile, aliases);
+		readAndProcessAllRecords(baseName, downloadZipFolder, downloadMetMp4Folder, movHistoryFile, aliases);
+
+		checkForDuplicateDownloadsByUuid(downloadAllMp4Folder);
+
+		checkForDuplicateDownloadsCent(downloadAllMp4Folder);
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean readAndProcessAllRecords(String baseName, String downloadZipFolder, String downloadMp4Folder, String movHistoryFile, Aliases aliases) {
+	private boolean readAndProcessAllRecords(String baseName, String downloadZipFolder, String downloadMetMp4Folder, String movHistoryFile, Aliases aliases) {
 		_log.debug("AlbumUtils.readAndProcessAllRecords: baseName: " + baseName);
 
 		Instant startInstant = Instant.now ();
@@ -216,7 +226,7 @@ public class AlbumUtils {
 		startInstant = Instant.now ();
 		List<NameComponentsDownload> downloadMp4Records;
 		try {
-			downloadMp4Records = getAllValidDownloadRecords(downloadMp4Folder, baseName, "mp4", true);
+			downloadMp4Records = getAllValidDownloadRecords(downloadMetMp4Folder, baseName, "mp4", true);
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -259,9 +269,9 @@ public class AlbumUtils {
 		final List<NameComponentsDownload> nameComponents = new ArrayList<>();
 
 		final Pattern downloadPatternStrict = "zip".equals(extension)
-				? Pattern.compile("(" + baseName + ")_(\\d{4}-\\d{2}-\\d{2})_(.*)-by-.*_(high|med)\\." + extension)
-				: Pattern.compile("(" + baseName + ")-(\\d{4}-\\d{2}-\\d{2})-(.*)(-1080|-1080-scaled|-4k)\\." + extension);
-		final Pattern downloadPatternLoose = Pattern.compile("(" + baseName + ")[_-].*\\." + extension);
+				? Pattern.compile("(" + baseName + ")_(\\d{4}-\\d{2}-\\d{2})_(.*)-by-.*_(high|med)\\." + extension, Pattern.CASE_INSENSITIVE)
+				: Pattern.compile("(" + baseName + ")-(\\d{4}-\\d{2}-\\d{2})-(.*)(-1080|-1080-scaled|-4k)\\." + extension, Pattern.CASE_INSENSITIVE);
+		final Pattern downloadPatternLoose = Pattern.compile("(" + baseName + ")[_-].*\\." + extension, Pattern.CASE_INSENSITIVE);
 
 		final List<String> fileList = new VFileList(downloadFolder, baseName + "*." + extension, false).getFileList(VFileList.ListMode.FileOnly);
 		if (fileList.isEmpty()) {
@@ -307,12 +317,57 @@ public class AlbumUtils {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	private List<NameComponentsDownload> getAllValidDownloadRecords(String downloadFolder, Pattern downloadPattern, String extension, final boolean printSkippedLines) {
+		final List<String> skippedLines = new ArrayList<>();
+		final List<NameComponentsDownload> nameComponents = new ArrayList<>();
+
+		final List<String> fileList = new VFileList(downloadFolder, "*." + extension, true).getFileList(VFileList.ListMode.FileOnly);
+		if (fileList.isEmpty()) {
+			throw new IllegalArgumentException("no matching files found in download folder \"" + downloadFolder + "\"");
+		}
+
+		final List<String> lines = fileList.stream()
+				.filter(l -> {
+					Matcher downloadMatcher = downloadPattern.matcher(l);
+					if (downloadMatcher.find()) {
+						String group1 = downloadMatcher.group(1);
+						NameComponentsDownload componentsDownload = new NameComponentsDownload(l, group1, "unused", "unused"); //matched group is stored in prefix field
+						nameComponents.add(componentsDownload);
+						return true;
+					} else {
+						skippedLines.add(l);
+					}
+					return false;
+				})
+				.collect(Collectors.toList());
+
+		if (printSkippedLines && !skippedLines.isEmpty()) {
+			final int maxCharsToPrint = 100; //hardcoded
+
+			System.out.println("AlbumUtils.getAllValidDownloadRecords: SKIPPED LINES (did not match pattern):");
+			skippedLines.stream().sorted().forEach(l -> {
+				int charsToPrint = Math.min(l.length(), maxCharsToPrint);
+				boolean truncated = l.length() > charsToPrint;
+				System.out.println(l.substring(0, charsToPrint) + (truncated ? "*" : ""));
+			});
+
+			final int maxExpectedSkippedLines = 100;
+			if (skippedLines.size() > maxExpectedSkippedLines) { //hack
+				throw new RuntimeException("Error: number of skipped lines (" + skippedLines.size() + ") is greater than expected (" + maxExpectedSkippedLines + ").");
+			}
+		}
+
+		List<NameComponentsDownload> sortedList = nameComponents.stream().sorted(new NameComponentsDownload("", "", "", "")).collect(Collectors.toList());
+		return sortedList;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	private List<NameComponentsMovHistory> getAllDistinctValidMovHistoryRecords(Path filePath, String baseName, Aliases aliases, boolean printSkippedLines) throws Exception {
 		final List<String> skippedLines = new ArrayList<>();
 		final List<NameComponentsMovHistory> nameComponents = new ArrayList<>();
 
-		final Pattern movPatternStrict = Pattern.compile("mov (" + baseName + ")_(.*)_(high|med)_0\\*(|g) (.*)-\\*(|g)");
-		final Pattern movPatternLoose = Pattern.compile("mov (" + baseName + ")_.*_(high|med).*");
+		final Pattern movPatternStrict = Pattern.compile("mov (" + baseName + ")_(.*)_(high|med)_0\\*(|g) (.*)-\\*(|g)", Pattern.CASE_INSENSITIVE);
+		final Pattern movPatternLoose = Pattern.compile("mov (" + baseName + ")_.*_(high|med).*", Pattern.CASE_INSENSITIVE);
 
 		final List<String> lines = Files.readAllLines(filePath, StandardCharsets.UTF_8).stream()
 				.filter(l -> {
@@ -498,12 +553,93 @@ public class AlbumUtils {
 				.map(e -> String.join(NL, e.getValue()))
 				.collect(Collectors.toList());
 
-		_log.debug("AlbumUtils.checkForDuplicateDownloads: found " + dups.size() + " dups: " + NL + String.join(NL, dups));
+		_log.debug("AlbumUtils.checkForDuplicateDownloads: found " + dups.size() + " dup pairs: " + NL + String.join(NL, dups));
 
 		if (dups.size() > 0) {
 			multimap.entrySet().stream()
 					.filter(e -> e.getValue().size() > 1)
 					.map(e -> "dir " + e.getKey() + "*")
+					.forEach(System.out::println);
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	boolean checkForDuplicateDownloadsByUuid(String downloadAllMp4Folder) {
+		Instant startInstant = Instant.now ();
+
+		String extension = "mp4";
+		final Pattern downloadPattern = Pattern.compile("^.*\\[(.*)\\].*." + extension + "$"); //intentionally greedy
+
+		List<NameComponentsDownload> downloadMp4Records;
+		try {
+			downloadMp4Records = getAllValidDownloadRecords(downloadAllMp4Folder, downloadPattern, extension, false);
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return false;
+		}
+		String elapsedString = "elapsed time: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format(_dateTimeFormatter);
+		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + downloadMp4Records.size() + " download mp4 records, " + elapsedString);
+
+		Map<String, List<String>> multimap = downloadMp4Records.stream()
+//				.collect(Collectors.groupingBy(NameComponentsBase::getPrefix, //UUID is stored in prefix field
+				.collect(Collectors.groupingBy(n -> n.getPrefix().toLowerCase(), //UUID is stored in prefix field
+											   Collectors.mapping(NameComponentsDownload::getOriginalString,
+																  Collectors.toList())));
+
+		List<String> dups = multimap.entrySet().stream()
+				.filter(e -> e.getValue().size() > 1)
+				.map(e -> String.join(NL, e.getValue()))
+				.collect(Collectors.toList());
+
+		_log.debug("AlbumUtils.checkForDuplicateDownloadsByUuid: found " + dups.size() + " dup pairs: " + NL + String.join(NL, dups));
+
+		if (dups.size() > 0) {
+			multimap.entrySet().stream()
+					.filter(e -> e.getValue().size() > 1)
+					.map(e -> "tdir /s *" + e.getKey() + "*")
+					.forEach(System.out::println);
+		}
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	boolean checkForDuplicateDownloadsCent(String downloadAllMp4Folder) {
+		Instant startInstant = Instant.now ();
+
+		String extension = "mp4";
+		final Pattern downloadPattern = Pattern.compile("^\\d\\d-\\d\\d-\\d\\d([A-Z-]+).*." + extension + "$", Pattern.CASE_INSENSITIVE); //group 1 is middle part after date
+
+		List<NameComponentsDownload> downloadMp4Records;
+		try {
+			downloadMp4Records = getAllValidDownloadRecords(downloadAllMp4Folder, downloadPattern, "mp4", false);
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			return false;
+		}
+		String elapsedString = "elapsed time: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format(_dateTimeFormatter);
+		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + downloadMp4Records.size() + " download mp4 records, " + elapsedString);
+
+		Map<String, List<String>> multimap = downloadMp4Records.stream()
+				.collect(Collectors.groupingBy(NameComponentsDownload::getPrefix, //group1 is stored in prefix field
+											   Collectors.mapping(NameComponentsDownload::getOriginalString,
+																  Collectors.toList())));
+
+		List<String> dups = multimap.entrySet().stream()
+				.filter(e -> e.getValue().size() > 1)
+				.map(e -> String.join(NL, e.getValue()))
+				.collect(Collectors.toList());
+
+		_log.debug("AlbumUtils.checkForDuplicateDownloadsCent: found " + dups.size() + " dup pairs: " + NL + String.join(NL, dups));
+
+		if (dups.size() > 0) {
+			multimap.entrySet().stream()
+					.filter(e -> e.getValue().size() > 1)
+					.map(e -> "tdir /s *" + e.getKey() + "*")
 					.forEach(System.out::println);
 		}
 
