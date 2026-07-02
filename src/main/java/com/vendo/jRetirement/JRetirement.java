@@ -89,8 +89,8 @@ public class JRetirement {
 						displayUsage ("Missing value for /" + arg, true);
 					}
 
-				} else if (arg.equalsIgnoreCase("deleteDuplicateRecords") || arg.equalsIgnoreCase("dedup")) {
-					deleteDuplicateRecords = true;
+//				} else if (arg.equalsIgnoreCase("deleteDuplicateRecords") || arg.equalsIgnoreCase("dedup")) {
+//					deleteDuplicateRecords = true;
 
 				} else if (arg.equalsIgnoreCase("generatePlotFile") || arg.equalsIgnoreCase("plot")) {
 					generatePlotFile = true;
@@ -173,6 +173,12 @@ public class JRetirement {
 		} else {
 			updatePortfolioPositionsDataInDatabase(sourceFilePathList);
 			updateAccountsHistoryDataInDatabase(sourceFilePathList);
+		}
+
+		Map<LocalDate, List<String>> duplicatePortfolioPositionDates = findDuplicatePortfolioPositionDates();
+		if (!duplicatePortfolioPositionDates.isEmpty()) {
+			System.out.println(NL + "Warning: found duplicate dates in PortfolioPositionData:");
+			duplicatePortfolioPositionDates.entrySet().stream().forEach(System.out::println);
 		}
 
 		List<AccountsHistoryData> duplicateAccountsHistoryData = findDuplicateAccountHistoryRecords();
@@ -918,12 +924,21 @@ public class JRetirement {
 									List<AccountsHistoryData> accountRedemptionRecords) throws Exception {
 		VendoUtils.myAssert(aggregateAllAccountsRecords != null && !aggregateAllAccountsRecords.isEmpty(), "aggregateAllAccountsRecords != null && !aggregateAllAccountsRecords.isEmpty()", null); //do not use Java's assert as it is disabled by default
 
-		final int yMax = 2_600_000; //TODO - calculate!
+		final int workDaysInMonth = (int) (30. /*nominal calendar days/month*/ * 240. /*nominal work days/year*/ / 365. /*calendar days/year*/); //hack
+
 		final int yMin = 0;
 
-		final int workDaysInMonth = (int) (30. /*nominal work days/month*/ * 240. /*nominal work days/year*/ / 365. /*calendar days/year*/); //hack
-		final int calendarDays = 240; //hardcoded
-		final Instant earliestDate = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(calendarDays, ChronoUnit.DAYS);
+		//plot fixed number of days
+//		final int yMax = 2_400_000; //hardcoded TODO - calculate!
+//		final int calendarDays = 240; //hardcoded
+//		final Instant earliestDate = Instant.now().truncatedTo(ChronoUnit.DAYS).minus(calendarDays, ChronoUnit.DAYS);
+
+		//plot all data
+		final int yMax = 2_600_000; //hardcoded TODO - calculate!
+		final Instant earliestDate = aggregateAllAccountsRecords.stream()
+				.map(AggregateRecord::getDateDownloaded)
+				.min(Instant::compareTo).orElse(null);
+		final long calendarDays = ChronoUnit.DAYS.between(earliestDate, Instant.now()); //this might not be accurate for shorter periods that include a DST transition
 
 		double allAccountsLastBalance = Iterables.getLast(aggregateAllAccountsRecords).getTotalValue();
 		double taxDeferredAccountsLastBalance = Iterables.getLast(aggregateTaxDeferredAccountsRecords).getTotalValue();
@@ -1169,7 +1184,7 @@ public class JRetirement {
 				new TaxBracket(12,  24800, 100800),
 				new TaxBracket(22, 100800, 211400),
 				new TaxBracket(24, 211400, 403550)
-//*** After changing this table, verify the results with an online calculator, like: https://www.forbes.com/advisor/income-tax-calculator/
+//*** After changing this table, verify the results with an online calculator, like: https://www.forbes.com/advisor/income-tax-calculator/ <-- be sure to change "Tax Year" to appropriate value under "More Options"
 
 		);
 
@@ -1183,8 +1198,8 @@ public class JRetirement {
 
 		double previousTotalIncomeTax = 0;
 
-		final int baseIncome = 140_000;
-		for (int income = baseIncome; income <= 200_000; income += 5000) {
+		final int baseIncome = 160_000;
+		for (int income = baseIncome; income <= 220_000; income += 10_000) {
 			int federalIncomeTax = TaxBracket.calculateTax(income, federalStandardDeduction2026, federalTaxBrackets2026);
 			int massIncomeTax = TaxBracket.calculateTax(income, massStandardDeduction202X, massTaxBracket202X);
 			int totalIncomeTax = federalIncomeTax + massIncomeTax;
@@ -1371,54 +1386,58 @@ public class JRetirement {
 
 	///////////////////////////////////////////////////////////////////////////
 	//if we have more than one set of records for any given day, we can generally delete all but the newest/latest
-	protected int deleteDuplicateRecords() throws Exception {
-		int duplicateRecordsDeleted = 0;
-
-		final RetirementDao retirementDao = RetirementDao.getInstance();
-
-		final List<PortfolioPositionsData> portfolioPositionsDataFromDb = retirementDao.queryPortfolioPositionsDataFromDatabase(AllDates);
-
-		Map<LocalDate, List<Instant>> dupMap = findDuplicateTimestamps(portfolioPositionsDataFromDb);
-
-		if (!dupMap.isEmpty()) {
-			List<Instant> instantsToBeDeleted = new ArrayList<>();
-			dupMap.values().forEach(l -> {
-				l.remove(0); //remove newest/latest timestamp (don't delete that one)
-				instantsToBeDeleted.addAll(l); //do delete the rest
-			});
-
-			if (instantsToBeDeleted.size() > 0) {
-				instantsToBeDeleted.forEach(i -> System.out.println("toBeDeleted: " + dateTimeFormatterMdyHms.format(i)));
-
-				duplicateRecordsDeleted = retirementDao.deleteRecordsFromDatabase(instantsToBeDeleted);
-			}
-		}
-
-		return duplicateRecordsDeleted;
-	}
+//	protected int deleteDuplicateRecords() throws Exception {
+//		int duplicateRecordsDeleted = 0;
+//
+//		final RetirementDao retirementDao = RetirementDao.getInstance();
+//
+//		final List<PortfolioPositionsData> portfolioPositionsDataFromDb = retirementDao.queryPortfolioPositionsDataFromDatabase(AllDates);
+//
+//		Map<LocalDate, List<Instant>> dupMap = findDuplicateTimestamps(portfolioPositionsDataFromDb);
+//
+//		if (!dupMap.isEmpty()) {
+//			List<Instant> instantsToBeDeleted = new ArrayList<>();
+//			dupMap.values().forEach(l -> {
+//				l.remove(0); //remove newest/latest timestamp (don't delete that one)
+//				instantsToBeDeleted.addAll(l); //do delete the rest
+//			});
+//
+//			if (instantsToBeDeleted.size() > 0) {
+//				instantsToBeDeleted.forEach(i -> System.out.println("toBeDeleted: " + dateTimeFormatterMdyHms.format(i)));
+//
+//				duplicateRecordsDeleted = retirementDao.deleteRecordsFromDatabase(instantsToBeDeleted);
+//			}
+//		}
+//
+//		return duplicateRecordsDeleted;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
-	//returns map with key = LocalDate, value = List of the instants that fall on that date IF MORE THAN ONE
-	protected Map<LocalDate, List<Instant>> findDuplicateTimestamps(List<PortfolioPositionsData> records) {
-		Map<String, List<PortfolioPositionsData>> dateMap1 = records.stream()
+	//returns map with key = LocalDate, value = List of the Instants (formatted as Strings) that fall on that date IF MORE THAN ONE
+	protected Map<LocalDate, List<String>> findDuplicatePortfolioPositionDates() {
+		final RetirementDao retirementDao = RetirementDao.getInstance();
+		final List<PortfolioPositionsData> portfolioPositionsDataFromDb = retirementDao.queryPortfolioPositionsDataFromDatabase(AllDates);
+
+		Map<String, List<PortfolioPositionsData>> dateMap1 = portfolioPositionsDataFromDb.stream()
 				.collect(Collectors.groupingBy(r ->
-						"" + r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate() +
+						"" + r.getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate() + //convert timestamp to date
 						"|" + r.getAccountNumber() +
 						"|" + r.getSymbol()
 				));
 
-		Map<LocalDate, List<Instant>> dateMap2 = dateMap1.values().stream()
+		Map<LocalDate, List<String>> dateMap2 = dateMap1.values().stream()
 				.filter(l -> l.size() > 1) //we only care about duplicates
 				.collect(Collectors.toMap(
-						r -> r.get(0).getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate(),
-						r -> r.stream().map(PortfolioPositionsData::getDateDownloaded)
-									   .sorted(Comparator.reverseOrder()) //sort so newest/latest timestamp is first in each list
+						r -> r.get(0).getDateDownloaded().atZone(ZoneId.systemDefault()).toLocalDate(), //convert timestamp to date
+						r -> r.stream().map(i -> dateTimeFormatterMdyHms.format(i.getDateDownloaded()))
+//									   .sorted(Comparator.reverseOrder()) //sort so newest/latest timestamp is first in each list
+									   .sorted()
 									   .collect(Collectors.toList()),
 						(r1, r2) -> { //merge function, added to avoid: java.lang.IllegalStateException: Duplicate key <key>
 							if (!r2.equals(r1)) {
 								System.out.println("findDuplicateTimestamps: record1: " + r1);
 								System.out.println("findDuplicateTimestamps: record2: " + r2);
-								throw new RuntimeException("oops, merge found unequal values; for now, delete from DB by hand");
+								throw new RuntimeException("oops, merge found unequal values");
 							}
 							return r2;
 						}
@@ -1697,7 +1716,7 @@ run_date	            account_name	account_number	action	                        
 	private boolean printFourPercentRule = false;
 	private boolean printUrls = false;
 	private boolean generatePlotFile = false;
-	private boolean deleteDuplicateRecords = false;
+//	private boolean deleteDuplicateRecords = false;
 	private boolean updateFundsMetaDataInDatabase = true;
 
 	private List<String> dateDownloadedList; //use List in case there is more than one matching record in the file

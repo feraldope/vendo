@@ -122,6 +122,7 @@ public class AlbumFormInfo
 		_ignoreBytes = false;
 		_useExifDates = false;
 		_duplicateHandling = AlbumDuplicateHandling.SelectNone;
+		_skipType = AlbumSkipType.SkipNone;
 		_orientation = AlbumOrientation.ShowAny;
 		_useCase = false;
 		_clearDupCache = false;
@@ -194,9 +195,15 @@ public class AlbumFormInfo
 
 			if (paramName.equals ("duplicateHandling")) {
 				if (_debugProperties) {
-					_log.debug ("AlbumFormInfo.processRequest: got duplicateHandling = " + request.getParameterValues (paramName)[0]);
+					_log.debug("AlbumFormInfo.processRequest: got duplicateHandling = " + request.getParameterValues(paramName)[0]);
 				}
-				setDuplicateHandling (request.getParameterValues (paramName)[0]);
+				setDuplicateHandling(request.getParameterValues(paramName)[0]);
+
+			} else if (paramName.equals ("skipType")) {
+				if (_debugProperties) {
+					_log.debug ("AlbumFormInfo.processRequest: got skipType = " + request.getParameterValues (paramName)[0]);
+				}
+				setSkipType (request.getParameterValues (paramName)[0]);
 
 			} else if (paramName.equals ("orientation")) {
 				if (_debugProperties) {
@@ -1051,6 +1058,17 @@ public class AlbumFormInfo
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	public void setSkipType (String symbol)
+	{
+		_skipType = AlbumSkipType.getValue (symbol);
+	}
+
+	public AlbumSkipType getSkipType ()
+	{
+		return _skipType;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public void setOrientation (String symbol)
 	{
 		_orientation = AlbumOrientation.getValue (symbol);
@@ -1368,6 +1386,7 @@ public class AlbumFormInfo
 	private boolean _reverseSort = false;
 	private boolean _interleaveSort = false;
 	private AlbumDuplicateHandling _duplicateHandling = AlbumDuplicateHandling.SelectNone;
+	private AlbumSkipType _skipType = AlbumSkipType.SkipNone;
 	private AlbumOrientation _orientation = AlbumOrientation.ShowAny;
 	private AlbumSortType _sortType = AlbumSortType.ByName;
 	private String _userAgent = "";

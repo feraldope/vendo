@@ -339,11 +339,11 @@ inner join (
 ) as todelete on todelete.name_id = image_counts.name_id
 
 -- table sizes (number of rows) and max indexes
-select 'images' as name, count(*) as rows1, max(name_id) as max from images
+select 'images' as name, count(*) as rows1, max(name_id) as max_id from images
 union all
-select 'image_folder' as name, count(*) as rows1, '--' as max from image_folder
+select 'image_folder' as name, count(*) as rows1, '--' as max_id from image_folder
 union all
-select 'image_counts' as name, count(*) as rows1, max(name_id) as max from image_counts;
+select 'image_counts' as name, count(*) as rows1, max(name_id) as max_id from image_counts;
 
 -- collapse_groups distribution (note the results will include obsolete entries where image_count = 0)
 select collapse_groups, count(*) from image_counts group by collapse_groups;

@@ -615,14 +615,14 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized int getRandom ()
-	{
-		if (_random == -1) {
-			_random = Math.abs (_randomGenerator.nextInt ());
-		}
-
-		return _random;
-	}
+//	public synchronized int getRandom ()
+//	{
+//		if (_random == -1) {
+//			_random = Math.abs (_randomGenerator.nextInt ());
+//		}
+//
+//		return _random;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used for de-dup'ing

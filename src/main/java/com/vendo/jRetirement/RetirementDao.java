@@ -8,7 +8,6 @@ import org.apache.commons.lang3.StringUtils;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -450,29 +449,29 @@ public class RetirementDao {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int deleteRecordsFromDatabase(List<Instant> instants) {
-		final String sql = "delete from portfolio_positions_data where downloaded_timestamp = ?";
-
-		int totalRowsDeleted = 0;
-		try (Connection connection = connectDatabase();
-			 PreparedStatement stmt = connection.prepareStatement(sql)) {
-
-			for (Instant instant : instants) {
-				stmt.setTimestamp(1, java.sql.Timestamp.from(instant));
-				stmt.addBatch();
-			}
-
-			int [] rowsDeleted = stmt.executeBatch();
-			totalRowsDeleted += Arrays.stream (rowsDeleted).sum ();
-
-		} catch (Exception ex) {
-			System.err.println("deleteRecordsFromDatabase: error deleting records <" + instants + ">");
-			System.err.println(ex.getMessage());
-			return totalRowsDeleted;
-		}
-
-		return totalRowsDeleted;
-	}
+//	public int deleteRecordsFromDatabase(List<Instant> instants) {
+//		final String sql = "delete from portfolio_positions_data where downloaded_timestamp = ?";
+//
+//		int totalRowsDeleted = 0;
+//		try (Connection connection = connectDatabase();
+//			 PreparedStatement stmt = connection.prepareStatement(sql)) {
+//
+//			for (Instant instant : instants) {
+//				stmt.setTimestamp(1, java.sql.Timestamp.from(instant));
+//				stmt.addBatch();
+//			}
+//
+//			int [] rowsDeleted = stmt.executeBatch();
+//			totalRowsDeleted += Arrays.stream (rowsDeleted).sum ();
+//
+//		} catch (Exception ex) {
+//			System.err.println("deleteRecordsFromDatabase: error deleting records <" + instants + ">");
+//			System.err.println(ex.getMessage());
+//			return totalRowsDeleted;
+//		}
+//
+//		return totalRowsDeleted;
+//	}
 
 	///////////////////////////////////////////////////////////////////////////
 	private Connection connectDatabase () throws Exception {

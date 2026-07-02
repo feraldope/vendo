@@ -7,6 +7,7 @@ import com.vendo.vendoUtils.VFileList;
 import com.vendo.vendoUtils.VFileList.ListMode;
 import com.vendo.vendoUtils.VPair;
 import com.vendo.vendoUtils.VendoUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -53,7 +54,7 @@ public class AlbumFileRename
 
 			//check for switches
 			if (arg.startsWith ("-") || arg.startsWith ("/")) {
-				arg = arg.substring (1, arg.length ());
+				arg = arg.substring (1);
 
 				if (arg.equalsIgnoreCase ("debug")) {
 					_Debug = true;
@@ -100,9 +101,23 @@ public class AlbumFileRename
 					}
 
 				} else if (arg.equalsIgnoreCase ("rangeInclusive") || arg.equalsIgnoreCase ("ri")) {
+					//usage:
+					// /rangeInclusive <start index> <end index>
+					// OR
+					// /rangeInclusive <start index> <=== fall through because <end index> is initialized to Integer.MAX_VALUE
 					try {
 						_startIndex = Integer.parseInt (args[++ii]);
-						_endIndex = Integer.parseInt (args[++ii]);
+
+						if (args.length > ii + 1) {
+							String nextArg = args[ii + 1];
+							if (!StringUtils.isBlank(nextArg)) {
+								nextArg = nextArg.trim();
+								if (!nextArg.startsWith("-") && !nextArg.startsWith("/")) {
+									_endIndex = Integer.parseInt(args[++ii]);
+								}
+							}
+						}
+
 						if (_startIndex < 0 || _endIndex < 0) {
 							throw (new NumberFormatException());
 						}
@@ -220,7 +235,7 @@ public class AlbumFileRename
 		if (message != null) {
 			msg = message + NL;
 		}
-		msg += "Usage: " + _AppName + " <inPattern> <outPattern> [/debug] [/rootPath <root folder>] [/ri|/rangeInclusive <start index> <end index>] " +
+		msg += "Usage: " + _AppName + " <inPattern> <outPattern> [/debug] [/rootPath <root folder>] [/ri|/rangeInclusive <start index> [<end index>]] " +
 				"[/ext <extension>] [mi|ma (mode=album or mode=image)] [/d|/digits <exact number of image/album digits to match>] [/renum <number of digits to use when generating output filename>]";
 		System.err.println ("Error: " + msg + NL);
 
@@ -376,7 +391,8 @@ public class AlbumFileRename
 				if (renumMatcher.find()) {
 					outFile = new StringBuilder(outFile).replace(renumMatcher.start(groupToReplace), renumMatcher.end(groupToReplace), destIndexString).toString();
 				} else {
-					throw new RuntimeException("generateFileNamePairs: failed to match pattern for <" + outFile + ">");
+//					throw new RuntimeException("generateFileNamePairs: failed to match pattern for <" + outFile + ">");
+					throw new RuntimeException("generateFileNamePairs: fatal error: missing digits in <" + outFile + ">");
 				}
 			}
 

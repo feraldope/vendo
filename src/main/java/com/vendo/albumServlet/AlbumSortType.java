@@ -9,8 +9,6 @@ import java.util.List;
 
 
 public enum AlbumSortType {
-
-	//Enum (name, visibleInUi)
 	ByNone ("None", false, false, false),
 	ByName ("Name", true, false, false),
 	ByDate ("Date", true, false, false),
@@ -26,11 +24,11 @@ public enum AlbumSortType {
 	ByRandom ("Random", true, false, false);
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns, boolean comparatorUsesCache) {
+	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns, boolean comparatorUsesAlbumImageCache) {
 		value = new AlbumStringPair (name, "by" + name);
 		this.isVisibleInUi = isVisibleInUi;
 		this.propagateValueToDrillDowns = propagateValueToDrillDowns;
-		this.comparatorUsesCache = comparatorUsesCache;
+		this.comparatorUsesAlbumImageCache = comparatorUsesAlbumImageCache;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -54,8 +52,8 @@ public enum AlbumSortType {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isComparatorUsesCache () {
-		return comparatorUsesCache;
+	public boolean isComparatorUsesAlbumImageCache () {
+		return comparatorUsesAlbumImageCache;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -104,7 +102,7 @@ public enum AlbumSortType {
 	private final AlbumStringPair value;
 	private final boolean isVisibleInUi;
 	private final boolean propagateValueToDrillDowns;
-	private final boolean comparatorUsesCache;
+	private final boolean comparatorUsesAlbumImageCache;
 
 	private static AlbumStringPair[] values;
 	private static AlbumStringPair[] uiValues;

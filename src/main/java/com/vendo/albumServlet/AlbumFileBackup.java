@@ -558,7 +558,7 @@ public class AlbumFileBackup {
 	private Collection<AlbumImageFileDetails> getImageFileDetailsFromFileSystem (Path folder, Pattern filenamePattern) {
 //		AlbumProfiling.getInstance ().enter (7, subFolder);
 
-		final Instant startInstant = Instant.now ();
+//		final Instant startInstant = Instant.now ();
 
 		final AtomicReference<String> lastPathHandled = new AtomicReference<>();
 		final Set<AlbumImageFileDetails> coll = ConcurrentHashMap.newKeySet();

@@ -299,14 +299,14 @@ public class AlbumUtils {
 		if (printSkippedLines && !skippedLines.isEmpty()) {
 			final int maxCharsToPrint = 100; //hardcoded
 
-			System.out.println("AlbumUtils.getAllValidDownloadRecords: SKIPPED LINES (did not match pattern):");
+			System.out.println("AlbumUtils.getAllValidDownloadRecords: SKIPPED LINES (did not match pattern '" + downloadPatternStrict + "'):");
 			skippedLines.stream().sorted().forEach(l -> {
 				int charsToPrint = Math.min(l.length(), maxCharsToPrint);
 				boolean truncated = l.length() > charsToPrint;
 				System.out.println(l.substring(0, charsToPrint) + (truncated ? "*" : ""));
 			});
 
-			final int maxExpectedSkippedLines = 100;
+			final int maxExpectedSkippedLines = 100; //hardcoded
 			if (skippedLines.size() > maxExpectedSkippedLines) { //hack
 				throw new RuntimeException("Error: number of skipped lines (" + skippedLines.size() + ") is greater than expected (" + maxExpectedSkippedLines + ").");
 			}
@@ -344,14 +344,14 @@ public class AlbumUtils {
 		if (printSkippedLines && !skippedLines.isEmpty()) {
 			final int maxCharsToPrint = 100; //hardcoded
 
-			System.out.println("AlbumUtils.getAllValidDownloadRecords: SKIPPED LINES (did not match pattern):");
+			System.out.println("AlbumUtils.getAllValidDownloadRecords: SKIPPED LINES (did not match pattern '" + downloadPattern + "'):");
 			skippedLines.stream().sorted().forEach(l -> {
 				int charsToPrint = Math.min(l.length(), maxCharsToPrint);
 				boolean truncated = l.length() > charsToPrint;
 				System.out.println(l.substring(0, charsToPrint) + (truncated ? "*" : ""));
 			});
 
-			final int maxExpectedSkippedLines = 100;
+			final int maxExpectedSkippedLines = 100; //hardcoded
 			if (skippedLines.size() > maxExpectedSkippedLines) { //hack
 				throw new RuntimeException("Error: number of skipped lines (" + skippedLines.size() + ") is greater than expected (" + maxExpectedSkippedLines + ").");
 			}

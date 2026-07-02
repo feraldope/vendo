@@ -701,20 +701,21 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getUserAgent (boolean ie)
+	public static String getUserAgent (boolean isInternetExplorer)
 	{
 		// Note: these are the values displayed in the browser on swine (Windows 7, 64-bit) when viewing this URL:
 		//		http://localhost/servlet/coreservlets.ShowRequestHeaders
 		// OR
 		// AlbumServlet also has (debug) code to print them
 
-		if (ie) {
+		if (isInternetExplorer) {
 			return "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"; //IE 11
 		} else {
-			return "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"; //Firefox 56
+			return "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0";
 		}
 
 		//old values
+		//String userAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko"; //Firefox 56
 		//String userAgent = "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:29.0) Gecko/20100101 Firefox/29.0"; //Firefox 29
 		//String userAgent = "Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; .NET CLR 2.0.50727; .NET CLR 1.1.4322; .NET CLR 3.0.4506.2152; .NET CLR 3.5.30729; .NET4.0C; .NET4.0E; MS-RTC LM 8)";
 		//String userAgent = "Mozilla/5.0 (Windows NT 5.1; rv:13.0) Gecko/20100101 Firefox/13.0.1";
@@ -1395,6 +1396,51 @@ public class VendoUtils
 		}
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	public static class NumberToRange {
+		///////////////////////////////////////////////////////////////////////////
+		public static String convertToRanges(List<Integer> numbers, int fieldWidth) {
+			if (numbers == null || numbers.size() == 0) {
+				return "";
+			}
+
+			List<Integer> sortedNumbers = numbers.stream()
+					.sorted()
+					.distinct()
+					.collect(Collectors.toList());
+
+			List<String> ranges = new ArrayList<>();
+			int start = sortedNumbers.get(0);
+			int end = start;
+
+			for (int ii = 1; ii < sortedNumbers.size(); ii++) {
+				int current = sortedNumbers.get(ii);
+				if (current == end + 1) { //in a range, keep extending
+					end = current;
+				} else {
+					ranges.add(formatRange(start, end, fieldWidth)); //range has ended: save and reset
+					start = current;
+					end = current;
+				}
+			}
+
+			ranges.add(formatRange(start, end, fieldWidth)); //add final range
+
+			return String.join(", ", ranges);
+		}
+
+		///////////////////////////////////////////////////////////////////////////
+		private static String formatRange(int start, int end, int fieldWidth) {
+			final String format = "%0" + fieldWidth + "d";
+
+			if (start == end) {
+				return String.format(format, start);
+			} else {
+				return String.format(format, start) + "-" + String.format(format, end);
+
+			}
+		}
+	}
 
 	//members
 	private static final String _asterisk = "*";

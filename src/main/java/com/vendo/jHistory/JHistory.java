@@ -358,7 +358,8 @@ public final class JHistory {
 		}
 
 		if (_operatingMode == OperatingMode.Mode2 || _operatingMode == OperatingMode.Mode3) {
-			Path outputFilePath = FileSystems.getDefault().getPath(_destDir, "doLoop.dat");
+			final String fileName = "doLoop.dat";
+			Path outputFilePath = FileSystems.getDefault().getPath(_destDir, fileName);
 			StringBuilder sb = new StringBuilder();
 
 			for (UrlLinkData urlLink : urlLinkDataNew) {
@@ -375,6 +376,15 @@ public final class JHistory {
 				_log.debug("JHistory.handleHtmlUrl: wrote " + urlLinkDataNew.size() + " links to output file: " + outputFilePath);
 
 				String command = "notepad.exe " + outputFilePath;
+				try {
+					Runtime.getRuntime ().exec (command);
+				} catch (Exception ee) {
+					_log.debug("JHistory.handleHtmlUrl: exception running: \"" + command + "\"", ee);
+				}
+
+				VendoUtils.sleepMillis (150);
+
+				command = "onTop.exe /o /t \"" + fileName + " - Notepad\" /c \"Notepad\"";
 				try {
 					Runtime.getRuntime ().exec (command);
 				} catch (Exception ee) {

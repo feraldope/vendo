@@ -60,9 +60,9 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 
 		Long value1 = 0L;
 		Long value2 = 0L;
-		if (sortType.isComparatorUsesCache()) {
-			value1 = cache.get(image1);
-			value2 = cache.get(image2);
+		if (sortType.isComparatorUsesAlbumImageCache()) {
+			value1 = albumImageCache.get(image1);
+			value2 = albumImageCache.get(image2);
 		}
 
 		switch (sortType) {
@@ -70,18 +70,19 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			throw new RuntimeException ("AlbumImageComparator.compare: invalid sortType \"" + sortType + "\"");
 
 		case ByDate: //descending
-			value1 = image1.getModified ();
-			value2 = image2.getModified ();
+			value1 = image1.getModified();
+			value2 = image2.getModified();
 			break;
 
 		case BySizePixels: //descending
-			value1 = image1.getPixels ();
-			value2 = image2.getPixels ();
+//TODO - if pixels are same, sort by bytes? or avgBytes?
+			value1 = image1.getPixels();
+			value2 = image2.getPixels();
 			break;
 
 /* comment this out until it is fixed
 //is this right? it's looking at pixels for an individual image, but bytes for the album
-		case BySizePixelsBytes: //descending - in some cases, this USES CACHE
+		case BySizePixelsBytes: //descending - in some cases, this USES ALBUMIMAGE CACHE
 			double pixels1 = image1.getPixels ();
 			double pixels2 = image2.getPixels ();
 
@@ -130,16 +131,14 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			break;
 */
 
-		case BySizeBytes: //descending - USES CACHE
-			if (AlbumFormInfo.getInstance().getMode() == AlbumMode.DoSampler) {
-				boolean collapseGroups = AlbumFormInfo.getInstance().getCollapseGroups();
-
+		case BySizeBytes: //descending - USES ALBUMIMAGE CACHE
+			if (AlbumMode.DoSampler == albumMode) {
 				if (!image1.equals(image2)) {
 					if (value1 == null) {
 						try {
 							String imageName1 = image1.getBaseName(collapseGroups);
 							value1 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName1, 0);
-							cache.put(image1, value1);
+							albumImageCache.put(image1, value1);
 						} catch (Exception ex) {
 							value1 = 0L; //not much we can do here
 						}
@@ -148,22 +147,20 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 						try {
 							String imageName2 = image2.getBaseName(collapseGroups);
 							value2 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName2, 0);
-							cache.put(image2, value2);
+							albumImageCache.put(image2, value2);
 						} catch (Exception ex) {
 							value2 = 0L; //not much we can do here
 						}
 					}
 				}
 			} else {
-				value1 = image1.getNumBytes ();
-				value2 = image2.getNumBytes ();
+				value1 = image1.getNumBytes();
+				value2 = image2.getNumBytes();
 			}
 			break;
 
-		case BySizeAvgBytes: //descending - USES CACHE
-			if (AlbumFormInfo.getInstance().getMode() == AlbumMode.DoSampler) {
-				boolean collapseGroups = AlbumFormInfo.getInstance().getCollapseGroups();
-
+		case BySizeAvgBytes: //descending - USES ALBUMIMAGE CACHE
+			if (AlbumMode.DoSampler == albumMode) {
 				if (!image1.equals(image2)) {
 					if (value1 == null) {
 						try {
@@ -171,7 +168,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 							long bytes1 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName1, 0);
 							long count1 = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName1, 0);
 							value1 = bytes1 / count1;
-							cache.put(image1, value1);
+							albumImageCache.put(image1, value1);
 						} catch (Exception ex) {
 							value1 = 0L; //not much we can do here
 						}
@@ -182,15 +179,15 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 							long bytes2 = AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName2, 0);
 							long count2 = AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName2, 0);
 							value2 = bytes2 / count2;
-							cache.put(image2, value2);
+							albumImageCache.put(image2, value2);
 						} catch (Exception ex) {
 							value2 = 0L; //not much we can do here
 						}
 					}
 				}
 			} else {
-				value1 = image1.getNumBytes ();
-				value2 = image2.getNumBytes ();
+				value1 = image1.getNumBytes();
+				value2 = image2.getNumBytes();
 			}
 			break;
 
@@ -201,9 +198,8 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 
 		case ByCount: //descending
 		{
-			boolean collapseGroups = AlbumFormInfo.getInstance ().getCollapseGroups ();
-			String imageName1 = image1.getBaseName (collapseGroups);
-			String imageName2 = image2.getBaseName (collapseGroups);
+			String imageName1 = image1.getBaseName(collapseGroups);
+			String imageName2 = image2.getBaseName(collapseGroups);
 
 			if (!imageName1.equals(imageName2)) { //we only need actual values if the inputs are different
 				value1 = (long) AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName1, 0);
@@ -213,27 +209,51 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			break;
 
 		case ByHash:
-			value1 = image1.getRgbHash ();
-			value2 = image2.getRgbHash ();
+			value1 = image1.getRgbHash();
+			value2 = image2.getRgbHash();
 			break;
 
 		case ByRgb:
 			value1 = (long) image1.getRgbData ().compareToIgnoreCase (image2.getRgbData ());
 			break;
 
-		case ByRandom:
-			value1 = (long) random ^ image1.getRandom ();
-			value2 = (long) random ^ image2.getRandom ();
+		case ByRandom: //USES STRING CACHE
+		{
+			String imageName1 = (albumMode == AlbumMode.DoSampler) ? image1.getBaseName(collapseGroups) : image1.getName();
+			String imageName2 = (albumMode == AlbumMode.DoSampler) ? image2.getBaseName(collapseGroups) : image2.getName();
+
+			value1 = stringCache.get(imageName1);
+			value2 = stringCache.get(imageName2);
+
+			if (!image1.equals(image2)) {
+				if (value1 == null) {
+					try {
+						value1 = random.nextLong();
+						stringCache.put(imageName1, value1);
+					} catch (Exception ex) {
+						value1 = 0L; //not much we can do here
+					}
+				}
+				if (value2 == null) {
+					try {
+						value2 = random.nextLong();
+						stringCache.put(imageName2, value2);
+					} catch (Exception ex) {
+						value2 = 0L; //not much we can do here
+					}
+				}
+			}
+		}
 			break;
 
 		case ByExif: //ascending
-			value1 = (long) image1.compareExifDates (image2, exifDateIndex);
+			value1 = (long) image1.compareExifDates(image2, exifDateIndex);
 			break;
 
 		case ByName: //nothing to do - will fall through to return comparison of names
 		}
 
-		if (sortType.isComparatorUsesCache()) {
+		if (sortType.isComparatorUsesAlbumImageCache()) {
 			if (value1 == null) {
 				value1 = 0L;
 			}
@@ -248,7 +268,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			return -sortFactor;
 		} else {
 			//string compare needs to be case-insensitive to achieve case-insensitive order in the browser
-			return sortFactor * image1.getName ().compareToIgnoreCase (image2.getName ());
+			return sortFactor * image1.getName().compareToIgnoreCase(image2.getName());
 		}
 	}
 
@@ -257,9 +277,12 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 	private final int sortFactor;
 
 	private final int exifDateIndex;
-	private final int random = new Random ().nextInt ();
+	private final boolean collapseGroups = AlbumFormInfo.getInstance().getCollapseGroups();
+	private final AlbumMode albumMode = AlbumFormInfo.getInstance().getMode();
+	private final Random random = new Random();
 
-	private final ConcurrentHashMap<AlbumImage, Long> cache = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<AlbumImage, Long> albumImageCache = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<String, Long> stringCache = new ConcurrentHashMap<>();
 
 	//DEBUG
 	private final boolean debugNumberOfCallsToCompare = false;

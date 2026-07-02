@@ -229,7 +229,21 @@ group by n.name;
 -- find all names for a tag
 select * from base1_names where name_id in (select distinct name_id from base1_names_tags where tag_id in (select tag_id from tags where tag like 'star%'));
 select * from base1_names where name_id in (select distinct name_id from base1_names_tags where tag_id in (select tag_id from tags where tag like 'spider%'));
-select * from base1_names where name_id in (select distinct name_id from base1_names_tags where tag_id in (select tag_id from tags where tag like 'snake%')) order by name;
+
+-- find all raw names for a tag
+select count(name)
+-- select * 
+from raw_names 
+where name_id in (
+    select distinct name_id 
+    from raw_names_tags 
+    where tag_id in (
+        select tag_id 
+        from tags 
+        where tag like 'WeAre%'
+    )
+) 
+order by name;
 
 -- -----------------------------------------------------------------------------
 -- query (no intersect) on 1 tag

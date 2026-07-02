@@ -45,6 +45,7 @@ public class GetUrl {
 			}
 
 			app.run();
+
 		} catch (Exception ex) {
 			_log.debug("Error in main", ex);
 			_log.error(ex); //print exception, but no stack trace
@@ -270,6 +271,10 @@ public class GetUrl {
 			setFileTypeFromExtension();
 		}
 
+		if (_outputPrefix.startsWith("qu") || _outputPrefix.startsWith("qU")) {
+			displayUsage("Invalid value for <output prefix> '" + _outputPrefix + "'. It needs another leading 'q', like: 'q" + _outputPrefix.substring(0, 3) + "...'", true);
+		}
+
 		if (!_TestMode && _fromFilename == null) {
 			//NOTE: similar code exists in JHistory.java and GetUrl.java
 			_urlPathFragmentsValues = Arrays.stream(System.getenv(_urlPathFragmentsName).toLowerCase().split(",")).map(String::trim).collect(Collectors.toList());
@@ -429,7 +434,7 @@ public class GetUrl {
 				if (_fromFilename == null) {
 					writeHistory();
 				}
-				sleepMillis(_sleepMillis);
+//				sleepMillis(_sleepMillis);
 			}
 
 			if (knowDigits) {
@@ -664,6 +669,10 @@ public class GetUrl {
 
 		_resultsMap.add(_urlStr, status);
 
+		if (status && !_TestMode) {
+			sleepMillis(_sleepMillis);
+		}
+
 		return status;
 	}
 
@@ -684,8 +693,9 @@ public class GetUrl {
 					_httpURLConnection = (HttpURLConnection) url.openConnection();
 				}
 
-				String userAgent = VendoUtils.getUserAgent(true);
-				_httpURLConnection.setRequestProperty("User-Agent", userAgent);
+				//try to look like FireFox
+				_httpURLConnection.setRequestProperty("User-Agent", VendoUtils.getUserAgent(false));
+				_httpURLConnection.setRequestProperty("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8");
 //				_httpURLConnection.setConnectTimeout (30 * 1000); //milliseconds
 
 			} catch (Exception ee) {
@@ -1214,9 +1224,8 @@ public class GetUrl {
 			parts = leaf.split("\\.");
 
 			int numParts = parts.length;
-			if (numParts > 2) { //HACK - leaf had more than one dot "." so we need to shift down until extension is in parts[1]
-				String[] newParts = new String[2];
-				System.arraycopy(parts, numParts - 2, newParts, 0, parts.length - 1);
+			if (numParts > 2) { //HACK - leaf had more than one dot "." so we need to effectively shift the last element (the extension) down until it is in parts[1]
+				String[] newParts = new String[] {parts[0], parts[numParts - 1]};
 				parts = newParts;
 			}
 		}
@@ -1564,21 +1573,24 @@ public class GetUrl {
 
 			int range = lastInt - firstInt + 1;
 			int numMissingImages = range - numFileNames;
-
 			if (numMissingImages > 0) {
 				String missingImages = "[omitted for size]";
 				String baseName = AlbumImage.getBaseName(fileNamesNoExt.get(0), false);
-				if (numMissingImages <= 30) { //hardcoded
-					List<String> missingImageNames = new ArrayList<>();
-					final int digits = firstNumber.length();
-					for (int ii = firstInt; ii <= lastInt; ii++) {
-						missingImageNames.add(String.format("%s-%0" + digits + "d", baseName, ii));
-					}
-					missingImageNames.removeAll(fileNamesNoExt);
-					missingImages = String.join(NL, missingImageNames);
+				List<String> missingImageNames = new ArrayList<>();
+				final int digits = firstNumber.length();
+				for (int ii = firstInt; ii <= lastInt; ii++) {
+					missingImageNames.add(String.format("%s-%0" + digits + "d", baseName, ii));
 				}
+				missingImageNames.removeAll(fileNamesNoExt);
 
-				VendoUtils.printWithColor(_warningColor, "Missing images(" + numMissingImages + "):" + NL + missingImages);// URL in resultsMap, skipping: " + _urlStr);
+				List<Integer> missingImageNumbers = missingImageNames.stream()
+						.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
+						.map(Integer::valueOf)
+						.collect(Collectors.toList());
+
+				String ranges = VendoUtils.NumberToRange.convertToRanges(missingImageNumbers, digits);
+
+				VendoUtils.printWithColor(_warningColor, "Missing images(" + numMissingImages + "): " + ranges);
 			}
 		}
 

@@ -8,34 +8,29 @@ import java.util.List;
 //import org.apache.logging.log4j.*;
 
 
-public enum AlbumOrientation
-{
+public enum AlbumOrientation {
 	ShowAny ("Any"),
 	ShowLandScape ("LandScape"),
 	ShowPortrait ("Portrait"),
 	ShowSquare ("Square");
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumOrientation (String name)
-	{
+	AlbumOrientation (String name) {
 		_value = new AlbumStringPair (name, "show" + name);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getName ()
-	{
+	public String getName () {
 		return _value.getName ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol ()
-	{
+	public String getSymbol () {
 		return _value.getSymbol ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static void init ()
-	{
+	private static void init () {
 		if (_values == null) {
 			List<AlbumStringPair> arrayList = new ArrayList<> ();
 
@@ -48,16 +43,14 @@ public enum AlbumOrientation
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumStringPair[] getValues ()
-	{
+	public static AlbumStringPair[] getValues () {
 		init ();
 
 		return _values;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumOrientation getValue (String symbol)
-	{
+	public static AlbumOrientation getValue (String symbol) {
 		//brute-force method
 		for (AlbumOrientation ff : values ()) {
 			if (ff.getSymbol ().equals (symbol)) {
@@ -70,8 +63,7 @@ public enum AlbumOrientation
 
 	///////////////////////////////////////////////////////////////////////////
 	//similar code in AlbumImages#compareToWithSlop
-	public static AlbumOrientation getOrientation (int imageWidth, int imageHeight)
-	{
+	public static AlbumOrientation getOrientation (int imageWidth, int imageHeight) {
 		if (imageWidth <= 0 || imageHeight <= 0) {
 			return ShowAny;
 		}

@@ -14,11 +14,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 
-public class AlbumFileFilter implements FilenameFilter
-{
+public class AlbumFileFilter implements FilenameFilter {
 	///////////////////////////////////////////////////////////////////////////
-	AlbumFileFilter (String[] includeFiltersArray, String[] excludeFiltersArray, boolean useCase, long sinceInMillis)
-	{
+	AlbumFileFilter (String[] includeFiltersArray, String[] excludeFiltersArray, boolean useCase, long sinceInMillis) {
 		boolean debugCtor = false;
 
 		int patternFlags = (useCase ? 0 : Pattern.CASE_INSENSITIVE);
@@ -107,8 +105,7 @@ public class AlbumFileFilter implements FilenameFilter
 
 	///////////////////////////////////////////////////////////////////////////
 	//note this does not check the exclude filters to eliminate any folders
-	public boolean folderNeedsChecking (String folder)
-	{
+	public boolean folderNeedsChecking (String folder) {
 		boolean status = false;
 
 		do {
@@ -153,8 +150,7 @@ public class AlbumFileFilter implements FilenameFilter
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public boolean accept (File dir, String name)
-	{
+	public boolean accept (File dir, String name) {
 //		_log.debug ("AlbumFileFilter.accept: name = " + name + ", pattern = " + _includePatterns + _extension);
 
 		if (_profileAccept) {
@@ -227,26 +223,23 @@ public class AlbumFileFilter implements FilenameFilter
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isAllFolders ()
-	{
+	public boolean isAllFolders () {
 		return _includeAllFolders;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean isEmpty ()
-	{
+	public boolean isEmpty () {
 		return _includePatterns == null;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//note this will be fooled if a regular expression uses the range character '-' (e.g., [1-4] instead of [1234])
-	public int getMinItemCount ()
-	{
+	public int getMinItemCount () {
 		int itemCount = 0;
 
 		if (_includePatterns != null) {
 			for (Pattern includePattern : _includePatterns) {
-				String patternString = includePattern.pattern ().toString ();
+				String patternString = includePattern.pattern ();
 				int openBracket = patternString.indexOf ('[');
 				if (openBracket > 0) {
 					if (patternString.charAt (openBracket + 1) == '\\' && patternString.charAt (openBracket + 2) == 'd') { // handle [\d]
@@ -269,8 +262,7 @@ public class AlbumFileFilter implements FilenameFilter
 	///////////////////////////////////////////////////////////////////////////
 	//note this does not show the exclude filters
 	@Override
-	public String toString ()
-	{
+	public String toString () {
 		final String separator = ",";
 		final StringBuilder sb = new StringBuilder ();
 

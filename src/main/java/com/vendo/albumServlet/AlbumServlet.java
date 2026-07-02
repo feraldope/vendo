@@ -184,7 +184,7 @@ public class AlbumServlet extends HttpServlet
 					.append("	}").append(NL)
 
 					//size the dropdowns in the form
-					.append("	#tag0, #tag1, #tag2, #duplicateHandling, #orientation {").append(NL)
+					.append("	#tag0, #tag1, #tag2, #duplicateHandling, #skipType, #orientation {").append(NL)
 					.append("		font-family: Arial;").append(NL)
 					.append("		font-size: 40pt;").append(NL)
 					.append("		width: 150px;").append(NL)
@@ -372,6 +372,7 @@ public class AlbumServlet extends HttpServlet
 							//only propagate this value to subsequent screens if it is for Showing
 						   (duplicateHandling.isForShowing() ? duplicateHandling.getSymbol() : AlbumDuplicateHandling.SelectNone.getSymbol ())
 						   )).append (_spacing).append (NL)
+			   .append (dropDown ("Skip", "skipType", AlbumSkipType.getValues (), form.getSkipType ().getSymbol ())).append (_spacing).append (NL)
 			   .append (dropDown ("Orientation", "orientation", AlbumOrientation.getValues (), form.getOrientation ().getSymbol ())).append (_break).append (NL)
 
 			   .append (inputElement ("Panels", "panels", form.getPanels (), numberFieldWidth, false)).append (_spacing).append (NL)

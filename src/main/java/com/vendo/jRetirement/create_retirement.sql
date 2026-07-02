@@ -154,25 +154,49 @@ SELECT p.downloaded_timestamp as time,
        f.fund_type,
        f.management_style,
        f.category,
-       f.investment_style
+       f.investment_style,       
+       case
+          when f.fund_type = 'BondETF' then 'Bond'
+          when f.fund_type = 'BondFund' then 'Bond'
+          when f.fund_type = 'Cash' then 'Cash'
+          when f.fund_type = 'Crypto' then 'Equity'
+          when f.fund_type = 'StockETF' then 'Equity'
+          when f.fund_type = 'StockFund' then 'Equity'
+          else 'NotRecognized'
+       end as allocation_type
 FROM funds_meta_data f
 JOIN portfolio_positions_data p on p.symbol = f.symbol
 WHERE p.symbol != 'Pending Activity';
 
--- -----------------------------------------------------------------------------
--- view with taxable_type percentages
-CREATE OR REPLACE VIEW percentage_view AS
-with total_table as (
- select downloaded_timestamp as time, sum(value) as total
- from portfolio_positions_data
- group by time
-) select d.time, d.taxable_type, sum(d.value) as sub_total, t.total, 100 * sum(d.value) / t.total as percentage
-from total_table t
-join data_view d on d.time = t.time
-group by d.time, d.taxable_type
-order by d.time, d.taxable_type;
+-- select * from data_view
 
-select * from percentage_view
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW percentage_view_taxable_type AS
+WITH total_table as (
+ SELECT time, sum(value) as total
+ FROM data_view
+ GROUP BY time
+) SELECT d.time, d.taxable_type, sum(d.value) AS sub_total, t.total, 100 * sum(d.value) / t.total as percentage
+FROM total_table t
+JOIN data_view d on d.time = t.time
+GROUP BY d.time, d.taxable_type
+ORDER BY d.time, d.taxable_type;
+
+-- select * from percentage_view_taxable_type
+
+-- -----------------------------------------------------------------------------
+CREATE OR REPLACE VIEW percentage_view_allocation_type AS
+WITH total_table as (
+ SELECT time, sum(value) as total
+ FROM data_view
+ GROUP BY time
+) SELECT d.time, d.allocation_type, sum(d.value) AS sub_total, t.total, 100 * sum(d.value) / t.total as percentage
+FROM total_table t
+JOIN data_view d on d.time = t.time
+GROUP BY d.time, d.allocation_type
+ORDER BY d.time, d.allocation_type;
+
+-- select * from percentage_view_allocation_type
 
 /*
 -- -----------------------------------------------------------------------------
@@ -248,6 +272,9 @@ select date(p.downloaded_timestamp) as date, p.* from portfolio_positions_data p
 
 select * from portfolio_positions_data where account_name = 'ROTH IRA' and value = 7500
 
+select * from portfolio_positions_data where date(downloaded_timestamp) = '2026-06-04'
+delete from portfolio_positions_data where date(downloaded_timestamp) = '2026-06-04'
+
 -- -----------------------------------------------------------------------------
 select count(*) from account_history_data;
 
@@ -309,7 +336,7 @@ select * from account_history_data where run_date = '2026-04-21'
 
 -- cleanup (you probably also need to delete the source Accounts_History_xxx.csv file that had the 'bad' entry)
 select * from account_history_data where run_date = '2026-04-29'
-delete from account_history_data where run_date = '2026-04-29'
+delete from account_history_data where run_date = '2026-06-04'
 
 select * from account_history_data where run_date = '2024-07-29'
 
@@ -343,5 +370,40 @@ select * from account_history_data where run_date = '2024-07-29'
      and ABS(amount) > 500
      group by run_date, account_name, account_number, symbol, description
      order by run_date
+
+-- -----------------------------------------------------------------------------
+-- BUG: percentage_view_taxable_type shows over 100% for some dates (e.g., '2026-01-05')
+-- CAUSE: it was because of rows in portfolio_positions_data that had symbol = 'Pending Activity'
+-- FIXED: changed percentage_view_taxable_type to query data_view as it already filters these records
+
+select time, sum(percentage) 
+from percentage_view_taxable_type
+group by time
+-- having sum(percentage) != 100
+having sum(percentage) < 99.9999 OR sum(percentage) > 100.0001
+order by sum(percentage) desc
+
+select time, taxable_type, sub_total, total, percentage from percentage_view_taxable_type
+where DATE(time) between '2026-01-05' and  '2026-01-05'
+UNION ALL
+select time, 'Total:' as taxable_type, sum(sub_total) as sub_total, '--' as total, sum(percentage) as percentage from percentage_view_taxable_type
+where DATE(time) between '2026-01-05' and  '2026-01-05'
+
+select * from portfolio_positions_data
+where DATE(downloaded_timestamp) = '2026-01-05'
+
+select * from portfolio_positions_data
+where symbol = 'Pending Activity'
+and DATE(downloaded_timestamp) >= '2026-01-01'
+order by downloaded_timestamp, account_number, symbol
+
+-- -----------------------------------------------------------------------------
+-- Warning: found duplicate dates in PortfolioPositionData:
+-- 2026-05-20=[05/20/26 09:33:00, 05/20/26 09:35:00, 05/20/26 10:11:00]
+-- GO AHEAD AND DELETE ALL FOR THIS DATE, THEN RERUN jret.bat (which will reload latest file)
+select * from portfolio_positions_data where DATE(downloaded_timestamp) = '2026-05-20'
+-- delete from portfolio_positions_data where DATE(downloaded_timestamp) = '2026-05-20'
+
+-- -----------------------------------------------------------------------------
 
 */

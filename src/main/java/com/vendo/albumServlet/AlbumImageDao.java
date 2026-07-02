@@ -517,9 +517,9 @@ public class AlbumImageDao {
 			for (int ii = 1; ii < baseNames.size(); ii++) { //NOTE START AT 1
 				String baseName = baseNames.get(ii);
 				if (true || baseName.length() == previousBaseName.length()) { //TODO: this is not the correct test
-					int firstMismatch1 = StringUtils.indexOfDifference(baseName, previousBaseName);
-					int firstMismatch2 = StringUtils.indexOfDifference(baseName.toLowerCase(), previousBaseName.toLowerCase());
-					if (firstMismatch1 > 4 && firstMismatch1 != firstMismatch2) { //hardcoded
+					int firstMismatchIndex1 = StringUtils.indexOfDifference(baseName, previousBaseName);
+					int firstMismatchIndex2 = StringUtils.indexOfDifference(baseName.toLowerCase(), previousBaseName.toLowerCase());
+					if (firstMismatchIndex1 > 2 && firstMismatchIndex1 != firstMismatchIndex2) { //hardcoded
 						misMatchMessages.add(previousBaseName + " <-> " + baseName);
 					}
 				}
@@ -847,7 +847,7 @@ public class AlbumImageDao {
 	public void checkForCorruptException (Throwable ex, String subFolder) //HACK
 	{
 		final String corrupt = "corrupt";
-		final String message = "AlbumImageDao.checkForCorruptException(" + subFolder + "): ";
+		final String message = "AlbumImageDao.checkForCorruptException(" + subFolder + ")" + NL;
 
 		if (ex instanceof StreamCorruptedException ||
 			ex.toString().toLowerCase().contains(corrupt) ||
@@ -1661,6 +1661,7 @@ public class AlbumImageDao {
 				@Override
 				public FileVisitResult visitFileFailed(Path file, IOException ex) {
 					if (ex != null) {
+						checkForCorruptException(ex, subFolder);
 						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): error: ", new Exception("visitFileFailed", ex));
 					}
 
@@ -1670,6 +1671,7 @@ public class AlbumImageDao {
 				@Override
 				public FileVisitResult postVisitDirectory(Path dir, IOException ex) {
 					if (ex != null) {
+						checkForCorruptException(ex, subFolder);
 						_log.error("AlbumImageDao.getImageFileDetailsFromFileSystem(" + subFolder + "): error: ", new Exception("postVisitDirectory", ex));
 					}
 
@@ -1678,6 +1680,7 @@ public class AlbumImageDao {
 			});
 
 		} catch (Exception ex) {
+			checkForCorruptException(ex, subFolder);
 			throw new AssertionError("Files#walkFileTree will not throw IOException if the FileVisitor does not");
 		}
 

@@ -380,12 +380,17 @@ public class AlbumImages
 		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<> ();
 		final Map<String, Integer> debugCacheMiss = new ConcurrentHashMap<> ();
 //		final Map<String, Integer> imageCountsByFolder = new ConcurrentHashMap<> ();
+		final AtomicInteger imagesSkipped = new AtomicInteger(0);
 
 		AlbumProfiling.getInstance ().enter (5, "dao.doDir");
 		for (final String subFolder : subFolders) {
 			new Thread (() -> {
 				final Collection<AlbumImage> imageDisplayList = AlbumImageDao.getInstance ().doDir (subFolder, filter, debugNeedsChecking, debugCacheMiss);
 				if (imageDisplayList.size () > 0) {
+					int imagesSkippedByFolder = handleSkipFirstLast(subFolder, imageDisplayList); //returns result in Collection parameter
+					if (imagesSkippedByFolder > 0) {
+						imagesSkipped.addAndGet(imagesSkippedByFolder);
+					}
 					synchronized (_imageDisplayList) {
 						_imageDisplayList.addAll (imageDisplayList);
 //						imageCountsByFolder.put(subFolder, imageDisplayList.size());
@@ -402,7 +407,13 @@ public class AlbumImages
 
 		AlbumProfiling.getInstance ().exit (5, "dao.doDir");
 
-		if (form.getMode () != AlbumMode.DoDup) { //skip sorting here because doDup() will do it
+		if (imagesSkipped.get() > 0) {
+			String message = _decimalFormat0.format(imagesSkipped) + " images removed for SkipType: " + _form.getSkipType();
+			_log.warn("AlbumImages.doDir.imagesSkipped: " + message);
+			form.addServletError("Warning: " + message);
+		}
+
+		if (form.getMode () != AlbumMode.DoDup) { //don't sort here because doDup() will do it
 			AlbumProfiling.getInstance ().enter (5, "sort " + _form.getSortType ());
 
 			AlbumImageComparator comparator = new AlbumImageComparator (_form);
@@ -438,7 +449,7 @@ public class AlbumImages
 							.collect(Collectors.joining(","));
 
 					String message = "excluding the following " + removed.size() + " 'special' albums that have more than " + minImagesToFlagAsLargeAlbum + " images: " + removedStr;
-					_log.debug("AlbumImages.doDir.removeAlbumsWithLargeCounts: " + message);
+					_log.warn("AlbumImages.doDir.removeAlbumsWithLargeCounts: " + message);
 					form.addServletError("Warning: " + message);
 				}
 			}
@@ -1210,7 +1221,7 @@ public class AlbumImages
 		final int maxDupsSetsToShowLinksFor = 1200; //hardcoded
 //		if (!dbCompare && dups.size () > maxDupsSetsToShowLinksFor) {
 		if (/*!dbCompare && */dups.size () > maxDupsSetsToShowLinksFor) {
-			_form.addServletError("Info: exceeded count@3; not shown (" + dups.size() + ")");
+			_form.addServletError("Warning: exceeded count@3; not shown (" + dups.size() + ")");
 		} else {
 
 			AlbumProfiling.getInstance ().enter (5, "dups.sets");
@@ -1235,7 +1246,7 @@ public class AlbumImages
 			//this object holds single and multi-pairs
 			AlbumAlbumPairs albumPairs = new AlbumAlbumPairs();
 			if (dupAlbumMap.size() > 100) { //hardcoded
-				_form.addServletError("Info: will not display duplicate multi sets: exceeded count@0 (" + dupAlbumMap.size() + ")");
+				_form.addServletError("Warning: will not display duplicate multi sets: exceeded count@0 (" + dupAlbumMap.size() + ")");
 				dupAlbumMap.clear();
 			} else {
 				albumPairs.addAlbumPairs(dupAlbumMap.values());
@@ -1672,7 +1683,7 @@ public class AlbumImages
 		String tagParams = sb.toString ();
 
 		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling();
-		String duplicateHandlingParam = duplicateHandling.isForShowing() ? "&duplicateHandling=" + duplicateHandling : "";
+		String duplicateHandlingParam = duplicateHandling.isForShowing() ? "&duplicateHandling=" + duplicateHandling.getSymbol() : "";
 
 		/*StringBuilder*/ sb = new StringBuilder (200);
 		sb.append (_spacing).append (NL)
@@ -1687,10 +1698,14 @@ public class AlbumImages
 				.append ("&exclude3=").append (_form.getExclude3 ())
 				.append ("&columns=").append (_form.getColumns ())
 				.append ("&sortType=").append (_form.getSortType ().getSymbol ())
+				.append ("&reverseSort=").append (_form.getReverseSort ())
 				.append ("&interleaveSort=").append (_form.getInterleaveSort ())
+				.append (duplicateHandlingParam)
+//				.append ("&skipType=").append (_form.getSkipType ().getSymbol())
+				.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 				.append ("&panels=").append (_form.getPanels ())
-				.append ("&sinceDays=").append (_form.getSinceDays ())
 				.append ("&maxFilters=").append (_form.getMaxFilters ())
+				.append ("&sinceDays=").append (_form.getSinceDays ())
 				.append ("&highlightDays=").append (_form.getHighlightDays ())
 				.append ("&exifDateIndex=").append (_form.getExifDateIndex ())
 				.append ("&maxStdDev=").append (_form.getMaxStdDev ())
@@ -1704,16 +1719,13 @@ public class AlbumImages
 				.append ("&looseCompare=").append (_form.getLooseCompare ())
 				.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 				.append ("&useExifDates=").append (_form.getUseExifDates ())
-				.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 //				.append ("&useCase=").append (_form.getUseCase ())
-				.append ("&reverseSort=").append (_form.getReverseSort ())
 //				.append ("&screenWidth=").append (_form.getScreenWidth ())
 //				.append ("&screenHeight=").append (_form.getScreenHeight ())
 				.append ("&windowWidth=").append (_form.getWindowWidth ())
 				.append ("&windowHeight=").append (_form.getWindowHeight ())
 				.append ("&timestamp=").append (timestamp)
 				.append ("&slice=").append (1)
-				.append (duplicateHandlingParam)
 				.append (_Debug ? "&debug=on" : "")
 //				.append ("#topAnchor")
 				.append ("\">")
@@ -1725,7 +1737,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generatePageLinks ()
+	public String generateSliceLinks ()
 	{
 		final int MaxSliceLinks = 40; //limit number of slice links shown
 
@@ -1763,28 +1775,28 @@ public class AlbumImages
 		for (int ii = firstSlice; ii < lastSlice; ii++) {
 			int slice = ii + 1; //note slice is 1-based in UI
 			String text = (slice == currentSlice ? "<B>Current</B>" : Integer.toString (slice));
-			sb.append (generatePageLinksHelper (slice, text));
+			sb.append (generateSliceLinksHelper (slice, text));
 		}
 
 		//add other navigation links
 		if (firstSlice > 1) {
-			sb.append (generatePageLinksHelper (1, "[First]"));
+			sb.append (generateSliceLinksHelper (1, "[First]"));
 		}
 		if (currentSlice > 1) {
-			sb.append (generatePageLinksHelper (currentSlice - 1, "[Previous]"));
+			sb.append (generateSliceLinksHelper (currentSlice - 1, "[Previous]"));
 		}
 		if (currentSlice < numSlices) {
-			sb.append (generatePageLinksHelper (currentSlice + 1, "[Next]"));
+			sb.append (generateSliceLinksHelper (currentSlice + 1, "[Next]"));
 		}
 		if (lastSlice < numSlices) {
-			sb.append (generatePageLinksHelper (numSlices, "[Last]"));
+			sb.append (generateSliceLinksHelper (numSlices, "[Last]"));
 		}
 
 		return sb.toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generatePageLinksHelper (int slice, String text)
+	public String generateSliceLinksHelper (int slice, String text)
 	{
 		String server = AlbumFormInfo.getInstance ().getServer ();
 
@@ -1802,7 +1814,7 @@ public class AlbumImages
 		String tagParams = sb.toString ();
 
 		AlbumDuplicateHandling duplicateHandling = _form.getDuplicateHandling();
-		String duplicateHandlingParam = duplicateHandling.isForShowing() ? "&duplicateHandling=" + duplicateHandling : "";
+		String duplicateHandlingParam = duplicateHandling.isForShowing() ? "&duplicateHandling=" + duplicateHandling.getSymbol() : "";
 
 		/*StringBuilder*/ sb = new StringBuilder (200);
 		sb.append (_spacing).append (NL)
@@ -1817,10 +1829,14 @@ public class AlbumImages
 			.append ("&exclude3=").append (_form.getExclude3 ())
 			.append ("&columns=").append (_form.getColumns ())
 			.append ("&sortType=").append (_form.getSortType ().getSymbol ())
+			.append ("&reverseSort=").append (_form.getReverseSort ())
 			.append ("&interleaveSort=").append (_form.getInterleaveSort ())
+			.append (duplicateHandlingParam)
+			.append ("&skipType=").append (_form.getSkipType ().getSymbol())
+			.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
 		    .append ("&panels=").append (_form.getPanels ())
-			.append ("&sinceDays=").append (_form.getSinceDays ())
 			.append ("&maxFilters=").append (_form.getMaxFilters ())
+			.append ("&sinceDays=").append (_form.getSinceDays ())
 			.append ("&highlightDays=").append (_form.getHighlightDays ())
 			.append ("&exifDateIndex=").append (_form.getExifDateIndex ())
 			.append ("&maxStdDev=").append (_form.getMaxStdDev ())
@@ -1834,16 +1850,13 @@ public class AlbumImages
 			.append ("&looseCompare=").append (_form.getLooseCompare ())
 			.append ("&ignoreBytes=").append (_form.getIgnoreBytes ())
 			.append ("&useExifDates=").append (_form.getUseExifDates ())
-			.append ("&orientation=").append (_form.getOrientation ().getSymbol ())
-//			.append ("&useCase=").append (_form.getUseCase ())
-			.append ("&reverseSort=").append (_form.getReverseSort ())
+			.append ("&useCase=").append (_form.getUseCase ())
 //			.append ("&screenWidth=").append (_form.getScreenWidth ())
 //			.append ("&screenHeight=").append (_form.getScreenHeight ())
 			.append ("&windowWidth=").append (_form.getWindowWidth ())
 			.append ("&windowHeight=").append (_form.getWindowHeight ())
 			.append ("&timestamp=").append (timestamp)
 			.append ("&slice=").append (slice)
-			.append (duplicateHandlingParam)
 			.append (_Debug ? "&debug=on" : "")
 //			.append ("#topAnchor")
 			.append ("\">")
@@ -1966,7 +1979,6 @@ public class AlbumImages
 		}
 
 		boolean isAndroidDevice = _form.isAndroidDevice ();
-		boolean interleaveSort = _form.getInterleaveSort();
 
 		String font1 = !isAndroidDevice ? "fontsize10" : "fontsize24";
 		String tableWidthString = !isAndroidDevice ? "100%" : "2200"; //TODO - tablet hardcoded for portrait not landscape
@@ -2006,6 +2018,17 @@ public class AlbumImages
 
 		AlbumMode mode = _form.getMode ();
 		AlbumSortType sortType = _form.getSortType ();
+
+		boolean interleaveSort = _form.getInterleaveSort();
+		if (interleaveSort && (mode != AlbumMode.DoDir || sortType != AlbumSortType.ByName)) {
+			interleaveSort = false;
+			if (mode != AlbumMode.DoSampler && mode != AlbumMode.DoDup) { //limit the warning message
+				String message = "interleaveSort is locally disabled due to AlbumMode not DoDir and AlbumSortType not ByName";
+				_log.warn("AlbumImages.generateHtml: " + message);
+				_form.addServletError("Warning: " + message);
+			}
+		}
+
 		int defaultCols = !isAndroidDevice ? _form.getDefaultColumns () : interleaveSort ? 2 : 1; //TODO - hardcoded
 
 		int cols = _form.getColumns ();
@@ -2064,7 +2087,7 @@ public class AlbumImages
 			AlbumProfiling.getInstance().exit(5, "albumSize");
 		}
 
-		String pageLinksHtml = generatePageLinks () + _spacing; //links shown at both top and bottom of page
+		String sliceLinksHtml = generateSliceLinks () + _spacing; //links shown at both top and bottom of page
 
 		String albumLinksHtml = "";
 		if (mode == AlbumMode.DoDir) {
@@ -2086,7 +2109,7 @@ public class AlbumImages
 				String lastNumber = imageList.get(imageList.size() - 1).getName().replaceAll(".*-", "").replaceAll("[^0-9]", "");
 				int firstInt = Integer.parseInt(firstNumber);
 				int lastInt = Integer.parseInt(lastNumber);
-//TODO - this produces misleading results for albums that have large built-in gaps, e.g., 101, 102, 201, 202, 301, 302
+//TODO - this produces misleading results for albums that have large built-in gaps, e.g., 101->106, 201->208, 301->305
 				int range = lastInt - firstInt + 1;
 				int gaps = range - imageList.size();
 
@@ -2144,7 +2167,7 @@ public class AlbumImages
 				.append ("<TD class=\"")
 				.append (font1)
 				.append ("\" ALIGN=RIGHT>")
-				.append (pageLinksHtml).append (NL)
+				.append (sliceLinksHtml).append (NL)
 				.append ("</TD>").append (NL)
 				.append ("</TR>").append (NL)
 
@@ -2210,29 +2233,22 @@ public class AlbumImages
 				.append (">").append (NL);
 
 		if (interleaveSort) {
-			if (mode == AlbumMode.DoDir) { //TODO check for invalid combos and report below
-				boolean tempCollapseGroups = collapseGroups; //HACK
-				Map<String, List<AlbumImage>> map = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(tempCollapseGroups)));
-				map.keySet().stream().sorted().forEach(d -> map.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName, _form.getReverseSort())));
+			boolean tempCollapseGroups = collapseGroups; //HACK
+			Map<String, List<AlbumImage>> map = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(tempCollapseGroups)));
+			map.keySet().stream().sorted().forEach(d -> map.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName, _form.getReverseSort())));
 
-				_imageDisplayList.clear();
-				List<Iterator<AlbumImage>> iters = map.keySet().stream().sorted().map(map::get).map(List::iterator).collect(Collectors.toList());
-				boolean mightHaveMore;
-				do {
-					mightHaveMore = false;
-					for (Iterator<AlbumImage> iter : iters) {
-						if (iter.hasNext()) {
-							_imageDisplayList.add(iter.next());
-							mightHaveMore = true;
-						}
+			_imageDisplayList.clear();
+			List<Iterator<AlbumImage>> iters = map.keySet().stream().sorted().map(map::get).map(List::iterator).collect(Collectors.toList());
+			boolean mightHaveMore;
+			do {
+				mightHaveMore = false;
+				for (Iterator<AlbumImage> iter : iters) {
+					if (iter.hasNext()) {
+						_imageDisplayList.add(iter.next());
+						mightHaveMore = true;
 					}
-				} while (mightHaveMore);
-
-			} else {
-				String message = "Invalid combination: disabling Interleave Sort";
-				_log.debug("AlbumImages.generateHtml: " + message);
-				_form.addServletError("Info: " + message);
-			}
+				}
+			} while (mightHaveMore);
 		}
 
 		AlbumImage[] images = _imageDisplayList.toArray (new AlbumImage[] {});
@@ -2558,6 +2574,25 @@ public class AlbumImages
 				String fontStyleStr = "style=\"font-weight:" + fontWeightStr + ";color:" + fontColor + "\"";
 				String imageStyleStr = "style=\"border:" + imageBorderPixels + "px " + imageBorderStyleStr + " " + imageBorderColorStr + " " + imageOutlineStr + "\"";
 
+				int scaledWidth = image.getScaledWidth();
+				int scaledHeight = image.getScaledHeight();
+
+				//for Sampler, if aspect ratio is extreme, distort it (compress or stretch height) to make it less extreme //HACK
+				if (mode == AlbumMode.DoSampler) {
+					boolean debugCompression = true;
+					if (10 * scaledWidth / scaledHeight >= 24) { //hardcoded
+						scaledHeight = scaledWidth / 2;
+//						if (debugCompression) {
+//							_log.debug("*** scaledHeight was expanded for image: " + image.getName());
+//						}
+					} else if (10 * scaledHeight / scaledWidth >= 24) { //hardcoded
+						scaledHeight = scaledWidth * 2;
+//						if (debugCompression) {
+//							_log.debug("*** scaledHeight was compressed for image: " + image.getName());
+//						}
+					}
+				}
+
 				//.append (NL)
 				sb.append("<TD class=\"")
 						.append (font2)
@@ -2586,9 +2621,9 @@ public class AlbumImages
 						.append (image.getNameWithExt ())
 
 						.append ("\" WIDTH=")
-						.append (image.getScaledWidth ())
+						.append (scaledWidth)
 						.append (" HEIGHT=")
-						.append (image.getScaledHeight ())
+						.append (scaledHeight)
 						.append (" ALIGN=")//.append (NL)
 						.append (imageAlignStr)
 						.append (">").append (NL)
@@ -2665,7 +2700,7 @@ public class AlbumImages
 				.append ("<TD class=\"")
 				.append (font2)
 				.append ("\" ALIGN=RIGHT>")
-				.append (pageLinksHtml).append (NL)
+				.append (sliceLinksHtml).append (NL)
 				.append (_spacing).append (NL)
 				.append ("</TD>").append (NL)
 				.append ("</TR>").append (NL)
@@ -3200,6 +3235,47 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
+	//returns number of images removed AND
+	//if non-zero, the list passed in is modified
+	public int handleSkipFirstLast(String subFolder, Collection<AlbumImage> imageDisplayList) {
+		AlbumSkipType skipType = _form.getSkipType();
+
+		if (AlbumSkipType.SkipNone.equals(skipType)) {
+			return 0;
+		}
+
+		Map<String, List<AlbumImage>> albumMap = imageDisplayList.stream().collect(Collectors.groupingBy(i -> AlbumImage.getBaseName(i.getName(), false)));
+
+		AtomicInteger imagesRemoved = new AtomicInteger(0);
+		albumMap.keySet().forEach(k -> {
+			List<AlbumImage> list = albumMap.get(k);
+			if (AlbumSkipType.SkipFirst.equals(skipType) || AlbumSkipType.SkipFirstAndLast.equals(skipType)) {
+				list.remove(0);
+				imagesRemoved.incrementAndGet();
+			}
+			if (AlbumSkipType.SkipLast.equals(skipType) || AlbumSkipType.SkipFirstAndLast.equals(skipType)) {
+				if (list.size() > 0) {
+					list.remove(list.size() - 1);
+					imagesRemoved.incrementAndGet();
+				}
+			}
+		});
+
+		if (imagesRemoved.get() == 0) {
+			return 0;
+		}
+
+		imageDisplayList.clear();
+		imageDisplayList.addAll(albumMap.values().stream()
+				.flatMap(List::stream)
+				.collect(Collectors.toList()));
+
+//		_log.debug("AlbumImages.handleSkipFirstLast(" + subFolder + "): images removed: " + imagesRemoved);
+
+		return imagesRemoved.get();
+	}
+
+	///////////////////////////////////////////////////////////////////////////
 	public static void deleteFile (Path path, boolean ignoreException)
 	{
 		try {
@@ -3296,11 +3372,11 @@ public class AlbumImages
 	//similar code in AlbumOrientation#getOrientation
 	public static int compareToWithSlop (long value1, long value2, boolean ascending, double slopPercent)
 	{
-		int factor = ascending ? 1 : -1;
-
 		if (value1 == value2) {
 			return 0;
 		}
+
+		int factor = ascending ? 1 : -1;
 
 		double ratio = (double) value1 / (double) value2;
 		if (ratio > 1. + slopPercent / 100.) {
@@ -3585,6 +3661,11 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	private String generateDistributionTable (AlbumFormInfo form) {
+		if (false) { //have option to manually turn this off while debugging in IntelliJ since it runs very very slowly
+			_log.debug ("AlbumImages.generateDistributionTable: METHOD HAS BEEN DISABLED ********************************");
+			return "";
+		}
+
 		StringBuilder sb = new StringBuilder();
 
 		final boolean reverseSort = !form.getReverseSort(); //normally we would sort descending (reverse), but if reverseSort is requested, reverse that back to normal

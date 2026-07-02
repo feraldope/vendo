@@ -32,6 +32,7 @@ public class CsvBaseBean {
 				.parseCaseInsensitive()
 				.parseLenient()
 				.appendOptional(DateTimeFormatter.ofPattern("MM/dd/yyyy"))
+				.appendOptional(DateTimeFormatter.ofPattern("MM-dd-yyyy"))
 				.toFormatter();
 
         Instant instant = null;
