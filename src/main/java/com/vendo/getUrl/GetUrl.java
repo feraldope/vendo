@@ -2,8 +2,8 @@
 
 package com.vendo.getUrl;
 
-import com.vendo.albumServlet.AlbumImage;
 import com.vendo.albumServlet.AlbumImageDao;
+import com.vendo.albumServlet.AlbumImages;
 import com.vendo.jHistory.JHistory;
 import com.vendo.jpgUtils.JpgUtils;
 import com.vendo.vendoUtils.AlphanumComparator;
@@ -14,10 +14,27 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import javax.net.ssl.*;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import java.awt.image.BufferedImage;
-import java.io.*;
-import java.net.*;
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.HttpURLConnection;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
+import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,7 +44,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.regex.Matcher;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -1564,33 +1581,11 @@ public class GetUrl {
 					.map(r -> r.getFileName().replaceAll("\\..*$", "")) //remove extension
 					.sorted(new AlphanumComparator())
 					.collect(Collectors.toList());
-			int numFileNames = fileNamesNoExt.size();
 
-			String firstNumber = fileNamesNoExt.get(0).replaceAll(".*-", "");
-			String lastNumber = fileNamesNoExt.get(numFileNames - 1).replaceAll(".*-", "");
-			int firstInt = Integer.parseInt(firstNumber);
-			int lastInt = Integer.parseInt(lastNumber);
-
-			int range = lastInt - firstInt + 1;
-			int numMissingImages = range - numFileNames;
-			if (numMissingImages > 0) {
-				String missingImages = "[omitted for size]";
-				String baseName = AlbumImage.getBaseName(fileNamesNoExt.get(0), false);
-				List<String> missingImageNames = new ArrayList<>();
-				final int digits = firstNumber.length();
-				for (int ii = firstInt; ii <= lastInt; ii++) {
-					missingImageNames.add(String.format("%s-%0" + digits + "d", baseName, ii));
-				}
-				missingImageNames.removeAll(fileNamesNoExt);
-
-				List<Integer> missingImageNumbers = missingImageNames.stream()
-						.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
-						.map(Integer::valueOf)
-						.collect(Collectors.toList());
-
-				String ranges = VendoUtils.NumberToRange.convertToRanges(missingImageNumbers, digits);
-
-				VendoUtils.printWithColor(_warningColor, "Missing images(" + numMissingImages + "): " + ranges);
+			AtomicInteger numMissingImagesReturn = new AtomicInteger(); //hack - value will be returned in this object
+			String ranges = AlbumImages.generateRangesOfMissingImageNumbersFromSortedList(fileNamesNoExt, numMissingImagesReturn);
+			if (!ranges.isEmpty()) {
+				VendoUtils.printWithColor(_warningColor, "Missing images(" + numMissingImagesReturn.get() + "): " + ranges);
 			}
 		}
 
@@ -1598,24 +1593,12 @@ public class GetUrl {
 		public void checkForInconsistentNumbering() {
 			final Pattern imageNumberPattern = Pattern.compile("^[A-Z]+[0-9]+-([0-9]+).[A-Z]+$", Pattern.CASE_INSENSITIVE); //group1 is the image number
 
-			List<String> imageNumbers = _records.stream()
+			List<String> fileNames = _records.stream()
 					.map(PerfStatsRecord::getFileName)
-					.map(s -> {
-						Matcher imageNumberMatcher = imageNumberPattern.matcher(s);
-						if (imageNumberMatcher.find()) {
-							return imageNumberMatcher.group(1);
-						} else {
-							_log.warn("GetUrl.PerfStats:checkForInconsistentNumbering: imageName does not match pattern: " + s);
-							return "error"; //what to do here??
-						}
-					})
 					.sorted(new AlphanumComparator())
 					.collect(Collectors.toList());
 
-			Set<Integer> imageNumberLengthsSet = imageNumbers.stream()
-					.map(String::length)
-					.collect(Collectors.toSet());
-
+			Set<Integer> imageNumberLengthsSet = AlbumImages.checkForInconsistentNumbering(fileNames, imageNumberPattern);
 			if (imageNumberLengthsSet.size() > 1) {
 				VendoUtils.printWithColor(_warningColor, "Inconsistent numbering: " + imageNumberLengthsSet);
 			}

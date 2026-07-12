@@ -414,5 +414,18 @@ the jar is in this folder, but not the pom ??
 			<version>5.8</version>
 		</dependency>
 
+		<!-- Core library for handling older .xls files -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi</artifactId>
+			<version>5.2.5</version>
+		</dependency>
+		<!-- OOXML library for handling newer .xlsx files -->
+		<dependency>
+			<groupId>org.apache.poi</groupId>
+			<artifactId>poi-ooxml</artifactId>
+			<version>5.2.5</version>
+		</dependency>
+
     </dependencies>
 </project>

@@ -287,7 +287,8 @@ public class AlbumAlbumPairs {
 
 	///////////////////////////////////////////////////////////////////////////
 	private String generateSingleCopyCommand (AlbumImage i1, AlbumImage i2, boolean commentOutThisCopyCommand) {
-		return (commentOutThisCopyCommand ? "REM " : "") + "copy /y " + i1.getSubFolder() + "\\" + i1.getName() + ".jpg " + i2.getSubFolder() + "\\" + i2.getName() + ".jpg";
+		return (commentOutThisCopyCommand ? "REM " : "") + "copy /y " + i1.getSubFolder(true) + "\\" + i1.getName() + ".jpg " +
+																		i2.getSubFolder(true) + "\\" + i2.getName() + ".jpg";
 	}
 
 	///////////////////////////////////////////////////////////////////////////

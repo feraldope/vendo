@@ -2,9 +2,19 @@
 
 package com.vendo.albumServlet;
 
-import com.google.common.cache.*;
-import com.vendo.vendoUtils.*;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.CacheStats;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
+import com.vendo.vendoUtils.AlphanumComparator;
+import com.vendo.vendoUtils.VFileList;
 import com.vendo.vendoUtils.VFileList.ListMode;
+import com.vendo.vendoUtils.VPair;
+import com.vendo.vendoUtils.VUncaughtExceptionHandler;
+import com.vendo.vendoUtils.VendoUtils;
+import com.vendo.vendoUtils.WatchDir;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.logging.log4j.LogManager;
@@ -16,7 +26,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
 import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.time.Duration;
@@ -25,13 +39,23 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.vendo.albumServlet.AlbumFormInfo._Debug;
@@ -374,7 +398,7 @@ public class AlbumImages
 
 		_imageDisplayList = new LinkedList<> ();
 
-		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
+		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders (0L);
 
 		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
 		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<> ();
@@ -1605,6 +1629,7 @@ public class AlbumImages
 
 		String baseName = AlbumImage.getBaseName(filter);
 
+//alternative way to get numAlbums
 		List<String> albums = getMatchingAlbumsForFilters(Collections.singletonList(baseName), false, false, 0);
 
 		int numAlbums = albums.size();
@@ -2075,13 +2100,15 @@ public class AlbumImages
 		long highlightInMillis = _form.getHighlightInMillis (true);
 		String highlightStr = highlightInMillis > 0 ? " (highlight " + _dateFormat.format (new Date (highlightInMillis)) + ")" : "";
 
+		int numAlbums;
 		String albumSizeInBytesStr;
 		{
 			AlbumProfiling.getInstance().enter(5, "albumSize");
 
-			long albumSizeInBytes;
+//alternative way to get numAlbums
 			Map<String, List<AlbumImage>> nameMap = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(collapseGroups)));
-			albumSizeInBytes = nameMap.keySet().stream().parallel().map(f -> AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(f, 0)).mapToLong(Long::longValue).sum();
+			numAlbums = nameMap.size();
+			long albumSizeInBytes = nameMap.keySet().stream().parallel().map(f -> AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(f, 0)).mapToLong(Long::longValue).sum();
 			albumSizeInBytesStr = " (" + VendoUtils.unitSuffixScaleBytes(albumSizeInBytes) + ") ";
 
 			AlbumProfiling.getInstance().exit(5, "albumSize");
@@ -2089,46 +2116,11 @@ public class AlbumImages
 
 		String sliceLinksHtml = generateSliceLinks () + _spacing; //links shown at both top and bottom of page
 
+		//add album navigation links
 		String albumLinksHtml = "";
-		if (mode == AlbumMode.DoDir) {
+		if (mode == AlbumMode.DoDir && numAlbums == 1) {
 			Collection<String> allFiltersDeduped = VendoUtils.dedupCollection(Arrays.asList(allFilters));
-
-			//perhaps overly simple test for one album (second part is that it does not end with "+")
-			boolean isOneAlbum = allFiltersDeduped.size() == 1 && !allFiltersDeduped.iterator().next().matches(".*\\+$");
-
-			//add album navigation links
-			if (isOneAlbum) {
-				albumLinksHtml = generateAlbumLinks(allFiltersDeduped.iterator().next()) + _spacing; //links only shown at bottom of page
-			}
-
-			//check for gaps
-			if (isOneAlbum) {
-				List<AlbumImage> imageList = new ArrayList<>(_imageDisplayList);
-				imageList.sort(new AlbumImageComparator(AlbumSortType.ByName));
-				String firstNumber = imageList.get(0).getName().replaceAll(".*-", "").replaceAll("[^0-9]", ""); //"Diff" feature can make invalid names, clean them up here
-				String lastNumber = imageList.get(imageList.size() - 1).getName().replaceAll(".*-", "").replaceAll("[^0-9]", "");
-				int firstInt = Integer.parseInt(firstNumber);
-				int lastInt = Integer.parseInt(lastNumber);
-//TODO - this produces misleading results for albums that have large built-in gaps, e.g., 101->106, 201->208, 301->305
-				int range = lastInt - firstInt + 1;
-				int gaps = range - imageList.size();
-
-				String missingImages = "[omitted for size]";
-				if (gaps < range / 3) {
-					List<String> imageNames = imageList.stream().map(AlbumImage::getName).collect(Collectors.toList());
-					List<String> missingImageNames = new ArrayList<>();
-					final int digits = firstNumber.length();
-					for (int ii = firstInt; ii <= lastInt; ii++) {
-						missingImageNames.add(String.format("%s-%0" + digits + "d", imageList.get(0).getBaseName(false), ii));
-					}
-					missingImageNames.removeAll(imageNames);
-					missingImages = String.join(NL, missingImageNames);
-				}
-
-				String message = "AlbumImages.generateHtml: this album has " + (gaps == 0 ? "<B>NO</B> gaps" : "a gap of <B>" + gaps + "</B> image(s)");
-				_log.debug("AlbumImages.generateHtml: " + message + ":" + (gaps > 0 ? NL + missingImages : ""));
-				_form.addServletError("Info: " + message);
-			}
+			albumLinksHtml = generateAlbumLinks(allFiltersDeduped.iterator().next()) + _spacing;
 		}
 
 		//header, slice links, album links, and close link
@@ -2718,6 +2710,87 @@ public class AlbumImages
 
 				.append ("</TABLE>").append (NL);
 
+		// display non-dups
+		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty() && numAlbums == 1) {
+			Set<AlbumImage> nonDups = new HashSet<>(imagesInSlice);
+			nonDups.removeAll(dupsInSlice);
+
+//old way - keep for now
+//			if (!nonDups.isEmpty()) {
+//				final int nonFractionMaxNonDupsShown = 40;
+//				_log.debug("AlbumImages.generateHtml: non-duplicates in slice (" + nonDups.size() + "):" + NL +
+//						(nonDups.size() < nonFractionMaxNonDupsShown || nonDups.size() < imagesInSlice.size() / 3
+//								? nonDups.stream().map(AlbumImage::getName).sorted().collect(Collectors.joining(NL))
+//								: "[omitted for size]"));
+//			}
+
+			if (!nonDups.isEmpty()) {
+				List<String> nonDupNames = nonDups.stream().map(AlbumImage::getName).collect(Collectors.toList());
+
+				List<Integer> nonDupNumbers = nonDupNames.stream()
+						.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
+						.map(AlbumImages::converToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
+						.filter(Objects::nonNull)
+						.collect(Collectors.toList());
+
+				String firstNumber = nonDupNames.get(0).replaceAll(".*-", "");
+				final int digits = firstNumber.length();
+				String ranges = VendoUtils.NumberToRange.convertToRanges(nonDupNumbers, digits);
+				if (!ranges.isEmpty()) {
+					String message = "non-duplicates in slice (" + nonDups.size() + "): " + ranges;
+					_log.debug("AlbumImages.generateHtml: " + message);
+					_form.addServletError("Info: " + message);
+				}
+			}
+		}
+
+		//check for gaps
+		if (mode == AlbumMode.DoDir && numAlbums == 1) {
+			List<String> imageNames = _imageDisplayList.stream()
+					.map(AlbumImage::getName)
+					.sorted(new AlphanumComparator())
+					.collect(Collectors.toList());
+
+			AtomicInteger numMissingImagesReturn = new AtomicInteger(); //hack - value will be returned in this object
+			String ranges = ": " + generateRangesOfMissingImageNumbersFromSortedList(imageNames, numMissingImagesReturn);
+			int gaps = numMissingImagesReturn.get();
+
+			boolean qOnlyImages = imageNames.get(0).startsWith("q");
+			if (gaps > 0 || !qOnlyImages) { //only show "no gaps" message if not "q" images
+				String message = "this album has " + (gaps == 0 ? "<B>NO</B> gaps" : "a gap of <B>" + gaps + "</B> image(s)" + ranges);
+				_log.debug("AlbumImages.generateHtml: " + message);
+				_form.addServletError("Info: " + message);
+			}
+		}
+
+		{ //check for inconsistent numbering
+			AlbumProfiling.getInstance().enter(5, "inconsistentNumbering");
+
+			Map<String, List<String>> albumMap = _imageDisplayList.stream()
+					.collect(Collectors.groupingBy(a -> a.getBaseName(false),
+												   Collectors.mapping(AlbumImage::getName, Collectors.toList())));
+
+			int maxAlbumsToCheck = 100; //hardcoded
+			if (albumMap.size() <= maxAlbumsToCheck) {
+				final Pattern imageNumberPattern = Pattern.compile("^[A-Z]+[0-9]+-([0-9]+)", Pattern.CASE_INSENSITIVE); //group1 is the image number
+
+				albumMap.keySet().stream()
+						.sorted(new AlphanumComparator())
+						.forEach(l -> {
+							List<String> imageNames = albumMap.get(l);
+							Set<Integer> imageNumberLengthsSet = AlbumImages.checkForInconsistentNumbering(imageNames, imageNumberPattern);
+							if (imageNumberLengthsSet.size() > 1) {
+								String message = "Inconsistent numbering for \"" + l + "\": " + imageNumberLengthsSet;
+								_log.warn("AlbumImages.generateHtml: " + message);
+								_form.addServletError("Warning: " + message);
+							}
+
+						});
+			}
+
+			AlbumProfiling.getInstance().exit(5);
+		}
+
 		String htmlString = sb.toString ();
 
 		//replace tagsMarker with any tags
@@ -2728,19 +2801,6 @@ public class AlbumImages
 
 		if (numMatchesFilter == imagesInSlice.size()) {
 			htmlString = htmlString.replace ("; outline: 2px dashed fuchsia", ""); //HACK - hardcoded string from above
-		}
-
-		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty()) {
-			Set<AlbumImage> nonDups = new HashSet<>(imagesInSlice);
-			nonDups.removeAll(dupsInSlice);
-
-			if (!nonDups.isEmpty()) {
-				final int nonFractionMaxNonDupsShown = 40;
-				_log.debug("AlbumImages.generateHtml: non-duplicates in slice (" + nonDups.size() + "):" + NL +
-						(nonDups.size() < nonFractionMaxNonDupsShown || nonDups.size() < imagesInSlice.size() / 3
-							? nonDups.stream().map(AlbumImage::getName).sorted().collect(Collectors.joining(NL))
-							: "[omitted for size]"));
-			}
 		}
 
 		if (_Debug) {
@@ -3276,8 +3336,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void deleteFile (Path path, boolean ignoreException)
-	{
+	public static void deleteFile (Path path, boolean ignoreException) {
 		try {
 			if (Files.exists (path)) {
 				Files.delete (path);
@@ -3290,16 +3349,22 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String appendDash (String string)
-	{
+	public static String appendDash (String string) {
 		return string + (string.contains("-") ? "" : "-");
 	}
 
+	///////////////////////////////////////////////////////////////////////////
+	public static Integer converToIntegerOrNull (String string) {
+		try {
+			return Integer.valueOf(string);
+		} catch (Exception ex) {
+			return null;
+		}
+	}
 
 /*TODO - fix this (only used by AlbumFileFilter to implement sinceInMillis)
 	///////////////////////////////////////////////////////////////////////////
-	public long getImageModified (String name)
-	{
+	public long getImageModified (String name) {
 		long modified = Long.MAX_VALUE;
 
 		try {
@@ -3321,8 +3386,7 @@ public class AlbumImages
 /*not currently used
 	///////////////////////////////////////////////////////////////////////////
 	//for best results, only send the URL parameters (i.e., everything after the "?")
-	public static String encodeUrl (String url)
-	{
+	public static String encodeUrl (String url) {
 		String encoded = url;
 		try {
 			encoded = URLEncoder.encode (url, "UTF-8"); //"ISO-8859-1");
@@ -3337,8 +3401,7 @@ public class AlbumImages
 
 /* for testing exifDate distribution
 	///////////////////////////////////////////////////////////////////////////
-	private void generateExifDateStatistics ()
-	{
+	private void generateExifDateStatistics () {
 		AlbumProfiling.getInstance ().enter (5);
 
 		long stats[] = new long[AlbumImage.NumFileExifDates + 1];
@@ -3370,8 +3433,7 @@ public class AlbumImages
 	///////////////////////////////////////////////////////////////////////////
 	//slopPercent specifies the allowable variation from exactly equal that will still be considered equal
 	//similar code in AlbumOrientation#getOrientation
-	public static int compareToWithSlop (long value1, long value2, boolean ascending, double slopPercent)
-	{
+	public static int compareToWithSlop (long value1, long value2, boolean ascending, double slopPercent) {
 		if (value1 == value2) {
 			return 0;
 		}
@@ -3389,8 +3451,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void cacheMaintenanceDupCache (boolean clearAll) //hack
-	{
+	public static void cacheMaintenanceDupCache (boolean clearAll) { //hack
 		if (clearAll) {
 			_nameScaledImageCache = null;
 			_looseCompareDataCache = null;
@@ -3479,8 +3540,7 @@ public class AlbumImages
 
 //unused
 //	///////////////////////////////////////////////////////////////////////////
-//	private static <T, V> int cacheMaintenance (Map<T, V> map, int maxSize) //hack
-//	{
+//	private static <T, V> int cacheMaintenance (Map<T, V> map, int maxSize) { //hack
 //		int numItemsRemoved = 0;
 //
 //		if (map.size () > maxSize) {
@@ -3503,8 +3563,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//called by AlbumImageDao.getImagesFromCache
-	public static void duplicatesCacheMaintenance (String subFolder)
-	{
+	public static void duplicatesCacheMaintenance (String subFolder) {
 		Set<String> exactDupsSet = _nameOfExactDuplicateThatCanBeDeleted.get (subFolder);
 		if (exactDupsSet != null) {
 			exactDupsSet.clear();
@@ -3520,32 +3579,28 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void addToDuplicatesCache (Map<String, Set<String>> duplicatesCache, String imageName)
-	{
+	public static void addToDuplicatesCache (Map<String, Set<String>> duplicatesCache, String imageName) {
 		String subFolder = AlbumImageDao.getInstance().getSubFolderFromImageName(imageName);
 		Set<String> dupSet = duplicatesCache.computeIfAbsent(subFolder, k -> new HashSet<>());
 		dupSet.add (imageName);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean findInDuplicatesCache (Map<String, Set<String>> duplicatesCache, String imageName)
-	{
+	public static boolean findInDuplicatesCache (Map<String, Set<String>> duplicatesCache, String imageName) {
 		String subFolder = AlbumImageDao.getInstance().getSubFolderFromImageName(imageName);
 		Set<String> dupSet = duplicatesCache.get(subFolder);
 		return dupSet != null && dupSet.contains(imageName);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class ImageDifferTask implements Runnable
-	{
+	private static class ImageDifferTask implements Runnable {
 		///////////////////////////////////////////////////////////////////////////
 		public ImageDifferTask (BlockingQueue<AlbumImagePair> queue,
 								final int maxStdDev,
 								final Set<AlbumImagePair> pairsReady,
 								final Set<AlbumImageDiffDetails> toBeAddedToImageDiffsTable,
 								final AtomicBoolean shutdownFlag,
-								final AlbumFormInfo form)
-		{
+								final AlbumFormInfo form) {
 			_queue = queue;
 			_maxStdDev = maxStdDev;
 			_pairsReady = pairsReady;
@@ -3556,8 +3611,7 @@ public class AlbumImages
 
 		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public void run ()
-		{
+		public void run () {
 			try {
 				boolean done = false;
 				while (!done) {
@@ -3672,7 +3726,7 @@ public class AlbumImages
 		final String topBottom = reverseSort ? "Top" : "Bottom";
 
 		if (_imageDisplayList.size() < 10_000) {
-			AlbumProfiling.getInstance().enter(5);
+			AlbumProfiling.getInstance().enterAndTrace(5);
 
 			int maxItemsToPrint = 10;
 
@@ -3730,8 +3784,72 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Thread watchShutdownFile ()
-	{
+	public static Set<Integer> checkForInconsistentNumbering(List<String> imageNames, Pattern imageNumberPattern) {
+		List<String> imageNumbers = imageNames.stream()
+				.map(s -> {
+					Matcher imageNumberMatcher = imageNumberPattern.matcher(s); //group1 MUST be the image number
+					if (imageNumberMatcher.find()) {
+						return imageNumberMatcher.group(1);
+					} else {
+						_log.warn("AlbumImages.checkImageNamesForInconsistentNumbering: imageName does not match pattern: " + s);
+						return ""; //not ideal, but this will cause the returned Set to have 0 as one of the values and result in a message like "Inconsistent numbering: [0, 3]"
+					}
+				})
+				.sorted(new AlphanumComparator())
+				.collect(Collectors.toList());
+
+		Set<Integer> imageNumberLengthsSet = imageNumbers.stream()
+				.map(String::length)
+				.collect(Collectors.toSet());
+
+		return imageNumberLengthsSet;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	public static String generateRangesOfMissingImageNumbersFromSortedList(List<String> imageNamesNoExt, AtomicInteger numMissingImagesReturn) { //hack - method will return value in numMissingImagesReturn
+		String ranges = "";
+
+		int numFileNames = imageNamesNoExt.size();
+		if (numFileNames == 1) {
+			return ranges;
+		}
+
+		String firstNumber = imageNamesNoExt.get(0).replaceAll(".*-", "");
+		String lastNumber = imageNamesNoExt.get(numFileNames - 1).replaceAll(".*-", "");
+		int firstInt = Math.min(Integer.parseInt(firstNumber), 1); //hardcoded: use min of 1
+		int lastInt = Integer.parseInt(lastNumber);
+
+		int range = lastInt - firstInt + 1;
+		int numMissingImages = range - numFileNames;
+		if (numMissingImages > 0) {
+			String baseName = AlbumImage.getBaseName(imageNamesNoExt.get(0), false);
+			final int digits = firstNumber.length();
+
+			//generate list of all possible names in range, then remove actual items in list passed in
+			List<String> missingImageNames = IntStream.rangeClosed(firstInt, lastInt)
+					.boxed()
+					.map(i -> String.format("%s-%0" + digits + "d", baseName, i))
+					.collect(Collectors.toList());
+			missingImageNames.removeAll(imageNamesNoExt);
+
+			List<Integer> missingImageNumbers = missingImageNames.stream()
+					.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
+					.map(AlbumImages::converToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
+					.filter(Objects::nonNull)
+					.collect(Collectors.toList());
+
+			ranges = VendoUtils.NumberToRange.convertToRanges(missingImageNumbers, digits);
+		}
+
+		if (numMissingImagesReturn != null) {
+			numMissingImagesReturn.set(numMissingImages); //hack - return value to caller
+		}
+
+		return ranges;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private Thread watchShutdownFile () {
 		Thread watchingThread = null;
 
 		final Path path = FileSystems.getDefault ().getPath (_basePath, _shutdownFilename);
@@ -3756,11 +3874,10 @@ public class AlbumImages
 			Pattern pattern = Pattern.compile (filename, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
 
-			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
-			{
+			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs) {
+				///////////////////////////////////////////////////////////////////////////
 				@Override
-				protected void notify (Path dir, WatchEvent<Path> pathEvent)
-				{
+				protected void notify (Path dir, WatchEvent<Path> pathEvent) {
 //					if (true || _Debug) {
 //						Path file = pathEvent.context ();
 //						Path path = dir.resolve (file);
@@ -3777,9 +3894,9 @@ public class AlbumImages
 					}
 				}
 
+				///////////////////////////////////////////////////////////////////////////
 				@Override
-				protected void overflow (WatchEvent<?> event)
-				{
+				protected void overflow (WatchEvent<?> event) {
 					_log.error ("AlbumImages.watchShutdownFile.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
 					_log.error ("AlbumImages.watchShutdownFile.overflow: ", new Exception ("WatchDir overflow"));
 				}

@@ -446,7 +446,7 @@ public class AlbumUtils {
 			_log.debug("AlbumUtils.checkForRelativeDuplicateMovHistoryRecords: found " + dupsByComponent.size() + " duplicate mov history records BY COMPONENT");
 		}
 
-		{    //check for duplicates by albumName
+		{   //check for duplicates by albumName
 			Map<String, Long> movHistoryAlbumNameCountMap = movHistoryRecords.stream()
 					.map(NameComponentsMovHistory::getAlbumName)
 					.collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));

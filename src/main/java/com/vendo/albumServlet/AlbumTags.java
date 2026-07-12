@@ -11,10 +11,24 @@ import org.apache.commons.lang3.time.FastDateFormat;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.*;
-import java.nio.file.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
 import java.nio.file.attribute.FileTime;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.Statement;
 import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -227,11 +241,10 @@ public class AlbumTags
 			Pattern pattern = Pattern.compile (file, Pattern.CASE_INSENSITIVE);
 			boolean recurseSubdirs = false;
 
-			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs)
-			{
+			WatchDir watchDir = new WatchDir (dir, pattern, recurseSubdirs) {
+				///////////////////////////////////////////////////////////////////////////
 				@Override
-				protected void notify (Path dir, WatchEvent<Path> pathEvent)
-				{
+				protected void notify (Path dir, WatchEvent<Path> pathEvent) {
 					if (AlbumFormInfo._logLevel >= 5) {
 						Path file = pathEvent.context ();
 						Path path = dir.resolve (file);
@@ -244,9 +257,9 @@ public class AlbumTags
 					}
 				}
 
+				///////////////////////////////////////////////////////////////////////////
 				@Override
-				protected void overflow (WatchEvent<?> event)
-				{
+				protected void overflow (WatchEvent<?> event) {
 					_log.error ("AlbumTags.WatchDir.overflow: received event: " + event.kind ().name () + ", count = " + event.count ());
 					_log.error ("AlbumTags.WatchDir.overflow: ", new Exception ("WatchDir overflow"));
 				}
@@ -379,8 +392,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean databaseNeedsUpdate ()
-	{
+	private boolean databaseNeedsUpdate () {
 		String lastUpdateMillisStr = getStringFromConfigTable ("lastUpdateMillis", "0");
 		long lastUpdateMillis = Long.parseLong(lastUpdateMillisStr);
 //		_log.debug ("AlbumTags.databaseNeedsUpdate: lastUpdateMillisStr = " + _dateFormat.format (new java.util.Date (lastUpdateMillis)));
@@ -397,8 +409,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private long getTagFileTime ()
-	{
+	private long getTagFileTime () {
 		long tagFileTime = 0;
 
 		Path tagFile = FileSystems.getDefault ().getPath (_tagFilename);
@@ -416,17 +427,19 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void generateAlbumBase1NameMap ()
-	{
+	private void generateAlbumBase1NameMap () {
 		AlbumProfiling.getInstance ().enter (5);
 
 		//create map of subFolders and image baseNames for that subFolder
-		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
-		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders (0L);
 		final Map<String, Integer> debugCacheMiss = new ConcurrentHashMap<> ();
 
+		final ExecutorService executor = AlbumImages.getExecutor ();
+		final CountDownLatch endGate = new CountDownLatch (subFolders.size ());
+
 		for (final String subFolder : subFolders) {
-			Thread thread = new Thread (() -> {
+			Runnable task = () -> {
+				Thread.currentThread ().setName ("generateAlbumBase1NameMap:" + subFolder);
 				final Collection<AlbumImage> images = AlbumImageDao.getInstance ().getImagesFromCache (subFolder, debugCacheMiss);
 				Set<String> base1NameSet = new HashSet<> (); //use Set to eliminate duplicates
 				for (AlbumImage image : images) {
@@ -436,9 +449,8 @@ public class AlbumTags
 				_albumBase1NameMap.put (subFolder, base1NameSet); //no synchronized block necessary for ConcurrentHashMap
 
 				endGate.countDown ();
-			});
-			thread.setName (subFolder);
-			thread.start ();
+			};
+			executor.execute (task);
 		}
 		try {
 			endGate.await ();
@@ -455,8 +467,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Map<String, Set<String>> readTagFile (String tagFilename, String tagPatternString)
-	{
+	private Map<String, Set<String>> readTagFile (String tagFilename, String tagPatternString) {
 		AlbumProfiling.getInstance ().enterAndTrace (5);
 
 		final Map<String, Set<String>> tagFileMap = new HashMap<> ();
@@ -559,8 +570,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Map<String, Set<String>> readTagDatabase()
-	{
+	private Map<String, Set<String>> readTagDatabase() {
 		AlbumProfiling.getInstance().enter(5);
 
 		final Map<String, Set<String>> tagDatabaseMap = new HashMap<>();
@@ -582,8 +592,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//note this is called once for each tag
-	private void generateTagData (final String tag, final Collection<String> inFilterSet)
-	{
+	private void generateTagData (final String tag, final Collection<String> inFilterSet) {
 		AlbumProfiling.getInstance ().enter (1);
 
 //		_log.debug ("AlbumTags.generateTagData: tag = \"" + tag + "\", inFilterSet.size = " + inFilterSet.size ());
@@ -594,7 +603,7 @@ public class AlbumTags
 
 
 //create map of subFolders and filter strings that match that subFolder
-		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders ();
+		Collection<String> subFolders = AlbumImageDao.getInstance ().getAlbumSubFolders (0L);
 		final HashMap<String, Collection<String>> filterStringMap = new HashMap<> (subFolders.size ());
 {
 		AlbumProfiling.getInstance ().enter (5, "part1");
@@ -628,7 +637,7 @@ public class AlbumTags
 				}
 				endGate.countDown ();
 			});
-			thread.setName ("generateTagData:" + subFolder);
+			thread.setName ("generateTagData:part1:" + subFolder);
 			thread.start ();
 		}
 		try {
@@ -662,7 +671,7 @@ public class AlbumTags
 					}
 					endGate.countDown ();
 				});
-				thread.setName (subFolder);
+				thread.setName ("generateTagData:part2:" + subFolder);
 				thread.start ();
 			}
 		}
@@ -718,7 +727,7 @@ public class AlbumTags
 					}
 					endGate.countDown ();
 				});
-				thread.setName (subFolder);
+				thread.setName ("generateTagData:part3:" + subFolder);
 				thread.start ();
 			}
 		}
@@ -784,8 +793,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void dumpTagData (Collection<String> tagsIn)
-	{
+	private void dumpTagData (Collection<String> tagsIn) {
 		final String dumpFile = "tagData.dump.txt"; //note relative path
 
 		PrintStream out;
@@ -813,8 +821,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//process tag string and return sorted string
-	private String processWildTag (String wildTagRawString)
-	{
+	private String processWildTag (String wildTagRawString) {
 		wildTagRawString = wildTagRawString.replaceAll (" == ", ",").trim ()
 				                           .replaceAll (" = ", ",").trim ()
 				                           .replaceAll (",,", ",").trim ();
@@ -829,8 +836,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void checkForEmptyFilters (String tag, String[] filterArray)
-	{
+	private void checkForEmptyFilters (String tag, String[] filterArray) {
 //		AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
 
 		for (String filter : filterArray) {
@@ -843,8 +849,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void checkForIncorrectSorting (String tag, String[] filterArrayOrig)
-	{
+	private void checkForIncorrectSorting (String tag, String[] filterArrayOrig) {
 //		AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
 
 		String filterStringOrig = Arrays.toString (filterArrayOrig);
@@ -875,8 +880,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void checkForDuplicateEntries (String tag, String[] filterArray)
-	{
+	private void checkForDuplicateEntries (String tag, String[] filterArray) {
 //		AlbumProfiling.getInstance ().enter/*AndTrace*/ (5);
 
 		//complete list
@@ -915,8 +919,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns false if malformed
-	private boolean checkForNotMalformedFilter (String filter)
-	{
+	private boolean checkForNotMalformedFilter (String filter) {
 //		_log.debug ("AlbumTags.checkForNotMalformedFilter: filter = " + filters);
 
 		final String whiteList = "[0-9A-Za-z\\+\\[\\]\\*]"; //all valid characters
@@ -962,8 +965,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void checkForMismatchedFilters ()
-	{
+	private void checkForMismatchedFilters () {
 //		AlbumProfiling.getInstance ().enterAndTrace (5);
 
 		final Pattern pattern1 = Pattern.compile (".*[0-9]$"); //ends with digit
@@ -1018,8 +1020,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void checkForOrphanFilters (Map<String, Set<String>> tagMap)
-	{
+	private void checkForOrphanFilters (Map<String, Set<String>> tagMap) {
 		AlbumProfiling.getInstance ().enterAndTrace (5);
 
 		List<TagFilter1> tagFilters = new ArrayList<> ();
@@ -1030,8 +1031,8 @@ public class AlbumTags
 			}
 		}
 
-//		final int maxThreads = 5 * VendoUtils.getLogicalProcessors ();
-		final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
+//		final int maxThreads = 3 * VendoUtils.getLogicalProcessors ();
+		final int maxThreads = 4 * VendoUtils.getLogicalProcessors ();
 		final int minPerThread = 2000;
 		final int chunkSize = VendoUtils.calculateChunks (maxThreads, minPerThread, tagFilters.size (), _log).getFirst ();
 		List<List<TagFilter1>> tagFilterChunks = ListUtils.partition (tagFilters, chunkSize);
@@ -1051,7 +1052,7 @@ public class AlbumTags
 
 		for (final List<TagFilter1> filterChunk : tagFilterChunks) {
 			Runnable task = () -> {
-				Thread.currentThread ().setName (filterChunk.get (0)._tag);
+				Thread.currentThread ().setName ("checkForOrphanFilters:" + filterChunk.get (0)._tag);
 				for (final TagFilter1 tagFilter : filterChunk) {
 					AlbumFileFilter filter = tagFilter._filter;
 					int minExpectedMatches = filter.getMinItemCount ();
@@ -1111,8 +1112,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//find all albums that have 0 tags
-	private Collection<String> getAlbumsWithNoTags (String[] filters)
-	{
+	private Collection<String> getAlbumsWithNoTags (String[] filters) {
 		AlbumProfiling.getInstance ().enter (5);
 
 //TODO - add support for regexp
@@ -1142,8 +1142,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//find all albums that have 0 tattoo-based tags
-	private Collection<String> getAlbumsWithNoTattoos (String[] filters)
-	{
+	private Collection<String> getAlbumsWithNoTattoos (String[] filters) {
 		AlbumProfiling.getInstance ().enter (5);
 
 //TODO - add support for regexp
@@ -1172,8 +1171,7 @@ public class AlbumTags
 
 	//////////////////////////////////////////////////////////////////////////
 	//find all albums that have 0 tags (and minimum <minImageCount> images)
-	private Collection<NameCount> getAlbumsWithNoTags (int minImageCount)
-	{
+	private Collection<NameCount> getAlbumsWithNoTags (int minImageCount) {
 //		AlbumProfiling.getInstance ().enter (5);
 
 		String sql = "select ic.base_name as name, ic.image_count as count" + NL +
@@ -1222,8 +1220,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//find all albums that have 0 tattoo-based tags
-	private Collection<String> getAlbumsWithNoTattoos ()
-	{
+	private Collection<String> getAlbumsWithNoTattoos () {
 //		AlbumProfiling.getInstance ().enter (5);
 
 		String sql = "select name from base2_names" + NL +
@@ -1265,8 +1262,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void updateTagDatabase (Map<String, Set<String>> tagFileMap)
-	{
+	private void updateTagDatabase (Map<String, Set<String>> tagFileMap) {
 		///////////////////////////////////////////////////////////////////////
 		//run first set of inserts
 		AlbumProfiling.getInstance ().enterAndTrace (5, "updateTagDatabase.part1");
@@ -1349,8 +1345,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//insert _batchInsertSize rows at a time; query should use 'insert ignore' to avoid any problems with duplicates
-	private int insertTags (Collection<String> tags)
-	{
+	private int insertTags (Collection<String> tags) {
 //		AlbumProfiling.getInstance ().enter (5);
 
 		Collection<String> items = VendoUtils.dedupCollection (tags);
@@ -1401,30 +1396,26 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertBase1Names (Collection<String> names)
-	{
+	private int insertBase1Names (Collection<String> names) {
 		String sql = "insert ignore into base1_names (name) values";
 		return insertStringsIntoTable (sql, "(?)", 1, VendoUtils.dedupCollection (names));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertBase2Names (Collection<String> names)
-	{
+	private int insertBase2Names (Collection<String> names) {
 		String sql = "insert ignore into base2_names (name) values";
 		return insertStringsIntoTable (sql, "(?)", 1, VendoUtils.dedupCollection (names));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertRawNames (Collection<String> names)
-	{
+	private int insertRawNames (Collection<String> names) {
 		String sql = "insert ignore into raw_names (name) values";
 		return insertStringsIntoTable (sql, "(?)", 1, VendoUtils.dedupCollection (names));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//insert _batchInsertSize rows at a time; caller should use 'insert ignore' to avoid any problems with duplicates
-	private int insertStringsIntoTable (String sqlBase, String sqlValues, int numColumns, Collection<String> items)
-	{
+	private int insertStringsIntoTable (String sqlBase, String sqlValues, int numColumns, Collection<String> items) {
 //TODO: validate that collection size is multiple of numColumns
 
 //		AlbumProfiling.getInstance ().enter (5);
@@ -1475,26 +1466,22 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertBase1NameTags (Collection<NameTag> nameTags)
-	{
+	private int insertBase1NameTags (Collection<NameTag> nameTags) {
 		return insertNamesTags ("base1", nameTags);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertBase2NameTags (Collection<NameTag> nameTags)
-	{
+	private int insertBase2NameTags (Collection<NameTag> nameTags) {
 		return insertNamesTags ("base2", nameTags);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertRawNameTags (Collection<NameTag> nameTags)
-	{
+	private int insertRawNameTags (Collection<NameTag> nameTags) {
 		return insertNamesTags ("raw", nameTags);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertNamesTags (String tablePrefix, Collection<NameTag> nameTags)
-	{
+	private int insertNamesTags (String tablePrefix, Collection<NameTag> nameTags) {
 		if (nameTags.size () == 0) {
 			return 0;
 		}
@@ -1523,8 +1510,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertTagsFilters (Collection<TagFilter2> tagFilters)
-	{
+	private int insertTagsFilters (Collection<TagFilter2> tagFilters) {
 		if (tagFilters.size () == 0) {
 			return 0;
 		}
@@ -1553,8 +1539,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int insertStringToConfig (String name, String value)
-	{
+	private int insertStringToConfig (String name, String value) {
 		String sql = "replace into config (name, string_value) values";
 
 		String sqlValues = "(?, ?)";
@@ -1570,8 +1555,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void writeTagDatabase (Map<String, Set<String>> tagMap)
-	{
+	private void writeTagDatabase (Map<String, Set<String>> tagMap) {
 		AlbumProfiling.getInstance ().enter (5);
 
 		resetTable ("tags_filters");
@@ -1592,8 +1576,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns defaultValue on exception or failure
-	private String getStringFromConfigTable (String name, String defaultValue)
-	{
+	private String getStringFromConfigTable (String name, String defaultValue) {
 		String sql = "select string_value from config where name = '" + name + "'";
 
 		String value = defaultValue;
@@ -1610,8 +1593,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet to load drop-down: returns empty collection on error, or if no entries found
-	public Collection<String> getAllTags ()
-	{
+	public Collection<String> getAllTags () {
 		Collection<String> items = new LinkedList<> ();
 		items.add (_noTagsTag);
 		items.add (_noTattoosTag);
@@ -1625,8 +1607,7 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	//assumes important data will be returned as type T in column 1
 	//used by servlet (indirectly): returns empty collection on error, or if no entries found
-	private <T> Collection<T> getObjectsFromDatabase (String sql, T object)
-	{
+	private <T> Collection<T> getObjectsFromDatabase (String sql, T object) {
 		AlbumProfiling.getInstance ().enter (5);
 
 		Collection<T> items = new LinkedList<> ();
@@ -1657,8 +1638,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns empty map on error, or if no entries found
-	private Map<String, String> getStringMapFromDatabase (String sql)
-	{
+	private Map<String, String> getStringMapFromDatabase (String sql) {
 		String id = massageSqlToId (sql);
 
 		AlbumProfiling.getInstance ().enter (5, id);
@@ -1688,8 +1668,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int getCountFromDatabase (String table)
-	{
+	private int getCountFromDatabase (String table) {
 		String sql = "select count(*) from " + table;
 		Collection<Integer> items = getObjectsFromDatabase (sql, 0);
 
@@ -1704,15 +1683,13 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string on error, or if no entries found
-	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups, boolean queryRawTable)
-	{
+	public List<String> getTagsForBaseName (String baseName, boolean collapseGroups, boolean queryRawTable) {
 		return getTagsForBaseNames (Collections.singletonList (baseName), collapseGroups, queryRawTable);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string on error, or if no entries found
-	public List<String> getTagsForBaseNames (Collection<String> baseNames, boolean collapseGroups, boolean queryRawTable)
-	{
+	public List<String> getTagsForBaseNames (Collection<String> baseNames, boolean collapseGroups, boolean queryRawTable) {
 		AlbumProfiling.getInstance ().enter (5);
 
 		String tablePrefix = (collapseGroups ? "base2" : "base1");
@@ -1774,16 +1751,13 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	//used by servlet: returns empty string array on error, or if no entries found
 	//if 'filters' are passed in, this will "OR" (union) all filters together, then "AND" (intersect) the result against all tags
-	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn)
-	{
+	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn) {
 		return getNamesForTags (useCase, collapseGroups, tagsIn, new String[] {}, new String[] {});
 	}
-	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn, String[] tagsNotIn)
-	{
+	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn, String[] tagsNotIn) {
 		return getNamesForTags (useCase, collapseGroups, tagsIn, tagsNotIn, new String[] {});
 	}
-	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn, String[] tagsNotIn, String[] filters)
-	{
+	public Collection<String> getNamesForTags (boolean useCase, boolean collapseGroups, String[] tagsIn, String[] tagsNotIn, String[] filters) {
 		if (AlbumFormInfo._logLevel >= 5) {
 			_log.debug ("AlbumTags.getNamesForTags: tagsIn = \"" + VendoUtils.arrayToString (tagsIn) + "\"");
 			_log.debug ("AlbumTags.getNamesForTags: tagsNotIn = \"" + VendoUtils.arrayToString (tagsNotIn) + "\"");
@@ -1946,8 +1920,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean resetTables ()
-	{
+	private boolean resetTables () {
 		if (AlbumFormInfo._logLevel >= 5) {
 			_log.trace ("AlbumTags.resetTables");
 		}
@@ -1986,8 +1959,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean resetTable (String tableName)
-	{
+	private boolean resetTable (String tableName) {
 		AlbumProfiling.getInstance ().enter (7);
 
 		boolean status = true;
@@ -2011,8 +1983,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private synchronized Connection getConnection ()
-	{
+	private synchronized Connection getConnection () {
 		Connection connection = null;
 
 		try {
@@ -2027,8 +1998,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private synchronized static BasicDataSource getDataSource ()
-	{
+	private synchronized static BasicDataSource getDataSource () {
 		//TODO - move connection info to properties file, with hard-coded defaults
 		final String jdbcDriver = "com.mysql.cj.jdbc.Driver";
 		final String dbUrl = "jdbc:mysql://localhost/albumtags";
@@ -2055,8 +2025,7 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String massageSqlToId (String sql)
-	{
+	private String massageSqlToId (String sql) {
 		return sql.replaceAll ("select ", " ")
 				  .replaceAll ("from ", ":")
 				  .replaceAll ("order.*", " ")
@@ -2066,8 +2035,7 @@ public class AlbumTags
 
 	///////////////////////////////////////////////////////////////////////////
 	//if no console available, use logger
-	public static void printWithColor (Short fg, String line)
-	{
+	public static void printWithColor (Short fg, String line) {
 		if (VendoUtils.hasConsole ()) {
 			VendoUtils.printWithColor (fg, line);
 
@@ -2080,15 +2048,15 @@ public class AlbumTags
 	///////////////////////////////////////////////////////////////////////////
 	private static class NameTag
 	{
-		public NameTag (String name, String tag)
-		{
+		///////////////////////////////////////////////////////////////////////////
+		public NameTag (String name, String tag) {
 			_name = name;
 			_tag = tag;
 		}
 
+		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
-		{
+		public String toString () {
 			return _name + ", " + _tag;
 		}
 
@@ -2097,17 +2065,16 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class TagFilter1
-	{
-		public TagFilter1 (String tag, AlbumFileFilter filter)
-		{
+	private static class TagFilter1 {
+		///////////////////////////////////////////////////////////////////////////
+		public TagFilter1 (String tag, AlbumFileFilter filter) {
 			_tag = tag;
 			_filter = filter;
 		}
 
+		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
-		{
+		public String toString () {
 			return _tag + ": " + _filter;
 		}
 
@@ -2116,17 +2083,16 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class TagFilter2
-	{
-		public TagFilter2 (String tag, String filter)
-		{
+	private static class TagFilter2 {
+		///////////////////////////////////////////////////////////////////////////
+		public TagFilter2 (String tag, String filter) {
 			_tag = tag;
 			_filter = filter;
 		}
 
+		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
-		{
+		public String toString () {
 			return _tag + ": " + _filter;
 		}
 
@@ -2135,18 +2101,17 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static class NameCount
-	{
-		public NameCount (String name, String subFolder, Integer count)
-		{
+	private static class NameCount {
+		///////////////////////////////////////////////////////////////////////////
+		public NameCount (String name, String subFolder, Integer count) {
 			_name = name;
 			_subFolder = subFolder;
 			_count = count;
 		}
 
+		///////////////////////////////////////////////////////////////////////////
 		@Override
-		public String toString ()
-		{
+		public String toString () {
 			return _subFolder + ": " + _name + " = " + _count;
 		}
 
@@ -2156,10 +2121,9 @@ public class AlbumTags
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private class RowCounts
-	{
-		public RowCounts () //default ctor
-		{
+	private class RowCounts {
+		///////////////////////////////////////////////////////////////////////////
+		public RowCounts () { //default ctor
 			_numTags = getCountFromDatabase ("tags");
 			_numBase1Names = getCountFromDatabase ("base1_names");
 			_numBase2Names = getCountFromDatabase ("base2_names");
@@ -2169,8 +2133,8 @@ public class AlbumTags
 			_numRawNamesTags = getCountFromDatabase ("raw_names_tags");
 		}
 
-		public RowCounts (RowCounts c0) //copy ctor
-		{
+		///////////////////////////////////////////////////////////////////////////
+		public RowCounts (RowCounts c0) { //copy ctor
 			_numTags = c0._numTags;
 			_numBase1Names = c0._numBase1Names;
 			_numBase2Names = c0._numBase2Names;
@@ -2180,8 +2144,8 @@ public class AlbumTags
 			_numRawNamesTags = c0._numRawNamesTags;
 		}
 
-		public RowCounts subtract (RowCounts c0)
-		{
+		///////////////////////////////////////////////////////////////////////////
+		public RowCounts subtract (RowCounts c0) {
 			_numTags -= c0._numTags;
 			_numBase1Names -= c0._numBase1Names;
 			_numBase2Names -= c0._numBase2Names;

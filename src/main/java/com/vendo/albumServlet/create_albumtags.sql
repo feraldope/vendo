@@ -121,36 +121,36 @@ drop table tags_filters;
 
 -- -----------------------------------------------------------------------------
 -- database engine and status data for each table
-select * 
-from information_schema.tables 
+select *
+from information_schema.tables
 where table_schema in ('albumtags', 'albumimages')
 order by table_schema, table_name
 
 -- database table sizes
 select table_schema as 'Schema', table_name as 'Table', ROUND((data_length + index_length) / 1024 / 1024) as 'Size in MB'
-from information_schema.tables 
+from information_schema.tables
 where table_schema in ('albumtags', 'albumimages', 'gihistory')
 order by table_schema, table_name
 
 -- -----------------------------------------------------------------------------
 -- table sizes (number of rows)
-select 'config' as name, count(*) as rows from config
+select 'config' as name, count(*) as rows1 from config
 union all
-select 'tags' as name, count(*) as rows from tags
+select 'tags' as name, count(*) as rows1 from tags
 union all
-select 'base1_names' as name, count(*) as rows from base1_names
+select 'base1_names' as name, count(*) as rows1 from base1_names
 union all
-select 'base2_names' as name, count(*) as rows from base2_names
+select 'base2_names' as name, count(*) as rows1 from base2_names
 union all
-select 'raw_names' as name, count(*) as rows from raw_names
+select 'raw_names' as name, count(*) as rows1 from raw_names
 union all
-select 'base1_names_tags' as name, count(*) as rows from base1_names_tags
+select 'base1_names_tags' as name, count(*) as rows1 from base1_names_tags
 union all
-select 'base2_names_tags' as name, count(*) as rows from base2_names_tags
+select 'base2_names_tags' as name, count(*) as rows1 from base2_names_tags
 union all
-select 'raw_names_tags' as name, count(*) as rows from raw_names_tags
+select 'raw_names_tags' as name, count(*) as rows1 from raw_names_tags
 union all
-select 'tags_filters' as name, count(*) as rows from tags_filters;
+select 'tags_filters' as name, count(*) as rows1 from tags_filters
 
 -- -----------------------------------------------------------------------------
 -- distribution of tags in file (i.e., raw_names_tags)
@@ -159,7 +159,7 @@ from raw_names_tags rnt
 join tags t on rnt.tag_id = t.tag_id
 group by rnt.tag_id
 order by count desc, tag asc
- 
+
 -- -----------------------------------------------------------------------------
 -- inserts
 insert into tags (tag) values ('red'), ('dry'), ('hot'), ('blue'), ('wet'), ('cold'), ('pink'), ('high'), ('tall');
@@ -232,17 +232,17 @@ select * from base1_names where name_id in (select distinct name_id from base1_n
 
 -- find all raw names for a tag
 select count(name)
--- select * 
-from raw_names 
+-- select *
+from raw_names
 where name_id in (
-    select distinct name_id 
-    from raw_names_tags 
+    select distinct name_id
+    from raw_names_tags
     where tag_id in (
-        select tag_id 
-        from tags 
+        select tag_id
+        from tags
         where tag like 'WeAre%'
     )
-) 
+)
 order by name;
 
 -- -----------------------------------------------------------------------------
@@ -334,13 +334,13 @@ select count(*) from tags_filters
 -- find albums that have 0 tags
 -- uses function albumimages.alphas
 -- OLD and SLOW
-select distinct albumimages.alphas(i.name_no_ext) as name, c.image_count as count, i.sub_folder 
-  from albumimages.images i 
+select distinct albumimages.alphas(i.name_no_ext) as name, c.image_count as count, i.sub_folder
+  from albumimages.images i
 join albumimages.image_counts c on c.sub_folder = i.sub_folder and albumimages.alphas(i.name_no_ext) = c.base_name
-  where i.sub_folder = 'cl' and c.collapse_groups = 1 
+  where i.sub_folder = 'cl' and c.collapse_groups = 1
   and albumimages.alphas(i.name_no_ext) not in (
-    select distinct albumimages.alphas(t.name) as name 
-    from albumtags.base2_names t 
+    select distinct albumimages.alphas(t.name) as name
+    from albumtags.base2_names t
     where lower(t.name) like 'cl%'
   )
 
@@ -359,13 +359,12 @@ select ic.base_name as name, ic.image_count as count
  )
 ) select count(*) from temp_table
 
-
 -- -----------------------------------------------------------------------------
 -- calculated no-tattoos
 select name from base2_names
 where base2_names.name_id not in (
     select base2_names_tags.name_id
-    from base2_names_tags 
+    from base2_names_tags
     inner join tags on base2_names_tags.tag_id = tags.tag_id
     where tags.is_tattoo = 1
 )
@@ -377,9 +376,11 @@ where is_tattoo = 0
 and not like '%tattoo%'
 order by lower(tag)
 
-select * from tags 
-where is_tattoo = 1 
+select * from tags
+where is_tattoo = 1
 and tag not like '%tattoo%'
 order by lower(tag)
+
+-- -----------------------------------------------------------------------------
 
 */

@@ -314,36 +314,11 @@ public class AlbumImage implements Comparable<AlbumImage>
 	}
 	public static String getBaseName (String name, boolean collapseGroups)
 	{
-		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
+		final String regex1 = "-.*$";			//match everything starting with dash - need to handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
 		final String regex2 = "[\\[\\d-].*$";	//match everything starting with first digit or dash, or open square bracket "["
 
 		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
 	}
-
-/* old way
-	///////////////////////////////////////////////////////////////////////////
-	//remove trailing digits (and optionally '-')
-	//expected format: Foo01-01; will return either Foo01 or Foo
-	public static String getBaseName (String name, boolean collapseGroups)
-	{
-		final String regex1 = "-\\d*$";			//match trailing [dash][digits]
-		final String regex2 = "\\d*-\\d*$";	//match trailing [digits][dash][digits]
-
-		String result = name.replaceAll (collapseGroups ? regex2 : regex1, "");
-		return result;
-//		return name.replaceAll (collapseGroups ? regex2 : regex1, "");
-	}
-//BUG: note that the regex for collapseGroups = true is DIFFERENT between these two methods!
-	///////////////////////////////////////////////////////////////////////////
-	//remove trailing digits and any dashes '-'
-	//this version simply removes everything starting with the first digit (collapseGroups = true is implied)
-	public static String getBaseName (String name)
-	{
-		String result = name.replaceAll ("[\\d-].*$", "");
-		return result;
-//		return name.replaceAll ("[\\d-].*$", "");
-	}
-*/
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
@@ -430,7 +405,11 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public String getSubFolder ()
 	{
-		return _subFolder;
+		return getSubFolder(false);
+	}
+	public String getSubFolder (boolean prependRootFolder)
+	{
+		return (prependRootFolder ? _defaultRootFolder + "\\" : "") + _subFolder;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
@@ -1225,6 +1204,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 //	private static final DecimalFormat _decimalFormat = new DecimalFormat ("###,##0"); //format as integer
 
 	private static final String NL = System.getProperty ("line.separator");
+	private static final String _defaultRootFolder = "jroot";
 	private static final Random _randomGenerator = new Random ();
 
 	private static final Logger _log = LogManager.getLogger ();

@@ -9,13 +9,22 @@ import com.vendo.vendoUtils.VendoUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.time.FastDateFormat;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.DecimalFormat;
-import java.time.*;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoUnit;
@@ -163,6 +172,10 @@ public class JRetirement {
 		if (updateFundsMetaDataInDatabase) {
 			updateFundsMetaDataInDatabase();
 		}
+
+//		final Path detailedHoldingsPath = FileSystems.getDefault().getPath(sourceRootPath.toString(), "DetailedHoldings.xls");
+		final Path detailedHoldingsPath = FileSystems.getDefault().getPath(sourceRootPath.toString(), "DetailedHoldings.06.14.2026.xls");
+		updateDetailedHoldingsDataInDatabase(detailedHoldingsPath);
 
 		List<Path> sourceFilePathList = new VFileList(sourceRootPath.toString(), Collections.singletonList(filenamePattern), false).getPathList();
 //						.stream().sorted(new PortfolioFilenameComparatorByDateReverse()).collect(Collectors.toList());
@@ -1478,6 +1491,51 @@ public class JRetirement {
 		System.out.println();
 		System.out.println("New/updated FundsMetaData rows persisted to database: " + rowsPersisted);
 		System.out.println("Total FundsMetaData rows in database: " + fundsMetaDataFromDb.size());
+		System.out.println("Elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format (dateTimeFormatterMmSs));
+
+		return true;
+	}
+
+	///////////////////////////////////////////////////////////////////////////
+	private boolean updateDetailedHoldingsDataInDatabase(Path detailedHoldingsPath) throws Exception {
+		final Instant startInstant = Instant.now ();
+
+		XlsFileReader xlsFileReader = new XlsFileReader();
+
+		List<DetailedHoldingsData> detailedHoldingsDataFromXlsFile = xlsFileReader.readDetailedHoldingsDataFromXlsFile(detailedHoldingsPath);
+
+		detailedHoldingsDataFromXlsFile.forEach(System.out::println);
+
+
+		RetirementDao retirementDao = RetirementDao.getInstance();
+/*
+		List<FundsMetaData> fundsMetaDataFromEnum = Arrays.stream(FundsEnum.values())
+				.map(FundsMetaData::new)
+				.collect(Collectors.toList());
+
+		List<FundsMetaData> fundsMetaDataFromDb = retirementDao.queryFundsMetaDataFromDatabase();
+
+		List<FundsMetaData> toBeAdded = fundsMetaDataFromEnum.stream()
+				.filter(i -> !fundsMetaDataFromDb.contains(i))
+				.collect(Collectors.toList());
+
+		int rowsPersisted = 0;
+		if (!toBeAdded.isEmpty()) {
+			System.out.println("FundsMetaData: new/updated rows to be inserted:");
+			toBeAdded.forEach(System.out::println);
+
+			rowsPersisted = retirementDao.persistFundsMetaDataToDatabase(toBeAdded);
+		}
+
+		if (rowsPersisted > 0) { //re-query the database
+			fundsMetaDataFromDb.clear();
+			fundsMetaDataFromDb.addAll(retirementDao.queryFundsMetaDataFromDatabase());
+		}
+
+		System.out.println();
+		System.out.println("New/updated FundsMetaData rows persisted to database: " + rowsPersisted);
+		System.out.println("Total FundsMetaData rows in database: " + fundsMetaDataFromDb.size());
+*/
 		System.out.println("Elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format (dateTimeFormatterMmSs));
 
 		return true;
