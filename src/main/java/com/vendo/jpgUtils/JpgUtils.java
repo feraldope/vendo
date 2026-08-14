@@ -15,13 +15,15 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.io.InputStream;
-import java.nio.file.*;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -752,7 +754,7 @@ public class JpgUtils {
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns false if the last part of the image contains the same invalid data
-	// or if the image is not the size it claims
+	// or if the image is not the size it claims, or if it is too small
 	///////////////////////////////////////////////////////////////////////////
 	public static boolean validateImageData (String filename) {
 		_log.trace ("getRealPath: Path.toRealPath failed");
@@ -762,7 +764,7 @@ public class JpgUtils {
 		BufferedImage image = null;
 		try {
 			image = JpgUtils.readImage (new File (filename));
-			validImage = validateImageData (image);
+			validImage = validateImageData (image, filename);
 
 		} catch (Exception ee) {
 			_log.error ("JpgUtils.validateImageData: failed to read '" + filename + "'");
@@ -771,15 +773,20 @@ public class JpgUtils {
 
 		return validImage;
 	}
-	public static boolean validateImageData (BufferedImage image) {
+	public static boolean validateImageData (BufferedImage image, String filenameForError) {
 		int width = image.getWidth ();
 		int height = image.getHeight ();
 
 		//read (w x h) ints (int = 4 bytes) of data from image array starting at offset x, y
 		final int w = 100;
 		final int h = 10;
-		int[] rgbIntArray = new int [w * h];
-		image.getRGB (width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
+		int[] rgbIntArray = new int[w * h];
+		try {
+			image.getRGB(width - w - 1, height - h - 1, w, h, rgbIntArray, 0, w);
+		} catch (ArrayIndexOutOfBoundsException ex) {
+			_log.error ("JpgUtils.validateImageData: '" + filenameForError + "' smaller than min (" + w + "x" + h + " pixels)");
+			return false;
+		}
 
 		final int invalidData = 0xFF808080;
 		boolean invalidImage = Arrays.stream (rgbIntArray).allMatch (t -> t == invalidData);
@@ -801,7 +808,7 @@ public class JpgUtils {
 
 		try {
 			image = readImage (new File (filename));
-			if (validateImageData (image)) {
+			if (validateImageData (image, filename)) {
 				width = image.getWidth ();
 				height = image.getHeight ();
 

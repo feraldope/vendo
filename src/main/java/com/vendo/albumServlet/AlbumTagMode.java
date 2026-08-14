@@ -2,39 +2,33 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
 
-public enum AlbumTagMode
-{
+public enum AlbumTagMode {
 	TagIn ("In"),
 	TagOut ("Out"),
 	TagOff ("Off");
 
 	///////////////////////////////////////////////////////////////////////////
-	AlbumTagMode (String name)
-	{
-		_value = new AlbumStringPair (name, "tag" + name);
+	AlbumTagMode (String name) {
+		_value = new AlbumStringPair (name, "tag" + name.replaceAll("\\s", ""));
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getName ()
-	{
+	public String getName () {
 		return _value.getName ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSymbol ()
-	{
+	public String getSymbol () {
 		return _value.getSymbol ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static void init ()
-	{
+	private static void init () {
 		if (_values == null) {
 			List<AlbumStringPair> arrayList = new ArrayList<> ();
 
@@ -47,16 +41,14 @@ public enum AlbumTagMode
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumStringPair[] getValues ()
-	{
+	public static AlbumStringPair[] getValues () {
 		init ();
 
 		return _values;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumTagMode getValue (String symbol)
-	{
+	public static AlbumTagMode getValue (String symbol) {
 		//brute-force method
 		for (AlbumTagMode ff : values ()) {
 			if (ff.getSymbol ().equals (symbol)) {

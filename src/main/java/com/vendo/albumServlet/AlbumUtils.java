@@ -611,7 +611,8 @@ public class AlbumUtils {
 		Instant startInstant = Instant.now ();
 
 		String extension = "mp4";
-		final Pattern downloadPattern = Pattern.compile("^\\d\\d-\\d\\d-\\d\\d([A-Z-]+).*." + extension + "$", Pattern.CASE_INSENSITIVE); //group 1 is middle part after date
+//		final Pattern downloadPattern = Pattern.compile("^\\d\\d-\\d\\d-\\d\\d([A-Z-]+).*." + extension + "$", Pattern.CASE_INSENSITIVE); //group 1 is middle part after date (group 1 includes dash)
+		final Pattern downloadPattern = Pattern.compile("^\\d\\d-\\d\\d-\\d\\d([A-Z]+).*." + extension + "$", Pattern.CASE_INSENSITIVE); //group 1 is middle part after date (group 1 does not include dash)
 
 		List<NameComponentsDownload> downloadMp4Records;
 		try {
@@ -624,10 +625,46 @@ public class AlbumUtils {
 		String elapsedString = "elapsed time: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format(_dateTimeFormatter);
 		_log.debug("AlbumUtils.readAndProcessAllRecords: found " + downloadMp4Records.size() + " download mp4 records, " + elapsedString);
 
+/*
+		//check for matching files by prefix (similar) - this doesn't work quite right, so disabling for now
+		if (false) {
+			String shortestPrefix = Collections.min(
+					downloadMp4Records.stream()
+							.map(NameComponentsBase::getPrefix)
+							.collect(Collectors.toList()),
+					Comparator.comparingInt(String::length));
+
+//			int shortestPrefixLength = shortestPrefix.length();
+			int shortestPrefixLength = 13; //hardcoded - it turns out the actual shortest prefix (4) is too short for the following code to be effective
+
+			if (shortestPrefixLength > 0) {
+				Map<String, List<String>> multimap = downloadMp4Records.stream()
+						.collect(Collectors.groupingBy(m -> m.getPrefix().substring(0, Math.min(shortestPrefixLength, m.getPrefix().length())), //group1 is stored in prefix field
+								Collectors.mapping(NameComponentsDownload::getOriginalString,
+										Collectors.toList())));
+
+				List<String> dups = multimap.entrySet().stream()
+						.filter(e -> e.getValue().size() > 1)
+						.map(e -> String.join(NL, e.getValue()))
+						.collect(Collectors.toList());
+
+				_log.debug("AlbumUtils.checkForDuplicateDownloadsCent: found " + dups.size() + " dup pairs: " + NL + String.join(NL, dups));
+
+				if (dups.size() > 0) {
+					multimap.entrySet().stream()
+							.filter(e -> e.getValue().size() > 1)
+							.map(e -> "tdir /s *" + e.getKey() + "*")
+							.forEach(System.out::println);
+				}
+			}
+		}
+*/
+
+		//check for matching files by prefix (exact)
 		Map<String, List<String>> multimap = downloadMp4Records.stream()
 				.collect(Collectors.groupingBy(NameComponentsDownload::getPrefix, //group1 is stored in prefix field
-											   Collectors.mapping(NameComponentsDownload::getOriginalString,
-																  Collectors.toList())));
+						Collectors.mapping(NameComponentsDownload::getOriginalString,
+								Collectors.toList())));
 
 		List<String> dups = multimap.entrySet().stream()
 				.filter(e -> e.getValue().size() > 1)

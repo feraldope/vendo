@@ -370,6 +370,7 @@ public class AlbumImageDao {
 	//populate list of subfolders (relative paths only, i.e., 'aa', 'ab', etc.)
 	//used by CLI and servlet
 	public synchronized Collection<String> getAlbumSubFolders(long sinceInMillis) {
+//TODO - should this also check that sinceInMillis hasn't changed?
 		if (_subFolders == null) {
 			List<File> list = Arrays.asList(Objects.requireNonNull(new File(_rootPath).listFiles(File::isDirectory)));
 			_subFolders = list.stream()
@@ -1976,8 +1977,7 @@ public class AlbumImageDao {
 //	}
 
 	///////////////////////////////////////////////////////////////////////////
-	boolean printFolderDistribution()
-	{
+	boolean printFolderDistribution() {
 		List<String> subFolders =
 				(_subFoldersOverrideSet != null && !_subFoldersOverrideSet.isEmpty()
 					? new ArrayList<>(_subFoldersOverrideSet)
@@ -2283,7 +2283,6 @@ public class AlbumImageDao {
 
 	private Collection<String> _subFolders = null;
 	private final Set<String> _subFoldersOverrideSet = new TreeSet<>();
-//	private static final int _subFolderMinLength = 2;
 
 	private static final int _pauseSleepMillis = 1000;
 //	private Thread _pauseThread = null;

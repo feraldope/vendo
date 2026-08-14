@@ -2,8 +2,7 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
@@ -27,7 +26,7 @@ public enum AlbumDuplicateHandling {
 	///////////////////////////////////////////////////////////////////////////
 	AlbumDuplicateHandling(String name, Mode mode) {
 		String prefix = Mode.IsForSelecting == mode ? "select" : "show";
-		value = new AlbumStringPair (name, prefix + name);
+		value = new AlbumStringPair (name, prefix + name.replaceAll("\\s", ""));
 		this.mode = mode;
 	}
 

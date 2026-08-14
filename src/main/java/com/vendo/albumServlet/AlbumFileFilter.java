@@ -8,8 +8,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.FilenameFilter;
-import java.util.ArrayList;
-import java.util.Collection;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,14 +38,24 @@ public class AlbumFileFilter implements FilenameFilter {
 			_log.debug ("AlbumFileFilter ctor: excludeFiltersArray =" + exc);
 		}
 
-		if (includeFiltersArray != null && includeFiltersArray.length > 0) {
-			_includeFilters = new ArrayList<> (includeFiltersArray.length); //save these for folder matching
-			_includePatterns = new ArrayList<> (includeFiltersArray.length);
+		List<String> includeFiltersList = new ArrayList<>();
+		Arrays.asList(includeFiltersArray)
+				.forEach(s -> {
+					if (s.startsWith("[") && s.contains("]")) {
+						includeFiltersList.addAll(VendoUtils.expandRegexRange(useCase ? s : s.toLowerCase()));
+					} else {
+						includeFiltersList.add(s);
+					}
+				});
 
-			for (String includeFilter : includeFiltersArray) {
+		if (!includeFiltersList.isEmpty()) {
+			_includeFilters = new ArrayList<>(); //save these for folder matching
+			_includePatterns = new ArrayList<>();
+
+			for (String includeFilter : includeFiltersList) {
 				if (includeFilter.length () != 0) {
 					String orinalIncludeFilter = includeFilter; //save
-					if (includeFilter.startsWith ("*") || includeFilter.startsWith ("[")) {
+					if (includeFilter.startsWith ("*")) {
 						_includeAllFolders = true;
 					}
 					if (includeFilter.equals ("*")) {
@@ -72,11 +81,11 @@ public class AlbumFileFilter implements FilenameFilter {
 		}
 
 		if (excludeFiltersArray != null && excludeFiltersArray.length > 0) {
-			_excludePatterns = new ArrayList<> (excludeFiltersArray.length);
+			_excludePatterns = new ArrayList<>();
 
 			for (String excludeFilter : excludeFiltersArray) {
 				if (excludeFilter.length () != 0) {
-					String orinalExcludeFilter = excludeFilter; //in case of error
+					String orinalExcludeFilter = excludeFilter; //save in case of error
 
 					excludeFilter = AlbumFormInfo.convertWildcardsToRegex (excludeFilter);
 
@@ -115,6 +124,8 @@ public class AlbumFileFilter implements FilenameFilter {
 			} else if (_includeFilters != null) {
 				for (String includeFilter : _includeFilters) {
 					String leadingNonNumericChars = includeFilter.replaceFirst("[0-9\\[.*].*", "").toLowerCase();
+
+					//NOTE if either of these strings is empty, the following will always be true
 					if (leadingNonNumericChars.startsWith(folder) || folder.startsWith(leadingNonNumericChars)) {
 //						_log.debug("AlbumFileFilter.folderNeedsChecking: folder \"" + folder + "\" matches filter \"" + includeFilter + "\"");
 						status = true;
@@ -298,5 +309,5 @@ public class AlbumFileFilter implements FilenameFilter {
 
 	private final boolean _profileAccept = false;
 
-	private static Logger _log = LogManager.getLogger ();
+	private static final Logger _log = LogManager.getLogger ();
 }

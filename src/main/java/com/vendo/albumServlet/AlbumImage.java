@@ -229,12 +229,10 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public String toString ()
-	{
+	public String toString () {
 		return toString (false, AlbumMode.DoDir, false);
 	}
-	public String toString (boolean full, AlbumMode albumMode, boolean collapseGroups)
-	{
+	public String toString (boolean full, AlbumMode albumMode, boolean collapseGroups) {
 		StringBuffer sb = new StringBuffer (256);
 
 		if (albumMode == AlbumMode.DoSampler) { //prepend aggregate data
@@ -279,8 +277,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//allow inexact matches
-	public boolean equalAttrs (AlbumImage image, boolean looseCompare, boolean ignoreBytes, boolean useExifDates, int exifDateIndex)
-	{
+	public boolean equalAttrs (AlbumImage image, boolean looseCompare, boolean ignoreBytes, boolean useExifDates, int exifDateIndex) {
 		if (useExifDates) {
 			return equalExifDates (image, exifDateIndex);
 		}
@@ -290,8 +287,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//check for exact match: bytes (optional), width, height, exact RGB data
-	private boolean equalAttrsStrict (AlbumImage image, boolean ignoreBytes)
-	{
+	private boolean equalAttrsStrict (AlbumImage image, boolean ignoreBytes) {
 		return (ignoreBytes || getNumBytes() == image.getNumBytes()) &&
 				getWidth() == image.getWidth() &&
 				getHeight() == image.getHeight() &&
@@ -299,8 +295,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean equalBase (AlbumImage image, boolean collapseGroups)
-	{
+	public boolean equalBase (AlbumImage image, boolean collapseGroups) {
 		return image.getBaseName(collapseGroups).equals(getBaseName(collapseGroups));
 	}
 
@@ -312,8 +307,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	public static String getBaseName (String name) {
 		return getBaseName(name, true);
 	}
-	public static String getBaseName (String name, boolean collapseGroups)
-	{
+	public static String getBaseName (String name, boolean collapseGroups) {
 		final String regex1 = "-.*$";			//match everything starting with dash - need to handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
 		final String regex2 = "[\\[\\d-].*$";	//match everything starting with first digit or dash, or open square bracket "["
 
@@ -322,8 +316,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 
 	///////////////////////////////////////////////////////////////////////////
 	//calculated on demand and cached
-	public synchronized String getBaseName (boolean collapseGroups)
-	{
+	public synchronized String getBaseName (boolean collapseGroups) {
 		if (!collapseGroups) {
 			if (_baseName1 == null) {
 				_baseName1 = getBaseName (getName (), collapseGroups);

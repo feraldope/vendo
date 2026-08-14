@@ -16,13 +16,23 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.*;
-import java.sql.*;
+import java.nio.file.DirectoryStream;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.WatchEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.sql.Statement;
+import java.sql.Timestamp;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
-import java.util.Date;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -310,7 +320,7 @@ public class AlbumImageDiffer
 		}
 
 //debugging
-//		Map<String, AlbumImageDiffDetails> images = getImagesFromImageDiffs (IntStream.range(1, 10000).boxed().collect(Collectors.toList()));
+//		Map<String, AlbumImageDiffDetails> images = getImagesFromImageDiffs (IntStream.range(1, 10_000).boxed().collect(Collectors.toList()));
 //		System.out.println("*** images = " + images);
 //		if (true) {
 //			return;

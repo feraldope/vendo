@@ -2,8 +2,7 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
@@ -16,7 +15,7 @@ public enum AlbumOrientation {
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumOrientation (String name) {
-		_value = new AlbumStringPair (name, "show" + name);
+		_value = new AlbumStringPair (name, "show" + name.replaceAll("\\s", ""));
 	}
 
 	///////////////////////////////////////////////////////////////////////////

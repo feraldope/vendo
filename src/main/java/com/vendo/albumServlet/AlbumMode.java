@@ -2,8 +2,7 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
@@ -16,7 +15,7 @@ public enum AlbumMode {
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumMode (String name, String shortName) {
-		value = new AlbumStringPair (name, "do" + name);
+		value = new AlbumStringPair (name, "do" + name.replaceAll("\\s", ""));
 		this.shortName = shortName;
 	}
 

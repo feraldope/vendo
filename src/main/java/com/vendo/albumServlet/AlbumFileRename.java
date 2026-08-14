@@ -14,21 +14,22 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.*;
-import java.text.DecimalFormat;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 
-public class AlbumFileRename
-{
+public class AlbumFileRename {
 	private enum Mode {RenameAlbum, RenameImage, Push}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String[] args)
-	{
+	public static void main (String[] args) {
 		AlbumFileRename app = new AlbumFileRename ();
 
 		if (!app.processArgs (args)) {
@@ -43,8 +44,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private Boolean processArgs (String[] args)
-	{
+	private Boolean processArgs (String[] args) {
 		for (int ii = 0; ii < args.length; ii++) {
 			System.out.println ("arg" + ii + " = <" + args[ii] + ">");
 		}
@@ -229,8 +229,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void displayUsage (String message, Boolean exit)
-	{
+	private void displayUsage (String message, Boolean exit) {
 		String msg = "";
 		if (message != null) {
 			msg = message + NL;
@@ -245,8 +244,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean run ()
-	{
+	private boolean run () {
 		final int maxToPrint = 6;
 
 		_sourceSubFolder = VendoUtils.appendSystemSlash(_rootPath + "jroot/" + AlbumImageDao.getInstance ().getSubFolderFromImageName (_inPattern));
@@ -368,9 +366,10 @@ public class AlbumFileRename
 		}
 
 		int destIndexInt = 0;
+		int groupToReplace = _mode == Mode.RenameAlbum ? 1 : 2;
 		String format = _renumDigits != null ? "%0" + _renumDigits + "d" : "%d";
 
-		final Pattern middlePattern = Pattern.compile(inPatternParts.get(0) + "(.*)" + inPatternParts.get(1));
+		final Pattern middlePattern = Pattern.compile(inPatternParts.get(0) + "(.*)" + inPatternParts.get(1), Pattern.CASE_INSENSITIVE);
 
 		for (String inFile : inFileList) {
 			Matcher middleMatcher = middlePattern.matcher(inFile);
@@ -387,7 +386,6 @@ public class AlbumFileRename
 
 				String destIndexString = String.format(format, ++destIndexInt);
 				Matcher renumMatcher = _imageNamePattern.matcher(outFile);
-				int groupToReplace = _mode == Mode.RenameAlbum ? 1 : 2;
 				if (renumMatcher.find()) {
 					outFile = new StringBuilder(outFile).replace(renumMatcher.start(groupToReplace), renumMatcher.end(groupToReplace), destIndexString).toString();
 				} else {
@@ -403,8 +401,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int moveFilesAndUpdateUndoCommands (List<VPair<String, String>> fileNamePairs) throws Exception
-	{
+	public int moveFilesAndUpdateUndoCommands (List<VPair<String, String>> fileNamePairs) throws Exception {
 		for (VPair<String, String> fileNamePair : fileNamePairs) {
 			boolean status = moveFile(fileNamePair.getFirst(), fileNamePair.getSecond());
 
@@ -418,8 +415,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private boolean moveFile (String srcName, String destName) throws Exception
-	{
+	private boolean moveFile (String srcName, String destName) throws Exception {
 		Path src = FileSystems.getDefault ().getPath (srcName);
 		Path dest = FileSystems.getDefault ().getPath (destName);
 
@@ -439,8 +435,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> filterSourceFileList (List<String> inList)
-	{
+	public List<String> filterSourceFileList (List<String> inList) {
 		return inList.stream()
 				.filter(s -> {
 					String numberAsString = extractNumberFromFileName(s);
@@ -479,8 +474,7 @@ public class AlbumFileRename
 
 	///////////////////////////////////////////////////////////////////////////
 	// fileName is string in form: <image name><album number>-<image number>.<extension>
-	public String extractNumberFromFileName (String fileName)
-	{
+	public String extractNumberFromFileName (String fileName) {
 		int group = _mode == Mode.RenameAlbum ? 1 : 2;
 		Matcher matcher = _imageNamePattern.matcher(fileName);
 
@@ -489,8 +483,7 @@ public class AlbumFileRename
 
 	///////////////////////////////////////////////////////////////////////////
 	// returns null on success; otherwise error message
-	private String validatePattern (String pattern)
-	{
+	private String validatePattern (String pattern) {
 		if (pattern.split("\\*").length != 2) {
 			return "Pattern <" + pattern + "> must have exactly one asterisk (*)";
 		}
@@ -499,8 +492,7 @@ public class AlbumFileRename
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String printListSortedWithLimit (String header, Collection<String> list, int limit, CharSequence delimiter)
-	{
+	private String printListSortedWithLimit (String header, Collection<String> list, int limit, CharSequence delimiter) {
 		if (list == null || list.isEmpty()) {
 			return header + ": [empty]";
 		}
@@ -528,9 +520,7 @@ public class AlbumFileRename
 	//members NOT from command line
 	private String _sourceSubFolder = null;
 	private String _destSubFolder = null;
-	private final Pattern _imageNamePattern = Pattern.compile ("\\D+(\\d+)-(\\d+)\\D+"); //imageName is string in form: <image name><album number>-<image number>.<extension>
-//	private final Pattern _imagePattern = Pattern.compile ("-(\\d+)");
-//	private final Pattern _albumPattern = Pattern.compile ("(\\d+)-");
+	private final Pattern _imageNamePattern = Pattern.compile ("\\D+(\\d+)-(\\d+)\\D+", Pattern.CASE_INSENSITIVE); //imageName is string in form: <image name><album number><dash><image number>.<extension>
 
 	private int _filesProcessed = 0;
 	private List<String> _undoCommands = new ArrayList<>();
@@ -539,7 +529,7 @@ public class AlbumFileRename
 	public static final String _DefaultExtension = ".jpg";
 	public static final String NL = System.getProperty ("line.separator");
 
-	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
+//	private static final DecimalFormat _decimalFormat2 = new DecimalFormat ("###,##0"); //format as integer
 	private static final FastDateFormat _dateFormat = FastDateFormat.getInstance ("yyyyMMdd.HHmmss"); // Note SimpleDateFormat is not thread safe
 
 	private static Logger _log = LogManager.getLogger ();

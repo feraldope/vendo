@@ -2,8 +2,7 @@
 
 package com.vendo.albumServlet;
 
-import java.util.Comparator;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -153,6 +152,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 						}
 					}
 				}
+
 			} else {
 				value1 = image1.getNumBytes();
 				value2 = image2.getNumBytes();
@@ -185,6 +185,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 						}
 					}
 				}
+
 			} else {
 				value1 = image1.getNumBytes();
 				value2 = image2.getNumBytes();
@@ -196,6 +197,40 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 //			value2 = image2.getBytesPerPixel ();
 //			break;
 
+		case ByCount: //descending - USES ALBUMIMAGE CACHE
+		{
+			String imageName1 = image1.getBaseName(collapseGroups);
+			String imageName2 = image2.getBaseName(collapseGroups);
+
+			if (!imageName1.equals(imageName2)) { //we only need actual values if the inputs are different
+				if (AlbumMode.DoSampler == albumMode) {
+					if (value1 == null) {
+						try {
+							value1 = (long) AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName1, 0);
+							albumImageCache.put(image1, value1);
+						} catch (Exception ex) {
+							value1 = 0L; //not much we can do here
+						}
+					}
+					if (value2 == null) {
+						try {
+							value2 = (long) AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName2, 0);
+							albumImageCache.put(image2, value2);
+						} catch (Exception ex) {
+							value2 = 0L; //not much we can do here
+						}
+					}
+
+				} else {
+					value1 = (long) AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName1, 0);
+					value2 = (long) AlbumImageDao.getInstance().getNumMatchingImagesFromCache(imageName2, 0);
+				}
+			}
+		}
+			break;
+
+
+/*old way - new way using ALBUMIMAGE is much quicker
 		case ByCount: //descending
 		{
 			String imageName1 = image1.getBaseName(collapseGroups);
@@ -207,6 +242,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 			}
 		}
 			break;
+*/
 
 		case ByHash:
 			value1 = image1.getRgbHash();
@@ -219,6 +255,7 @@ public class AlbumImageComparator implements Comparator<AlbumImage> {
 
 		case ByRandom: //USES STRING CACHE
 		{
+			//for AlbumMode.DoSampler this will always result in the first image of the album being displayed
 			String imageName1 = (albumMode == AlbumMode.DoSampler) ? image1.getBaseName(collapseGroups) : image1.getName();
 			String imageName2 = (albumMode == AlbumMode.DoSampler) ? image2.getBaseName(collapseGroups) : image2.getName();
 

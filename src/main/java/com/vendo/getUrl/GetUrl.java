@@ -822,7 +822,7 @@ public class GetUrl {
 
 			BufferedImage image = JpgUtils.readImage(new File(filename));
 
-			if (image == null || !JpgUtils.validateImageData(image)) {
+			if (image == null || !JpgUtils.validateImageData(image, filename)) {
 				VendoUtils.printWithColor(_alertColor, "Image corrupt");
 				return false; //image corrupt
 			}
@@ -1786,12 +1786,20 @@ public class GetUrl {
 				System.out.println("GetUrl.getNextName: lastFileName = " + lastFileName);
 			}
 
-			String[] parts1 = splitLeaf(lastFileName, /*blockNumber*/ 0);
+			String[] parts1 = splitLeaf(lastFileName, 0);
 
 			String outputPrefix = parts1[0].replaceAll("\\d+-", ""); //replace all digits and dashes (with empty string)
 			String numberStr = parts1[0].replaceAll("\\D+", ""); //replace all non-digits (with empty string)
 
-			int nextNumber = 1 + Integer.parseInt(numberStr);
+//			int nextNumber = 1 + Integer.parseInt(numberStr);
+			int nextNumber;
+			try {
+				nextNumber = 1 + Integer.parseInt(numberStr);
+			} catch (Exception ex) {
+				throw new RuntimeException("getNextName: failed for lastFileName = <" + lastFileName + ">");
+			}
+
+//old
 //			if (_fromFilename == null) {
 //				if ((nextNumber % 10) == 0) {
 //					nextNumber++;

@@ -2,8 +2,7 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
@@ -14,11 +13,12 @@ public enum AlbumSkipType {
 	SkipNone ("None", false),
 	SkipFirst ("First", false),
 	SkipLast ("Last", false),
-	SkipFirstAndLast ("First And Last", false);
+	SkipFirstAndLast ("First And Last", false),
+	SkipAllButFirstAndLast ("All But First And Last", false);
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumSkipType (String name, boolean propagateValueToDrillDowns) {
-		value = new AlbumStringPair (name, "skip" + name);
+		value = new AlbumStringPair (name, "skip" + name.replaceAll("\\s", ""));
 		this.propagateValueToDrillDowns = propagateValueToDrillDowns;
 	}
 
@@ -51,7 +51,7 @@ public enum AlbumSkipType {
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static AlbumStringPair[] getValues (/*boolean visibleInUi*/) {
+	public static AlbumStringPair[] getValues () {
 		init ();
 
 		return values;

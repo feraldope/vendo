@@ -286,11 +286,11 @@ public class AlbumImageDifferGen
 
 		if (image1.getWidth () != image2.getWidth ()) {
 			_log.error ("AlbumImageDifferGen.createImageDiff: widths not equal (" + image1.getWidth () + " != " + image2.getWidth () + ")");
-			return 10000;
+			return 10_000;
 		}
 		if (image1.getHeight () != image2.getHeight ()) {
 			_log.error ("AlbumImageDifferGen.createImageDiff: heights not equal (" + image1.getHeight () + " != " + image2.getHeight () + ")");
-			return 10000;
+			return 10_000;
 		}
 
 		AlbumProfiling.getInstance ().enter (5, "getRGB loop");

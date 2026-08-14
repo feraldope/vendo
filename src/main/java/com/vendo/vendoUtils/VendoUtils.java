@@ -37,13 +37,11 @@ import java.util.stream.Collectors;
 public class VendoUtils
 {
 	///////////////////////////////////////////////////////////////////////////
-	private VendoUtils ()
-	{
+	private VendoUtils (){
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String args[])
-	{
+	public static void main (String args[]) {
 		boolean runTest = true;
 		boolean skipTest = true;
 
@@ -313,14 +311,12 @@ public class VendoUtils
 	// Test the speed of various methods for getting the caller *class* name (not method name)
 	// http://stackoverflow.com/questions/421280/how-do-i-find-the-caller-of-a-method-using-stacktrace-or-reflection
 	// Abstract class for testing different methods of getting the caller class name
-	private static abstract class GetCallerClassNameMethod
-	{
+	private static abstract class GetCallerClassNameMethod {
 		public abstract String getCallerClassName (int callStackDepth);
 		public abstract String getMethodName ();
 	}
 	// Uses the internal Reflection class
-	private static class ReflectionMethod extends GetCallerClassNameMethod
-	{
+	private static class ReflectionMethod extends GetCallerClassNameMethod {
 		@Override
 		public String getCallerClassName (int callStackDepth)
 		{
@@ -333,8 +329,7 @@ public class VendoUtils
 		}
 	}
 	// Get a stack trace from the current thread
-	private static class ThreadStackTraceMethod extends GetCallerClassNameMethod
-	{
+	private static class ThreadStackTraceMethod extends GetCallerClassNameMethod {
 		@Override
 		public String  getCallerClassName (int callStackDepth)
 		{
@@ -347,8 +342,7 @@ public class VendoUtils
 		}
 	}
 	// Get a stack trace from a new Throwable
-	private static class ThrowableStackTraceMethod extends GetCallerClassNameMethod
-	{
+	private static class ThrowableStackTraceMethod extends GetCallerClassNameMethod {
 		@Override
 		public String getCallerClassName (int callStackDepth)
 		{
@@ -361,8 +355,7 @@ public class VendoUtils
 		}
 	}
 	// Use the SecurityManager.getClassContext ()
-	private static class SecurityManagerMethod extends GetCallerClassNameMethod
-	{
+	private static class SecurityManagerMethod extends GetCallerClassNameMethod {
 		@Override
 		public String  getCallerClassName (int callStackDepth)
 		{
@@ -383,8 +376,7 @@ public class VendoUtils
 		}
 		private final static MySecurityManager _mySecurityManager = new MySecurityManager ();
 	}
-	private static void testMethod (GetCallerClassNameMethod method)
-	{
+	private static void testMethod (GetCallerClassNameMethod method) {
 		long startTime = System.nanoTime ();
 		String className = null;
 		for (int i = 0; i < 1000000; i++) {
@@ -392,16 +384,14 @@ public class VendoUtils
 		}
 		printElapsedTime (method.getMethodName (), startTime);
 	}
-	private static void printElapsedTime (String title, long startTime)
-	{
+	private static void printElapsedTime (String title, long startTime) {
 		System.out.println (title + ": " + ((double) (System.nanoTime () - startTime))/1000000 + " ms.");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	// List all threads and recursively list all subgroup
 	// http://stackoverflow.com/questions/1323408/get-a-list-of-all-threads-currently-running-in-java
-	public static void listAllThreads (List<String> threadDetails)
-	{
+	public static void listAllThreads (List<String> threadDetails) {
 		ThreadGroup rootGroup = Thread.currentThread ().getThreadGroup ();
 		ThreadGroup parent;
 		while ((parent = rootGroup.getParent ()) != null) {
@@ -413,8 +403,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	// List all threads and recursively list all subgroup
-	private static void listThreads (List<String> threadDetails, ThreadGroup group, String indent)
-	{
+	private static void listThreads (List<String> threadDetails, ThreadGroup group, String indent) {
 		threadDetails.add (indent + "Group[" + group.getName () + ":" + group.getClass () + "]");
 		int numThreads = group.activeCount ();
 		Thread[] threads = new Thread[numThreads * 2 + 10]; //numThreads is not accurate
@@ -438,8 +427,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//compare performance or ArrayList vs LinkedList when adding many items
-	public static void compareLists ()
-	{
+	public static void compareLists () {
 		final int count = 1_000_000;
 		System.out.println ("compareLists: count: " + count);
 
@@ -467,16 +455,14 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//helper used by compareLists
-	private static void compareListsHelper (Collection<String> coll, int count)
-	{
+	private static void compareListsHelper (Collection<String> coll, int count) {
 		for (int ii = 0; ii < count; ii++) {
 			coll.add (String.valueOf (ii));
 		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private static void matchTest (String searchPath, String pattern)
-	{
+	private static void matchTest (String searchPath, String pattern) {
 		boolean matches = matchPattern (searchPath, pattern);
 		System.out.println ("matchPattern (" + searchPath + ", " + pattern + ") " +
 							 (matches ? "matches" : "does not match"));
@@ -485,8 +471,7 @@ public class VendoUtils
 	///////////////////////////////////////////////////////////////////////////
 	// Wildcard matching routine
 	// '?' matches any single char, '*' matches 0 or more chars
-	public static boolean matchPattern (String path, String pattern)
-	{
+	public static boolean matchPattern (String path, String pattern) {
 		while (true) {
 			if (pattern.compareTo (_asterisk) == 0) {
 				return true;
@@ -532,8 +517,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns original string if matchCount exceeds number of times pattern found in string
-	public static String replacePattern (String string, String patternString, String replaceString, int matchCount)
-	{
+	public static String replacePattern (String string, String patternString, String replaceString, int matchCount) {
 		VPair<Integer, Integer> pair = findPattern (string, patternString, matchCount);
 
 		//numbered match not found - return original string
@@ -549,8 +533,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//returns (0, 0) if matchCount exceeds number of times pattern found in string
-	public static VPair<Integer, Integer> findPattern (String string, String patternString, int matchCount)
-	{
+	public static VPair<Integer, Integer> findPattern (String string, String patternString, int matchCount) {
 		final Pattern pattern = Pattern.compile (patternString);
 		final Matcher matcher = pattern.matcher (string);
 
@@ -574,20 +557,43 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean isMacOs ()
-	{
+	public static List<String> expandRegexRange(String regexRangeString) throws IllegalArgumentException {
+        List<String> expandedValues = new ArrayList<>();
+
+        final Pattern pattern = Pattern.compile("^\\[(.)-(.)\\](.*)$"); //match standard range patterns like [a-z] or [0-9]
+        final Matcher matcher = pattern.matcher(regexRangeString.trim());
+
+        if (matcher.find()) {
+            char start = matcher.group(1).charAt(0);
+            char end = matcher.group(2).charAt(0);
+			String remainder = matcher.group(3);
+			if (end < start) { //this can happen when passed e.g., "[a-Z]"
+				throw new IllegalArgumentException("end is less that start for range <" + regexRangeString + ">");
+			}
+
+            for (char ch = start; ch <= end; ch++) {
+                expandedValues.add("" + ch + (remainder.isEmpty() ? "" : remainder));
+            }
+
+        } else {
+			expandedValues = Collections.singletonList(regexRangeString); //not ideal? - return original string
+        }
+
+        return expandedValues;
+    }
+
+	///////////////////////////////////////////////////////////////////////////
+	public static boolean isMacOs () {
 		return _osName.startsWith ("Mac OS");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean isWindowsOs ()
-	{
+	public static boolean isWindowsOs () {
 		return _osName.startsWith ("Windows");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static double getOsVersion ()
-	{
+	public static double getOsVersion () {
 		double version = 0;
 
 		try {
@@ -600,8 +606,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int getLogicalProcessors ()
-	{
+	public static int getLogicalProcessors () {
 		return Runtime.getRuntime ().availableProcessors ();
 	}
 
@@ -638,27 +643,23 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//simple test to determine if running at home or work
-	public static boolean isWorkEnvironment ()
-	{
+	public static boolean isWorkEnvironment () {
 		return _user.equalsIgnoreCase ("ricda13");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean isDigit (char ch)
-	{
+	public static boolean isDigit (char ch) {
 		return ch >= '0' && ch <= '9';
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static boolean isHexDigit (char ch)
-	{
+	public static boolean isHexDigit (char ch) {
 		return (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F');
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//return true if entire string is made up of digits, otherwise false
-	public static boolean isDigits (String string)
-	{
+	public static boolean isDigits (String string) {
 		for (int ii = 0; ii < string.length (); ii++) {
 			if (!isDigit (string.charAt (ii))) {
 				return false;
@@ -670,8 +671,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//return true if entire string is made up of hex digits, otherwise false
-	public static boolean isHexDigits (String string)
-	{
+	public static boolean isHexDigits (String string) {
 		for (int ii = 0; ii < string.length (); ii++) {
 			if (!isHexDigit (string.charAt (ii))) {
 				return false;
@@ -682,32 +682,27 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static int roundUp (double value) //round up to next int
-	{
+	public static int roundUp (double value) { //round up to next int
 		return (int) Math.ceil (value);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static long roundUp (long value, long roundTo) //round up to next int, scaled to roundTo
-	{
+	public static long roundUp (long value, long roundTo) { //round up to next int, scaled to roundTo
 		return roundUp ((double) value / (double) roundTo) * roundTo;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static long rounding (long value, long rounding) //round down to multiple of 'rounding'
-	{
+	public static long rounding (long value, long rounding) { //round down to multiple of 'rounding'
 		return (value / rounding) * rounding;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String reverse (String string)
-	{
+	public static String reverse (String string) {
 		return new StringBuffer (string).reverse ().toString ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getUserAgent (boolean isInternetExplorer)
-	{
+	public static String getUserAgent (boolean isInternetExplorer) {
 		// Note: these are the values displayed in the browser on swine (Windows 7, 64-bit) when viewing this URL:
 		//		http://localhost/servlet/coreservlets.ShowRequestHeaders
 		// OR
@@ -729,8 +724,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getRequestHeaders (HttpServletRequest request)
-	{
+	public static String getRequestHeaders (HttpServletRequest request) {
 		StringBuilder sb = new StringBuilder(1000);
 
 		sb.append("Request Method: ").append(request.getMethod()).append(NL);

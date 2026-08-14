@@ -2,8 +2,7 @@
 
 package com.vendo.albumServlet;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 //import org.apache.logging.log4j.*;
 
@@ -18,14 +17,14 @@ public enum AlbumSortType {
 	BySizePixels ("Size (pixels)", true, true, false),
 //	BySizePixelsBytes ("Size (pixels+bytes)", true, true, false),
 //	ByBytesPerPixel ("Bytes/pixel", true, true, false),
-	ByCount ("Count", true, false, false),
+	ByCount ("Count", true, false, true),
 	ByHash ("Hash", true, false, false),
 	ByRgb ("RGB", true, false, false),
 	ByRandom ("Random", true, false, false);
 
 	///////////////////////////////////////////////////////////////////////////
 	AlbumSortType (String name, boolean isVisibleInUi, boolean propagateValueToDrillDowns, boolean comparatorUsesAlbumImageCache) {
-		value = new AlbumStringPair (name, "by" + name);
+		value = new AlbumStringPair (name, "by" + name.replaceAll("\\s", ""));
 		this.isVisibleInUi = isVisibleInUi;
 		this.propagateValueToDrillDowns = propagateValueToDrillDowns;
 		this.comparatorUsesAlbumImageCache = comparatorUsesAlbumImageCache;

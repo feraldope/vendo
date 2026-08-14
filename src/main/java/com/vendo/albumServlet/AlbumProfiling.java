@@ -456,7 +456,7 @@ public class AlbumProfiling
 		///////////////////////////////////////////////////////////////////////
 		public long getElapsedMillis ()
 		{
-			return (long) ((double) _elapsedNano / 1000000);
+			return (long) ((double) _elapsedNano / 1_000_000);
 		}
 
 		///////////////////////////////////////////////////////////////////////

@@ -61,18 +61,15 @@ import java.util.stream.Stream;
 import static com.vendo.albumServlet.AlbumFormInfo._Debug;
 
 
-public class AlbumImages
-{
+public class AlbumImages {
 	///////////////////////////////////////////////////////////////////////////
-	static
-	{
+	static {
 		Thread.setDefaultUncaughtExceptionHandler (new AlbumUncaughtExceptionHandler ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//create singleton instance
-	public static AlbumImages getInstance()
-	{
+	public static AlbumImages getInstance() {
 		if (_instance == null) {
 			synchronized (AlbumImages.class) {
 				if (_instance == null) {
@@ -85,8 +82,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private AlbumImages ()
-	{
+	private AlbumImages () {
 //		if (AlbumFormInfo._logLevel >= 6)
 		_log.debug ("AlbumImages ctor");
 
@@ -94,8 +90,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public synchronized static ExecutorService getExecutor ()
-	{
+	public synchronized static ExecutorService getExecutor () {
 		if (_executor == null || _executor.isTerminated () || _executor.isShutdown ()) {
 			_executor = Executors.newFixedThreadPool (VendoUtils.getLogicalProcessors () - 1);
 		}
@@ -104,21 +99,18 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void shutdownExecutor ()
-	{
+	public static void shutdownExecutor () {
 		_log.debug ("AlbumImages.shutdownExecutor: shutdown executor");
 		getExecutor ().shutdownNow ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void setForm (AlbumFormInfo form)
-	{
+	public void setForm (AlbumFormInfo form) {
 		_form = form;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public void processParams (HttpServletRequest request, AlbumFormInfo form)
-	{
+	public void processParams (HttpServletRequest request, AlbumFormInfo form) {
 		int imagesRemoved = 0;
 		int imagesGenerated = 0;
 		long currentTimestamp = 0;
@@ -237,8 +229,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int processRequest ()
-	{
+	public int processRequest () {
 		String[] filters = _form.getFilters ();
 		String[] tagsIn = _form.getTags (AlbumTagMode.TagIn);
 		String[] tagsOut = _form.getTags (AlbumTagMode.TagOut);
@@ -309,8 +300,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//rename image file on file system
-	private int renameImageFiles (String wildName)
-	{
+	private int renameImageFiles (String wildName) {
 		AlbumProfiling.getInstance ().enter (5);
 
 		int imagesRemoved = 0;
@@ -335,8 +325,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//rename image files on file system
-	private int renameImageFile (String origName)
-	{
+	private int renameImageFile (String origName) {
 //		AlbumProfiling.getInstance ().enter (5);
 
 		int imagesRemoved = 0;
@@ -379,8 +368,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int doDir (String[] filters, String[] excludes, long sinceInMillis)
-	{
+	private int doDir (String[] filters, String[] excludes, long sinceInMillis) {
 		AlbumProfiling.getInstance ().enter/*AndTrace*/ (1);
 
 		if (AlbumFormInfo._logLevel >= 5) {
@@ -404,44 +392,65 @@ public class AlbumImages
 		final Set<String> debugNeedsChecking = new ConcurrentSkipListSet<> ();
 		final Map<String, Integer> debugCacheMiss = new ConcurrentHashMap<> ();
 //		final Map<String, Integer> imageCountsByFolder = new ConcurrentHashMap<> ();
-		final AtomicInteger imagesSkipped = new AtomicInteger(0);
 
-		AlbumProfiling.getInstance ().enter (5, "dao.doDir");
-		for (final String subFolder : subFolders) {
-			new Thread (() -> {
-				final Collection<AlbumImage> imageDisplayList = AlbumImageDao.getInstance ().doDir (subFolder, filter, debugNeedsChecking, debugCacheMiss);
-				if (imageDisplayList.size () > 0) {
-					int imagesSkippedByFolder = handleSkipFirstLast(subFolder, imageDisplayList); //returns result in Collection parameter
-					if (imagesSkippedByFolder > 0) {
-						imagesSkipped.addAndGet(imagesSkippedByFolder);
-					}
-					synchronized (_imageDisplayList) {
-						_imageDisplayList.addAll (imageDisplayList);
+		{
+			AlbumProfiling.getInstance().enter(5, "dao.doDir");
+
+			final AtomicInteger imagesSkipped = new AtomicInteger(0);
+			for (final String subFolder : subFolders) {
+				new Thread(() -> {
+					final Collection<AlbumImage> imageDisplayList = AlbumImageDao.getInstance().doDir(subFolder, filter, debugNeedsChecking, debugCacheMiss);
+					if (imageDisplayList.size() > 0) {
+						int imagesSkippedByFolder = handleSkipFirstLast(subFolder, imageDisplayList); //returns result in Collection parameter
+						if (imagesSkippedByFolder > 0) {
+							imagesSkipped.addAndGet(imagesSkippedByFolder);
+						}
+						synchronized (_imageDisplayList) {
+							_imageDisplayList.addAll(imageDisplayList);
 //						imageCountsByFolder.put(subFolder, imageDisplayList.size());
+						}
 					}
-				}
-				endGate.countDown ();
-			}).start ();
-		}
-		try {
-			endGate.await ();
-		} catch (Exception ee) {
-			_log.error ("AlbumImages.doDir: endGate:", ee);
+					endGate.countDown();
+				}).start();
+			}
+			try {
+				endGate.await();
+			} catch (Exception ee) {
+				_log.error("AlbumImages.doDir: endGate:", ee);
+			}
+
+			if (imagesSkipped.get() > 0) {
+				String message = _decimalFormat0.format(imagesSkipped) + " images removed for SkipType: " + _form.getSkipType();
+				_log.warn("AlbumImages.doDir.imagesSkipped: " + message);
+				form.addServletError("Warning: " + message);
+			}
+
+			AlbumProfiling.getInstance().exit(5, "dao.doDir");
 		}
 
-		AlbumProfiling.getInstance ().exit (5, "dao.doDir");
+		int numAlbums = -1;
+		_mapAlbumsToAlbumImages = null;
+		final int maxImagesToCreateAlbumMap = 10_000; //hardcoded
+		if (_imageDisplayList.size() <= maxImagesToCreateAlbumMap) {
+			AlbumProfiling.getInstance().enter(5, "generate albums to images map");
 
-		if (imagesSkipped.get() > 0) {
-			String message = _decimalFormat0.format(imagesSkipped) + " images removed for SkipType: " + _form.getSkipType();
-			_log.warn("AlbumImages.doDir.imagesSkipped: " + message);
-			form.addServletError("Warning: " + message);
+			//this contains every album that was accepted by the filter (keys) and every image in those albums (values)
+			_mapAlbumsToAlbumImages = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(false)));
+			numAlbums = _mapAlbumsToAlbumImages.size();
+
+			AlbumProfiling.getInstance().exit(5, "generate albums to images map");
+
+		} else {
+			_log.warn("AlbumImages.doDir: skipping creation of _mapAlbumsToAlbumImages: _imageDisplayList.size > max (" + _decimalFormat0.format(_imageDisplayList.size()) + " > " + _decimalFormat0.format(maxImagesToCreateAlbumMap) + ")");
 		}
+		_log.debug("AlbumImages.doDir: numAlbums = " + _decimalFormat0.format(numAlbums));
 
 		if (form.getMode () != AlbumMode.DoDup) { //don't sort here because doDup() will do it
 			AlbumProfiling.getInstance ().enter (5, "sort " + _form.getSortType ());
 
 			AlbumImageComparator comparator = new AlbumImageComparator (_form);
 
+			//web claims this is faster than using list.parallelStream().sorted().collect(Collectors.toList());
 			AlbumImage[] array = _imageDisplayList.toArray (new AlbumImage[] {});
 			Arrays.parallelSort (array, comparator);
 			_imageDisplayList = Arrays.stream (array).collect(Collectors.toList());
@@ -505,8 +514,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int doDup (String[] filters, String[] excludes, long sinceInMillis)
-	{
+	private int doDup (String[] filters, String[] excludes, long sinceInMillis) {
 		AlbumProfiling.getInstance().enterAndTrace(1);
 
 		AlbumFormInfo form = AlbumFormInfo.getInstance();
@@ -586,18 +594,6 @@ public class AlbumImages
 		final AlbumFileFilter filter2 = new AlbumFileFilter (filters2, excludes, useCase, sinceInMillis);
 
 		_duplicatesCache.clear();
-
-//old way (new way is moved down below)
-		//if looseCompare, determine work to be done
-//		int maxComparisons = getMaxComparisons (numImages);
-//		if (looseCompare && !dbCompare) {
-//			_log.debug ("AlbumImages.doDup: maxComparisons = " + _decimalFormat0.format (maxComparisons) + " (max possible combos, including mismatched orientation)");
-//			final int maxAllowedComparisons = 1_000_000_000;
-//			if (maxComparisons > maxAllowedComparisons) {
-//				form.addServletError ("Warning: too many comparisons (" + _decimalFormat0.format (maxComparisons) + "), disabling looseCompare");
-//				looseCompare = false;
-//			}
-//		}
 
 		if (looseCompare && !dbCompare) {
 //			final int maxThreads = VendoUtils.getLogicalProcessors () - 1;
@@ -1242,12 +1238,12 @@ public class AlbumImages
 
 		//log all duplicate sets
 //TODO - have one max for all dups, another for near/exact dups
-		final int maxDupsSetsToShowLinksFor = 1200; //hardcoded
+		final int maxDupsSetsToShowLinksFor = 1500; //hardcoded
 //		if (!dbCompare && dups.size () > maxDupsSetsToShowLinksFor) {
 		if (/*!dbCompare && */dups.size () > maxDupsSetsToShowLinksFor) {
-			_form.addServletError("Warning: exceeded count@3; not shown (" + dups.size() + ")");
-		} else {
+			_form.addServletError("Warning: exceeded count@3; not shown (" + dups.size() + " > " + maxDupsSetsToShowLinksFor + ")");
 
+		} else {
 			AlbumProfiling.getInstance ().enter (5, "dups.sets");
 
 			//this map is for single pairs only
@@ -1263,8 +1259,8 @@ public class AlbumImages
 						dupAlbumMap.put (joinedNames, new AlbumAlbumPair(joinedNames, pair));
 					}
 				}
-				addToDuplicatesCache(_duplicatesCache, pair.getImage1 ().getName());
-				addToDuplicatesCache(_duplicatesCache, pair.getImage2 ().getName());
+				addToDuplicatesCache(_duplicatesCache, pair.getImage1().getName());
+				addToDuplicatesCache(_duplicatesCache, pair.getImage2().getName());
 			}
 
 			//this object holds single and multi-pairs
@@ -1437,8 +1433,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private int doSampler (String[] filters, String[] excludes, long sinceInMillis)
-	{
+	private int doSampler (String[] filters, String[] excludes, long sinceInMillis) {
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
 		int numImages = doDir (filters, excludes, sinceInMillis);
@@ -1450,8 +1445,8 @@ public class AlbumImages
 		boolean collapseGroups = _form.getCollapseGroups ();
 
 //TODO - eliminate dups (for example don't add both file01-* and file*)
-		List<AlbumImage> sampler = new ArrayList<> (numImages / 3);
-		Set<String> set = new HashSet<> (numImages / 3);
+		List<AlbumImage> sampler = new ArrayList<> (/*numImages / 3*/);
+		Set<String> set = new HashSet<> (/*numImages / 3*/);
 		for (AlbumImage image : images) {
 			String wildName = image.getBaseName (collapseGroups) + "*";
 			if (set.add (wildName)) { //returns true if added, false if dup
@@ -1471,8 +1466,7 @@ public class AlbumImages
 	///////////////////////////////////////////////////////////////////////////
 	//operates directly on _imageDisplayList
 	//checks stuff other than image count; e.g., image numbering must be three digits and must start with "0"
-	public Set<String> removeAlbumsWithLargeCounts (final int minImagesToFlagAsLargeAlbum)
-	{
+	public Set<String> removeAlbumsWithLargeCounts (final int minImagesToFlagAsLargeAlbum) {
 		AlbumProfiling.getInstance ().enter (5);
 
 		//get baseNames to reduce number of calls to getNumMatchingImagesFromCache() below (only call once per album, instead of once per image)
@@ -1500,8 +1494,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> reduceFilters(List<String> filters, String arrayName, int maxFilters)
-	{
+	public List<String> reduceFilters(List<String> filters, String arrayName, int maxFilters) {
 		//if we have to reduce the filters, always add back in the original filters //NO!!! this breaks tags
 		if (filters.size() > maxFilters) {
 //TODO - if we are adding the original filters in at the end of this block, we should remove them at the beginning, otherwise the might end up in the list twice
@@ -1518,15 +1511,13 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public List<String> generateCopyCommandsForMisMatchedDuplicateImages (AlbumAlbumPairs albumPairs) //mis-matched by size in pixels
-	{
+	public List<String> generateCopyCommandsForMisMatchedDuplicateImages (AlbumAlbumPairs albumPairs) { //mis-matched by size in pixels
 		return albumPairs.generateCopyCommandsForMisMatchedDuplicateImages();
 	}
 
 //unused
 //	///////////////////////////////////////////////////////////////////////////
-//	public int getMaxComparisons (long numImages)
-//	{
+//	public int getMaxComparisons (long numImages) {
 //		long maxComparisons = 1;
 //		if (numImages > 2) {
 //			maxComparisons = numImages * (numImages - 1) / 2;
@@ -1541,8 +1532,7 @@ public class AlbumImages
 
 //unused
 //	///////////////////////////////////////////////////////////////////////////
-//	public int getMaxComparisons (long numImages1, long numImages2)
-//	{
+//	public int getMaxComparisons (long numImages1, long numImages2) {
 //		long maxComparisons = 1;
 //		if (numImages1 > 2 && numImages2 > 2) {
 //			maxComparisons = numImages2 * (numImages2 - 1) / 2;
@@ -1556,8 +1546,7 @@ public class AlbumImages
 //	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getNumRows ()
-	{
+	public int getNumRows () {
 		int cols = _form.getColumns ();
 		int rows = _form.getPanels () / cols;
 		if ((rows * cols) != _form.getPanels ()) {
@@ -1568,8 +1557,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getNumSlices ()
-	{
+	public int getNumSlices () {
 		int numImages = _imageDisplayList.size ();
 		if (numImages == 0) {
 			return 1;
@@ -1589,8 +1577,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//web color picker: http://www.colorpicker.com/
-	public String getBgColor ()
-	{
+	public String getBgColor () {
 		switch (_form.getMode ()) {
 			default:
 			case DoDir:		return "#FDF5E5";
@@ -1623,8 +1610,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generateAlbumLinks (String filter)
-	{
+	public String generateAlbumLinks (String filter) {
 		final int MaxAlbumLinks = 30; //limit number of album links shown
 
 		String baseName = AlbumImage.getBaseName(filter);
@@ -1690,8 +1676,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generateAlbumLinksHelper (String albumStr, String text)
-	{
+	public String generateAlbumLinksHelper (String albumStr, String text) {
 		String server = AlbumFormInfo.getInstance ().getServer ();
 
 		//add timestamp to URL to always causes server hit and avoid caching
@@ -1762,8 +1747,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generateSliceLinks ()
-	{
+	public String generateSliceLinks () {
 		final int MaxSliceLinks = 40; //limit number of slice links shown
 
 		int numSlices = getNumSlices ();
@@ -1821,8 +1805,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generateSliceLinksHelper (int slice, String text)
-	{
+	public String generateSliceLinksHelper (int slice, String text) {
 		String server = AlbumFormInfo.getInstance ().getServer ();
 
 		//add timestamp to URL to always causes server hit and avoid caching
@@ -1894,8 +1877,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//handles max of two filters (an image, and optionally its pair)
-	public String generateImagesLink (String filter1, String filter2, AlbumMode mode, int columns, double sinceDays, boolean limitedCompare, boolean looseCompare)
-	{
+	public String generateImagesLink (String filter1, String filter2, AlbumMode mode, int columns, double sinceDays, boolean limitedCompare, boolean looseCompare) {
 		String server = AlbumFormInfo.getInstance ().getServer ();
 
 		int panels = _form.getPanels ();
@@ -1948,8 +1930,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generateTitle ()
-	{
+	public String generateTitle () {
 //		String title = "Album." + _form.getMode().getName();
 		String title = _form.getMode().getShortName();
 
@@ -1994,13 +1975,14 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String generateHtml ()
-	{
+	public String generateHtml () {
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
 		int numImages = _imageDisplayList.size ();
+		int numAlbums = _mapAlbumsToAlbumImages == null ? -1 : _mapAlbumsToAlbumImages.size();
+
 		if (_Debug) {
-			_log.debug ("AlbumImages.generateHtml: numImages = " + _decimalFormat0.format(numImages));
+			_log.debug ("AlbumImages.generateHtml: numAlbums = " + _decimalFormat0.format(numAlbums) + ", numImages = " + _decimalFormat0.format(numImages));
 		}
 
 		boolean isAndroidDevice = _form.isAndroidDevice ();
@@ -2074,10 +2056,8 @@ public class AlbumImages
 		//reduce number of columns when it is greater than number of images
 		if (cols > numImages) {
 			cols = numImages;
-		}
 
-		//for these, make sure we have an even number of columns
-		if ((mode == AlbumMode.DoDup || (mode == AlbumMode.DoDir && interleaveSort)) && cols % 2 != 0) {
+		} else if ((mode == AlbumMode.DoDup || (mode == AlbumMode.DoDir && interleaveSort)) && cols % 2 != 0) { //for these, make sure we have an even number of columns
 			cols++;
 		}
 
@@ -2085,7 +2065,7 @@ public class AlbumImages
 		int end = start + (rows * cols);
 
 		if (start >= numImages) {
-			_log.debug ("AlbumImages.generateHtml: no images in slice; reset slice to 1");
+			_log.debug ("AlbumImages.generateHtml: no images in slice; resetting slice to 1");
 
 			slice = 1;
 			_form.setSlice (slice);
@@ -2100,15 +2080,15 @@ public class AlbumImages
 		long highlightInMillis = _form.getHighlightInMillis (true);
 		String highlightStr = highlightInMillis > 0 ? " (highlight " + _dateFormat.format (new Date (highlightInMillis)) + ")" : "";
 
-		int numAlbums;
-		String albumSizeInBytesStr;
-		{
+		String albumSizeInBytesStr = " (?? MB)";
+		if (_mapAlbumsToAlbumImages != null) {
 			AlbumProfiling.getInstance().enter(5, "albumSize");
 
-//alternative way to get numAlbums
-			Map<String, List<AlbumImage>> nameMap = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(collapseGroups)));
-			numAlbums = nameMap.size();
-			long albumSizeInBytes = nameMap.keySet().stream().parallel().map(f -> AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(f, 0)).mapToLong(Long::longValue).sum();
+			long albumSizeInBytes = _mapAlbumsToAlbumImages.keySet().stream()
+					.parallel()
+					.map(f -> AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(f, 0))
+					.mapToLong(Long::longValue)
+					.sum();
 			albumSizeInBytesStr = " (" + VendoUtils.unitSuffixScaleBytes(albumSizeInBytes) + ") ";
 
 			AlbumProfiling.getInstance().exit(5, "albumSize");
@@ -2208,7 +2188,7 @@ public class AlbumImages
 			imageWidth = tableWidth / tempCols - (2 * (imageBorderPixels + imageOutlinePixels + padding));
 //			imageHeight = _form.getWindowHeight () - 40; //for 1080p
 //			imageHeight = _form.getWindowHeight () - 60; //for 1440p
-			imageHeight = _form.getWindowHeight () - 80; //for 2160p (4k)
+			imageHeight = _form.getWindowHeight () - 80 - 1; //for 2160p (4k)
 		}
 
 		if (isAndroidDevice) {
@@ -2225,12 +2205,11 @@ public class AlbumImages
 				.append (">").append (NL);
 
 		if (interleaveSort) {
-			boolean tempCollapseGroups = collapseGroups; //HACK
-			Map<String, List<AlbumImage>> map = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(tempCollapseGroups)));
-			map.keySet().stream().sorted().forEach(d -> map.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName, _form.getReverseSort())));
+			Map<String, List<AlbumImage>> tempMap = _imageDisplayList.stream().collect(Collectors.groupingBy(i -> i.getBaseName(collapseGroups)));
+			tempMap.keySet().stream().sorted().forEach(d -> tempMap.get(d).sort(new AlbumImageComparator(AlbumSortType.ByName, _form.getReverseSort())));
 
 			_imageDisplayList.clear();
-			List<Iterator<AlbumImage>> iters = map.keySet().stream().sorted().map(map::get).map(List::iterator).collect(Collectors.toList());
+			List<Iterator<AlbumImage>> iters = tempMap.keySet().stream().sorted().map(tempMap::get).map(List::iterator).collect(Collectors.toList());
 			boolean mightHaveMore;
 			do {
 				mightHaveMore = false;
@@ -2242,7 +2221,6 @@ public class AlbumImages
 				}
 			} while (mightHaveMore);
 		}
-
 		AlbumImage[] images = _imageDisplayList.toArray (new AlbumImage[] {});
 
 		String font2 = "fontsize10";
@@ -2278,23 +2256,23 @@ public class AlbumImages
 			}
 		}
 
-		int imageCount = 0;
+		int currentImageIndex = 0;
 
 		//go through the slice once to see if any of the images are dups
 		Set<AlbumImage> dupsInSlice = new HashSet<>();
 		if (mode == AlbumMode.DoDir) {
 			for (int row = 0; row < rows; row++) {
 				for (int col = 0; col < cols; col++) {
-					AlbumImage image = images[start + imageCount];
+					AlbumImage image = images[start + currentImageIndex];
 					if (findInDuplicatesCache(_duplicatesCache, image.getName())) {
 						dupsInSlice.add(image);
 					}
-					imageCount++;
-					if ((start + imageCount) >= numImages) {
+					currentImageIndex++;
+					if ((start + currentImageIndex) >= numImages) {
 						break;
 					}
 				}
-				if ((start + imageCount) >= numImages) {
+				if ((start + currentImageIndex) >= numImages) {
 					break;
 				}
 			}
@@ -2302,7 +2280,7 @@ public class AlbumImages
 
 		Set<AlbumImage> imagesInSlice = new HashSet<> (); //use Set to eliminate duplicates
 		int numMatchesFilter = 0;
-		/*int*/ imageCount = 0;
+		currentImageIndex = 0;
 		for (int row = 0; row < rows; row++) {
 			sb.append ("<TR>").append (NL);
 
@@ -2310,7 +2288,7 @@ public class AlbumImages
 			String href;
 
 			for (int col = 0; col < cols; col++) {
-				AlbumImage image = images[start + imageCount];
+				AlbumImage image = images[start + currentImageIndex];
 				image.calculateScaledSize (imageWidth, imageHeight, _form.getMaxImageScalePercent());
 
 				String extraDiffString = "";
@@ -2374,9 +2352,10 @@ public class AlbumImages
 					hasExifDates = AlbumImageDao.getInstance().getAlbumHasExifData(imageName, sinceInMillis);
 
 					details.append ("(")
-							.append (collapseGroups ? AlbumImageDao.getInstance ().getNumMatchingAlbumsFromCache(imageName, sinceInMillis) + ":" : "")
+//							.append (collapseGroups ? _decimalFormat0.format (AlbumImageDao.getInstance ().getNumMatchingAlbumsFromCache(imageName, sinceInMillis)) + ":" : "")
+							.append (collapseGroups ? _decimalFormat0.format (AlbumImageDao.getInstance ().getNumMatchingAlbumsFromCache(imageName, sinceInMillis)) + "/" : "") //slash instead of colon?
 							.append("<B>")
-							.append (AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (imageName, sinceInMillis))
+							.append (_decimalFormat0.format (AlbumImageDao.getInstance ().getNumMatchingImagesFromCache (imageName, sinceInMillis)))
 							.append("</B>")
 							.append("/")
 							.append (VendoUtils.unitSuffixScaleBytes(AlbumImageDao.getInstance().getAlbumSizeInBytesFromCache(imageName, 0)))
@@ -2390,9 +2369,9 @@ public class AlbumImages
 //					AlbumMode newMode = AlbumMode.DoDir;
 					AlbumMode newMode = AlbumMode.DoDup;
 
-					boolean isEven = (((start + imageCount) & 1) == 0);
+					boolean isEven = (((start + currentImageIndex) & 1) == 0);
 					imageName = image.getName ();
-					AlbumImage partner = images[start + imageCount + (isEven ? +1 : -1)];
+					AlbumImage partner = images[start + currentImageIndex + (isEven ? +1 : -1)];
 
 					String imageNonUniqueString = image.getBaseName (false);
 					String partnerNonUniqueString = partner.getBaseName (false);
@@ -2513,7 +2492,7 @@ public class AlbumImages
 
 					if (cols <= 3) { //hardcoded
 						details.append (" (")
-								.append (imageCount + 1)
+								.append (currentImageIndex + 1)
 								.append (" of ")
 								.append (numImages)
 								.append (")");
@@ -2667,16 +2646,16 @@ public class AlbumImages
 
 				sb.append ("</TD>").append (NL);
 
-				imageCount++;
+				currentImageIndex++;
 
-				if ((start + imageCount) >= numImages) {
+				if ((start + currentImageIndex) >= numImages) {
 					break;
 				}
 			}
 
 			sb.append ("</TR>").append (NL);
 
-			if ((start + imageCount) >= numImages) {
+			if ((start + currentImageIndex) >= numImages) {
 				break;
 			}
 		}
@@ -2710,8 +2689,43 @@ public class AlbumImages
 
 				.append ("</TABLE>").append (NL);
 
+		//display non-dups
+		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty() && numAlbums <= 10) { //hardcoded
+			Set<AlbumImage> nonDups = new HashSet<>(imagesInSlice);
+			nonDups.removeAll(dupsInSlice);
+
+			if (!nonDups.isEmpty()) {
+				Map<String, List<AlbumImage>> mapAlbumsToDupImages = nonDups.stream().collect(Collectors.groupingBy(i -> i.getBaseName(false)));
+
+				mapAlbumsToDupImages.keySet().stream()
+						.sorted(new AlphanumComparator())
+						.forEach(l -> {
+							List<String> nonDupNames = mapAlbumsToDupImages.get(l).stream().map(AlbumImage::getName).collect(Collectors.toList());
+
+							List<Integer> nonDupNumbers = nonDupNames.stream()
+									.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
+									.map(AlbumImages::convertToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
+									.filter(Objects::nonNull)
+									.sorted()
+									.collect(Collectors.toList());
+
+							String firstNumber = nonDupNames.get(0).replaceAll(".*-", "");
+							final int digits = firstNumber.length();
+							String ranges = VendoUtils.NumberToRange.convertToRanges(nonDupNumbers, digits);
+							if (!ranges.isEmpty()) {
+								String message = l + ": non-duplicates in slice (" + nonDupNames.size() + "): " + ranges;
+								_log.debug("AlbumImages.generateHtml: " + message);
+								_form.addServletError("Info: " + message);
+							}
+						});
+			}
+		}
+
+/*old way
+//TODO - make this work for multiple albums simultaneously
 		// display non-dups
-		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty() && numAlbums == 1) {
+//		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty() && numAlbums == 1) {
+		if (mode == AlbumMode.DoDir && !dupsInSlice.isEmpty() && numAlbums <= 6) {
 			Set<AlbumImage> nonDups = new HashSet<>(imagesInSlice);
 			nonDups.removeAll(dupsInSlice);
 
@@ -2729,7 +2743,7 @@ public class AlbumImages
 
 				List<Integer> nonDupNumbers = nonDupNames.stream()
 						.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
-						.map(AlbumImages::converToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
+						.map(AlbumImages::convertToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
 						.filter(Objects::nonNull)
 						.collect(Collectors.toList());
 
@@ -2743,8 +2757,9 @@ public class AlbumImages
 				}
 			}
 		}
-
-		//check for gaps
+*/
+		//check for gaps - only interesting for AlbumMode.DoDir
+		//NOTE this only works for AlbumMode.DoDir because for DoSampler, _imageDisplayList only has one image for each album
 		if (mode == AlbumMode.DoDir && numAlbums == 1) {
 			List<String> imageNames = _imageDisplayList.stream()
 					.map(AlbumImage::getName)
@@ -2756,14 +2771,16 @@ public class AlbumImages
 			int gaps = numMissingImagesReturn.get();
 
 			boolean qOnlyImages = imageNames.get(0).startsWith("q");
-			if (gaps > 0 || !qOnlyImages) { //only show "no gaps" message if not "q" images
+			if (gaps > 0 || !qOnlyImages) { //only show "NO gaps" message if not "q" images
 				String message = "this album has " + (gaps == 0 ? "<B>NO</B> gaps" : "a gap of <B>" + gaps + "</B> image(s)" + ranges);
 				_log.debug("AlbumImages.generateHtml: " + message);
 				_form.addServletError("Info: " + message);
 			}
 		}
 
-		{ //check for inconsistent numbering
+/* old way
+		//check for inconsistent numbering - NOTE this only works for AlbumMode.DoDir because for DoSampler, _imageDisplayList only has one image for each album
+		if (mode == AlbumMode.DoDir) {
 			AlbumProfiling.getInstance().enter(5, "inconsistentNumbering");
 
 			Map<String, List<String>> albumMap = _imageDisplayList.stream()
@@ -2788,7 +2805,35 @@ public class AlbumImages
 						});
 			}
 
-			AlbumProfiling.getInstance().exit(5);
+			AlbumProfiling.getInstance().exit(5, "inconsistentNumbering");
+		}
+*/
+
+		//check for inconsistent numbering
+		int maxAlbumsForInconsistentNumberingCheck = 1000; //hardcoded
+		if (numAlbums > 0 && numAlbums <= maxAlbumsForInconsistentNumberingCheck && _mapAlbumsToAlbumImages != null) {
+			AlbumProfiling.getInstance().enter(5, "inconsistentNumbering");
+
+			final Pattern imageNumberPattern = Pattern.compile("^[A-Z]+[0-9]+-([0-9]+)", Pattern.CASE_INSENSITIVE); //group1 is the image number
+
+			_mapAlbumsToAlbumImages.keySet().stream()
+					.sorted(new AlphanumComparator())
+					.forEach(l -> {
+						List<String> imageNames = _mapAlbumsToAlbumImages.get(l).stream().map(AlbumImage::getName).collect(Collectors.toList());
+						Set<Integer> imageNumberLengthsSet = AlbumImages.checkForInconsistentNumbering(imageNames, imageNumberPattern);
+						if (imageNumberLengthsSet.size() > 1) {
+							String message = "Inconsistent numbering for \"" + l + "\": " + imageNumberLengthsSet;
+							_log.warn("AlbumImages.generateHtml: " + message);
+							_form.addServletError("Warning: " + message);
+						}
+
+					});
+
+			AlbumProfiling.getInstance().exit(5, "inconsistentNumbering");
+		} else {
+			String message = "Check for inconsistent numbering is disabled for this run";
+			_log.warn("AlbumImages.generateHtml: " + message);
+			_form.addServletError("Warning: " + message);
 		}
 
 		String htmlString = sb.toString ();
@@ -2803,18 +2848,13 @@ public class AlbumImages
 			htmlString = htmlString.replace ("; outline: 2px dashed fuchsia", ""); //HACK - hardcoded string from above
 		}
 
-		if (_Debug) {
-			_log.debug ("AlbumImages.generateHtml: imageCount = " + imageCount);
-		}
-
 		AlbumProfiling.getInstance ().exit (1);
 
 		return htmlString;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String getTagsString (Set<AlbumImage> imagesInSlice, boolean collapseGroupsForTags)
-	{
+	private String getTagsString (Set<AlbumImage> imagesInSlice, boolean collapseGroupsForTags) {
 		StringBuilder sb = new StringBuilder (64);
 
 		Set<String> imageNamesInSlice = imagesInSlice.stream()
@@ -2849,8 +2889,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String getServletErrorsHtml ()
-	{
+	private String getServletErrorsHtml () {
 		final String bgErrorColor   = "#FF0000"; //red background
 		final String bgInfoColor    = "#F0F0F0"; //white background
 		final String bgWarnColor    = "#E0E000"; //yellow background
@@ -2936,8 +2975,7 @@ public class AlbumImages
 
 //not used, too slow - use AlbumImageDao#getAlbumHasExifData (?)
 	///////////////////////////////////////////////////////////////////////////
-//	public List<AlbumImage> getMatchingImagesForImage (final AlbumImage image, final boolean collapseGroups, final long sinceInMillis)
-//	{
+//	public List<AlbumImage> getMatchingImagesForImage (final AlbumImage image, final boolean collapseGroups, final long sinceInMillis) {
 //		AlbumProfiling.getInstance ().enter (5);
 //
 //		String imageBaseName = image.getBaseName (collapseGroups);
@@ -2956,8 +2994,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//creates .BAT file with move commands
-	public void generateExifSortCommands ()
-	{
+	public void generateExifSortCommands () {
 		StringBuilder sb = new StringBuilder(2048);
 
 //TODO - check filter for wildcards
@@ -3045,8 +3082,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	//creates .BAT file with move commands
-	public void generateDuplicateImageRenameCommands ()
-	{
+	public void generateDuplicateImageRenameCommands () {
 //		_log.debug ("AlbumImages.generateDuplicateImageRenameCommands");
 
 		StringBuilder sb = new StringBuilder(2048);
@@ -3314,9 +3350,19 @@ public class AlbumImages
 				imagesRemoved.incrementAndGet();
 			}
 			if (AlbumSkipType.SkipLast.equals(skipType) || AlbumSkipType.SkipFirstAndLast.equals(skipType)) {
-				if (list.size() > 0) {
+				if (list.size() >= 1) {
 					list.remove(list.size() - 1);
 					imagesRemoved.incrementAndGet();
+				}
+			}
+			if (AlbumSkipType.SkipAllButFirstAndLast.equals(skipType)) {
+				if (list.size() >= 2) {
+					imagesRemoved.addAndGet(list.size() - 2);
+					AlbumImage firstImage = list.get(0);
+					AlbumImage lastImage = list.get(list.size() - 1);
+					list.clear();
+					list.add(firstImage);
+					list.add(lastImage);
 				}
 			}
 		});
@@ -3354,7 +3400,7 @@ public class AlbumImages
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static Integer converToIntegerOrNull (String string) {
+	public static Integer convertToIntegerOrNull (String string) {
 		try {
 			return Integer.valueOf(string);
 		} catch (Exception ex) {
@@ -3715,7 +3761,7 @@ public class AlbumImages
 
 	///////////////////////////////////////////////////////////////////////////
 	private String generateDistributionTable (AlbumFormInfo form) {
-		if (false) { //have option to manually turn this off while debugging in IntelliJ since it runs very very slowly
+		if (false) { //have option to manually turn this off while debugging in IntelliJ since the second block ("size in pixels distribution") runs very very slowly
 			_log.debug ("AlbumImages.generateDistributionTable: METHOD HAS BEEN DISABLED ********************************");
 			return "";
 		}
@@ -3725,47 +3771,53 @@ public class AlbumImages
 		final boolean reverseSort = !form.getReverseSort(); //normally we would sort descending (reverse), but if reverseSort is requested, reverse that back to normal
 		final String topBottom = reverseSort ? "Top" : "Bottom";
 
-		if (_imageDisplayList.size() < 10_000) {
+		if (_imageDisplayList.size() < 10_000) { //hardcoded
 			AlbumProfiling.getInstance().enterAndTrace(5);
 
 			int maxItemsToPrint = 10;
 
-			//date distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
+			//column 1: date distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
 			List<String> dateDist = new ArrayList<>();
-			Map<LocalDate, List<AlbumImage>> dateMap = _imageDisplayList.stream()
-					.collect(Collectors.groupingBy(i -> Instant.ofEpochMilli(i.getModified()).atZone(ZoneId.systemDefault()).toLocalDate()));
-			dateDist.add(topBottom + " " + maxItemsToPrint + " by date");
-			dateMap.keySet().stream().sorted(reverseSort ? Comparator.reverseOrder() : Comparator.naturalOrder()).limit(maxItemsToPrint)
-					.forEach(d -> dateDist.add(d + " -> " + dateMap.get(d).size() + " images")
-			);
+			{
+				Map<LocalDate, List<AlbumImage>> dateMap = _imageDisplayList.stream()
+						.collect(Collectors.groupingBy(i -> Instant.ofEpochMilli(i.getModified()).atZone(ZoneId.systemDefault()).toLocalDate()));
+				dateDist.add(topBottom + " " + maxItemsToPrint + " by date");
+				dateMap.keySet().stream().sorted(reverseSort ? Comparator.reverseOrder() : Comparator.naturalOrder()).limit(maxItemsToPrint)
+						.forEach(d -> dateDist.add(d + " -> " + dateMap.get(d).size() + " images")
+						);
+			}
 
-			//size in pixels distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
+			//column 2: size in pixels distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
 			List<String> pixelsDist = new ArrayList<>();
-			Map<String, String> dimensionToPixelsMap = new ConcurrentHashMap<>();
-			Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
-//					.peek(i -> System.out.println("***DEBUG*** " + i.getName())) //note this is written to file tomcat8-stdout.yyyy-mm-dd.log in tomcat log directory
-					//prepend string with total pixels (for sorting) which will be stripped out while printing
-					.collect(Collectors.groupingBy(i -> {
-						String valueForSorting = VendoUtils.unitSuffixScale(i.getPixels(), "P", true); //"P" for Pixels
-						//to reduce number of items in table, reuse the same pixel dimensions for each different value of "valueForSorting"
-						String sharedPixelDimensionsAsString = dimensionToPixelsMap.computeIfAbsent(valueForSorting, v -> i.getPixelDimensionsAsString());
-						return "<" + valueForSorting + ">" + sharedPixelDimensionsAsString + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")";
-					}));
-			pixelsDist.add(topBottom + " " + maxItemsToPrint + " by pixels (rounded)");
-			pixelMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
-					.forEach(p -> pixelsDist.add(p.replaceAll("<.*?>", "") + " -> " + pixelMap.get(p).size() + " images") //lazy regex
-			);
+			{
+				Map<String, String> dimensionToPixelsMap = new ConcurrentHashMap<>();
+				Map<String, List<AlbumImage>> pixelMap = _imageDisplayList.stream()
+//						.peek(i -> System.out.println("***DEBUG*** " + i.getName())) //note this is written to file tomcat8-stdout.yyyy-mm-dd.log in tomcat log directory
+						.collect(Collectors.groupingBy(i -> {
+							//prepend string with total pixels (for sorting) which will be stripped out while printing
+							String valueForSorting = VendoUtils.unitSuffixScale(i.getPixels(), "P", true); //"P" for Pixels
+							//to reduce number of items in table, reuse the same pixel dimensions for each different value of "valueForSorting"
+							String sharedPixelDimensionsAsString = dimensionToPixelsMap.computeIfAbsent(valueForSorting, v -> i.getPixelDimensionsAsString());
+							return "<" + valueForSorting + ">" + sharedPixelDimensionsAsString + " (" + VendoUtils.unitSuffixScale(i.getPixels(), "P") + ")";
+						}));
+				pixelsDist.add(topBottom + " " + maxItemsToPrint + " by pixels (rounded)");
+				pixelMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
+						.forEach(p -> pixelsDist.add(p.replaceAll("<.*?>", "") + " -> " + pixelMap.get(p).size() + " images") //lazy regex
+						);
+			}
 
-			//size in bytes distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
-			final long roundToBytes = 256;
-			final long roundToKB = roundToBytes * 1024;
+			//column 3: size in bytes distribution (note this only shows images actually in _imageDisplayList, not all images included by filters)
 			List<String> bytesDist = new ArrayList<>();
-			Map<Long, List<AlbumImage>> bytesMap = _imageDisplayList.stream()
-					.collect(Collectors.groupingBy(i -> VendoUtils.roundUp(i.getNumBytes(), roundToKB)));
-			bytesDist.add(topBottom + " " + maxItemsToPrint + " by bytes (rounded)");
-			bytesMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
-					.forEach(b -> bytesDist.add(VendoUtils.unitSuffixScaleBytes(VendoUtils.roundUp(b, roundToKB)) + " -> " + bytesMap.get(b).size() + " images")
-			);
+			{
+				final long roundToBytes = 256;
+				final long roundToKB = roundToBytes * 1024;
+				Map<Long, List<AlbumImage>> bytesMap = _imageDisplayList.stream()
+						.collect(Collectors.groupingBy(i -> VendoUtils.roundUp(i.getNumBytes(), roundToKB)));
+				bytesDist.add(topBottom + " " + maxItemsToPrint + " by bytes (rounded)");
+				bytesMap.keySet().stream().sorted(new AlphanumComparator(reverseSort ? AlphanumComparator.SortOrder.Reverse : AlphanumComparator.SortOrder.Normal)).limit(maxItemsToPrint)
+						.forEach(b -> bytesDist.add(VendoUtils.unitSuffixScaleBytes(VendoUtils.roundUp(b, roundToKB)) + " -> " + bytesMap.get(b).size() + " images")
+						);
+			}
 
 			final int[] fieldWidths = {32, 38, 32}; //TODO - calculate from data
 
@@ -3816,8 +3868,19 @@ public class AlbumImages
 
 		String firstNumber = imageNamesNoExt.get(0).replaceAll(".*-", "");
 		String lastNumber = imageNamesNoExt.get(numFileNames - 1).replaceAll(".*-", "");
-		int firstInt = Math.min(Integer.parseInt(firstNumber), 1); //hardcoded: use min of 1
-		int lastInt = Integer.parseInt(lastNumber);
+//		int firstInt = Integer.parseInt(firstNumber);
+//		int lastInt = Integer.parseInt(lastNumber);
+		Integer firstInt = convertToIntegerOrNull(firstNumber);
+		Integer lastInt = convertToIntegerOrNull(lastNumber);
+		if (firstInt == null || lastInt == null) {  //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
+			if (numMissingImagesReturn != null) {
+				numMissingImagesReturn.set(999); //hack - return value to caller
+			}
+			return "ranges not available; failed to parse <" + firstNumber + "> or <" + lastNumber + "> as integers";
+		}
+
+		int minFirstInt = firstInt > 100 ? 101 : 1; //hardcoded: use min of 1 or 101
+		firstInt = Math.min(firstInt, minFirstInt);
 
 		int range = lastInt - firstInt + 1;
 		int numMissingImages = range - numFileNames;
@@ -3834,7 +3897,7 @@ public class AlbumImages
 
 			List<Integer> missingImageNumbers = missingImageNames.stream()
 					.map(s -> s.replaceAll("^[A-Za-z0-9-]+-", ""))
-					.map(AlbumImages::converToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
+					.map(AlbumImages::convertToIntegerOrNull) //handle invalid image names (e.g., from GenerateImagesDiff, where name could have number like "001a")
 					.filter(Objects::nonNull)
 					.collect(Collectors.toList());
 
@@ -3917,6 +3980,7 @@ public class AlbumImages
 	private AlbumFormInfo _form = null;
 
 	private Collection<AlbumImage> _imageDisplayList = null; //list of images to display
+	private Map<String, List<AlbumImage>> _mapAlbumsToAlbumImages = null; //map of all albums that were accepted by filter: albumName -> list of images
 
 	private final int _tableBorderPixels = 0; //set to 0 normally, set to 1 for debugging
 

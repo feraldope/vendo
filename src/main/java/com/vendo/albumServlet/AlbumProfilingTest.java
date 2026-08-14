@@ -5,27 +5,23 @@ package com.vendo.albumServlet;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Date;
+import java.util.*;
 
 
-public class AlbumProfilingTest
-{
+public class AlbumProfilingTest {
 	///////////////////////////////////////////////////////////////////////////
-	public static void main (String[] args)
-	{
+	public static void main (String[] args) {
 		AlbumProfilingTest tester = new AlbumProfilingTest ();
 		tester.run ();
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumProfilingTest ()
-	{
+	public AlbumProfilingTest () {
 		AlbumFormInfo._Debug = true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean run ()
-	{
+	public boolean run () {
 //		if (true) {
 //			_log.debug ("_log.getName () = " + _log.getName ());
 //			_log.debug ("_log.getLevel () = " + _log.getLevel ());
@@ -40,20 +36,19 @@ public class AlbumProfilingTest
 //		}
 
 		System.out.println ("------------------------------------------------------------");
-		run1 (/*count*/ 10000);
+		run1 (10_000);
 
 		System.out.println ("------------------------------------------------------------");
-		run2 (/*enableProfiling*/ true);
+		run2 (true);
 
 		System.out.println ("------------------------------------------------------------");
-		run2 (/*enableProfiling*/ false);
+		run2 (false);
 
 		return true;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean run1 (int count)
-	{
+	public boolean run1 (int count) {
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
 		for (int ii = 0; ii < count; ii++) {
@@ -68,8 +63,7 @@ public class AlbumProfilingTest
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean test1 ()
-	{
+	public boolean test1 () {
 		AlbumProfiling.getInstance ().enter (1);
 		AlbumProfiling.getInstance ().exit (1);
 
@@ -77,8 +71,7 @@ public class AlbumProfilingTest
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public boolean run2 (boolean enableProfiling)
-	{
+	public boolean run2 (boolean enableProfiling) {
 		AlbumProfiling.getInstance ().enterAndTrace (1);
 
 		_log.debug ("enableProfiling = " + new Boolean (enableProfiling));
@@ -102,8 +95,7 @@ public class AlbumProfilingTest
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private void test2 (String tag, int iterations, double millis, boolean enableProfiling)
-	{
+	private void test2 (String tag, int iterations, double millis, boolean enableProfiling) {
 		long startMillis = new Date ().getTime ();
 
 		for (int ii = 0; ii < iterations; ii++) {
