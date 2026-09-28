@@ -118,12 +118,12 @@ public class AlbumFileFilter implements FilenameFilter {
 		boolean status = false;
 
 		do {
-			if (_includeAllFolders) { //note: set to true above if patterns starts with "*" or "["
+			if (_includeAllFolders) { //note: set to true above if patterns starts with "*" or "[" //TODO: add ";" and ":" ??
 				status = true;
 
 			} else if (_includeFilters != null) {
 				for (String includeFilter : _includeFilters) {
-					String leadingNonNumericChars = includeFilter.replaceFirst("[0-9\\[.*].*", "").toLowerCase();
+					String leadingNonNumericChars = includeFilter.replaceFirst("[0-9\\[.*;:].*", "").toLowerCase(); //regex: only four chars need to be escaped inside square brackets if you want the literal: backslash, open and close square brackets, hyphen/dash (and sometimes the caret)
 
 					//NOTE if either of these strings is empty, the following will always be true
 					if (leadingNonNumericChars.startsWith(folder) || folder.startsWith(leadingNonNumericChars)) {

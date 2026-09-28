@@ -491,7 +491,7 @@ public class GetUrl {
 //			}
 //		}
 
-		_perfStats.printRecords(Instant.now()); //end stats timing and print all records
+		_perfStats.printRecords(Instant.now(), true); //end stats timing and print all records
 
 		_perfStats.printMissingImages();
 
@@ -1335,7 +1335,9 @@ public class GetUrl {
 		try (BufferedReader reader = new BufferedReader(new FileReader(_destDir + _fromFilename))) {
 			String line;
 			while ((line = reader.readLine()) != null) {
-				fromFileContents.add(line);
+				if (!line.replaceAll("\\s+", "").isEmpty()) {
+					fromFileContents.add(line);
+				}
 			}
 
 		} catch (IOException ee) {
@@ -1547,7 +1549,7 @@ public class GetUrl {
 		}
 
 		///////////////////////////////////////////////////////////////////////////
-		public void printRecords(Instant endInstant) {
+		public void printRecords(Instant endInstant, boolean showMemoryStatistics) {
 //			String elapsedTimeString = Duration.between (_globalStartInstant, endInstant).toString (); //default ISO-8601 seconds-based representation
 			String elapsedTimeString = LocalTime.ofNanoOfDay(Duration.between(_globalStartInstant, endInstant).toNanos()).format(_dateTimeFormatter);
 
@@ -1569,10 +1571,12 @@ public class GetUrl {
 
 			double totalBitsPerSec = 8 * totalBytes / totalSeconds;
 
+			String memoryStatistics = showMemoryStatistics ? ", " + VendoUtils.getMemoryStatistics() : "";
+
 			System.out.println(_records.size() + " items downloaded, " +
 					VendoUtils.unitSuffixScaleBytes(totalBytes, 0) + ", " +
 					VendoUtils.unitSuffixScaleBytes(totalBitsPerSec, 0) + "ps average, " +
-					elapsedTimeString + " elapsed");
+					elapsedTimeString + " elapsed" + memoryStatistics);
 		}
 
 		///////////////////////////////////////////////////////////////////////////
@@ -1728,7 +1732,7 @@ public class GetUrl {
 
 		///////////////////////////////////////////////////////////////////////////
 		public boolean hasInvalidMatch() {
-			boolean invalidMatch = !usingWildcards() && fileExists(_destDir + _outputPrefixOrig) && !_outputPrefixOrig.toLowerCase().endsWith(".jpg");
+			boolean invalidMatch = !usingWildcards() && fileExists(_destDir + _outputPrefixOrig) && (!_outputPrefixOrig.toLowerCase().endsWith(".jpg") && !_outputPrefixOrig.toLowerCase().endsWith(".png"));
 
 			if (_classDebug) {
 				System.out.println("GetUrl.hasInvalidMatch: " + invalidMatch);

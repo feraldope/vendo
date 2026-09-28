@@ -526,7 +526,7 @@ public class AlbumImage implements Comparable<AlbumImage>
 	///////////////////////////////////////////////////////////////////////////
 	public int compareToByPixels (AlbumImage other)
 	{
-		return AlbumImages.compareToWithSlop (getPixels(), other.getPixels(), true, 0.5);
+		return AlbumImages.compareToWithSlop (getPixels(), other.getPixels(), true, AlbumFormInfo._slopPercent);
 	}
 
 //obsolete - not as useful as I thought

@@ -28,20 +28,18 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
-public class AlbumServlet extends HttpServlet
-{
+public class AlbumServlet extends HttpServlet {
 	///////////////////////////////////////////////////////////////////////////
-	static
-	{
+	static {
 		Thread.setDefaultUncaughtExceptionHandler (new AlbumUncaughtExceptionHandler ());
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void init () throws ServletException
-	{
+	public void init () throws ServletException {
 		super.init ();
 
 //for debugging startup
@@ -62,8 +60,7 @@ public class AlbumServlet extends HttpServlet
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void destroy ()
-	{
+	public void destroy () {
 		super.destroy ();
 
 		AlbumImages.shutdownExecutor ();
@@ -71,8 +68,7 @@ public class AlbumServlet extends HttpServlet
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void doPost (HttpServletRequest request, HttpServletResponse response) //throws ServletException, IOException
-	{
+	public void doPost (HttpServletRequest request, HttpServletResponse response) { //throws ServletException, IOException
 		_log.debug ("--------------- AlbumServlet.doPost ---------------");
 		doGet (request, response);
 		_log.debug ("--------------- AlbumServlet.doPost - done ---------------");
@@ -80,21 +76,20 @@ public class AlbumServlet extends HttpServlet
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public void doGet (HttpServletRequest request, HttpServletResponse response) //throws ServletException, IOException
-	{
+	public void doGet (HttpServletRequest request, HttpServletResponse response) { //throws ServletException, IOException
 		try {
 			_log.debug ("--------------- AlbumServlet.doGet ---------------");
 
-			synchronized (requestInProgress) {
-				if (requestInProgress.getAndSet (true)) {
+			synchronized (requestsInProgress) {
+				if (requestsInProgress.incrementAndGet() > 1) {
 					String message = "Request already in progress. Please retry later.";
 					_log.error(message);
 
 					response.setContentType ("text/html");
 					PrintWriter out = response.getWriter ();
-					out.println (message);
+					out.println ("<B>" + message + "</B>");
 
-					_log.debug ("--------------- AlbumServlet.doGet - aborted ---------------");
+//					_log.debug ("--------------- AlbumServlet.doGet - aborted ---------------");
 //					return;
 				}
 			}
@@ -102,7 +97,7 @@ public class AlbumServlet extends HttpServlet
 			//debugging
 //			_log.debug ("Request Headers:" + NL + VendoUtils.getRequestHeaders (request));
 
-			//check the value of this property
+			//debug - check the value of this property
 //			String property = "java.util.Arrays.useLegacyMergeSort";
 //			_log.debug (property + " = " + System.getProperty (property));
 
@@ -129,10 +124,10 @@ public class AlbumServlet extends HttpServlet
 
 			final boolean isAndroidDevice = form.isAndroidDevice ();
 
-			final String bgColor = _album.getBgColor ();
 			final int filterFieldWidth = !isAndroidDevice ? 80 : 20;
 			final int excludeFieldWidth = !isAndroidDevice ? 40 : 10;
 			final int numberFieldWidth = 2;
+			final String bgColorMarker = "<bgColorMarker>";
 
 			//get tags from database, add blank selection to beginning of list
 			Collection<String> allTags = new ArrayList<> ();
@@ -155,7 +150,7 @@ public class AlbumServlet extends HttpServlet
 			   .append ("<HEAD>").append (NL)
 			   .append ("<TITLE>").append(title).append("</TITLE>").append (NL)
 			   .append ("</HEAD>").append (NL)
-			   .append ("<BODY onload=\"handleSubmit()\" BGCOLOR=\"").append (bgColor).append ("\">").append (NL);
+			   .append ("<BODY onload=\"handleSubmit()\" BGCOLOR=\"").append (bgColorMarker).append ("\">").append (NL);
 
 			if (!isAndroidDevice) {
 				sb1.append("<style type='text/css'>").append(NL)
@@ -442,7 +437,7 @@ public class AlbumServlet extends HttpServlet
 //				response.setHeader("Pragma","no-cache"); //HTTP 1.0 backward compatibility
 			}
 
-			out.println (sb1);
+			out.println (sb1.toString().replace (bgColorMarker, _album.getBgColor ()));
 			out.println (sb2);
 			out.println (sb3);
 			out.println (html);
@@ -470,18 +465,18 @@ public class AlbumServlet extends HttpServlet
 				}
 			}
 
-			requestInProgress.set (false);
-
 			_log.debug ("--------------- AlbumServlet.doGet - done ---------------");
 
 		} catch (Exception ee) {
 			_log.error ("AlbumServlet.doGet", ee);
-		}
+
+		} finally {
+			requestsInProgress.decrementAndGet();
+        }
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String inputElement (String prompt, String name, String value, int size, boolean setAutoFocus)
-	{
+	private String inputElement (String prompt, String name, String value, int size, boolean setAutoFocus) {
 		//hide control if prompt is empty string
 		boolean isHidden = prompt.length () == 0;
 
@@ -506,8 +501,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String inputElement (String prompt, String name, int value, int size, boolean setAutoFocus)
-	{
+	private String inputElement (String prompt, String name, int value, int size, boolean setAutoFocus) {
 		String num = "";
 		if (value != 0) {
 			num = String.valueOf (value);
@@ -517,8 +511,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String inputElement (String prompt, String name, double value, int size, boolean setAutoFocus)
-	{
+	private String inputElement (String prompt, String name, double value, int size, boolean setAutoFocus) {
 		String num = "";
 		if (value != 0) {
 			num = String.valueOf (value);
@@ -536,8 +529,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String checkbox (String prompt, String name, boolean isChecked)
-	{
+	private String checkbox (String prompt, String name, boolean isChecked) {
 		StringBuilder sb = new StringBuilder (128);
 		sb.append (prompt)
 		  .append ("<INPUT TYPE=\"CHECKBOX\" NAME=\"")
@@ -551,8 +543,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String radioButtons (String prompt, String name, int selectedValue, int min, int max, int size)
-	{
+	private String radioButtons (String prompt, String name, int selectedValue, int min, int max, int size) {
 		StringBuilder sb = new StringBuilder (128);
 		sb.append (prompt)
 		  .append (NL);
@@ -577,8 +568,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String radioButtons (String prompt, String name, AlbumStringPair[] values, String selectedValue, int size)
-	{
+	private String radioButtons (String prompt, String name, AlbumStringPair[] values, String selectedValue, int size) {
 		StringBuilder sb = new StringBuilder (128);
 		sb.append (prompt)
 		  .append (NL);
@@ -605,8 +595,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String dropDown (String prompt, String name, Collection<String> values, String selectedValue)
-	{
+	private String dropDown (String prompt, String name, Collection<String> values, String selectedValue) {
 		StringBuilder sb = new StringBuilder (1024);
 		sb.append (prompt)
 		  .append (NL);
@@ -636,8 +625,7 @@ public class AlbumServlet extends HttpServlet
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String dropDown (String prompt, String name, AlbumStringPair[] values, String selectedValue)
-	{
+	private String dropDown (String prompt, String name, AlbumStringPair[] values, String selectedValue) {
 		StringBuilder sb = new StringBuilder (1024);
 		sb.append (prompt)
 		  .append (NL);
@@ -669,12 +657,12 @@ public class AlbumServlet extends HttpServlet
 	//members
 	private AlbumImages _album = null;
 
-	public static final AtomicBoolean requestInProgress = new AtomicBoolean (false);
+	public static final AtomicInteger requestsInProgress = new AtomicInteger (0);
 
 	private static final String _break = "<BR>";
 	private static final String _spacing = "&nbsp;"; //"&nbsp;&nbsp;";
 //	private static final String _spacingBreak = _spacing + _break;
-	private static final String NL = System.getProperty ("line.separator");
+	private static final String NL = System.lineSeparator();
 	private static final String DOCTYPE = "<!DOCTYPE HTML>";// PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\">\n";
 	private static final long serialVersionUID = 1L;
 

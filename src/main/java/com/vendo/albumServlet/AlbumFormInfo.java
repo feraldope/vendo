@@ -1421,11 +1421,11 @@ public class AlbumFormInfo
 	public static boolean _Debug = false;
 	public static int _profileLevel = 5; //note this value is in use until processRequest() is called
 	public static int _logLevel = 5; //note this value is in use until processRequest() is called
-	public static int _maxFilesDir = 300_000; //soft limit - used to init collections
-	public static int _maxFilesSubdir = 40_000; //soft limit - used to init collections
-	public static int _maxFilePatterns = 3_000; //soft limit - used to init collections
+//	public static int _maxFilesDir = 300_000; //soft limit - used to init collections
+//	public static int _maxFilesSubdir = 40_000; //soft limit - used to init collections
+//	public static int _maxFilePatterns = 3_000; //soft limit - used to init collections
 	public static int _maxImageScalePercent; //don't scale images over this size
-
+	public static double _slopPercent = 0.5;
 	private static boolean _showRgbData = false;
 
 	private static volatile AlbumFormInfo _instance = null;

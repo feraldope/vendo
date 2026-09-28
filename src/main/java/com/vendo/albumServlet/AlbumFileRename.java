@@ -287,7 +287,7 @@ public class AlbumFileRename {
 			return false;
 		}
 
-		if ((_mode != Mode.Push && destFileListInRoot.size() > 0) || destFileListInSubFolder.size() > 0) {
+		if ((_mode != Mode.Push && !destFileListInRoot.isEmpty()) || !destFileListInSubFolder.isEmpty()) {
 			System.out.println(NL + "Error: destination files already exist:" + NL
 					+ printListSortedWithLimit("destFileListInRoot", destFileListInRoot, maxToPrint, NL) + NL
 					+ printListSortedWithLimit("destFileListInSubFolder", destFileListInSubFolder, maxToPrint, NL));
@@ -311,7 +311,7 @@ public class AlbumFileRename {
 			_log.debug(printListSortedWithLimit("filteredSourceFileList", filteredSourceFileList, maxToPrint, NL));
 		}
 
-		if (filteredSourceFileList.size() == 0) {
+		if (filteredSourceFileList.isEmpty()) {
 //TODO improve this message
 			System.out.println("Error: *filtered* source file list is empty: filter removed all files");
 			return false;

@@ -2,6 +2,7 @@
 
 package com.vendo.albumServlet;
 
+import com.mysql.cj.x.protobuf.MysqlxDatatypes;
 import com.vendo.vendoUtils.AlphanumComparator;
 import com.vendo.vendoUtils.VendoUtils;
 import org.apache.logging.log4j.LogManager;
@@ -9,9 +10,11 @@ import org.apache.logging.log4j.Logger;
 
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.vendo.albumServlet.AlbumImagePair._alphanumComparator;
+import static com.vendo.albumServlet.AlbumImages.compareToWithSlop;
 
 
 public class AlbumAlbumPairs {
@@ -191,38 +194,10 @@ public class AlbumAlbumPairs {
 		return found;
 	}
 
-/* old version copied (more recently copied from AlbumAlbumPair)
-	///////////////////////////////////////////////////////////////////////////
-	//returns true if at least one image in either imagePair has the same base name as an imagePair in this set
-	private boolean matchesAtLeastOneImage (AlbumAlbumPair set2)
-	{
-		//TODO: improve this brute-force method
-		Set<AlbumImage> images1 = new HashSet<>();
-		for (AlbumImagePair imagePair : _imagePairs) {
-			images1.add(imagePair.getImage1());
-			images1.add(imagePair.getImage2());
-		}
-		Set<AlbumImage> images2 = new HashSet<>();
-		for (AlbumImagePair imagePair : set2.getPairs()) {
-			images2.add(imagePair.getImage1());
-			images2.add(imagePair.getImage2());
-		}
-		for (AlbumImage image1 : images1) {
-			for (AlbumImage image2 : images2) {
-				if (image1.getBaseName(false).equalsIgnoreCase(image2.getBaseName(false))) {
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-*/
-
 	///////////////////////////////////////////////////////////////////////////
 	public List<String> generateCopyCommandsForMisMatchedDuplicateImages () { //mis-matched by pixels
 		//get all images, then look for instances where the image is in multiple pairs
-		//these should not be copied, so comment out those copy commands below
+		//these should not be copied, so comment out (via "REM") those copy commands below in generateSingleCopyCommand()
 		List<AlbumImage> allImages = new ArrayList<>();
 		Map<AlbumImage, Long> imageCounts = new HashMap<>();
 
@@ -235,6 +210,9 @@ public class AlbumAlbumPairs {
 			}
 		}
 
+		final Predicate<AlbumImagePair> misMatchByPixelsLeftGtRight = p -> compareToWithSlop(p.getImage1().getPixels(), p.getImage2().getPixels(), true, AlbumFormInfo._slopPercent) > 0; //keep where L>R
+		final Predicate<AlbumImagePair> misMatchByPixelsRightGtLeft = p -> compareToWithSlop(p.getImage1().getPixels(), p.getImage2().getPixels(), true, AlbumFormInfo._slopPercent) < 0; //keep where R>L
+
 		List<String> copyCommands = new ArrayList<>();
 		for (Set<AlbumAlbumPair> albumPairs : _albumSets) {
 			for (AlbumAlbumPair albumPair : albumPairs) {
@@ -242,7 +220,7 @@ public class AlbumAlbumPairs {
 
 				//generate LEFT->RIGHT copy commands
 				List<String> copyCommandsLtoR = imagePairs.stream()
-						.filter(p -> p.getImage1().getPixels() > p.getImage2().getPixels())
+						.filter(misMatchByPixelsLeftGtRight)
 						.map(p -> {
 							boolean commentOutThisCopyCommand = imageCounts.computeIfAbsent(p.getImage1(), k -> 0L) > 1 ||
 																imageCounts.computeIfAbsent(p.getImage2(), k -> 0L) > 1;
@@ -263,7 +241,7 @@ public class AlbumAlbumPairs {
 				Set<AlbumImagePair> imagePairs = albumPair.getImagePairs();
 
 				List<String> copyCommandsRtoL = imagePairs.stream()
-						.filter(p -> p.getImage2().getPixels() > p.getImage1().getPixels())
+						.filter(misMatchByPixelsRightGtLeft)
 						.map(p -> {
 							boolean commentOutThisCopyCommand = imageCounts.computeIfAbsent(p.getImage1(), k -> 0L) > 1 ||
 																imageCounts.computeIfAbsent(p.getImage2(), k -> 0L) > 1;
@@ -312,19 +290,9 @@ public class AlbumAlbumPairs {
 				}
 
 				String filters = String.join(",", baseNames);
-				AlbumFormInfo form = AlbumFormInfo.getInstance();
-				String href = AlbumImages.getInstance().generateImagesLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
-				StringBuilder html = new StringBuilder();
-//TODO - move to helper class/method
-				html.append ("<A HREF=\"")
-					.append (href)
-					.append ("\" ")
-					.append ("title=\"").append (filters)
-					.append ("\" target=_blank>")
-					.append (filters)
-					.append ("</A>");
-				detailString.add("[" + VendoUtils.dedupCollection(baseNames).size() + "] " + html
-				);
+				String html = AlbumImages.generateGenericLink(filters, filters, filters, AlbumMode.DoSampler, -1, -1, false, true);
+
+				detailString.add("[" + VendoUtils.dedupCollection(baseNames).size() + "] " + html);
 			}
 		}
 

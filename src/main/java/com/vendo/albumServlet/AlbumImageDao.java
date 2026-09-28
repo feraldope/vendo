@@ -561,7 +561,7 @@ public class AlbumImageDao {
 
 			if (!misMatchMessages.isEmpty()) {
 				misMatchMessages.stream()
-						.sorted(VendoUtils.caseInsensitiveStringComparator)
+						.sorted(VendoUtils.caseInsensitiveStringComparator) //NOTE this only sorts *within* each subfolder, not across subfolders
 						.forEach(s -> _log.warn("AlbumImageDao.syncFolder(" + subFolder + "): warning: mismatched case: " + s));
 			}
 		}
@@ -1719,7 +1719,12 @@ public class AlbumImageDao {
 			status = rowsAffected > 0;
 
 		} catch (Exception ee) {
-			_log.error("AlbumImageDao.insertImageIntoImagesTable(" + image + "): ", ee);
+			String imageNameLengthMessage = "";
+//			if (ee instanceof com.mysql.cj.jdbc.exceptions.MysqlDataTruncation) {
+			if (ee.getMessage().contains("MysqlDataTruncation") || ee.getCause().getMessage().contains("MysqlDataTruncation")) {
+				imageNameLengthMessage = "(length = " + image.getName().length() + ")";
+			}
+			_log.error("AlbumImageDao.insertImageIntoImagesTable(" + image + "): " + imageNameLengthMessage, ee);
 
 			status = false;
 		}

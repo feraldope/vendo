@@ -49,6 +49,7 @@ public enum FundsEnum {
     CD2028a ("61690DPY8", "MORGAN STANLEY BK N A CD 4.65000% 05/01/2028",      0.000, FundTheme.CD,       FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
     CD2029a ("61690DPV4", "MORGAN STANLEY BK N A CD 4.55000% 05/01/2029",      0.000, FundTheme.CD,       FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
     CD2026b ("949764SC9", "WELLS FARGO BANK NATL ASSN CD 3.75000% 09/18/2026", 0.000, FundTheme.CD,       FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
+    CD2027b ("856288JG1", "STATE BK INDIA NEW YORK NY CD 4.10000% 09/17/2027", 0.000, FundTheme.CD,       FundType.Cash,      ManagementStyle.NA,     "CD",                 "CD"),
 
     //DO NOT DELETE - inactive; unusual symbol for FIS 401K
     N31617E778 ("31617E778", "FID BLUE CHP GR CP A",                     0.690, FundTheme.LargeCap,       FundType.StockFund, ManagementStyle.Active, "Large Growth",       "Large Growth"),

@@ -21,7 +21,8 @@ public class AlbumUncaughtExceptionHandler implements UncaughtExceptionHandler {
 		Thread.currentThread ().interrupt ();
 //		System.exit (1);
 
-		AlbumServlet.requestInProgress.set (false); //HACK
+//the expectation is that this will be handled by the finally block in AlbumServlet.doGet
+//		AlbumServlet.requestsInProgress.getAndDecrement (); //HACK
 	}
 
 	private static Logger _log = LogManager.getLogger ();

@@ -48,7 +48,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
 
         //compare median pixel size of only the portrait-oriented images
         //TODO - is comparing median pixel size (of only the portrait oriented images) always right?
-        long medianPixelDiff = compareToWithSlop (i1._medianPixelsPortraitOrientation, i2._medianPixelsPortraitOrientation, false, 0.5); //sort in descending order
+        long medianPixelDiff = compareToWithSlop (i1._medianPixelsPortraitOrientation, i2._medianPixelsPortraitOrientation, false, AlbumFormInfo._slopPercent); //sort in descending order
         if (medianPixelDiff != 0) {
             return medianPixelDiff > 0 ? 1 : -1;
         }
@@ -69,7 +69,7 @@ public class AlbumImageDuplicateDetails implements Comparable<AlbumImageDuplicat
         }
 
         //compare average pixel size - we only get here if there are no portrait oriented images
-        long averagePixelDiff = compareToWithSlop (i1._averagePixels, i2._averagePixels, false, 0.5); //sort in descending order
+        long averagePixelDiff = compareToWithSlop (i1._averagePixels, i2._averagePixels, false, AlbumFormInfo._slopPercent); //sort in descending order
         if (averagePixelDiff != 0) {
             return averagePixelDiff > 0 ? 1 : -1;
         }

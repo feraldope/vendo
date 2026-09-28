@@ -750,21 +750,37 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getMemoryStatistics ()
-	{
-		final long mega = (1024 * 1024);
+	public static String getMemoryStatistics() {
+		final double megaBytes = 1024 * 1024;
+		final double gigaBytes = megaBytes * 1024;
 
-		long maxMem   = Runtime.getRuntime ().maxMemory () / mega;
-		long freeMem  = Runtime.getRuntime ().freeMemory () / mega;
-		long totalMem = Runtime.getRuntime ().totalMemory () / mega;
-		long usedMem = totalMem - freeMem;
+		double freeMem  = Runtime.getRuntime ().freeMemory ();
+		double totalMem = Runtime.getRuntime ().totalMemory ();
+		double maxMem   = Runtime.getRuntime ().maxMemory ();
+		double usedMem  = totalMem - freeMem;
+		double util = 100 * totalMem / maxMem;
 
-		return "Memory used=" + usedMem + "MB free=" + freeMem + "MB total=" + totalMem + "MB max=" + maxMem + "MB";
+		boolean useGiga = (freeMem >= gigaBytes || totalMem >= gigaBytes || maxMem >= gigaBytes || usedMem >= gigaBytes);
+		String unitSuffixStr = (useGiga ? "GB" : "MB");
+		double unitSuffix = (useGiga ? gigaBytes : megaBytes);
+
+		usedMem  /= unitSuffix;
+		freeMem  /= unitSuffix;
+		totalMem /= unitSuffix;
+		maxMem   /= unitSuffix;
+
+		String memoryUsage = "memory" +
+				" used: "  + _decimalFormat1.format (usedMem)  + unitSuffixStr +
+				" free: "  + _decimalFormat1.format (freeMem)  + unitSuffixStr +
+				" total: " + _decimalFormat1.format (totalMem) + unitSuffixStr +
+				" max: "   + _decimalFormat1.format (maxMem)   + unitSuffixStr +
+				" util: "  + _decimalFormat1.format (util) + "%";
+
+		return memoryUsage;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static void sleepMillis (int milliseconds)
-	{
+	public static void sleepMillis (int milliseconds) {
 		if (milliseconds > 0) {
 			try {
 				Thread.sleep (milliseconds);
@@ -777,12 +793,10 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//http://stackoverflow.com/questions/923863/converting-a-string-to-hexadecimal-in-java
-	public static String toHexString (String string)
-	{
+	public static String toHexString (String string) {
 		return toHexString (string.getBytes ());
 	}
-	public static String toHexString (byte[] byteArray)
-	{
+	public static String toHexString (byte[] byteArray) {
 		StringBuilder sb = new StringBuilder ();
 
 		for (byte b : byteArray) {
@@ -794,8 +808,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//note this always returns a List
-	public static <T> Collection<T> shuffleAndTruncate (Collection<T> items, int newSize, boolean sort)
-	{
+	public static <T> Collection<T> shuffleAndTruncate (Collection<T> items, int newSize, boolean sort) {
 		List<T> list;
 		if (items instanceof List) {
 			list = (List<T>) items;
@@ -823,44 +836,37 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//use this version for primitive type (int)
-	public static String arrayToString (int[] items)
-	{
+	public static String arrayToString (int[] items) {
 		return arrayToString (ArrayUtils.toObject (items), ", ");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//use this version for primitive type long
-	public static String arrayToString (long[] items)
-	{
+	public static String arrayToString (long[] items) {
 		return arrayToString (ArrayUtils.toObject (items), ", ");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//use this version for primitive type double
-	public static String arrayToString (double[] items)
-	{
+	public static String arrayToString (double[] items) {
 		return arrayToString (ArrayUtils.toObject (items), ", ");
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//use these version for Collections
-	public static <T> String collectionToString (Collection<T> collection)
-	{
+	public static <T> String collectionToString (Collection<T> collection) {
 		return collectionToString (collection, ", ");
 	}
-	public static <T> String collectionToString (Collection<T> collection, String separator)
-	{
+	public static <T> String collectionToString (Collection<T> collection, String separator) {
 		return arrayToString (collection.toArray (new Object[] {}), separator);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//Note these are very similar to Arrays.toString ()
-	public static <T> String arrayToString (T[] items)
-	{
+	public static <T> String arrayToString (T[] items) {
 		return arrayToString (items, ", ");
 	}
-	public static <T> String arrayToString (T[] items, String separator)
-	{
+	public static <T> String arrayToString (T[] items, String separator) {
 		StringBuilder sb = new StringBuilder(items.length * 10);
 
 		for (T item : items) {
@@ -875,8 +881,7 @@ public class VendoUtils
 
 //do we need this?  use Arrays.asList () instead
 //	///////////////////////////////////////////////////////////////////////////
-//	public static <T> ArrayList<T> arrayToList (T[] items)
-//	{
+//	public static <T> ArrayList<T> arrayToList (T[] items) {
 //		ArrayList<T> list = new ArrayList<T> (items.length);
 //		for (T item : items) {
 //			list.add (item);
@@ -887,8 +892,7 @@ public class VendoUtils
 
 	///////////////////////////////////////////////////////////////////////////
 	//calls trim () on each item, also eliminates empty items
-	public static String[] trimArrayItems (String[] items1)
-	{
+	public static String[] trimArrayItems (String[] items1) {
 		String[] items2 = new String[items1.length];
 
 		int i1 = 0;
@@ -908,8 +912,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static List<String> truncateList (List<String> list, int maxItems)
-	{
+	public static List<String> truncateList (List<String> list, int maxItems) {
 		int numItems = list.size ();
 		if (numItems > maxItems) {
 			list.subList (maxItems, numItems).clear ();
@@ -920,8 +923,7 @@ public class VendoUtils
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static <T> Collection<T> dedupCollection (Collection<T> items)
-	{
+	public static <T> Collection<T> dedupCollection (Collection<T> items) {
 		//deduplicate Collection by adding everything to Set
 		Collection<T> deduped = new HashSet<T>(items);
 
@@ -1452,6 +1454,7 @@ public class VendoUtils
 	private static final String _systemSlash = System.getProperty ("file.separator");
 
 	private static final DecimalFormat _decimalFormat0 = new DecimalFormat ("###,##0"); //format as integer
+	private static final DecimalFormat _decimalFormat1 = new DecimalFormat ("###,##0.0");
 
 //	private static final Logger _log = LogManager.getLogger ();
 

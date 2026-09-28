@@ -173,9 +173,8 @@ public class JRetirement {
 			updateFundsMetaDataInDatabase();
 		}
 
-//		final Path detailedHoldingsPath = FileSystems.getDefault().getPath(sourceRootPath.toString(), "DetailedHoldings.xls");
-		final Path detailedHoldingsPath = FileSystems.getDefault().getPath(sourceRootPath.toString(), "DetailedHoldings.06.14.2026.xls");
-		updateDetailedHoldingsDataInDatabase(detailedHoldingsPath);
+//		final Path detailedHoldingsPath = FileSystems.getDefault().getPath(sourceRootPath.toString(), "DetailedHoldings.06.14.2026.xls");
+//		updateDetailedHoldingsDataInDatabase(detailedHoldingsPath);
 
 		List<Path> sourceFilePathList = new VFileList(sourceRootPath.toString(), Collections.singletonList(filenamePattern), false).getPathList();
 //						.stream().sorted(new PortfolioFilenameComparatorByDateReverse()).collect(Collectors.toList());
@@ -1537,6 +1536,7 @@ public class JRetirement {
 		System.out.println("Total FundsMetaData rows in database: " + fundsMetaDataFromDb.size());
 */
 		System.out.println("Elapsed: " + LocalTime.ofNanoOfDay(Duration.between(startInstant, Instant.now()).toNanos()).format (dateTimeFormatterMmSs));
+		System.out.println();
 
 		return true;
 	}

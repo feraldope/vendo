@@ -140,30 +140,11 @@ public class AlbumAlbumPair
 
 		//let's try this nasty test
 		VendoUtils.myAssert(_baseNames.size() == 2, "_baseNames.size() == 2", null); //do not use Java's assert as it is disabled by default
-		//if there are only two filters, separate them, otherwise combine (or can there only ever be two filters when we get to here???)
 
 		String filter1 = getBaseName(0);
 		String filter2 = getBaseName(1);
 		String filters = filter1 + "," + filter2;
-
-		AlbumFormInfo form = AlbumFormInfo.getInstance();
-		String href = AlbumImages.getInstance().generateImagesLink(filter1, filter2, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
-
-/* old way
-		String filters = getBaseName(0) + "," + getBaseName(1);
-
-		AlbumFormInfo form = AlbumFormInfo.getInstance();
-		String href = AlbumImages.getInstance().generateImagesLink(filters, filters, AlbumMode.DoSampler,  form.getColumns(), form.getSinceDays(), false, true);
-*/
-		StringBuilder html = new StringBuilder();
-//TODO - move to helper class/method
-		html.append ("<A HREF=\"")
-				.append (href)
-				.append ("\" ")
-				.append ("title=\"").append (filters)
-				.append ("\" target=_blank>")
-				.append (filters)
-				.append ("</A>");
+		String html = AlbumImages.generateGenericLink(filter1, filter2, filters, AlbumMode.DoSampler, -1, -1, false, true);
 
 		if (_imagePairs.size() < 2) {
 			enableHighlight = false;

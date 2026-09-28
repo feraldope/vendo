@@ -265,7 +265,7 @@ public class AlbumFileBackup {
 		System.out.println ("sourceSubFolders(" + sourceSubFolders.size () + ") = " + sourceSubFolders.stream ().sorted ().collect (Collectors.joining (",")));
 
 		Collection<String> didNotCreate = createDestinationFoldersIfNotExist (_destRootPath, sourceSubFolders);
-		if (didNotCreate.size () > 0) {
+		if (!didNotCreate.isEmpty()) {
 			_log.error ("AlbumFileBackup.run: failed to create the following folders: " + didNotCreate);
 			return false;
 		}
@@ -295,7 +295,7 @@ public class AlbumFileBackup {
 		System.out.println ("totalSourceFiles = " + _decimalFormat0.format (totalSourceFiles) + ", totalSourceBytes = " + VendoUtils.unitSuffixScaleBytes(totalSourceBytes));
 		System.out.println ("totalDestFiles = " + _decimalFormat0.format (totalDestFiles) + ", totalDestBytes = " + VendoUtils.unitSuffixScaleBytes(totalDestBytes));
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-		System.out.println ("");
+		System.out.println ();
 
 		System.out.println ("determining folders to backup...");
 
@@ -305,7 +305,7 @@ public class AlbumFileBackup {
 			System.out.println ("-> no folders to backup");
 		}
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-		System.out.println ("");
+		System.out.println ();
 
 		System.out.println ("folders to backup(" + diffMap.size () + ") = " + diffMap.keySet ().stream ().sorted ().collect (Collectors.joining (",")));
 
@@ -325,7 +325,7 @@ public class AlbumFileBackup {
 		}
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-		System.out.println ("");
+		System.out.println ();
 
 		// copy files
 
@@ -345,7 +345,7 @@ public class AlbumFileBackup {
 		copyFiles (diffMap);
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-		System.out.println ("");
+		System.out.println ();
 
 		// handle orphans
 
@@ -355,7 +355,7 @@ public class AlbumFileBackup {
 		handleOrphans (orphanMap);
 
 		System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-		System.out.println ("");
+		System.out.println ();
 
 		//write log files *after* completing all file copies/moves
 		{
@@ -377,7 +377,7 @@ public class AlbumFileBackup {
 			System.out.println(_decimalFormat0.format(linesWritten) + " lines written to " + outputFilePath);
 
 			System.out.println ("Elapsed: " + LocalTime.ofNanoOfDay (Duration.between (startInstant, Instant.now ()).toNanos ()).format (_dateTimeFormatter));
-			System.out.println ("");
+			System.out.println ();
 		}
 
 		shutdownExecutor ();
@@ -549,7 +549,7 @@ public class AlbumFileBackup {
 			_log.error ("AlbumFileBackup.getImageFileDetailsFromFileSystem: endGate: ", ex);
 		}
 
-		System.out.println(""); //print a blank line after the _remainingFoldersToBeRead output printed below
+		System.out.println(); //print a blank line after the _remainingFoldersToBeRead output printed below
 
 		return true;
 	}
@@ -650,7 +650,7 @@ public class AlbumFileBackup {
 
 				final Collection<AlbumImageFileDetails> diffColl = new HashSet<> (sourceColl);
 				diffColl.removeAll (destColl);
-				if (diffColl.size () > 0) {
+				if (!diffColl.isEmpty()) {
 					diffMap.put (subFolder, diffColl);
 				}
 
@@ -660,13 +660,13 @@ public class AlbumFileBackup {
 				final Collection<AlbumImageFileDetails> orphanColl = destColl.stream()
 																			 .filter(i -> orphanNames.contains(i.getName()))
 																			 .collect(Collectors.toList());
-				if (orphanColl.size () > 0) {
+				if (!orphanColl.isEmpty()) {
 					orphanMap.put (subFolder, orphanColl);
 				}
 
 				Duration duration = Duration.between (startInstant, Instant.now ());
 
-				if (diffColl.size () > 0 || duration.getSeconds () > 0) {
+				if (!diffColl.isEmpty() || duration.getSeconds () > 0) {
 //					_log.debug ("AlbumFileBackup.getSourceDestFolderDiffs: " + String.format(_subFolderFormatString, subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +
 //								", elapsed: " + LocalTime.ofNanoOfDay (duration.toNanos ()).format (_dateTimeFormatter));
 					folderDetailStringMap.put(subFolder, String.format(_subFolderFormatString, subFolder) + ": diffColl.size: " + _decimalFormat0.format (diffColl.size ()) +

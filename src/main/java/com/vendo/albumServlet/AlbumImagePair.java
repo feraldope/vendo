@@ -12,17 +12,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 
-public class AlbumImagePair implements Comparable<AlbumImagePair>
-{
+public class AlbumImagePair implements Comparable<AlbumImagePair> {
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImagePair (AlbumImage image1, AlbumImage image2)
-	{
+	public AlbumImagePair (AlbumImage image1, AlbumImage image2) {
 		this (image1, image2, -1, -1, null, null);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source, Date lastUpdate)
-	{
+	public AlbumImagePair (AlbumImage image1, AlbumImage image2, int averageDiff, int stdDev, String source, Date lastUpdate) {
 		_images = Arrays.stream(new AlbumImage[] {image1, image2})
 						.sorted(_alphanumComparator)  //sort numerically
 						.collect(Collectors.toList());
@@ -35,63 +32,53 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImage getImage1 ()
-	{
+	public AlbumImage getImage1 () {
 		return _images.get(0);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public AlbumImage getImage2 ()
-	{
+	public AlbumImage getImage2 () {
 		return _images.get(1);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getAverageDiff ()
-	{
+	public int getAverageDiff () {
 		return _averageDiff;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getStdDev ()
-	{
+	public int getStdDev () {
 		return _stdDev;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public int getMinDiff ()
-	{
+	public int getMinDiff () {
 		return Math.min (_averageDiff, _stdDev);
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getSource ()
-	{
+	public String getSource () {
 		return _source;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public Date getLastUpdate ()
-	{
+	public Date getLastUpdate () {
 		return _lastUpdate;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	protected String getJoinedNames ()
-	{
+	protected String getJoinedNames () {
 		return _joinedNames;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	//currently only used by hashCode() ??
-	protected String getJoinedNamesPlusAttrs ()
-	{
+	protected String getJoinedNamesPlusAttrs () {
 		return _joinedNamesPlusAttrs;
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public static String getJoinedNames (AlbumImage image1, AlbumImage image2, boolean includeAttrs)
-	{
+	public static String getJoinedNames (AlbumImage image1, AlbumImage image2, boolean includeAttrs) {
 		return Arrays.stream (new AlbumImage[] {image1, image2})
 					.map (i -> includeAttrs ? i.getNamePlusAttrs () : i.getBaseName (false))
 					.sorted (_alphanumComparator) //sort numerically
@@ -118,8 +105,7 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 
 	///////////////////////////////////////////////////////////////////////////
     @Override
-    public boolean equals (Object other)
-    {
+    public boolean equals (Object other) {
 		if (other == this) {
 			return true;
 		}
@@ -133,14 +119,12 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 
 	///////////////////////////////////////////////////////////////////////////
     @Override
-    public int hashCode ()
-    {
+    public int hashCode () {
 		return getJoinedNamesPlusAttrs ().hashCode ();
     }
 
 	///////////////////////////////////////////////////////////////////////////
-	public static Collection<AlbumImage> getImages (Collection<AlbumImagePair> pairs1, AlbumSortType sortType)
-	{
+	public static Collection<AlbumImage> getImages (Collection<AlbumImagePair> pairs1, AlbumSortType sortType) {
 		//sort the list of pairs
 		int numPairs = pairs1.size ();
 		List<AlbumImagePair> pairs2 = new ArrayList<> (numPairs);
@@ -190,8 +174,7 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getDetails1String ()
-	{
+	public String getDetails1String () {
 		StringBuffer sb = new StringBuffer ();
 		sb.append ("Image diffs: Avg/StdDev: ").append (getAverageDiff ()).append ("/").append (getStdDev ()).append (", ");
 		sb.append ("Source: ").append (getSource ()).append (", ");
@@ -201,8 +184,7 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getDetails2String ()
-	{
+	public String getDetails2String () {
 		StringBuffer sb = new StringBuffer ();
 		sb.append (getImage1 ().getName ()).append (", ");
 		sb.append (getImage2 ().getName ()).append (", ");
@@ -216,8 +198,7 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	public String getDetails3String ()
-	{
+	public String getDetails3String () {
 		StringBuffer sb = new StringBuffer ();
 		sb.append (getStdDev ()).append (" ");
 		sb.append (getAverageDiff ()).append (" ");
@@ -229,16 +210,14 @@ public class AlbumImagePair implements Comparable<AlbumImagePair>
 	}
 
 	///////////////////////////////////////////////////////////////////////////
-	private String getRelativeSizeIndicator ()
-	{
+	private String getRelativeSizeIndicator () {
 		int sizeCompare = getImage1 ().compareToByPixels (getImage2 ());
 		return sizeCompare < 0 ? "<" : sizeCompare > 0 ? ">" : "=";
 	}
 
 	///////////////////////////////////////////////////////////////////////////
 	@Override
-	public String toString ()
-	{
+	public String toString () {
 		return getDetails2String ();
 	}
 
